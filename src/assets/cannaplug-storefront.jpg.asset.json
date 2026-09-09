@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "39ac0be7-4010-4cc6-a7a3-9a0bd517f394",
-  "project_id": "3c128fe6-f3be-4abe-b25b-cb5a46211aca",
-  "url": "/__l5e/assets-v1/39ac0be7-4010-4cc6-a7a3-9a0bd517f394/cannaplug-storefront.jpg",
-  "r2_key": "a/v1/3c128fe6-f3be-4abe-b25b-cb5a46211aca/39ac0be7-4010-4cc6-a7a3-9a0bd517f394/cannaplug-storefront.jpg",
-  "original_filename": "cannaplug-storefront.jpg",
-  "size": 75911,
   "content_type": "image/jpeg",
-  "created_at": "2026-09-09T08:49:23Z"
+  "created_at": "2026-09-09T08:49:23Z",
+  "original_filename": "cannaplug-storefront.jpg",
+  "project_id": "1ad2ab24-e7b3-4ecc-bf76-e09c45acb553",
+  "r2_key": "a/v1/1ad2ab24-e7b3-4ecc-bf76-e09c45acb553/39ac0be7-4010-4cc6-a7a3-9a0bd517f394/cannaplug-storefront.jpg",
+  "size": 75911,
+  "url": "/__l5e/assets-v1/39ac0be7-4010-4cc6-a7a3-9a0bd517f394/cannaplug-storefront.jpg",
+  "version": 1
 }

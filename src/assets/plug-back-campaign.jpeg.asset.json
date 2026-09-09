@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "6bec9c28-aa81-464f-9c37-2cdf9ae3ac8e",
-  "project_id": "3c128fe6-f3be-4abe-b25b-cb5a46211aca",
-  "url": "/__l5e/assets-v1/6bec9c28-aa81-464f-9c37-2cdf9ae3ac8e/plug-back-campaign.jpeg",
-  "r2_key": "a/v1/3c128fe6-f3be-4abe-b25b-cb5a46211aca/6bec9c28-aa81-464f-9c37-2cdf9ae3ac8e/plug-back-campaign.jpeg",
-  "original_filename": "plug-back-campaign.jpeg",
-  "size": 97657,
   "content_type": "image/jpeg",
-  "created_at": "2026-09-09T08:49:09Z"
+  "created_at": "2026-09-09T08:49:09Z",
+  "original_filename": "plug-back-campaign.jpeg",
+  "project_id": "1ad2ab24-e7b3-4ecc-bf76-e09c45acb553",
+  "r2_key": "a/v1/1ad2ab24-e7b3-4ecc-bf76-e09c45acb553/6bec9c28-aa81-464f-9c37-2cdf9ae3ac8e/plug-back-campaign.jpeg",
+  "size": 97657,
+  "url": "/__l5e/assets-v1/6bec9c28-aa81-464f-9c37-2cdf9ae3ac8e/plug-back-campaign.jpeg",
+  "version": 1
 }
