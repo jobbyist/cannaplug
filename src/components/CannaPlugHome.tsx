@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion, useScroll } from "framer-motion";
 import {
-  ArrowRight, BadgeCheck, CalendarDays, Check, ChevronRight, CircleUserRound,
+  ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, ChevronRight, CircleUserRound,
   Clock3, Facebook, Headphones, Instagram, Leaf, Mail, MapPin, Menu, MessageCircle,
-  Newspaper, PackageCheck, Phone, Play, Search, ShieldCheck, ShoppingBag, Sparkles,
+  Newspaper, PackageCheck, Phone, Play, Search, ShieldCheck, ShoppingBag,
   Store, TicketPercent, Truck, UsersRound, X, Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,13 @@ import heroImage from "@/assets/cannaplug-hero.jpg";
 import categoryImage from "@/assets/cannaplug-categories.jpg";
 import productImage from "@/assets/cannaplug-products.jpg";
 import editorialImage from "@/assets/cannaplug-editorial.jpg";
-import campaignAsset from "@/assets/plug-back-campaign.jpeg.asset.json";
 import storeAsset from "@/assets/cannaplug-storefront.jpg.asset.json";
 
 const stories = [
   { label: "My Story", title: "CannaPlug", copy: "Good plants. Great people.", icon: Leaf, image: heroImage, cta: "Discover our story" },
   { label: "Menu", title: "Explore the CannaPlug Menu.", copy: "A considered selection for every kind of experience.", icon: Menu, image: categoryImage, cta: "View the menu" },
   { label: "Products", title: "Curated cannabis. Premium quality.", copy: "Products selected with care, knowledge and high standards.", icon: ShoppingBag, image: productImage, cta: "Shop products" },
-  { label: "Deals", title: "Plug into something special.", copy: "Limited drops and thoughtful rewards for our community.", icon: TicketPercent, image: campaignAsset.url, cta: "See the latest" },
+  { label: "Deals", title: "Plug into something special.", copy: "Limited drops and thoughtful rewards for our community.", icon: TicketPercent, image: productImage, cta: "See the latest" },
   { label: "Events", title: "Good vibes. Great people.", copy: "Meet the people shaping cannabis culture in South Africa.", icon: CalendarDays, image: editorialImage, cta: "See events" },
   { label: "Newsroom", title: "Cannabis culture, decoded.", copy: "Useful, informed stories without the noise.", icon: Newspaper, image: editorialImage, cta: "Read the journal" },
   { label: "Locations", title: "Come visit the Plug.", copy: "Shop 002, One On Mutual, Pretoria Central.", icon: MapPin, image: storeAsset.url, cta: "Get directions" },
@@ -68,13 +67,21 @@ function Reveal({ children, className = "" }: { children: ReactNode; className?:
 function StoryNavigation() {
   const [active, setActive] = useState<number | null>(null);
   const story = active === null ? null : stories[active];
+  useEffect(() => {
+    if (!story) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setActive(null);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", closeOnEscape); };
+  }, [story]);
   return <>
     <div className="stories-wrap" aria-label="CannaPlug stories"><div className="stories">
       {stories.map((item, i) => <button key={item.label} className="story" onClick={() => setActive(i)}><span className="story-ring"><item.icon size={22} /></span><span>{item.label}</span></button>)}
       <a className="story-social" href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">Join our community <Instagram size={16} /></a>
     </div></div>
     <AnimatePresence>{story && <motion.div className="story-modal" role="dialog" aria-modal="true" aria-label={story.title} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActive(null)}>
-      <motion.article initial={{ opacity: 0, scale: .96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .98 }} onClick={e => e.stopPropagation()}>
+      <motion.article initial={{ opacity: 0, scale: .97, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: .98, y: 8 }} transition={{ duration: .28, ease: [0.22, 1, 0.36, 1] }} onClick={e => e.stopPropagation()}>
         <div className="story-progress"><span /></div><IconButton aria-label="Close story" className="story-close" onClick={() => setActive(null)}><X size={20} /></IconButton>
         <img src={story.image} alt="" /><div className="story-shade" /><div className="story-copy"><p>{story.label}</p><h2>{story.title}</h2><span>{story.copy}</span><Button onClick={() => setActive(null)}>{story.cta}<ArrowRight size={15} /></Button></div>
       </motion.article>
@@ -86,10 +93,26 @@ function Header() {
   const { scrollY } = useScroll(); const [compact, setCompact] = useState(false); const [open, setOpen] = useState(false); const [search, setSearch] = useState(false);
   useEffect(() => scrollY.on("change", value => setCompact(value > 80)), [scrollY]);
   const links = [["Home", "top"], ["Shop", "shop"], ["Menu", "categories"], ["Events", "events"], ["Newsroom", "newsroom"], ["About", "experience"], ["Contact", "contact"]];
+  const primaryLinks = [[Store, "Home", "top"], [ShoppingBag, "Shop products", "shop"], [Menu, "Explore menu", "categories"], [CalendarDays, "Events", "events"]] as const;
+  const exploreLinks = [[Newspaper, "Newsroom", "newsroom"], [Leaf, "Our story", "experience"], [TicketPercent, "Plug Back", "plug-back"], [MapPin, "Visit Pretoria", "contact"]] as const;
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", closeOnEscape); };
+  }, [open]);
   return <header className={compact ? "header compact" : "header"}><div className="header-inner"><Logo /><nav>{links.map(([label, id]) => <a key={id} href={`#${id}`}>{label}</a>)}</nav><div className="header-actions">
-    <IconButton aria-label="Search" onClick={() => setSearch(!search)}><Search size={20} /></IconButton><IconButton aria-label="Account" className="desktop-icon"><CircleUserRound size={20} /></IconButton><IconButton aria-label="Shopping bag" className="desktop-icon"><ShoppingBag size={20} /></IconButton><IconButton aria-label="Open menu" className="mobile-menu" onClick={() => setOpen(!open)}>{open ? <X size={21} /> : <Menu size={21} />}</IconButton>
+    <IconButton aria-label="Search" aria-expanded={search} onClick={() => setSearch(!search)}><Search size={20} /></IconButton><IconButton aria-label="Account" className="desktop-icon"><CircleUserRound size={20} /></IconButton><IconButton aria-label="Shopping bag" className="desktop-icon"><ShoppingBag size={20} /></IconButton><IconButton aria-label="Open menu" aria-expanded={open} className="mobile-menu" onClick={() => setOpen(true)}><Menu size={21} /></IconButton>
   </div></div>{search && <motion.div className="search-panel" initial={{ height: 0 }} animate={{ height: "auto" }}><Search size={18} /><input autoFocus aria-label="Search products" placeholder="Search products, stories and events…" /></motion.div>}
-  <AnimatePresence>{open && <motion.nav className="mobile-nav" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>{links.map(([label,id]) => <a key={id} href={`#${id}`} onClick={() => setOpen(false)}>{label}<ChevronRight size={17}/></a>)}</motion.nav>}</AnimatePresence></header>;
+  <AnimatePresence>{open && <motion.div className="mobile-nav-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}><motion.aside className="mobile-nav" role="dialog" aria-modal="true" aria-label="Main menu" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: .32, ease: [0.22, 1, 0.36, 1] }} onClick={event => event.stopPropagation()}>
+    <div className="mobile-nav-head"><Logo/><IconButton aria-label="Close menu" onClick={() => setOpen(false)}><X size={22}/></IconButton></div>
+    <div className="mobile-nav-body"><nav className="mobile-nav-primary">{primaryLinks.map(([Icon,label,id],index) => <a className={index === 0 ? "active" : ""} key={id} href={`#${id}`} onClick={() => setOpen(false)}><Icon size={20}/><span>{label}</span>{index === 1 && <small>Curated</small>}</a>)}</nav>
+    <div className="mobile-explore"><div className="mobile-explore-title"><span><Leaf size={20}/>Explore</span><ChevronDown size={18}/></div><div className="mobile-explore-grid">{exploreLinks.map(([Icon,label,id]) => <a key={id} href={`#${id}`} onClick={() => setOpen(false)}><Icon size={25}/><span>{label}</span></a>)}</div></div>
+    <nav className="mobile-nav-secondary"><a href="#contact" onClick={() => setOpen(false)}><MessageCircle size={19}/><span>Contact the team</span><ChevronRight size={17}/></a><a href="#contact" onClick={() => setOpen(false)}><CircleUserRound size={19}/><span>Account</span><small>Coming soon</small><ChevronRight size={17}/></a></nav></div>
+    <div className="mobile-nav-foot"><span>18+ · Consume responsibly</span><a href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">Instagram <Instagram size={15}/></a></div>
+  </motion.aside></motion.div>}</AnimatePresence></header>;
 }
 
 function Hero() {
@@ -105,7 +128,7 @@ function Products() {
   return <section className="page-section product-section" id="shop"><Reveal><SectionHeading eyebrow="Curated selection" title="FEATURED PRODUCTS" action="Shop all"/><div className="product-grid">{products.map(([name, cat, price, badge, pos]) => <article className="product-card" key={name}><div className="product-visual"><span className="badge">{badge}</span><img src={productImage} alt={name} className={pos} loading="lazy" width={1920} height={768}/></div><div className="product-info"><p>{cat}</p><h3>{name}</h3><div><b>{price}</b><Button aria-label={`Add ${name} to cart`} onClick={() => { setAdded(name); window.setTimeout(() => setAdded(null), 1600); }}>{added === name ? <><Check size={15}/> Added</> : <>Add to cart <ShoppingBag size={15}/></>}</Button></div></div></article>)}</div></Reveal></section>
 }
 
-function CampaignBanner() { return <section className="campaign-shell"><Reveal><div className="campaign"><div className="campaign-copy"><p className="eyebrow">Pre-roll tube take-back · Now on</p><h2>PLUG<br/>BACK.</h2><div className="bring-get"><b>BRING</b><span>10 empty <strong>CannaPlug</strong><br/>pre-roll tubes</span><b>GET</b><span>1 complimentary<br/><strong>Greenhouse</strong> pre-roll</span></div><h3>10 TUBES <i>=</i> 1 FREE</h3><blockquote>Less plastic on the streets.<br/>More smoke in your pocket.<br/>Recycle & get rewarded.</blockquote><small>In-store only · Original CannaPlug tubes · While stocks last</small></div><img src={campaignAsset.url} alt="CannaPlug Plug Back pre-roll tube take-back campaign" loading="lazy"/></div></Reveal></section> }
+function CampaignBanner() { return <section className="campaign-shell" id="plug-back"><Reveal><div className="campaign"><div className="campaign-title"><p className="eyebrow">Pre-roll tube take-back · Now on</p><h2>PLUG<br/>BACK.</h2><p>Recycle & get rewarded.</p></div><div className="campaign-copy"><div className="bring-get"><b>BRING</b><span>10 empty <strong>CannaPlug</strong><br/>pre-roll tubes</span><b>GET</b><span>1 complimentary<br/><strong>Greenhouse</strong> pre-roll</span></div><h3>10 TUBES <i>=</i> 1 FREE</h3><blockquote>Less plastic on the streets.<br/>More smoke in your pocket.</blockquote><small>In-store only · Original CannaPlug tubes · While stocks last</small></div></div></Reveal></section> }
 
 function ExperienceSection() { const points = [[MessageCircle,"Expert guidance","Real advice. No judgement."],[ShieldCheck,"Quality assured","A carefully selected range."],[UsersRound,"Community","Culture, education and connection."],[PackageCheck,"Discretion","Professional at every touchpoint."]]; return <section className="experience" id="experience"><Reveal className="experience-inner"><div className="experience-copy"><p className="eyebrow">Good plants. Great people.</p><h2>THE CANNA PLUG<br/><em>EXPERIENCE</em></h2><p>We're more than a dispensary — we're a community.</p><p>CannaPlug is built on quality, education and a deep respect for the plant. Whether you're exploring cannabis for the first time or you're already a connoisseur, we're here to elevate the experience.</p></div><div className="principles">{points.map(([I,title,copy]) => { const C=I as typeof Leaf; return <div key={title as string}><C size={27}/><h3>{title as string}</h3><p>{copy as string}</p></div>})}</div></Reveal></section> }
 
