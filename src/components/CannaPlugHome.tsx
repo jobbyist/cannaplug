@@ -89,12 +89,13 @@ function StoryNavigation() {
   </>;
 }
 
-function Header() {
+export function Header() {
   const { scrollY } = useScroll(); const [compact, setCompact] = useState(false); const [open, setOpen] = useState(false); const [search, setSearch] = useState(false);
+  const { count } = useCart(); const { user } = useAuth();
   useEffect(() => scrollY.on("change", value => setCompact(value > 80)), [scrollY]);
-  const links = [["Home", "top"], ["Shop", "shop"], ["Menu", "categories"], ["Events", "events"], ["Newsroom", "newsroom"], ["About", "experience"], ["Contact", "contact"]];
-  const primaryLinks = [[Store, "Home", "top"], [ShoppingBag, "Shop products", "shop"], [Menu, "Explore menu", "categories"], [CalendarDays, "Events", "events"]] as const;
-  const exploreLinks = [[Newspaper, "Newsroom", "newsroom"], [Leaf, "Our story", "experience"], [TicketPercent, "Plug Back", "plug-back"], [MapPin, "Visit Pretoria", "contact"]] as const;
+  const links: [string, string][] = [["Home", "/"], ["Shop", "/shop"], ["Menu", "/#categories"], ["Events", "/#events"], ["Newsroom", "/newsroom"], ["About", "/#experience"], ["Contact", "/#contact"]];
+  const primaryLinks = [[Store, "Home", "/"], [ShoppingBag, "Shop products", "/shop"], [Menu, "Explore menu", "/#categories"], [CalendarDays, "Events", "/#events"]] as const;
+  const exploreLinks = [[Newspaper, "Newsroom", "/newsroom"], [Leaf, "Our story", "/#experience"], [TicketPercent, "Plug Back", "/#plug-back"], [MapPin, "Visit Pretoria", "/#contact"]] as const;
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -103,17 +104,21 @@ function Header() {
     window.addEventListener("keydown", closeOnEscape);
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", closeOnEscape); };
   }, [open]);
-  return <header className={compact ? "header compact" : "header"}><div className="header-inner"><Logo /><nav>{links.map(([label, id]) => <a key={id} href={`/#${id}`}>{label}</a>)}</nav><div className="header-actions">
-    <IconButton aria-label="Search" aria-expanded={search} onClick={() => setSearch(!search)}><Search size={20} /></IconButton><IconButton aria-label="Account" className="desktop-icon"><CircleUserRound size={20} /></IconButton><IconButton aria-label="Shopping bag" className="desktop-icon"><ShoppingBag size={20} /></IconButton><IconButton aria-label="Open menu" aria-expanded={open} className="mobile-menu" onClick={() => setOpen(true)}><Menu size={21} /></IconButton>
+  return <header className={compact ? "header compact" : "header"}><div className="header-inner"><Logo /><nav>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav><div className="header-actions">
+    <IconButton aria-label="Search" aria-expanded={search} onClick={() => setSearch(!search)}><Search size={20} /></IconButton>
+    <a className="header-icon-link desktop-icon" aria-label={user ? "Your account" : "Sign in"} href="/account"><CircleUserRound size={20} /></a>
+    <a className="header-icon-link cart-link" aria-label={`Shopping bag, ${count} item${count === 1 ? "" : "s"}`} href="/checkout"><ShoppingBag size={20} />{count > 0 && <b>{count}</b>}</a>
+    <IconButton aria-label="Open menu" aria-expanded={open} className="mobile-menu" onClick={() => setOpen(true)}><Menu size={21} /></IconButton>
   </div></div>{search && <motion.div className="search-panel" initial={{ height: 0 }} animate={{ height: "auto" }}><Search size={18} /><input autoFocus aria-label="Search products" placeholder="Search products, stories and events…" /></motion.div>}
   <AnimatePresence>{open && <motion.div className="mobile-nav-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}><motion.aside className="mobile-nav" role="dialog" aria-modal="true" aria-label="Main menu" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: .32, ease: [0.22, 1, 0.36, 1] }} onClick={event => event.stopPropagation()}>
     <div className="mobile-nav-head"><Logo/><IconButton aria-label="Close menu" onClick={() => setOpen(false)}><X size={22}/></IconButton></div>
-    <div className="mobile-nav-body"><nav className="mobile-nav-primary">{primaryLinks.map(([Icon,label,id],index) => <a className={index === 0 ? "active" : ""} key={id} href={`/#${id}`} onClick={() => setOpen(false)}><Icon size={20}/><span>{label}</span>{index === 1 && <small>Curated</small>}</a>)}</nav>
-    <div className="mobile-explore"><div className="mobile-explore-title"><span><Leaf size={20}/>Explore</span><ChevronDown size={18}/></div><div className="mobile-explore-grid">{exploreLinks.map(([Icon,label,id]) => <a key={id} href={`/#${id}`} onClick={() => setOpen(false)}><Icon size={25}/><span>{label}</span></a>)}</div></div>
-    <nav className="mobile-nav-secondary"><a href="/#contact" onClick={() => setOpen(false)}><MessageCircle size={19}/><span>Contact the team</span><ChevronRight size={17}/></a><a href="/#contact" onClick={() => setOpen(false)}><CircleUserRound size={19}/><span>Account</span><small>Coming soon</small><ChevronRight size={17}/></a></nav></div>
+    <div className="mobile-nav-body"><nav className="mobile-nav-primary">{primaryLinks.map(([Icon,label,href],index) => <a className={index === 0 ? "active" : ""} key={href} href={href} onClick={() => setOpen(false)}><Icon size={20}/><span>{label}</span>{index === 1 && <small>Curated</small>}</a>)}</nav>
+    <div className="mobile-explore"><div className="mobile-explore-title"><span><Leaf size={20}/>Explore</span><ChevronDown size={18}/></div><div className="mobile-explore-grid">{exploreLinks.map(([Icon,label,href]) => <a key={href} href={href} onClick={() => setOpen(false)}><Icon size={25}/><span>{label}</span></a>)}</div></div>
+    <nav className="mobile-nav-secondary"><a href="/#contact" onClick={() => setOpen(false)}><MessageCircle size={19}/><span>Contact the team</span><ChevronRight size={17}/></a><a href="/account" onClick={() => setOpen(false)}><CircleUserRound size={19}/><span>{user ? "Your account" : "Sign in / Join"}</span><ChevronRight size={17}/></a></nav></div>
     <div className="mobile-nav-foot"><span>18+ · Consume responsibly</span><a href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">Instagram <Instagram size={15}/></a></div>
   </motion.aside></motion.div>}</AnimatePresence></header>;
 }
+
 
 function Hero() {
   return <section className="hero" id="top"><img className="hero-image" src={heroImage} alt="Premium CannaPlug cannabis flower and apothecary jar" width={1920} height={1080}/><div className="hero-wash"/><motion.div className="hero-content" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .8 }}><p className="eyebrow">Premium cannabis dispensary</p><h1>QUALITY CANNABIS.<br/><em>REAL PEOPLE.</em></h1><p className="hero-lede">Premium products. Expert guidance.<br/>A better cannabis experience.</p><div className="hero-buttons"><Button onClick={() => document.querySelector("#shop")?.scrollIntoView({ behavior: "smooth" })}>Shop now <ArrowRight size={16}/></Button><Button variant="outline" onClick={() => document.querySelector("#categories")?.scrollIntoView({ behavior: "smooth" })}>Explore the menu <ArrowRight size={16}/></Button></div></motion.div>
