@@ -14,7 +14,237 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      articles: {
+        Row: {
+          body_md: string
+          category: string
+          cover_credit_name: string | null
+          cover_credit_url: string | null
+          cover_image_url: string | null
+          created_at: string
+          excerpt: string
+          id: string
+          published_at: string
+          reading_minutes: number
+          slug: string
+          sources: Json
+          title: string
+        }
+        Insert: {
+          body_md: string
+          category?: string
+          cover_credit_name?: string | null
+          cover_credit_url?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt: string
+          id?: string
+          published_at?: string
+          reading_minutes?: number
+          slug: string
+          sources?: Json
+          title: string
+        }
+        Update: {
+          body_md?: string
+          category?: string
+          cover_credit_name?: string | null
+          cover_credit_url?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string
+          id?: string
+          published_at?: string
+          reading_minutes?: number
+          slug?: string
+          sources?: Json
+          title?: string
+        }
+        Relationships: []
+      }
+      newsroom_job_state: {
+        Row: {
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          lease_until: string | null
+          paused_at: string | null
+          paused_reason: string | null
+        }
+        Insert: {
+          id: string
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          paused_at?: string | null
+          paused_reason?: string | null
+        }
+        Update: {
+          id?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          paused_at?: string | null
+          paused_reason?: string | null
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          unit_price_rand: number
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          unit_price_rand: number
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          unit_price_rand?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          order_number: string
+          status: string
+          total_rand: number
+          user_id: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number?: string
+          status?: string
+          total_rand?: number
+          user_id: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number?: string
+          status?: string
+          total_rand?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          badge: string | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price_rand: number
+          slug: string
+          sort_order: number
+          strain_type: string | null
+          subcategory: string | null
+          unit: string | null
+        }
+        Insert: {
+          badge?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price_rand: number
+          slug: string
+          sort_order?: number
+          strain_type?: string | null
+          subcategory?: string | null
+          unit?: string | null
+        }
+        Update: {
+          badge?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_rand?: number
+          slug?: string
+          sort_order?: number
+          strain_type?: string | null
+          subcategory?: string | null
+          unit?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_of_birth: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
