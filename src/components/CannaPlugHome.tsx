@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { useCart } from "@/lib/cart";
+import { useAuth } from "@/hooks/useAuth";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import categoryImage from "@/assets/cannaplug-categories.jpg";
 import productImage from "@/assets/cannaplug-products.jpg";
