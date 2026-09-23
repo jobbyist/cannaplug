@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, useScroll } from "framer-motion";
 import {
   ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, ChevronRight, CircleUserRound,
@@ -91,6 +92,38 @@ function StoryNavigation() {
   </>;
 }
 
+type NavIconEntry = readonly [typeof Store, string, string];
+
+function MobileNav({ open, onClose, user, primaryLinks, exploreLinks }: {
+  open: boolean;
+  onClose: () => void;
+  user: unknown;
+  primaryLinks: readonly NavIconEntry[];
+  exploreLinks: readonly NavIconEntry[];
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", closeOnEscape); };
+  }, [open, onClose]);
+  if (!mounted) return null;
+  return createPortal(
+    <AnimatePresence>{open && <motion.div className="mobile-nav-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}><motion.aside className="mobile-nav" role="dialog" aria-modal="true" aria-label="Main menu" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: .32, ease: [0.22, 1, 0.36, 1] }} onClick={event => event.stopPropagation()}>
+      <div className="mobile-nav-head"><Logo/><IconButton aria-label="Close menu" onClick={onClose}><X size={22}/></IconButton></div>
+      <div className="mobile-nav-body"><nav className="mobile-nav-primary">{primaryLinks.map(([Icon,label,href],index) => <a className={index === 0 ? "active" : ""} key={href} href={href} onClick={onClose}><Icon size={20}/><span>{label}</span>{index === 1 && <small>Curated</small>}</a>)}</nav>
+      <div className="mobile-explore"><div className="mobile-explore-title"><span><Leaf size={20}/>Explore</span><ChevronDown size={18}/></div><div className="mobile-explore-grid">{exploreLinks.map(([Icon,label,href]) => <a key={href} href={href} onClick={onClose}><Icon size={25}/><span>{label}</span></a>)}</div></div>
+      <nav className="mobile-nav-secondary"><a href="/#contact" onClick={onClose}><MessageCircle size={19}/><span>Contact the team</span><ChevronRight size={17}/></a><a href="/account" onClick={onClose}><CircleUserRound size={19}/><span>{user ? "Your account" : "Sign in / Join"}</span><ChevronRight size={17}/></a></nav></div>
+      <div className="mobile-nav-foot"><span>18+ · Consume responsibly</span><a href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">Instagram <Instagram size={15}/></a></div>
+    </motion.aside></motion.div>}</AnimatePresence>,
+    document.body,
+  );
+}
+
 export function Header() {
   const { scrollY } = useScroll(); const [compact, setCompact] = useState(false); const [open, setOpen] = useState(false); const [search, setSearch] = useState(false);
   const { count } = useCart(); const { user } = useAuth();
@@ -98,27 +131,16 @@ export function Header() {
   const links: [string, string][] = [["Home", "/"], ["Shop", "/shop"], ["Menu", "/#categories"], ["Events", "/#events"], ["Newsroom", "/newsroom"], ["About", "/#experience"], ["Contact", "/#contact"]];
   const primaryLinks = [[Store, "Home", "/"], [ShoppingBag, "Shop products", "/shop"], [Menu, "Explore menu", "/#categories"], [CalendarDays, "Events", "/#events"]] as const;
   const exploreLinks = [[Newspaper, "Newsroom", "/newsroom"], [Leaf, "Our story", "/#experience"], [TicketPercent, "Plug Back", "/#plug-back"], [MapPin, "Visit Pretoria", "/#contact"]] as const;
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", closeOnEscape); };
-  }, [open]);
-  return <header className={compact ? "header compact" : "header"}><div className="header-inner"><Logo /><nav>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav><div className="header-actions">
-    <IconButton aria-label="Search" aria-expanded={search} onClick={() => setSearch(!search)}><Search size={20} /></IconButton>
-    <a className="header-icon-link desktop-icon" aria-label={user ? "Your account" : "Sign in"} href="/account"><CircleUserRound size={20} /></a>
-    <a className="header-icon-link cart-link" aria-label={`Shopping bag, ${count} item${count === 1 ? "" : "s"}`} href="/checkout"><ShoppingBag size={20} />{count > 0 && <b>{count}</b>}</a>
-    <IconButton aria-label="Open menu" aria-expanded={open} className="mobile-menu" onClick={() => setOpen(true)}><Menu size={21} /></IconButton>
-  </div></div>{search && <motion.div className="search-panel" initial={{ height: 0 }} animate={{ height: "auto" }}><Search size={18} /><input autoFocus aria-label="Search products" placeholder="Search products, stories and events…" /></motion.div>}
-  <AnimatePresence>{open && <motion.div className="mobile-nav-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}><motion.aside className="mobile-nav" role="dialog" aria-modal="true" aria-label="Main menu" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: .32, ease: [0.22, 1, 0.36, 1] }} onClick={event => event.stopPropagation()}>
-    <div className="mobile-nav-head"><Logo/><IconButton aria-label="Close menu" onClick={() => setOpen(false)}><X size={22}/></IconButton></div>
-    <div className="mobile-nav-body"><nav className="mobile-nav-primary">{primaryLinks.map(([Icon,label,href],index) => <a className={index === 0 ? "active" : ""} key={href} href={href} onClick={() => setOpen(false)}><Icon size={20}/><span>{label}</span>{index === 1 && <small>Curated</small>}</a>)}</nav>
-    <div className="mobile-explore"><div className="mobile-explore-title"><span><Leaf size={20}/>Explore</span><ChevronDown size={18}/></div><div className="mobile-explore-grid">{exploreLinks.map(([Icon,label,href]) => <a key={href} href={href} onClick={() => setOpen(false)}><Icon size={25}/><span>{label}</span></a>)}</div></div>
-    <nav className="mobile-nav-secondary"><a href="/#contact" onClick={() => setOpen(false)}><MessageCircle size={19}/><span>Contact the team</span><ChevronRight size={17}/></a><a href="/account" onClick={() => setOpen(false)}><CircleUserRound size={19}/><span>{user ? "Your account" : "Sign in / Join"}</span><ChevronRight size={17}/></a></nav></div>
-    <div className="mobile-nav-foot"><span>18+ · Consume responsibly</span><a href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">Instagram <Instagram size={15}/></a></div>
-  </motion.aside></motion.div>}</AnimatePresence></header>;
+  return <>
+    <header className={compact ? "header compact" : "header"}><div className="header-inner"><Logo /><nav>{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav><div className="header-actions">
+      <IconButton aria-label="Search" aria-expanded={search} onClick={() => setSearch(!search)}><Search size={20} /></IconButton>
+      <a className="header-icon-link desktop-icon" aria-label={user ? "Your account" : "Sign in"} href="/account"><CircleUserRound size={20} /></a>
+      <a className="header-icon-link cart-link" aria-label={`Shopping bag, ${count} item${count === 1 ? "" : "s"}`} href="/checkout"><ShoppingBag size={20} />{count > 0 && <b>{count}</b>}</a>
+      <IconButton aria-label="Open menu" aria-expanded={open} className="mobile-menu" onClick={() => setOpen(true)}><Menu size={21} /></IconButton>
+    </div></div>{search && <motion.div className="search-panel" initial={{ height: 0 }} animate={{ height: "auto" }}><Search size={18} /><input autoFocus aria-label="Search products" placeholder="Search products, stories and events…" /></motion.div>}
+    </header>
+    <MobileNav open={open} onClose={() => setOpen(false)} user={user} primaryLinks={primaryLinks} exploreLinks={exploreLinks} />
+  </>;
 }
 
 
@@ -132,7 +154,7 @@ function Categories() { return <section className="page-section" id="categories"
 
 function Products() {
   const [added, setAdded] = useState<string | null>(null);
-  return <section className="page-section product-section" id="shop"><Reveal><SectionHeading eyebrow="Curated selection" title="FEATURED PRODUCTS" action="Shop all"/><div className="product-grid">{products.map(([name, cat, price, badge, pos]) => <article className="product-card" key={name}><div className="product-visual"><span className="badge">{badge}</span><img src={productImage} alt={name} className={pos} loading="lazy" width={1920} height={768}/></div><div className="product-info"><p>{cat}</p><h3>{name}</h3><div><b>{price}</b><Button aria-label={`Add ${name} to cart`} onClick={() => { setAdded(name); window.setTimeout(() => setAdded(null), 1600); }}>{added === name ? <><Check size={15}/> Added</> : <>Add to cart <ShoppingBag size={15}/></>}</Button></div></div></article>)}</div></Reveal></section>
+  return <section className="page-section product-section" id="shop"><Reveal><SectionHeading eyebrow="Curated selection" title="FEATURED PRODUCTS" action="Shop all"/><div className="product-grid">{products.map(([name, cat, price, badge, pos]) => <article className="product-card" key={name}><div className="product-visual"><span className="badge">{badge}</span><img src={productImage} alt={name} className={pos} loading="lazy" width={1920} height={768}/></div><div className="product-info"><p>{cat}</p><h3>{name}</h3><div><b>{price}</b><Button aria-label={`Add ${name} to cart`} onClick={() => { setAdded(name ?? null); window.setTimeout(() => setAdded(null), 1600); }}>{added === name ? <><Check size={15}/> Added</> : <>Add to cart <ShoppingBag size={15}/></>}</Button></div></div></article>)}</div></Reveal></section>
 }
 
 function CampaignBanner() { return <section className="campaign-shell" id="plug-back"><Reveal><div className="campaign"><div className="campaign-title"><p className="eyebrow">Pre-roll tube take-back · Now on</p><h2>PLUG<br/>BACK.</h2><p>Recycle & get rewarded.</p></div><div className="campaign-copy"><div className="bring-get"><b>BRING</b><span>10 empty <strong>CannaPlug</strong><br/>pre-roll tubes</span><b>GET</b><span>1 complimentary<br/><strong>Greenhouse</strong> pre-roll</span></div><h3>10 TUBES <i>=</i> 1 FREE</h3><blockquote>Less plastic on the streets.<br/>More smoke in your pocket.</blockquote><small>In-store only · Original CannaPlug tubes · While stocks last</small></div></div></Reveal></section> }
@@ -148,7 +170,7 @@ function ContactSection() {
   return <section className="contact" id="contact"><Reveal className="contact-grid"><div className="contact-info"><p className="eyebrow">Contact us</p><h2>WE'RE HERE<br/><em>TO HELP.</em></h2><p>Questions, recommendations or a first visit? Speak to our team.</p><ul><li><Phone size={18}/><a href="tel:+27101234567">+27 10 123 4567</a></li><li><Mail size={18}/><a href="mailto:hello@cannaplug.co.za">hello@cannaplug.co.za</a></li><li><MapPin size={18}/><span>Shop 002, One On Mutual, Pretoria Central</span></li><li><Clock3 size={18}/><span>Mon–Fri 09:00–19:00 · Sat 09:00–20:00 · Sun 09:00–15:00</span></li></ul><a className="direction-link" href="https://maps.google.com/?q=One+On+Mutual+Pretoria" target="_blank" rel="noreferrer">Get directions <ArrowRight size={16}/></a></div><div className="store-panel"><img src={storeAsset.url} alt="Inside the CannaPlug Pretoria dispensary" loading="lazy"/><span><Play size={18} fill="currentColor"/> Visit CannaPlug Pretoria</span></div><form onSubmit={submit}><div><label>Name<input required placeholder="Your name"/></label><label>Email<input required type="email" placeholder="you@example.com"/></label></div><label>Subject<input required placeholder="How can we help?"/></label><label>Message<textarea required rows={5} placeholder="Write your message…"/></label><Button type="submit">{sent ? <><Check size={16}/> Message ready</> : <>Send message <ArrowRight size={16}/></>}</Button>{sent && <small>Thanks — this visual prototype does not submit messages yet.</small>}</form></Reveal></section>
 }
 
-function Footer() { return <footer><div className="footer-main"><div className="footer-brand"><Logo inverse/><h2>GOOD PLANTS.<br/>GREAT PEOPLE.</h2><p>Premium cannabis, curated with care in Pretoria.</p></div><div><h3>Explore</h3>{["Shop","Menu","Events","Newsroom","About","Contact"].map(x=><a href={`/#${x.toLowerCase()}`} key={x}>{x}</a>)}</div><div><h3>Information</h3><a href="/#contact">FAQ</a><a href="/#contact">Privacy</a><a href="/#contact">Terms</a><a href="/#contact">Responsible consumption</a></div><div className="newsletter"><h3>Stay connected</h3><p>Get the latest stories, events and CannaPlug news.</p><form onSubmit={e=>e.preventDefault()}><input aria-label="Email address" type="email" placeholder="Email address"/><Button type="submit">Join <ArrowRight size={15}/></Button></form><div className="socials"><a aria-label="Instagram" href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer"><Instagram/></a><a aria-label="TikTok" href="https://www.tiktok.com/@cannaplug_012" target="_blank" rel="noreferrer"><Youtube/></a><a aria-label="X" href="https://x.com/cannaplug_012" target="_blank" rel="noreferrer"><X/></a><a aria-label="Facebook" href="https://facebook.com/cannaplug" target="_blank" rel="noreferrer"><Facebook/></a></div></div></div><div className="footer-bottom"><span>18+ · Consume responsibly</span><span>Licensed Medical Cannabis Dispensary · SAHPRA Section 21 Authorised · Registration No. 2026/047873/07</span><span>© 2026 CannaPlug™</span></div></footer> }
+export function Footer() { return <footer><div className="footer-main"><div className="footer-brand"><Logo inverse/><h2>GOOD PLANTS.<br/>GREAT PEOPLE.</h2><p>Premium cannabis, curated with care in Pretoria.</p></div><div><h3>Explore</h3>{["Shop","Menu","Events","Newsroom","About","Contact"].map(x=><a href={`/#${x.toLowerCase()}`} key={x}>{x}</a>)}</div><div><h3>Information</h3><a href="/#contact">FAQ</a><a href="/#contact">Privacy</a><a href="/#contact">Terms</a><a href="/#contact">Responsible consumption</a></div><div className="newsletter"><h3>Stay connected</h3><p>Get the latest stories, events and CannaPlug news.</p><form onSubmit={e=>e.preventDefault()}><input aria-label="Email address" type="email" placeholder="Email address"/><Button type="submit">Join <ArrowRight size={15}/></Button></form><div className="socials"><a aria-label="Instagram" href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer"><Instagram/></a><a aria-label="TikTok" href="https://www.tiktok.com/@cannaplug_012" target="_blank" rel="noreferrer"><Youtube/></a><a aria-label="X" href="https://x.com/cannaplug_012" target="_blank" rel="noreferrer"><X/></a><a aria-label="Facebook" href="https://facebook.com/cannaplug" target="_blank" rel="noreferrer"><Facebook/></a></div></div></div><div className="footer-bottom"><span>18+ · Consume responsibly</span><span>Licensed Medical Cannabis Dispensary · SAHPRA Section 21 Authorised · Registration No. 2026/047873/07</span><span>© 2026 CannaPlug™</span></div></footer> }
 
 function FloatingBottomNav() { return <motion.nav className="floating-nav" aria-label="Quick navigation" initial={{ y: 80, opacity:0 }} animate={{ y:0, opacity:1 }} transition={{ delay:.8, type:"spring" }}><a href="/#top"><Store/><span>Home</span></a><a href="/#shop"><ShoppingBag/><span>Shop</span></a><a href="/#top" className="float-leaf" aria-label="CannaPlug home"><Leaf fill="currentColor"/></a><a href="/#events"><CalendarDays/><span>Events</span></a><a href="/#newsroom" className="desktop-float"><Newspaper/><span>Newsroom</span></a><a href="/#contact" className="mobile-float"><CircleUserRound/><span>Account</span></a></motion.nav> }
 

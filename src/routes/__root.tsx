@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { CartProvider } from "../lib/cart";
 import { AuthProvider } from "../hooks/useAuth";
+import { ChatWidget } from "../components/ChatWidget";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -136,6 +137,7 @@ function RootComponent() {
         <CartProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
+          <ChatWidget />
         </CartProvider>
       </AuthProvider>
     </QueryClientProvider>

@@ -1,1 +1,4 @@
 project_id = "ajaldrqkeuaywqgvdghy"
+
+[functions.cannaplug-chat]
+verify_jwt = false
