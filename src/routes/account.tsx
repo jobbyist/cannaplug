@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import {
   BadgeCheck, Bell, CalendarClock, CircleUserRound, CreditCard, Headphones,
-  Heart, LayoutDashboard, Leaf, ListOrdered, LogOut, MapPin, Package,
+  Heart, LayoutDashboard, ListOrdered, LogOut, MapPin, Package,
   Settings, ShieldCheck, ShoppingBag, Sparkles, Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { rand } from "@/lib/cart";
 import { mockOrders, mockProfile, products } from "@/lib/mock-data";
 import heroImage from "@/assets/cannaplug-hero.jpg";
+import logoImage from "@/assets/cannaplug-logo.png";
+import logoImageWhite from "@/assets/cannaplug-logo-white.png";
 
 export const Route = createFileRoute("/account")({
   head: () => ({ meta: [{ title: "My Account | CannaPlug" }] }),
@@ -77,8 +79,8 @@ function AuthPanel() {
           <img src={heroImage} alt="Premium cannabis flower at CannaPlug" className="absolute inset-0 h-full w-full object-cover opacity-70" />
           <div className="absolute inset-0 bg-gradient-to-t from-charcoal via-charcoal/40 to-transparent" />
           <div className="relative flex h-full flex-col justify-between p-10 text-primary-foreground">
-            <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
-              <Leaf size={20} /> CANNAPLUG
+            <Link to="/">
+              <img src={logoImageWhite} alt="CannaPlug" className="h-7 w-auto" />
             </Link>
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-sage">Good Plants, Great People.</p>
@@ -96,8 +98,8 @@ function AuthPanel() {
 
         <div className="flex items-center justify-center px-6 py-16">
           <div className="w-full max-w-sm">
-            <Link to="/" className="mb-8 flex items-center gap-2 font-display text-lg font-bold text-primary lg:hidden">
-              <Leaf size={20} /> CANNAPLUG
+            <Link to="/" className="mb-8 block lg:hidden">
+              <img src={logoImage} alt="CannaPlug" className="h-7 w-auto" />
             </Link>
             <h2 className="font-display text-2xl font-extrabold uppercase">{mode === "signin" ? "Sign in" : "Create account"}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -175,8 +177,8 @@ function MemberPortal() {
         active={tab}
         onSelect={setTab}
         header={
-          <Link to="/" className="flex items-center gap-2 font-display text-base font-bold text-primary">
-            <Leaf size={19} /> CANNAPLUG
+          <Link to="/">
+            <img src={logoImage} alt="CannaPlug" className="h-6 w-auto" />
           </Link>
         }
         footer={

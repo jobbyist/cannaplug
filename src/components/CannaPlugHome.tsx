@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, useScroll } from "framer-motion";
 import {
@@ -16,6 +16,12 @@ import categoryImage from "@/assets/cannaplug-categories.jpg";
 import productImage from "@/assets/cannaplug-products.jpg";
 import editorialImage from "@/assets/cannaplug-editorial.jpg";
 import storeAsset from "@/assets/cannaplug-storefront.jpg.asset.json";
+import logoImage from "@/assets/cannaplug-logo.png";
+import logoImageWhite from "@/assets/cannaplug-logo-white.png";
+
+const storeVideoWebm = "/videos/cannaplug-store.webm";
+const storeVideoMp4 = "/videos/cannaplug-store.mp4";
+const storeVideoPoster = "/videos/cannaplug-store-poster.jpg";
 
 const stories = [
   { label: "My Story", title: "CannaPlug", copy: "Good plants. Great people.", icon: Leaf, image: heroImage, cta: "Discover our story" },
@@ -54,8 +60,8 @@ const events = [
   ["08", "NOV", "CannaPlug Community Mixer", "Cape Town", "Good people, fresh perspectives and a distinctly local energy.", "event-three"],
 ];
 
-function Logo({ inverse = false }: { inverse?: boolean }) {
-  return <a href="/#top" aria-label="CannaPlug home" className={inverse ? "logo inverse" : "logo"}><span className="logo-mark"><Leaf size={21} fill="currentColor" /></span><span><b>CANNA</b><small>PLUG</small></span></a>;
+export function Logo({ inverse = false }: { inverse?: boolean }) {
+  return <a href="/#top" aria-label="CannaPlug home" className={inverse ? "logo inverse" : "logo"}><img src={inverse ? logoImageWhite : logoImage} alt="CannaPlug" /></a>;
 }
 
 function SectionHeading({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: string }) {
@@ -165,9 +171,42 @@ function Newsroom() { return <section className="page-section" id="newsroom"><Re
 
 function Events() { return <section className="events" id="events"><Reveal><SectionHeading eyebrow="Good vibes & great people" title="UPCOMING EVENTS" action="View calendar"/><div className="event-grid">{events.map(([day,month,title,location,copy,style]) => <article className={`event-card ${style}`} key={title}><div className="event-date"><strong>{day}</strong><span>{month}</span></div><div className="event-copy"><p><MapPin size={14}/>{location}</p><h3>{title}</h3><span>{copy}</span><a href="/#events">RSVP / View event <ArrowRight size={15}/></a></div></article>)}</div></Reveal></section> }
 
+function StoreVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        if (entry.isIntersecting) void video.play().catch(() => {});
+        else video.pause();
+      },
+      { threshold: 0.4 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <video
+      ref={videoRef}
+      poster={storeVideoPoster}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      aria-label="Inside the CannaPlug Pretoria dispensary"
+    >
+      <source src={storeVideoWebm} type="video/webm" />
+      <source src={storeVideoMp4} type="video/mp4" />
+    </video>
+  );
+}
+
 function ContactSection() {
   const [sent,setSent] = useState(false); const submit=(e:FormEvent)=>{e.preventDefault();setSent(true)};
-  return <section className="contact" id="contact"><Reveal className="contact-grid"><div className="contact-info"><p className="eyebrow">Contact us</p><h2>WE'RE HERE<br/><em>TO HELP.</em></h2><p>Questions, recommendations or a first visit? Speak to our team.</p><ul><li><Phone size={18}/><a href="tel:+27101234567">+27 10 123 4567</a></li><li><Mail size={18}/><a href="mailto:hello@cannaplug.co.za">hello@cannaplug.co.za</a></li><li><MapPin size={18}/><span>Shop 002, One On Mutual, Pretoria Central</span></li><li><Clock3 size={18}/><span>Mon–Fri 09:00–19:00 · Sat 09:00–20:00 · Sun 09:00–15:00</span></li></ul><a className="direction-link" href="https://maps.google.com/?q=One+On+Mutual+Pretoria" target="_blank" rel="noreferrer">Get directions <ArrowRight size={16}/></a></div><div className="store-panel"><img src={storeAsset.url} alt="Inside the CannaPlug Pretoria dispensary" loading="lazy"/><span><Play size={18} fill="currentColor"/> Visit CannaPlug Pretoria</span></div><form onSubmit={submit}><div><label>Name<input required placeholder="Your name"/></label><label>Email<input required type="email" placeholder="you@example.com"/></label></div><label>Subject<input required placeholder="How can we help?"/></label><label>Message<textarea required rows={5} placeholder="Write your message…"/></label><Button type="submit">{sent ? <><Check size={16}/> Message ready</> : <>Send message <ArrowRight size={16}/></>}</Button>{sent && <small>Thanks — this visual prototype does not submit messages yet.</small>}</form></Reveal></section>
+  return <section className="contact" id="contact"><Reveal className="contact-grid"><div className="contact-info"><p className="eyebrow">Contact us</p><h2>WE'RE HERE<br/><em>TO HELP.</em></h2><p>Questions, recommendations or a first visit? Speak to our team.</p><ul><li><Phone size={18}/><a href="tel:+27101234567">+27 10 123 4567</a></li><li><Mail size={18}/><a href="mailto:hello@cannaplug.co.za">hello@cannaplug.co.za</a></li><li><MapPin size={18}/><span>Shop 002, One On Mutual, Pretoria Central</span></li><li><Clock3 size={18}/><span>Mon–Fri 09:00–19:00 · Sat 09:00–20:00 · Sun 09:00–15:00</span></li></ul><a className="direction-link" href="https://maps.google.com/?q=One+On+Mutual+Pretoria" target="_blank" rel="noreferrer">Get directions <ArrowRight size={16}/></a></div><div className="store-panel"><StoreVideo/><span><Play size={18} fill="currentColor"/> Visit CannaPlug Pretoria</span></div><form onSubmit={submit}><div><label>Name<input required placeholder="Your name"/></label><label>Email<input required type="email" placeholder="you@example.com"/></label></div><label>Subject<input required placeholder="How can we help?"/></label><label>Message<textarea required rows={5} placeholder="Write your message…"/></label><Button type="submit">{sent ? <><Check size={16}/> Message ready</> : <>Send message <ArrowRight size={16}/></>}</Button>{sent && <small>Thanks — this visual prototype does not submit messages yet.</small>}</form></Reveal></section>
 }
 
 export function Footer() { return <footer><div className="footer-main"><div className="footer-brand"><Logo inverse/><h2>GOOD PLANTS.<br/>GREAT PEOPLE.</h2><p>Premium cannabis, curated with care in Pretoria.</p></div><div><h3>Explore</h3>{["Shop","Menu","Events","Newsroom","About","Contact"].map(x=><a href={`/#${x.toLowerCase()}`} key={x}>{x}</a>)}</div><div><h3>Information</h3><a href="/#contact">FAQ</a><a href="/#contact">Privacy</a><a href="/#contact">Terms</a><a href="/#contact">Responsible consumption</a></div><div className="newsletter"><h3>Stay connected</h3><p>Get the latest stories, events and CannaPlug news.</p><form onSubmit={e=>e.preventDefault()}><input aria-label="Email address" type="email" placeholder="Email address"/><Button type="submit">Join <ArrowRight size={15}/></Button></form><div className="socials"><a aria-label="Instagram" href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer"><Instagram/></a><a aria-label="TikTok" href="https://www.tiktok.com/@cannaplug_012" target="_blank" rel="noreferrer"><Youtube/></a><a aria-label="X" href="https://x.com/cannaplug_012" target="_blank" rel="noreferrer"><X/></a><a aria-label="Facebook" href="https://facebook.com/cannaplug" target="_blank" rel="noreferrer"><Facebook/></a></div></div></div><div className="footer-bottom"><span>18+ · Consume responsibly</span><span>Licensed Medical Cannabis Dispensary · SAHPRA Section 21 Authorised · Registration No. 2026/047873/07</span><span>© 2026 CannaPlug™</span></div></footer> }
