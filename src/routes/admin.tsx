@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle, Bell, Boxes, Calendar, CircleUserRound, ClipboardList,
-  Cog, Leaf, LayoutDashboard, Megaphone, Newspaper, Package, PlusCircle,
+  Cog, LayoutDashboard, Megaphone, Newspaper, Package, PlusCircle,
   Search, ShoppingBag, Truck, Users, Wallet,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -14,6 +14,7 @@ import { DashboardSidebar, type SidebarItem } from "@/components/dashboard/Sideb
 import { useAuth } from "@/hooks/useAuth";
 import { rand } from "@/lib/cart";
 import { adminOrders, adminStats, inventoryStatus, lowStockAlerts, products, recentActivity, salesOverview, topProducts } from "@/lib/mock-data";
+import logoImage from "@/assets/cannaplug-logo.png";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin Dashboard | CannaPlug" }] }),
@@ -79,8 +80,8 @@ function AdminPage() {
         active={tab}
         onSelect={setTab}
         header={
-          <Link to="/" className="flex items-center gap-2 font-display text-base font-bold text-primary">
-            <Leaf size={19} /> CANNA<span className="text-foreground">PLUG</span>
+          <Link to="/">
+            <img src={logoImage} alt="CannaPlug" className="h-6 w-auto" />
           </Link>
         }
       />
