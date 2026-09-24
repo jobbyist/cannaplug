@@ -20,6 +20,8 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
+import { Route as JournalIndexRouteImport } from './routes/journal.index'
+import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +79,16 @@ const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
   path: '/terms-of-service',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JournalIndexRoute = JournalIndexRouteImport.update({
+  id: '/journal/',
+  path: '/journal/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalSlugRoute = JournalSlugRouteImport.update({
+  id: '/journal/$slug',
+  path: '/journal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicNewsroomRunRoute = ApiPublicNewsroomRunRouteImport.update({
   id: '/api/public/newsroom/run',
   path: '/api/public/newsroom/run',
@@ -95,6 +107,8 @@ export interface FileRoutesByFullPath {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/journal/$slug': typeof JournalSlugRoute
+  '/journal/': typeof JournalIndexRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +123,8 @@ export interface FileRoutesByTo {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/journal/$slug': typeof JournalSlugRoute
+  '/journal': typeof JournalIndexRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRoutesById {
@@ -124,6 +140,8 @@ export interface FileRoutesById {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/journal/$slug': typeof JournalSlugRoute
+  '/journal/': typeof JournalIndexRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +158,8 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/journal/$slug'
+    | '/journal/'
     | '/api/public/newsroom/run'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +174,8 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/journal/$slug'
+    | '/journal'
     | '/api/public/newsroom/run'
   id:
     | '__root__'
@@ -168,6 +190,8 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/journal/$slug'
+    | '/journal/'
     | '/api/public/newsroom/run'
   fileRoutesById: FileRoutesById
 }
@@ -183,6 +207,8 @@ export interface RootRouteChildren {
   RefundPolicyRoute: typeof RefundPolicyRoute
   ShopRoute: typeof ShopRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
+  JournalSlugRoute: typeof JournalSlugRoute
+  JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
 }
 
@@ -265,6 +291,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsOfServiceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/journal/': {
+      id: '/journal/'
+      path: '/journal'
+      fullPath: '/journal/'
+      preLoaderRoute: typeof JournalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/$slug': {
+      id: '/journal/$slug'
+      path: '/journal/$slug'
+      fullPath: '/journal/$slug'
+      preLoaderRoute: typeof JournalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/newsroom/run': {
       id: '/api/public/newsroom/run'
       path: '/api/public/newsroom/run'
@@ -287,6 +327,8 @@ const rootRouteChildren: RootRouteChildren = {
   RefundPolicyRoute: RefundPolicyRoute,
   ShopRoute: ShopRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
+  JournalSlugRoute: JournalSlugRoute,
+  JournalIndexRoute: JournalIndexRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
 }
 export const routeTree = rootRouteImport
