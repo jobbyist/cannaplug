@@ -448,7 +448,7 @@ export function Header() {
     ["Shop", "/shop"],
     ["Menu", "/#categories"],
     ["Events", "/#events"],
-    ["Newsroom", "/#newsroom"],
+    ["Journal", "/journal"],
     ["About", "/about"],
     ["Contact", "/#contact"],
   ];
@@ -459,7 +459,7 @@ export function Header() {
     [CalendarDays, "Events", "/#events"],
   ] as const;
   const exploreLinks = [
-    [Newspaper, "Newsroom", "/#newsroom"],
+    [Newspaper, "Newsroom", "/journal"],
     [Leaf, "Our story", "/about"],
     [TicketPercent, "Plug Back", "/#plug-back"],
     [MapPin, "Visit Pretoria", "/#contact"],
@@ -990,7 +990,7 @@ const footerExploreLinks: [string, string][] = [
   ["Shop", "/shop"],
   ["Menu", "/#categories"],
   ["Events", "/#events"],
-  ["Newsroom", "/#newsroom"],
+  ["Journal", "/journal"],
   ["About", "/about"],
   ["Contact", "/#contact"],
 ];

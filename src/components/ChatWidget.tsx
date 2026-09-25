@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { askCannaPlug } from "@/lib/chat.functions";
 import { cn } from "@/lib/utils";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const STORAGE_KEY = "cannaplug.chat.v1";
+const SESSION_KEY = "cannaplug.chat.session";
 const GREETING: ChatMessage = {
   role: "assistant",
   content:
@@ -72,16 +73,18 @@ export function ChatWidget() {
     setLoading(true);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke<{ reply?: string; error?: string }>(
-        "cannaplug-chat",
-        { body: { messages: nextMessages } },
-      );
-
-      if (invokeError || !data || data.error) {
-        throw new Error(data?.error ?? invokeError?.message ?? "Unknown error");
+      let sessionId = window.sessionStorage.getItem(SESSION_KEY);
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        window.sessionStorage.setItem(SESSION_KEY, sessionId);
       }
-
-      setMessages((current) => [...current, { role: "assistant", content: data.reply ?? "" }]);
+      const history = nextMessages.filter((m, i) => !(i === 0 && m === GREETING) && m.content.trim()).slice(-20);
+      const result = await askCannaPlug({ data: { sessionId, messages: history.length ? history : nextMessages.slice(-1) } });
+      if (!result.ok) {
+        setError(result.error);
+      } else {
+        setMessages((current) => [...current, { role: "assistant", content: result.reply }]);
+      }
     } catch {
       setError("Our assistant couldn't respond just now. Please try again, or contact the team directly.");
     } finally {
