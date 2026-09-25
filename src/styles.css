@@ -241,3 +241,5 @@ footer{padding:72px max(24px,calc((100% - 1132px)/2)) 110px;background:var(--pri
 .floating-nav{border:1.5px solid color-mix(in oklab,white 85%,transparent);box-shadow:0 0 0 1px color-mix(in oklab,white 25%,transparent),0 0 18px color-mix(in oklab,white 45%,transparent),0 0 36px color-mix(in oklab,white 18%,transparent),var(--shadow-float)}
 @media(max-width:600px){.header-actions{gap:4px}.cart-pill-label{display:none}.cart-pill{padding:0 6px 0 11px;height:40px;margin-left:4px}.theme-toggle{width:38px;height:38px}}
 @media (prefers-reduced-motion:reduce){.cart-count.has-items{animation:none}}
+.dark .eyebrow,.dark .text-link,.dark .news-content a,.dark .section-heading a{color:var(--accent)}
+.dark .logo img{filter:brightness(0) invert(1)}
