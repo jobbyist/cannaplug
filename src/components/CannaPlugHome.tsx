@@ -33,6 +33,9 @@ import {
   Youtube,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { journalListQuery, formatJournalDate } from "@/lib/journal";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SheetTrigger } from "@/components/ui/sheet";
@@ -445,7 +448,7 @@ export function Header() {
     ["Shop", "/shop"],
     ["Menu", "/#categories"],
     ["Events", "/#events"],
-    ["Newsroom", "/#newsroom"],
+    ["Journal", "/journal"],
     ["About", "/about"],
     ["Contact", "/#contact"],
   ];
@@ -456,7 +459,7 @@ export function Header() {
     [CalendarDays, "Events", "/#events"],
   ] as const;
   const exploreLinks = [
-    [Newspaper, "Newsroom", "/#newsroom"],
+    [Newspaper, "Newsroom", "/journal"],
     [Leaf, "Our story", "/about"],
     [TicketPercent, "Plug Back", "/#plug-back"],
     [MapPin, "Visit Pretoria", "/#contact"],
@@ -488,15 +491,17 @@ export function Header() {
             >
               <CircleUserRound size={20} />
             </a>
+            <ThemeToggle />
             <CartDrawer
               trigger={
                 <SheetTrigger asChild>
                   <button
-                    className="header-icon-link cart-link"
+                    className="cart-pill"
                     aria-label={`Shopping bag, ${count} item${count === 1 ? "" : "s"}`}
                   >
-                    <ShoppingBag size={20} />
-                    {count > 0 && <b>{count}</b>}
+                    <ShoppingBag size={18} />
+                    <span className="cart-pill-label">Cart</span>
+                    <b key={count} className={count > 0 ? "cart-count has-items" : "cart-count"}>{count}</b>
                   </button>
                 </SheetTrigger>
               }
@@ -775,35 +780,51 @@ function ExperienceSection() {
 }
 
 function Newsroom() {
+  const { data: latest } = useQuery(journalListQuery(3));
   return (
     <section className="page-section" id="newsroom">
       <Reveal>
-        <SectionHeading eyebrow="The CannaPlug Journal" title="NEWSROOM" action="All stories" />
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">The CannaPlug Journal</p>
+            <h2>NEWSROOM</h2>
+          </div>
+          <Link to="/journal" className="text-link">
+            All stories <ArrowRight size={15} />
+          </Link>
+        </div>
         <div className="news-grid">
-          {news.map(([cat, title, excerpt, date, pos], i) => (
-            <article className={i === 0 ? "news-card news-lead" : "news-card"} key={title}>
+          {(latest?.length ? latest : []).map((a, i) => (
+            <article className={i === 0 ? "news-card news-lead" : "news-card"} key={a.id}>
               <div className="news-image">
-                <img
-                  src={editorialImage}
-                  className={pos}
-                  alt=""
-                  loading="lazy"
-                  width={1920}
-                  height={800}
-                />
+                <img src={a.cover_image_url ?? editorialImage} alt={a.title} loading="lazy" />
               </div>
               <div className="news-content">
                 <p className="eyebrow">
-                  {cat} · {date}
+                  {a.category} · {formatJournalDate(a.published_at)}
                 </p>
-                <h3>{title}</h3>
-                <p>{excerpt}</p>
-                <a href="/#newsroom">
+                <h3>{a.title}</h3>
+                <p>{a.excerpt}</p>
+                <Link to="/journal/$slug" params={{ slug: a.slug }}>
                   Read more <ArrowRight size={15} />
-                </a>
+                </Link>
               </div>
             </article>
           ))}
+          {!latest?.length &&
+            news.map(([cat, title, excerpt, date, pos], i) => (
+              <article className={i === 0 ? "news-card news-lead" : "news-card"} key={title}>
+                <div className="news-image">
+                  <img src={editorialImage} className={pos} alt="" loading="lazy" />
+                </div>
+                <div className="news-content">
+                  <p className="eyebrow">{cat} · {date}</p>
+                  <h3>{title}</h3>
+                  <p>{excerpt}</p>
+                  <Link to="/journal">Read more <ArrowRight size={15} /></Link>
+                </div>
+              </article>
+            ))}
         </div>
       </Reveal>
     </section>
@@ -969,7 +990,7 @@ const footerExploreLinks: [string, string][] = [
   ["Shop", "/shop"],
   ["Menu", "/#categories"],
   ["Events", "/#events"],
-  ["Newsroom", "/#newsroom"],
+  ["Journal", "/journal"],
   ["About", "/about"],
   ["Contact", "/#contact"],
 ];
@@ -1088,10 +1109,10 @@ function FloatingBottomNav() {
         <CalendarDays />
         <span>Events</span>
       </a>
-      <a href="/#newsroom" className="desktop-float">
+      <Link to="/journal" className="desktop-float">
         <Newspaper />
-        <span>Newsroom</span>
-      </a>
+        <span>Journal</span>
+      </Link>
       <Link to="/account" className="mobile-float">
         <CircleUserRound />
         <span>Account</span>

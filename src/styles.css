@@ -107,25 +107,26 @@
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --background: oklch(0.16 0.02 150);
+  --foreground: oklch(0.95 0.01 140);
+  --card: oklch(0.21 0.025 150);
+  --card-foreground: oklch(0.95 0.01 140);
+  --popover: oklch(0.21 0.025 150);
+  --popover-foreground: oklch(0.95 0.01 140);
+  --primary: oklch(0.36 0.09 147);
+  --primary-foreground: oklch(0.98 0.005 140);
+  --secondary: oklch(0.25 0.03 150);
+  --secondary-foreground: oklch(0.9 0.04 140);
+  --muted: oklch(0.25 0.025 150);
+  --muted-foreground: oklch(0.72 0.02 140);
+  --accent: oklch(0.7 0.17 145);
+  --accent-foreground: oklch(0.16 0.02 150);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  --ring: oklch(0.7 0.17 145);
+  --charcoal: oklch(0.08 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -228,3 +229,17 @@ footer{padding:72px max(24px,calc((100% - 1132px)/2)) 110px;background:var(--pri
 .chat-disclaimer{display:flex;align-items:center;gap:6px;padding:0 16px 12px;font-size:.6rem;color:var(--muted-foreground);background:var(--card)}
 @media(max-width:600px){.chat-panel{right:12px;left:12px;bottom:12px;width:auto;max-height:min(72vh,560px)}.chat-notch{padding:11px 14px 11px 12px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.header-actions{gap:10px}
+.cart-pill{position:relative;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 8px 0 14px;margin-left:6px;border:1px solid var(--border);border-radius:999px;background:var(--primary);color:var(--primary-foreground);font:600 .72rem var(--font-display);text-transform:uppercase;letter-spacing:.04em;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.cart-pill:hover{transform:translateY(-1px);box-shadow:0 8px 20px color-mix(in oklab,var(--primary) 35%,transparent)}
+.cart-pill:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.cart-count{display:grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:color-mix(in oklab,var(--primary-foreground) 18%,transparent);font-size:.7rem}
+.cart-count.has-items{background:var(--primary-foreground);color:var(--primary);animation:cart-pop .35s ease}
+@keyframes cart-pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.theme-toggle{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:999px;background:transparent;color:var(--foreground);cursor:pointer}
+.theme-toggle:hover{background:var(--secondary)}
+.floating-nav{border:1.5px solid color-mix(in oklab,white 85%,transparent);box-shadow:0 0 0 1px color-mix(in oklab,white 25%,transparent),0 0 18px color-mix(in oklab,white 45%,transparent),0 0 36px color-mix(in oklab,white 18%,transparent),var(--shadow-float)}
+@media(max-width:600px){.header-actions{gap:4px}.cart-pill-label{display:none}.cart-pill{padding:0 6px 0 11px;height:40px;margin-left:4px}.theme-toggle{width:38px;height:38px}}
+@media (prefers-reduced-motion:reduce){.cart-count.has-items{animation:none}}
+.dark .eyebrow,.dark .text-link,.dark .news-content a,.dark .section-heading a{color:var(--accent)}
+.dark .logo img{filter:brightness(0) invert(1)}

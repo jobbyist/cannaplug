@@ -120,6 +120,7 @@ async function findCover(query: string) {
   const pool = json.results ?? [];
   if (!pool.length) return null;
   const photo = pool[Math.floor(Math.random() * Math.min(pool.length, 6))];
+  if (!photo) return null;
   // Required by Unsplash API guidelines
   fetch(photo.links.download_location, { headers: { Authorization: `Client-ID ${key}` } }).catch(() => {});
   return {
