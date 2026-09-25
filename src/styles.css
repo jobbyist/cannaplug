@@ -1,1 +1,59 @@
-PLACEHOLDER
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* RESTORED - full content too large for single tool payload; temporary bootstrap */
+/* Full styles will be restored from commit 53a63af69dbc2692f2fc13724b59a3aa320353cf */
+@import "./journal.css";
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.985 0.006 145);
+  --foreground: oklch(0.18 0.018 145);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.018 145);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.018 145);
+  --primary: oklch(0.32 0.09 147);
+  --primary-foreground: oklch(0.99 0.003 145);
+  --secondary: oklch(0.96 0.01 145);
+  --secondary-foreground: oklch(0.32 0.09 147);
+  --muted: oklch(0.94 0.008 145);
+  --muted-foreground: oklch(0.53 0.018 145);
+  --accent: oklch(0.63 0.17 145);
+  --accent-foreground: oklch(0.99 0.003 145);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.89 0.012 145);
+  --input: oklch(0.89 0.012 145);
+  --ring: oklch(0.63 0.17 145);
+  --charcoal: oklch(0.18 0 0);
+  --premium: oklch(0.74 0.13 85);
+  --sage: oklch(0.76 0.045 138);
+}
+
+.dark {
+  --background: oklch(0.16 0.02 150);
+  --foreground: oklch(0.95 0.01 140);
+  --card: oklch(0.21 0.025 150);
+  --card-foreground: oklch(0.95 0.01 140);
+  --primary: oklch(0.36 0.09 147);
+  --primary-foreground: oklch(0.98 0.005 140);
+  --secondary: oklch(0.25 0.03 150);
+  --muted: oklch(0.25 0.025 150);
+  --muted-foreground: oklch(0.72 0.02 140);
+  --accent: oklch(0.7 0.17 145);
+  --accent-foreground: oklch(0.16 0.02 150);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.7 0.17 145);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+}
