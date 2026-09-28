@@ -19,6 +19,9 @@ import logoImage from "@/assets/cannaplug-logo.png";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin Dashboard | CannaPlug" }] }),
+  // Supabase auth currently persists in browser storage. Keep the staff route client-rendered,
+  // then perform the authorization itself on the server before the dashboard component mounts.
+  ssr: false,
   loader: async () => {
     const authorization = await getStaffAuthorization();
     if (!authorization.authorized) {

@@ -94,13 +94,16 @@ $$;
 
 -- Isolated fixtures. All writes are rolled back at the end.
 INSERT INTO public.profiles (id, full_name)
-SELECT user_id, 'RLS test ' || role FROM rbac_test_ids;
+SELECT user_id, 'RLS test ' || role FROM rbac_test_ids
+ON CONFLICT (id) DO UPDATE
+SET full_name = EXCLUDED.full_name;
 
-INSERT INTO public.orders (id, user_id, contact_name)
+INSERT INTO public.orders (id, user_id, contact_name, notes)
 SELECT
-  ('00000000-0000-0000-0000-0000000001' || right(md5(role), 11))::uuid,
+  ('00000000-0000-0000-0000-' || right(md5(role), 12))::uuid,
   user_id,
-  'RLS ' || role
+  'RLS ' || role,
+  'rbac-test-' || role
 FROM rbac_test_ids;
 
 INSERT INTO public.addresses (user_id, label, line1, city, postal_code)
@@ -147,35 +150,35 @@ SELECT pg_temp.assert(NOT public.has_at_least_role('manager'), 'customer should 
 SELECT pg_temp.assert(NOT public.has_at_least_role('admin'), 'customer should not have admin access');
 
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.profiles) = 1,
+  (SELECT count(*) FROM public.profiles WHERE id IN (SELECT user_id FROM rbac_test_ids)) = 1,
   'customer must only read own profile'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.orders) = 1,
+  (SELECT count(*) FROM public.orders WHERE notes LIKE 'rbac-test-%') = 1,
   'customer must only read own order'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.addresses) = 1,
+  (SELECT count(*) FROM public.addresses WHERE label = 'RLS Test' AND user_id IN (SELECT user_id FROM rbac_test_ids)) = 1,
   'customer must only read own address'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.customer_verification) = 1,
+  (SELECT count(*) FROM public.customer_verification WHERE user_id IN (SELECT user_id FROM rbac_test_ids)) = 1,
   'customer must only read own verification row'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.user_roles) = 1,
+  (SELECT count(*) FROM public.user_roles WHERE user_id IN (SELECT user_id FROM rbac_test_ids)) = 1,
   'customer must only read own roles'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.audit_log) = 0,
+  (SELECT count(*) FROM public.audit_log WHERE entity_type = 'rbac-test') = 0,
   'customer must not read audit log'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.products WHERE is_active = true) = 1,
+  (SELECT count(*) FROM public.products WHERE is_active = true AND id = '00000000-0000-0000-0000-000000000901') = 1,
   'customer should see active product'
 );
 SELECT pg_temp.assert(
-  (SELECT count(*) FROM public.products WHERE is_active = false) = 0,
+  (SELECT count(*) FROM public.products WHERE is_active = false AND id = '00000000-0000-0000-0000-000000000902') = 0,
   'customer must not see inactive product'
 );
 
@@ -214,18 +217,36 @@ SELECT set_config(
 SELECT pg_temp.assert(public.current_user_role() = 'budtender', 'budtender current_user_role failed');
 SELECT pg_temp.assert(public.has_at_least_role('budtender'), 'budtender should have budtender access');
 SELECT pg_temp.assert(NOT public.has_at_least_role('manager'), 'budtender should not have manager access');
-SELECT pg_temp.assert((SELECT count(*) FROM public.profiles) = 4, 'budtender should read staff/customer profiles');
-SELECT pg_temp.assert((SELECT count(*) FROM public.orders) = 4, 'budtender should read all orders');
-SELECT pg_temp.assert((SELECT count(*) FROM public.addresses) = 4, 'budtender should read all addresses');
-SELECT pg_temp.assert((SELECT count(*) FROM public.customer_verification) = 4, 'budtender should read verification rows');
-SELECT pg_temp.assert((SELECT count(*) FROM public.audit_log) = 0, 'budtender must not read audit log');
-SELECT pg_temp.assert((SELECT count(*) FROM public.products WHERE is_active = false) = 1, 'budtender should read inactive products');
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.profiles WHERE id IN (SELECT user_id FROM rbac_test_ids)) = 4,
+  'budtender should read staff/customer profiles'
+);
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.orders WHERE notes LIKE 'rbac-test-%') = 4,
+  'budtender should read all orders'
+);
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.addresses WHERE label = 'RLS Test' AND user_id IN (SELECT user_id FROM rbac_test_ids)) = 4,
+  'budtender should read all addresses'
+);
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.customer_verification WHERE user_id IN (SELECT user_id FROM rbac_test_ids)) = 4,
+  'budtender should read verification rows'
+);
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.audit_log WHERE entity_type = 'rbac-test') = 0,
+  'budtender must not read audit log'
+);
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.products WHERE is_active = false AND id = '00000000-0000-0000-0000-000000000902') = 1,
+  'budtender should read inactive products'
+);
 
 UPDATE public.orders
 SET status = 'processing'
-WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer');
+WHERE notes = 'rbac-test-customer';
 SELECT pg_temp.assert(
-  (SELECT status FROM public.orders WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer')) = 'processing',
+  (SELECT status FROM public.orders WHERE notes = 'rbac-test-customer') = 'processing',
   'budtender should update order status'
 );
 
@@ -256,7 +277,10 @@ SELECT set_config(
 SELECT pg_temp.assert(public.current_user_role() = 'manager', 'manager current_user_role failed');
 SELECT pg_temp.assert(public.has_at_least_role('manager'), 'manager should have manager access');
 SELECT pg_temp.assert(NOT public.has_at_least_role('admin'), 'manager should not have admin access');
-SELECT pg_temp.assert((SELECT count(*) FROM public.audit_log) = 4, 'manager should read audit log');
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.audit_log WHERE entity_type = 'rbac-test') = 4,
+  'manager should read audit log'
+);
 
 UPDATE public.products
 SET name = 'RBAC Manager Update'
@@ -300,7 +324,10 @@ SELECT pg_temp.assert(public.has_at_least_role('customer'), 'admin should have c
 SELECT pg_temp.assert(public.has_at_least_role('budtender'), 'admin should have budtender access');
 SELECT pg_temp.assert(public.has_at_least_role('manager'), 'admin should have manager access');
 SELECT pg_temp.assert(public.has_at_least_role('admin'), 'admin should have admin access');
-SELECT pg_temp.assert((SELECT count(*) FROM public.audit_log) = 4, 'admin should read audit log');
+SELECT pg_temp.assert(
+  (SELECT count(*) FROM public.audit_log WHERE entity_type = 'rbac-test') = 4,
+  'admin should read audit log'
+);
 
 UPDATE public.user_roles
 SET role = 'customer'

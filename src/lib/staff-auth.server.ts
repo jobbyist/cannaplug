@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -38,6 +38,15 @@ export async function assertStaffAccess(
   }
 
   return role;
+}
+
+export function createStaffAuthorizationMiddleware(minimumRole: StaffRole = "budtender") {
+  return createMiddleware({ type: "function" })
+    .middleware([requireSupabaseAuth])
+    .server(async ({ next, context }) => {
+      await assertStaffAccess(context.supabase, minimumRole);
+      return next();
+    });
 }
 
 export const getStaffAuthorization = createServerFn({ method: "GET" })

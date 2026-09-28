@@ -62,96 +62,6 @@ export type Database = {
         }
         Relationships: []
       }
-      addresses: {
-        Row: {
-          city: string | null
-          country: string
-          created_at: string
-          delivery_notes: string | null
-          id: string
-          is_default: boolean
-          label: string
-          line1: string
-          line2: string | null
-          phone: string | null
-          postal_code: string | null
-          province: string | null
-          recipient_name: string | null
-          suburb: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          city?: string | null
-          country?: string
-          created_at?: string
-          delivery_notes?: string | null
-          id?: string
-          is_default?: boolean
-          label?: string
-          line1: string
-          line2?: string | null
-          phone?: string | null
-          postal_code?: string | null
-          province?: string | null
-          recipient_name?: string | null
-          suburb?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          city?: string | null
-          country?: string
-          created_at?: string
-          delivery_notes?: string | null
-          id?: string
-          is_default?: boolean
-          label?: string
-          line1?: string
-          line2?: string | null
-          phone?: string | null
-          postal_code?: string | null
-          province?: string | null
-          recipient_name?: string | null
-          suburb?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      audit_log: {
-        Row: {
-          action: string
-          actor_user_id: string | null
-          created_at: string
-          entity_id: string | null
-          entity_type: string
-          id: number
-          metadata: Json
-          target_user_id: string | null
-        }
-        Insert: {
-          action: string
-          actor_user_id?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type: string
-          id?: never
-          metadata?: Json
-          target_user_id?: string | null
-        }
-        Update: {
-          action?: string
-          actor_user_id?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: never
-          metadata?: Json
-          target_user_id?: string | null
-        }
-        Relationships: []
-      }
       chat_rate_limits: {
         Row: {
           request_count: number
@@ -173,42 +83,6 @@ export type Database = {
           total_count?: number
           updated_at?: string
           window_start?: string
-        }
-        Relationships: []
-      }
-      customer_verification: {
-        Row: {
-          created_at: string
-          metadata: Json
-          method: string | null
-          provider_reference: string | null
-          status: string
-          updated_at: string
-          user_id: string
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          metadata?: Json
-          method?: string | null
-          provider_reference?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          metadata?: Json
-          method?: string | null
-          provider_reference?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-          verified_at?: string | null
-          verified_by?: string | null
         }
         Relationships: []
       }
@@ -421,16 +295,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["Enums"]["app_role"] | null
-      }
-      has_at_least_role: {
-        Args: {
-          _required: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -438,19 +302,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_staff: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      role_level: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: number
-      }
     }
     Enums: {
-      app_role: "customer" | "budtender" | "manager" | "admin"
+      app_role: "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -578,7 +432,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "budtender", "manager", "admin"],
+      app_role: ["admin", "member"],
     },
   },
 } as const
