@@ -62,7 +62,7 @@ function MemberPortal() {
     void Promise.all([listMemberOrdersFn(), listStoreProductsFn()]).then(([orderRows, productRows]) => { setOrders(orderRows); setProducts(productRows); });
   }, []);
   const displayName = (user?.user_metadata?.["full_name"] as string | undefined) ?? user?.email ?? "Member";
-  const spend = orders.reduce((sum, order) => sum + Number(order.total_rand), 0);
+  const spend = orders.filter((order) => order.status === "completed").reduce((sum, order) => sum + Number(order.total_rand), 0);
   const rewardsPoints = Math.floor(spend / 10);
   const rewardsToNextTier = 500 - (rewardsPoints % 500);
   const rewardsPercent = rewardsPoints % 500;
