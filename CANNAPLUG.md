@@ -339,3 +339,13 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 **Deployment / rollback**
 - This PR contains the canonical migration but does not deploy payments/POS.
 - Apply the migration through the normal Supabase migration workflow after PR approval; rollback is by reverting the migration commit and applying a dedicated rollback migration if production data has already been introduced.
+
+
+## 2026-09-29 — Milestone 2 validation hardening
+- Actor/tool: ChatGPT via GitHub connector
+- Branch / PR: `feat/milestone-2-live-admin-fulfilment` / PR #12
+- Purpose: Finalise the live-data migration after review of the branch diff.
+- Changes: added legacy `user` role compatibility to the server staff hierarchy; separated order/order-item reads for typed Supabase compatibility; corrected inventory batch counting to use distinct ledger batches; removed the shop's prototype `in_stock` boolean; added indexes for new fulfilment audit foreign keys; kept canonical Supabase and legacy Drizzle migration mirrors byte-for-byte aligned.
+- Tests: fulfilment Vitest and SQL regression harness committed; hosted Vercel build is running through the repository integration. The connected Vercel API scope does not currently permit access to build logs.
+- Deployment result: PR preview status remains subject to Vercel's external build gate; no production deployment was performed.
+- Rollback: `supabase/rollbacks/20260929004000_live_admin_fulfilment_rollback.sql`.
