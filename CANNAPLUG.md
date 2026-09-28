@@ -258,3 +258,16 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 - Rollback: revert the documentation commit(s) on the audit branch if the audit record needs correction.
 - Open risks: production remains blocked on the P0 items listed above.
 - Handoff artifact: `CannaPlug_Production_Implementation_Plan_and_Handoff_2026-09-28.pdf`.
+
+
+## 2026-09-28 - Verification pass: typecheck/build and lint gate
+- Actor/tool: ChatGPT
+- Branch / PR: `audit/production-readiness-2026-09-28` / PR #9
+- Purpose: Validate the repository after the audit documentation changes and add an explicit TypeScript production check.
+- Files changed: `package.json`.
+- Permanent change: added `typecheck: tsc --noEmit`; production `build` now runs `tsc --noEmit && vite build`.
+- Validation: Vercel preview deployment passed TypeScript typecheck and Vite production build.
+- Lint validation: `eslint .` was attempted through the hosted build gate and caused a failed Vercel deployment. The connected Vercel integration does not expose build logs for this project scope, and GitHub Actions runner jobs failed before execution, so exact ESLint diagnostics could not be retrieved. No speculative lint edits were applied.
+- Temporary diagnostics: CI workflow files and preview-only lint-report logic were added temporarily for diagnosis and removed before merge.
+- Deployment result: latest verification deployment is expected to run the restored typecheck + production build gate.
+- Rollback: revert the package.json commit if the explicit typecheck build gate causes an environment-specific deployment issue.
