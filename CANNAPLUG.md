@@ -305,3 +305,37 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 **Tests added:** `supabase/tests/rbac_rls.sql` covers helper hierarchy and positive/negative access cases for customer, budtender, manager and admin; `npm/bun test:rls` maps environment variables to psql variables for reproducible execution. Migration list: `20260929002000_customer_staff_rbac.sql` (canonical), `20260929003000_rbac_security_hardening.sql` (Amazon Q issues 1/3/6), and `0002_customer_staff_rbac.sql` (legacy mirror).  
 **Deployment result:** Code/migrations prepared on the feature branch; live Supabase migration and hosted deployment were not executed in this session because the connected Supabase project API returned a permission error for schema inspection/type generation.  
 **UI impact:** No visual redesign. `/admin` now performs a server-side staff authorization check before rendering the existing dashboard.  
+
+
+## 2026-09-29 — Milestone 2: live admin data & order fulfilment
+
+**Actor/tool:** ChatGPT via GitHub connector
+**Branch / PR:** `feat/milestone-2-live-admin-fulfilment` / separate PR
+**Purpose:** Replace prototype operational mock state with live Supabase data while preserving the existing admin/shop/account visual structure. Payments and POS are explicitly deferred.
+
+**Mock-data classification**
+- UI fixture: catalogue presentation images and category filter labels moved to `src/fixtures/catalog-presentation.ts`.
+- Product seed: the existing Supabase product seed remains a database migration concern; it is no longer imported by production React routes.
+- Operational state: mock admin orders, products, inventory, customers, metrics, activity, account orders/profile and product lists were removed from production paths.
+
+**Application changes**
+- `src/lib/admin-data.server.ts`: typed server-side data-access layer for dashboard metrics, orders, fulfilment, products, customers, inventory and member orders.
+- `src/lib/admin.functions.ts`: authenticated server-function boundary with Zod validation.
+- `src/routes/admin.tsx`: live overview, orders/detail, fulfilment queue, product CRUD/deactivation, inventory ledger overview and customers; existing layout retained.
+- `src/routes/shop.tsx`: live active product catalogue from Supabase.
+- `src/routes/account.tsx`: live member orders/catalogue; no hard-coded member operational state.
+- `src/lib/mock-data.ts`: removed from production source tree.
+
+**Database**
+- `supabase/migrations/20260929004000_live_admin_fulfilment.sql` adds order status history, product price history, inventory batches and immutable stock ledger, plus server-validated order transitions.
+- Product physical deletion remains admin-only; deactivation is the normal manager/admin workflow.
+- Historical order lines retain immutable `product_name` and `unit_price_rand` snapshots.
+
+**Tests**
+- `src/test/admin-data.test.ts` covers the fulfilment transition map.
+- `supabase/tests/milestone2_live_admin.sql` covers transition rules, product price-history capture and staff policy presence.
+- Full application typecheck/build and the database harness must pass before merge/deployment.
+
+**Deployment / rollback**
+- This PR contains the canonical migration but does not deploy payments/POS.
+- Apply the migration through the normal Supabase migration workflow after PR approval; rollback is by reverting the migration commit and applying a dedicated rollback migration if production data has already been introduced.
