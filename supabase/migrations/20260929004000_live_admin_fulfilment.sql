@@ -148,13 +148,13 @@ BEGIN
     RAISE EXCEPTION 'invalid order status transition: % -> %', v_order.status, p_to_status;
   END IF;
 
+  INSERT INTO public.order_status_history (order_id, from_status, to_status, actor_user_id, note)
+  VALUES (p_order_id, v_order.status, p_to_status, p_actor_user_id, p_note);
+
   UPDATE public.orders
   SET status = p_to_status
   WHERE id = p_order_id
   RETURNING * INTO v_order;
-
-  INSERT INTO public.order_status_history (order_id, from_status, to_status, actor_user_id, note)
-  VALUES (p_order_id, v_order.status, p_to_status, p_actor_user_id, p_note);
 
   RETURN v_order;
 END;
