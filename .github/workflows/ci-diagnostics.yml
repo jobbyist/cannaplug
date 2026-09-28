@@ -1,8 +1,8 @@
 name: CannaPlug CI Diagnostics
 
 on:
-  push:
-    branches: [audit/production-readiness-2026-09-28]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
