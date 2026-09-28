@@ -104,7 +104,9 @@ SELECT
   user_id,
   'RLS ' || role,
   'rbac-test-' || role
-FROM rbac_test_ids;
+FROM rbac_test_ids
+ON CONFLICT (id) DO UPDATE
+SET user_id = EXCLUDED.user_id, contact_name = EXCLUDED.contact_name, notes = EXCLUDED.notes;
 
 INSERT INTO public.addresses (user_id, label, line1, city, postal_code)
 SELECT user_id, 'RLS Test', role || ' street', 'Pretoria', '0001'
@@ -113,14 +115,12 @@ FROM rbac_test_ids;
 INSERT INTO public.customer_verification (user_id, status, metadata)
 SELECT user_id, 'unverified', jsonb_build_object('fixture', true, 'role', role)
 FROM rbac_test_ids
-ON CONFLICT (id) DO UPDATE
-SET user_id = EXCLUDED.user_id, contact_name = EXCLUDED.contact_name, notes = EXCLUDED.notes;
+ON CONFLICT (user_id) DO UPDATE
+SET status = EXCLUDED.status, metadata = EXCLUDED.metadata;
 
 INSERT INTO public.audit_log (actor_user_id, action, entity_type, entity_id, target_user_id, metadata)
 SELECT user_id, 'rls_test', 'rbac-test', gen_random_uuid(), user_id, jsonb_build_object('fixture', true, 'role', role)
-FROM rbac_test_ids
-ON CONFLICT (user_id) DO UPDATE
-SET status = EXCLUDED.status, metadata = EXCLUDED.metadata;
+FROM rbac_test_ids;
 
 INSERT INTO public.products (
   id, slug, name, category, price_rand, sort_order, is_active
