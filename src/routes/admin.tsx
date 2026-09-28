@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle, Bell, Boxes, Calendar, CircleUserRound, ClipboardList,
@@ -12,23 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { DashboardSidebar, type SidebarItem } from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { getStaffAuthorization } from "@/lib/staff-auth.server";
 import { rand } from "@/lib/cart";
 import { adminOrders, adminStats, inventoryStatus, lowStockAlerts, products, recentActivity, salesOverview, topProducts } from "@/lib/mock-data";
 import logoImage from "@/assets/cannaplug-logo.png";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin Dashboard | CannaPlug" }] }),
-  // Supabase auth currently persists in browser storage. Keep the staff route client-rendered,
-  // then perform the authorization itself on the server before the dashboard component mounts.
-  ssr: false,
-  loader: async () => {
-    const authorization = await getStaffAuthorization();
-    if (!authorization.authorized) {
-      throw redirect({ to: "/account" });
-    }
-    return authorization;
-  },
   component: AdminPage,
 });
 

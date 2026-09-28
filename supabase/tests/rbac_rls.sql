@@ -356,3 +356,56 @@ SELECT pg_temp.assert(
 );
 
 ROLLBACK;
+-- ============================================================================
+-- Amazon Q fixes: FK integrity and product hard-delete protection
+-- ============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_addresses_user_id'
+      AND conrelid = 'public.addresses'::regclass
+  ) THEN
+    RAISE EXCEPTION 'SECURITY FAIL: addresses user FK missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_customer_verification_user_id'
+      AND conrelid = 'public.customer_verification'::regclass
+  ) THEN
+    RAISE EXCEPTION 'SECURITY FAIL: customer verification user FK missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_order_items_product_id'
+      AND conrelid = 'public.order_items'::regclass
+  ) THEN
+    RAISE EXCEPTION 'SECURITY FAIL: order item product FK missing';
+  END IF;
+
+  RAISE NOTICE 'PASS: required RBAC hardening foreign keys exist';
+END $$;
+
+-- Manager must not be able to physically delete catalogue products.
+SELECT set_config('request.jwt.claim.sub', :'manager_user_id', true);
+DO $$
+BEGIN
+  BEGIN
+    DELETE FROM public.products
+    WHERE id = '00000000-0000-0000-0000-000000000901';
+    RAISE EXCEPTION 'SECURITY FAIL: manager deleted a product';
+  EXCEPTION
+    WHEN insufficient_privilege OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS: manager cannot hard-delete products';
+  END;
+END $$;
+
+-- The product can still be soft-deactivated by management.
+UPDATE public.products
+SET is_active = false
+WHERE id = '00000000-0000-0000-0000-000000000901';
+
+
