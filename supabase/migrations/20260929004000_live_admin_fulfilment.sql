@@ -62,8 +62,8 @@ CREATE OR REPLACE FUNCTION public.record_product_price_history()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
-AS $$
+SET search_path = ''
+AS $
 BEGIN
   IF TG_OP = 'INSERT' THEN
     INSERT INTO public.product_price_history (product_id, price_rand, effective_from)
@@ -199,3 +199,6 @@ COMMENT ON COLUMN public.order_items.unit_price_rand IS
   'Immutable historical unit-price snapshot captured at order creation.';
 COMMENT ON COLUMN public.order_items.product_name IS
   'Immutable historical product-name snapshot captured at order creation.';
+
+REVOKE EXECUTE ON FUNCTION public.record_product_price_history() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.order_status_transition_allowed(text, text) FROM PUBLIC, anon, authenticated;
