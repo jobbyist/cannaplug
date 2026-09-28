@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.order_status_history (
 
 CREATE INDEX IF NOT EXISTS order_status_history_order_created_idx
   ON public.order_status_history (order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS order_status_history_actor_idx
+  ON public.order_status_history (actor_user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.product_price_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,6 +29,8 @@ CREATE TABLE IF NOT EXISTS public.product_price_history (
 
 CREATE INDEX IF NOT EXISTS product_price_history_product_effective_idx
   ON public.product_price_history (product_id, effective_from DESC);
+CREATE INDEX IF NOT EXISTS product_price_history_changed_by_idx
+  ON public.product_price_history (changed_by, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.inventory_batches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -57,6 +61,8 @@ CREATE INDEX IF NOT EXISTS inventory_ledger_product_created_idx
   ON public.inventory_ledger (product_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS inventory_ledger_batch_created_idx
   ON public.inventory_ledger (batch_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS inventory_ledger_actor_created_idx
+  ON public.inventory_ledger (actor_user_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION public.record_product_price_history()
 RETURNS trigger
