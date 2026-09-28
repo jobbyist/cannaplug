@@ -210,3 +210,36 @@ fix(styles): restore full styles.css from 53a63af and import journal.css
 Homepage chrome was lost after an accidental overwrite. Restores the
 complete design-system CSS and wires src/journal.css for Journal pages.
 ```
+
+
+---
+
+## Production Readiness Audit - 2026-09-28
+
+**Audit baseline:** `main` at `0db21df36faa4f272df3f38e879d97302b2a0318`  
+**Audit scope:** application architecture, routes, Supabase integration, database migrations/RLS, authentication/RBAC, checkout/payments, POS/inventory readiness, member portal, AI/chat, CI/CD, security and production operations.  
+**Audit performed by:** ChatGPT, using the connected GitHub repository as the source of truth for the code audit.  
+**Documentation-only change:** No application code or database schema was changed as part of this audit.  
+
+### Executive audit findings
+
+The prototype has a solid presentation and routing foundation but is not yet a production dispensary operations platform. The primary production gaps are live-data integration, transactional inventory, server-enforced RBAC, real checkout/payment processing, POS/till accounting, loyalty, fulfilment, compliance-grade auditability, and automated CI/testing.
+
+### P0 blockers identified
+
+1. `src/styles.css` on `main` is a 1,856-byte temporary bootstrap while the documented last-known-good version at commit `53a63af69dbc2692f2fc13724b59a3aa320353cf` is approximately 34KB. Restore the known-good stylesheet before further UI work.
+2. `/admin` currently checks only whether a user is signed in. Production access must be enforced server-side and at the database policy layer by staff role.
+3. The current order/checkout flow is presentation-only: no authoritative server-side cart validation, order creation, inventory transaction or payment capture exists.
+4. Inventory has no batch/lot ledger or atomic stock movement model, so online ordering and counter sales cannot safely share stock.
+5. The existing database role enum is only `admin|member`; it does not support the required `customer|budtender|manager|admin` operating model.
+6. Production migration ownership is ambiguous: SQL migrations exist under `drizzle/migrations`, while `drizzle/schema.ts` is effectively a placeholder. A single canonical Supabase migration source must be established.
+7. The repository contains a tracked `.env` file. It currently contains publishable Supabase configuration rather than a service-role secret, but production hygiene should move to an ignored `.env` plus a safe `.env.example`.
+8. Two CannaPlug AI paths exist. The Supabase Edge Function is configured with `verify_jwt=false` and permissive CORS while the TanStack server function has its own rate limiting. These paths should be consolidated and hardened.
+
+### Production change-log requirement
+
+Every future code, schema, infrastructure or configuration change must append a dated entry to this file. Each entry should include: date/time, actor/tool, branch/PR, purpose, files or migrations changed, tests executed, deployment result, operational impact, and rollback notes. AI-assisted changes should also record the agent used and a short description of the prompt/task.
+
+### Next implementation authority
+
+The signed production implementation plan and handoff document dated 2026-09-28 is the controlling delivery plan for the transition from prototype to production. Changes should be made in feature branches and merged through normal PRs; do not force-push or rewrite published Lovable-connected history.
