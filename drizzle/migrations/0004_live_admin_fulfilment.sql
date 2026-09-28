@@ -200,6 +200,27 @@ ON public.inventory_ledger FOR SELECT TO authenticated
 USING ((SELECT public.has_at_least_role('budtender'::public.app_role)));
 
 -- Historical order lines already store product_name and unit_price_rand snapshots.
+-- Immutability policies: prevent any modification of historical records
+CREATE POLICY "order status history immutable"
+ON public.order_status_history FOR UPDATE TO service_role
+USING (false);
+
+CREATE POLICY "order status history no delete"
+ON public.order_status_history FOR DELETE TO service_role
+USING (false);
+
+CREATE POLICY "price history immutable"
+ON public.product_price_history FOR DELETE TO service_role
+USING (false);
+
+CREATE POLICY "inventory ledger immutable"
+ON public.inventory_ledger FOR UPDATE TO service_role
+USING (false);
+
+CREATE POLICY "inventory ledger no delete"
+ON public.inventory_ledger FOR DELETE TO service_role
+USING (false);
+
 -- This FK prevents product deletion from orphaning the product reference.
 COMMENT ON COLUMN public.order_items.unit_price_rand IS
   'Immutable historical unit-price snapshot captured at order creation.';
