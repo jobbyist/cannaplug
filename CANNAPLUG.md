@@ -271,3 +271,24 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 - Temporary diagnostics: CI workflow files and preview-only lint-report logic were added temporarily for diagnosis and removed before merge.
 - Deployment result: latest verification deployment is expected to run the restored typecheck + production build gate.
 - Rollback: revert the package.json commit if the explicit typecheck build gate causes an environment-specific deployment issue.
+
+---
+
+## 2026-09-28 — Baseline restore & engineering workflow
+
+**Branch:** `chore/baseline-restore-and-test-harness` (from `e848f85`; no history rewritten)
+
+**Intent:** Restore production styling and add guard rails. No product/UX change, no RBAC or payments work.
+
+**Files changed**
+- `src/styles.css` — restored from `53a63af` (34 KB); `@import "./journal.css";` placed at the top (after the tailwind imports) because CSS `@import` is ignored after any rule. This supersedes the "append at end" instruction in the restore section above.
+- `supabase/migrations/` — canonical schema source (two migrations copied byte-for-byte from `drizzle/migrations`, timestamped from the drizzle journal dates) + README. `drizzle/` is left untouched as a Lovable-managed legacy mirror; `src/test/migrations.test.ts` fails on drift.
+- `package.json`, `bun.lock` — `test`, `test:e2e` scripts; devDeps `vitest`, `@playwright/test`. (`typecheck` already existed: `tsc --noEmit`, strict config unchanged.)
+- `vitest.config.ts`, `src/test/*.test.ts`, `playwright.config.ts`, `e2e/smoke.spec.ts` — unit + smoke harness.
+- `.gitignore` — `.env`, `.env.*` (except `.env.example`), test output.
+- `.env` — **untracked** (`git rm --cached`; file kept locally). It contained only Supabase URL/project id/publishable key, but was committed.
+- `.env.example` — variable names only.
+
+**Tests run:** `bun install --frozen-lockfile` ✅ · `bun run typecheck` ✅ · `bun run build` ✅ · `bun run test` (4 unit) ✅ · `bun run test:e2e` (2 smoke; set `PLAYWRIGHT_CHROMIUM_PATH` if browsers aren't in the default location) ✅ · `bun run lint` ❌ ~635 pre-existing problems (almost all prettier formatting in Lovable-generated files; identical on the base commit, not touched here).
+
+**Rollback:** revert the branch's commit(s) (`git revert`), or `git checkout e848f85 -- <path>`. To re-track env: `git add -f .env`.

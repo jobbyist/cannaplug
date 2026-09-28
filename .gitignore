@@ -33,3 +33,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Test output
+test-results/
+playwright-report/
