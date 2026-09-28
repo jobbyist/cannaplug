@@ -10,7 +10,14 @@ BEGIN
 END $$;
 
 DROP TRIGGER IF EXISTS products_price_history ON public.products;
+DROP TRIGGER IF EXISTS order_status_history_immutable ON public.order_status_history;
+DROP TRIGGER IF EXISTS product_price_history_immutable ON public.product_price_history;
+DROP TRIGGER IF EXISTS inventory_ledger_immutable ON public.inventory_ledger;
+
 DROP FUNCTION IF EXISTS public.record_product_price_history();
+DROP FUNCTION IF EXISTS public.prevent_order_status_history_mutation();
+DROP FUNCTION IF EXISTS public.validate_product_price_history_mutation();
+DROP FUNCTION IF EXISTS public.prevent_inventory_ledger_mutation();
 DROP FUNCTION IF EXISTS public.transition_order_status(uuid, text, uuid, text);
 DROP FUNCTION IF EXISTS public.order_status_transition_allowed(text, text);
 
