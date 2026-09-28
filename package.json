@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:rls": "psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -v customer_user_id=\"$RLS_TEST_CUSTOMER_USER_ID\" -v budtender_user_id=\"$RLS_TEST_BUDTENDER_USER_ID\" -v manager_user_id=\"$RLS_TEST_MANAGER_USER_ID\" -v admin_user_id=\"$RLS_TEST_ADMIN_USER_ID\" -f supabase/tests/rbac_rls.sql"
   },
   "overrides": {
     "rolldown": "1.2.1"
