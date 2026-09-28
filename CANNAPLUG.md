@@ -349,3 +349,22 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 - Tests: fulfilment Vitest and SQL regression harness committed; hosted Vercel build is running through the repository integration. The connected Vercel API scope does not currently permit access to build logs.
 - Deployment result: PR preview status remains subject to Vercel's external build gate; no production deployment was performed.
 - Rollback: `supabase/rollbacks/20260929004000_live_admin_fulfilment_rollback.sql`.
+
+
+## 2026-09-29 — Amazon Q review hardening
+
+**Review:** Amazon Q Developer security review of PR #12.
+
+**Findings addressed**
+- Kept the existing live-DB price sourcing, layered staff authorization, server-side fulfilment state machine, historical order-line snapshots and removal of production mock operational data.
+- Documented that the authenticated-role UPDATE grant on `orders` is intentionally shared by customers and staff, while the `orders update staff` RLS policy is the actual authorization boundary.
+- Added database regression assertions for order visibility, staff-only order mutation, immutable historical order-line grants and admin-only product deletion.
+- Expanded Vitest coverage for all fulfilment states, terminal states and prevention of backward/skip-ahead transitions.
+- Replaced the earlier service-role-targeted RLS immutability policies with database triggers for `order_status_history` and `inventory_ledger`. This is intentional because Supabase `service_role` bypasses RLS.
+- Added a constrained `product_price_history` mutation trigger: historical rows cannot be deleted or rewritten; only the active row's `effective_to` may be closed by the product price-history workflow.
+- Kept `supabase/migrations/20260929004000_live_admin_fulfilment.sql` and `drizzle/migrations/0004_live_admin_fulfilment.sql` byte-for-byte aligned.
+
+**Validation**
+- SQL regression harness now checks transition rules, price-history capture, order/update authorization contracts, order-line write grants, admin-only product deletion and append-only audit triggers.
+- Vercel's current connected API authorization still prevents access to deployment/build logs for the CannaPlug team scope, so no claim of a successful hosted build is made from this session.
+- The migration remains packaged in PR #12 and has not been represented as applied to production.
