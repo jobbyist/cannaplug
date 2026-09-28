@@ -54,7 +54,7 @@ export type AdminDashboard = {
 };
 
 async function assertRole(userId: string, minimum: "budtender" | "manager" | "admin") {
-  const levels = { customer: 10, budtender: 20, manager: 30, admin: 40 } as const;
+  const levels = { user: 10, customer: 10, budtender: 20, manager: 30, admin: 40 } as const;
   const { data, error } = await supabaseAdmin
     .from("user_roles")
     .select("role")
