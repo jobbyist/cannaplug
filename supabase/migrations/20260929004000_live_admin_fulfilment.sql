@@ -166,10 +166,6 @@ BEGIN
 END;
 $$;
 
--- Correct the history row's from_status after the update by deriving it from the
--- immediately preceding state is not possible after the fact; use a wrapper that
--- captures it explicitly on the next migration. This trigger-free function is kept
--- for compatibility with clients that only need validation.
 REVOKE EXECUTE ON FUNCTION public.transition_order_status(uuid, text, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.transition_order_status(uuid, text, uuid, text) TO service_role;
 
@@ -200,26 +196,87 @@ ON public.inventory_ledger FOR SELECT TO authenticated
 USING ((SELECT public.has_at_least_role('budtender'::public.app_role)));
 
 -- Historical order lines already store product_name and unit_price_rand snapshots.
--- Immutability policies: prevent any modification of historical records
-CREATE POLICY "order status history immutable"
-ON public.order_status_history FOR UPDATE TO service_role
-USING (false);
+--
+-- Supabase service_role bypasses RLS, so audit-history integrity must not depend
+-- on service_role-targeted RLS policies. These trigger guards are authoritative
+-- for every role, including service_role.
+CREATE OR REPLACE FUNCTION public.prevent_order_status_history_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  RAISE EXCEPTION 'order status history is append-only';
+END;
+$;
 
-CREATE POLICY "order status history no delete"
-ON public.order_status_history FOR DELETE TO service_role
-USING (false);
+DROP TRIGGER IF EXISTS order_status_history_immutable ON public.order_status_history;
+CREATE TRIGGER order_status_history_immutable
+BEFORE UPDATE OR DELETE ON public.order_status_history
+FOR EACH ROW EXECUTE FUNCTION public.prevent_order_status_history_mutation();
 
-CREATE POLICY "price history immutable"
-ON public.product_price_history FOR DELETE TO service_role
-USING (false);
+CREATE OR REPLACE FUNCTION public.prevent_inventory_ledger_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  RAISE EXCEPTION 'inventory ledger is append-only';
+END;
+$;
 
-CREATE POLICY "inventory ledger immutable"
-ON public.inventory_ledger FOR UPDATE TO service_role
-USING (false);
+DROP TRIGGER IF EXISTS inventory_ledger_immutable ON public.inventory_ledger;
+CREATE TRIGGER inventory_ledger_immutable
+BEFORE UPDATE OR DELETE ON public.inventory_ledger
+FOR EACH ROW EXECUTE FUNCTION public.prevent_inventory_ledger_mutation();
 
-CREATE POLICY "inventory ledger no delete"
-ON public.inventory_ledger FOR DELETE TO service_role
-USING (false);
+-- Product price history is append-only except for closing the currently-active
+-- price interval. The product price trigger is the only supported operation that
+-- may set effective_to, and all other historical fields must remain unchanged.
+CREATE OR REPLACE FUNCTION public.validate_product_price_history_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'product price history cannot be deleted';
+  END IF;
+
+  IF OLD.id IS DISTINCT FROM NEW.id
+     OR OLD.product_id IS DISTINCT FROM NEW.product_id
+     OR OLD.price_rand IS DISTINCT FROM NEW.price_rand
+     OR OLD.effective_from IS DISTINCT FROM NEW.effective_from
+     OR OLD.changed_by IS DISTINCT FROM NEW.changed_by
+     OR OLD.created_at IS DISTINCT FROM NEW.created_at
+     OR OLD.effective_to IS NOT NULL
+     OR NEW.effective_to IS NULL
+     OR NEW.effective_to > statement_timestamp() THEN
+    RAISE EXCEPTION 'product price history is append-only; only closing the active interval is allowed';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS product_price_history_immutable ON public.product_price_history;
+CREATE TRIGGER product_price_history_immutable
+BEFORE UPDATE OR DELETE ON public.product_price_history
+FOR EACH ROW EXECUTE FUNCTION public.validate_product_price_history_mutation();
+
+REVOKE EXECUTE ON FUNCTION public.prevent_order_status_history_mutation() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.prevent_inventory_ledger_mutation() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.validate_product_price_history_mutation() FROM PUBLIC, anon, authenticated;
+
+-- The authenticated UPDATE grant on orders is intentionally broader than the
+-- customer use case because staff also operate through the authenticated role.
+-- The RLS policy below is the authorization boundary and permits UPDATE only
+-- when has_at_least_role('budtender') is true; customers cannot mutate orders.
+COMMENT ON POLICY "orders update staff" ON public.orders IS
+  'Authenticated UPDATE is role-gated by RLS; customers do not receive order mutation access.';
 
 -- This FK prevents product deletion from orphaning the product reference.
 COMMENT ON COLUMN public.order_items.unit_price_rand IS
