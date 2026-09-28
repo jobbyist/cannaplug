@@ -37,7 +37,7 @@ BEGIN
 
   SELECT count(*) INTO second_price_count
   FROM public.product_price_history
-  WHERE product_price_history.product_id = product_id;
+  WHERE product_price_history.product_id = v_product_id;
 
   IF second_price_count < 2 THEN
     RAISE EXCEPTION 'product price history was not captured on price update';
