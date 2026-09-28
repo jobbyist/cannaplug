@@ -63,7 +63,6 @@ function ShopPage() {
   const [category, setCategory] = useState<(typeof categoryOptions)[number]>("All");
   const [strainType, setStrainType] = useState<StrainFilter>("All");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
-  const [inStockOnly] = useState(false);
 
   useEffect(() => {
     listStoreProductsFn().then((rows) => {
@@ -80,8 +79,8 @@ function ShopPage() {
     (strainType === "All" || p.strain_type === strainType) &&
     Number(p.price_rand) >= priceRange[0] &&
     Number(p.price_rand) <= priceRange[1] &&
-    !inStockOnly
-  ), [products, category, strainType, priceRange, inStockOnly]);
+    true
+  ), [products, category, strainType, priceRange]);
 
   const resetFilters = () => {
     setCategory("All");
