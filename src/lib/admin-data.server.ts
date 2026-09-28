@@ -111,20 +111,29 @@ async function loadInventory(): Promise<InventorySummary[]> {
   const db = supabaseAdmin as any;
   const { data, error } = await db
     .from("inventory_ledger")
-    .select("product_id, quantity_delta, inventory_batches!inner(id, product_id), products!inner(name)")
+    .select("product_id, quantity_delta, batch_id")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
+  const productIds = [...new Set((data ?? []).map((row: { product_id: string }) => row.product_id))];
+  const products = productIds.length
+    ? (await supabaseAdmin.from("products").select("id,name").in("id", productIds)).data ?? []
+    : [];
+  const names = new Map(products.map((p) => [p.id, p.name]));
+  const batchesByProduct = new Map<string, Set<string>>();
   const map = new Map<string, InventorySummary>();
   for (const row of data ?? []) {
     const current = map.get(row.product_id) ?? {
       product_id: row.product_id,
-      product_name: row.products?.name ?? "Unknown product",
+      product_name: names.get(row.product_id) ?? "Unknown product",
       quantity_on_hand: 0,
       batches: 0,
     };
     current.quantity_on_hand += Number(row.quantity_delta ?? 0);
-    if (row.inventory_batches?.id) current.batches += 1;
+    const batches = batchesByProduct.get(row.product_id) ?? new Set<string>();
+    batches.add(row.batch_id);
+    batchesByProduct.set(row.product_id, batches);
+    current.batches = batches.size;
     map.set(row.product_id, current);
   }
   return [...map.values()].sort((a, b) => a.quantity_on_hand - b.quantity_on_hand);
