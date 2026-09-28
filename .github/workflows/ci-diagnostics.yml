@@ -1,0 +1,61 @@
+name: CannaPlug CI Diagnostics
+
+on:
+  push:
+    branches: [audit/production-readiness-2026-09-28]
+  workflow_dispatch:
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile 2>&1 | tee install.log
+
+      - name: Typecheck
+        id: typecheck
+        if: always()
+        continue-on-error: true
+        run: bun run typecheck 2>&1 | tee typecheck.log
+
+      - name: Lint
+        id: lint
+        if: always()
+        continue-on-error: true
+        run: bun run lint 2>&1 | tee lint.log
+
+      - name: Production build
+        id: build
+        if: always()
+        continue-on-error: true
+        run: bun run build 2>&1 | tee build.log
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cannplug-ci-diagnostics
+          path: |
+            install.log
+            typecheck.log
+            lint.log
+            build.log
+
+      - name: Fail if any validation failed
+        if: always()
+        run: |
+          test "${{ steps.install.outcome }}" = "success"
+          test "${{ steps.typecheck.outcome }}" = "success"
+          test "${{ steps.lint.outcome }}" = "success"
+          test "${{ steps.build.outcome }}" = "success"
