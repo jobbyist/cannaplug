@@ -23,7 +23,7 @@ export type ChatReply =
   | { ok: false; error: string; limited?: boolean };
 
 export const askCannaPlug = createServerFn({ method: "POST" })
-  .inputValidator((data) => inputSchema.parse(data))
+  .validator((data) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<ChatReply> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { geminiComplete, toPlainText, GatewayError } = await import("./ai-gateway.server");
