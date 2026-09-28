@@ -5,7 +5,7 @@ BEGIN;
 
 DO $$
 DECLARE
-  product_id uuid;
+  v_product_id uuid;
   first_price_count integer;
   second_price_count integer;
   allowed boolean;
@@ -23,17 +23,17 @@ BEGIN
     slug, name, category, price_rand, is_active, sort_order
   ) VALUES (
     'test-milestone-2-price-history', 'Milestone 2 Test Product', 'Flower', 100, false, 99999
-  ) RETURNING id INTO product_id;
+  ) RETURNING id INTO v_product_id;
 
   SELECT count(*) INTO first_price_count
   FROM public.product_price_history
-  WHERE product_price_history.product_id = product_id;
+  WHERE product_price_history.product_id = v_product_id;
 
   IF first_price_count < 1 THEN
     RAISE EXCEPTION 'product price history was not captured on insert';
   END IF;
 
-  UPDATE public.products SET price_rand = 125 WHERE id = product_id;
+  UPDATE public.products SET price_rand = 125 WHERE id = v_product_id;
 
   SELECT count(*) INTO second_price_count
   FROM public.product_price_history
