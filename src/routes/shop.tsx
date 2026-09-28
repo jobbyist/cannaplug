@@ -78,8 +78,7 @@ function ShopPage() {
     (category === "All" || p.category === category) &&
     (strainType === "All" || p.strain_type === strainType) &&
     Number(p.price_rand) >= priceRange[0] &&
-    Number(p.price_rand) <= priceRange[1] &&
-    true
+    Number(p.price_rand) <= priceRange[1]
   ), [products, category, strainType, priceRange]);
 
   const resetFilters = () => {
