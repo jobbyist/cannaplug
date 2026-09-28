@@ -292,3 +292,16 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 **Tests run:** `bun install --frozen-lockfile` ✅ · `bun run typecheck` ✅ · `bun run build` ✅ · `bun run test` (4 unit) ✅ · `bun run test:e2e` (2 smoke; set `PLAYWRIGHT_CHROMIUM_PATH` if browsers aren't in the default location) ✅ · `bun run lint` ❌ ~635 pre-existing problems (almost all prettier formatting in Lovable-generated files; identical on the base commit, not touched here).
 
 **Rollback:** revert the branch's commit(s) (`git revert`), or `git checkout e848f85 -- <path>`. To re-track env: `git add -f .env`.
+---
+
+## 2026-09-29 — Customer/staff RBAC and least-privilege data foundation
+
+**Actor/tool:** ChatGPT via GitHub connector  
+**Branch / PR:** `feat/customer-staff-rbac` / PR #11 (security hardening pending)  
+**Purpose:** Replace the legacy `admin|member` role model with `customer|budtender|manager|admin`; enforce staff authorization server-side; add customer addresses, verification metadata and immutable audit-log storage; tighten RLS on profiles/orders/products/user roles; and add a reproducible RLS test harness without redesigning the existing UI.  
+**Application files changed:** `src/lib/staff-auth.server.ts`, `src/routes/admin.tsx`, `src/integrations/supabase/types.ts`, `package.json`, `.env.example`.  
+**Migrations:** `supabase/migrations/20260929002000_customer_staff_rbac.sql`; mirrored byte-for-byte in legacy `drizzle/migrations/0002_customer_staff_rbac.sql` for the existing migration-drift guard.  
+**Rollback:** `supabase/rollbacks/20260929_customer_staff_rbac_rollback.sql`; existing `admin` rows are preserved, legacy `member` semantics are restorable, and new support tables are removable only through the explicit rollback script.  
+**Tests added:** `supabase/tests/rbac_rls.sql` covers helper hierarchy and positive/negative access cases for customer, budtender, manager and admin; `npm/bun test:rls` maps environment variables to psql variables for reproducible execution. Migration list: `20260929002000_customer_staff_rbac.sql` (canonical), `20260929003000_rbac_security_hardening.sql` (Amazon Q issues 1/3/6), and `0002_customer_staff_rbac.sql` (legacy mirror).  
+**Deployment result:** Code/migrations prepared on the feature branch; live Supabase migration and hosted deployment were not executed in this session because the connected Supabase project API returned a permission error for schema inspection/type generation.  
+**UI impact:** No visual redesign. `/admin` now performs a server-side staff authorization check before rendering the existing dashboard.  
