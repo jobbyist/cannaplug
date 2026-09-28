@@ -112,17 +112,28 @@ FROM rbac_test_ids;
 
 INSERT INTO public.customer_verification (user_id, status, metadata)
 SELECT user_id, 'unverified', jsonb_build_object('fixture', true, 'role', role)
-FROM rbac_test_ids;
+FROM rbac_test_ids
+ON CONFLICT (id) DO UPDATE
+SET user_id = EXCLUDED.user_id, contact_name = EXCLUDED.contact_name, notes = EXCLUDED.notes;
 
 INSERT INTO public.audit_log (actor_user_id, action, entity_type, entity_id, target_user_id, metadata)
 SELECT user_id, 'rls_test', 'rbac-test', gen_random_uuid(), user_id, jsonb_build_object('fixture', true, 'role', role)
-FROM rbac_test_ids;
+FROM rbac_test_ids
+ON CONFLICT (user_id) DO UPDATE
+SET status = EXCLUDED.status, metadata = EXCLUDED.metadata;
 
 INSERT INTO public.products (
   id, slug, name, category, price_rand, sort_order, is_active
 ) VALUES
   ('00000000-0000-0000-0000-000000000901', 'rbac-test-active', 'RBAC Test Active', 'Test', 1, 1, true),
-  ('00000000-0000-0000-0000-000000000902', 'rbac-test-inactive', 'RBAC Test Inactive', 'Test', 2, 2, false);
+  ('00000000-0000-0000-0000-000000000902', 'rbac-test-inactive', 'RBAC Test Inactive', 'Test', 2, 2, false)
+ON CONFLICT (id) DO UPDATE
+SET slug = EXCLUDED.slug,
+    name = EXCLUDED.name,
+    category = EXCLUDED.category,
+    price_rand = EXCLUDED.price_rand,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active;
 
 CREATE OR REPLACE FUNCTION pg_temp.assert(condition boolean, message text)
 RETURNS void

@@ -71,11 +71,13 @@ export async function assertBudtenderAccess(
 export async function assertManagerAccess(
   supabase: AuthenticatedSupabase,
 ): Promise<"manager" | "admin"> {
-  return assertStaffAccess(supabase, "manager");
+  const role = await assertStaffAccess(supabase, "manager");
+  return role as "manager" | "admin";
 }
 
 export async function assertAdminAccess(
   supabase: AuthenticatedSupabase,
 ): Promise<"admin"> {
-  return assertStaffAccess(supabase, "admin");
+  const role = await assertStaffAccess(supabase, "admin");
+  return role as "admin";
 }
