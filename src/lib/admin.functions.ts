@@ -81,5 +81,5 @@ export const listStoreProductsFn = createServerFn({ method: "GET" })
   .handler(() => listStoreProducts());
 
 export const listMemberOrdersFn = createServerFn({ method: "GET" })
-  .middleware(staff)
+  .middleware([requireSupabaseAuth])
   .handler(({ context }) => listMemberOrders(context.userId));
