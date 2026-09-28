@@ -6,10 +6,17 @@ const root = process.cwd();
 const canonical = join(root, "supabase/migrations");
 const legacy = join(root, "drizzle/migrations");
 
-const sqlFiles = (dir: string) =>
-  readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
+const sqlFiles = (dir: string) => {
+  try {
+    return readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+  } catch (err) {
+    throw new Error(
+      `Failed to read migration directory ${dir}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+};
 
 describe("supabase migrations", () => {
   it("use timestamped names", () => {
