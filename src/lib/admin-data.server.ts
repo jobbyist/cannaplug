@@ -71,12 +71,16 @@ async function assertRole(userId: string, minimum: "budtender" | "manager" | "ad
 async function loadOrders(limit = 50): Promise<AdminOrder[]> {
   const { data, error } = await supabaseAdmin
     .from("orders")
-    .select("*, order_items(*)")
+    .select("*")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
 
-  const rows = (data ?? []) as Array<Tables<"orders"> & { order_items: Tables<"order_items">[] }>;
+  const rows = data ?? [];
+  const orderIds = rows.map((row) => row.id);
+  const itemRows = orderIds.length
+    ? (await supabaseAdmin.from("order_items").select("*").in("order_id", orderIds)).data ?? []
+    : [];
   const ids = [...new Set(rows.map((row) => row.user_id))];
   const profiles = ids.length
     ? (await supabaseAdmin.from("profiles").select("id,full_name").in("id", ids)).data ?? []
@@ -88,9 +92,16 @@ async function loadOrders(limit = 50): Promise<AdminOrder[]> {
   const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
   const emailMap = new Map(authUsers.map((u) => [u.id, u.email]));
 
-  return rows.map(({ order_items, ...order }) => ({
+  const itemsByOrder = new Map<string, Tables<"order_items">[]>();
+  for (const item of itemRows) {
+    const list = itemsByOrder.get(item.order_id) ?? [];
+    list.push(item);
+    itemsByOrder.set(item.order_id, list);
+  }
+
+  return rows.map((order) => ({
     ...order,
-    items: order_items,
+    items: itemsByOrder.get(order.id) ?? [],
     customer_name: profileMap.get(order.user_id) ?? order.contact_name,
     customer_email: emailMap.get(order.user_id) ?? null,
   }));
@@ -287,9 +298,13 @@ export async function listStoreProducts() {
 export async function listMemberOrders(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("orders")
-    .select("*,order_items(*)")
+    .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((order) => ({ ...order, items: order.order_items ?? [] }));
+  const orderIds = (data ?? []).map((order) => order.id);
+  const items = orderIds.length
+    ? (await supabaseAdmin.from("order_items").select("*").in("order_id", orderIds)).data ?? []
+    : [];
+  return (data ?? []).map((order) => ({ ...order, items: items.filter((item) => item.order_id === order.id) }));
 }
