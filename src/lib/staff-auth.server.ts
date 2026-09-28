@@ -4,9 +4,10 @@ import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type AppRole = Database["public"]["Enums"]["app_role"];
-export type StaffRole = Exclude<AppRole, "customer">;
+export type StaffRole = Exclude<AppRole, "customer" | "user">;
 
 const ROLE_LEVEL: Record<AppRole, number> = {
+  user: 10,
   customer: 10,
   budtender: 20,
   manager: 30,
