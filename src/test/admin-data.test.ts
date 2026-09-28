@@ -24,11 +24,15 @@ describe("order fulfilment state machine", () => {
     expect(ORDER_TRANSITIONS.completed).not.toContain("cancelled");
   });
 
-  it("keeps database-level security cases in the SQL regression harness", () => {
-    // RLS/grant/trigger behaviour cannot be faithfully tested with a mocked
-    // client. The companion supabase/tests/milestone2_live_admin.sql covers:
-    // historical order-line immutability, cross-user order visibility,
-    // manager-vs-admin product deletion, and append-only audit tables.
-    expect(ORDER_TRANSITIONS).toBeDefined();
+  it("defines every supported operational status exactly once", () => {
+    expect(Object.keys(ORDER_TRANSITIONS)).toEqual([
+      "awaiting_payment",
+      "confirmed",
+      "packing",
+      "ready",
+      "out_for_delivery",
+      "completed",
+      "cancelled",
+    ]);
   });
 });
