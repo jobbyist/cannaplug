@@ -305,3 +305,66 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 **Tests added:** `supabase/tests/rbac_rls.sql` covers helper hierarchy and positive/negative access cases for customer, budtender, manager and admin; `npm/bun test:rls` maps environment variables to psql variables for reproducible execution. Migration list: `20260929002000_customer_staff_rbac.sql` (canonical), `20260929003000_rbac_security_hardening.sql` (Amazon Q issues 1/3/6), and `0002_customer_staff_rbac.sql` (legacy mirror).  
 **Deployment result:** Code/migrations prepared on the feature branch; live Supabase migration and hosted deployment were not executed in this session because the connected Supabase project API returned a permission error for schema inspection/type generation.  
 **UI impact:** No visual redesign. `/admin` now performs a server-side staff authorization check before rendering the existing dashboard.  
+
+
+## 2026-09-29 — Milestone 2: live admin data & order fulfilment
+
+**Actor/tool:** ChatGPT via GitHub connector
+**Branch / PR:** `feat/milestone-2-live-admin-fulfilment` / separate PR
+**Purpose:** Replace prototype operational mock state with live Supabase data while preserving the existing admin/shop/account visual structure. Payments and POS are explicitly deferred.
+
+**Mock-data classification**
+- UI fixture: catalogue presentation images and category filter labels moved to `src/fixtures/catalog-presentation.ts`.
+- Product seed: the existing Supabase product seed remains a database migration concern; it is no longer imported by production React routes.
+- Operational state: mock admin orders, products, inventory, customers, metrics, activity, account orders/profile and product lists were removed from production paths.
+
+**Application changes**
+- `src/lib/admin-data.server.ts`: typed server-side data-access layer for dashboard metrics, orders, fulfilment, products, customers, inventory and member orders.
+- `src/lib/admin.functions.ts`: authenticated server-function boundary with Zod validation.
+- `src/routes/admin.tsx`: live overview, orders/detail, fulfilment queue, product CRUD/deactivation, inventory ledger overview and customers; existing layout retained.
+- `src/routes/shop.tsx`: live active product catalogue from Supabase.
+- `src/routes/account.tsx`: live member orders/catalogue; no hard-coded member operational state.
+- `src/lib/mock-data.ts`: removed from production source tree.
+
+**Database**
+- `supabase/migrations/20260929004000_live_admin_fulfilment.sql` adds order status history, product price history, inventory batches and immutable stock ledger, plus server-validated order transitions.
+- Product physical deletion remains admin-only; deactivation is the normal manager/admin workflow.
+- Historical order lines retain immutable `product_name` and `unit_price_rand` snapshots.
+
+**Tests**
+- `src/test/admin-data.test.ts` covers the fulfilment transition map.
+- `supabase/tests/milestone2_live_admin.sql` covers transition rules, product price-history capture and staff policy presence.
+- Full application typecheck/build and the database harness must pass before merge/deployment.
+
+**Deployment / rollback**
+- This PR contains the canonical migration but does not deploy payments/POS.
+- Apply the migration through the normal Supabase migration workflow after PR approval; rollback is by reverting the migration commit and applying a dedicated rollback migration if production data has already been introduced.
+
+
+## 2026-09-29 — Milestone 2 validation hardening
+- Actor/tool: ChatGPT via GitHub connector
+- Branch / PR: `feat/milestone-2-live-admin-fulfilment` / PR #12
+- Purpose: Finalise the live-data migration after review of the branch diff.
+- Changes: added legacy `user` role compatibility to the server staff hierarchy; separated order/order-item reads for typed Supabase compatibility; corrected inventory batch counting to use distinct ledger batches; removed the shop's prototype `in_stock` boolean; added indexes for new fulfilment audit foreign keys; kept canonical Supabase and legacy Drizzle migration mirrors byte-for-byte aligned.
+- Tests: fulfilment Vitest and SQL regression harness committed; hosted Vercel build is running through the repository integration. The connected Vercel API scope does not currently permit access to build logs.
+- Deployment result: PR preview status remains subject to Vercel's external build gate; no production deployment was performed.
+- Rollback: `supabase/rollbacks/20260929004000_live_admin_fulfilment_rollback.sql`.
+
+
+## 2026-09-29 — Amazon Q review hardening
+
+**Review:** Amazon Q Developer security review of PR #12.
+
+**Findings addressed**
+- Kept the existing live-DB price sourcing, layered staff authorization, server-side fulfilment state machine, historical order-line snapshots and removal of production mock operational data.
+- Documented that the authenticated-role UPDATE grant on `orders` is intentionally shared by customers and staff, while the `orders update staff` RLS policy is the actual authorization boundary.
+- Added database regression assertions for order visibility, staff-only order mutation, immutable historical order-line grants and admin-only product deletion.
+- Expanded Vitest coverage for all fulfilment states, terminal states and prevention of backward/skip-ahead transitions.
+- Replaced the earlier service-role-targeted RLS immutability policies with database triggers for `order_status_history` and `inventory_ledger`. This is intentional because Supabase `service_role` bypasses RLS.
+- Added a constrained `product_price_history` mutation trigger: historical rows cannot be deleted or rewritten; only the active row's `effective_to` may be closed by the product price-history workflow.
+- Kept `supabase/migrations/20260929004000_live_admin_fulfilment.sql` and `drizzle/migrations/0004_live_admin_fulfilment.sql` byte-for-byte aligned.
+
+**Validation**
+- SQL regression harness now checks transition rules, price-history capture, order/update authorization contracts, order-line write grants, admin-only product deletion and append-only audit triggers.
+- Vercel's current connected API authorization still prevents access to deployment/build logs for the CannaPlug team scope, so no claim of a successful hosted build is made from this session.
+- The migration remains packaged in PR #12 and has not been represented as applied to production.

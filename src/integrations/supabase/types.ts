@@ -62,6 +62,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: number
+          metadata: Json
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: never
+          metadata?: Json
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: never
+          metadata?: Json
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       chat_rate_limits: {
         Row: {
           request_count: number
@@ -295,6 +328,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_at_least_role: {
+        Args: { _required: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -302,9 +343,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_staff: { Args: never; Returns: boolean }
+      role_level: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
+        Returns: number
+      }
     }
     Enums: {
-      app_role: "admin" | "member"
+      app_role: "admin" | "user" | "customer" | "budtender" | "manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -432,7 +478,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "member"],
+      app_role: ["admin", "user", "customer", "budtender", "manager"],
     },
   },
 } as const
