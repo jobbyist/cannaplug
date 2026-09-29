@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { askCannaPlug } from "@/lib/chat.functions";
@@ -25,6 +26,7 @@ function loadHistory(): ChatMessage[] {
 }
 
 export function ChatWidget() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
@@ -59,7 +61,8 @@ export function ChatWidget() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open]);
 
-  if (!mounted) return null;
+  // The standalone /subscribe/* landing pages have their own design and no chat widget.
+  if (!mounted || pathname.startsWith("/subscribe")) return null;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

@@ -22,6 +22,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
+import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 
@@ -90,6 +91,11 @@ const JournalSlugRoute = JournalSlugRouteImport.update({
   path: '/journal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscribeAdminApiRoute = SubscribeAdminApiRouteImport.update({
+  id: '/subscribe/admin-api',
+  path: '/subscribe/admin-api',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicInventoryMaintenanceRoute =
   ApiPublicInventoryMaintenanceRouteImport.update({
     id: '/api/public/inventory/maintenance',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/journal': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/subscribe/admin-api'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/subscribe/admin-api'
     | '/journal'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/subscribe/admin-api'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   ShopRoute: typeof ShopRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   JournalSlugRoute: typeof JournalSlugRoute
+  SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/subscribe/admin-api': {
+      id: '/subscribe/admin-api'
+      path: '/subscribe/admin-api'
+      fullPath: '/subscribe/admin-api'
+      preLoaderRoute: typeof SubscribeAdminApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/inventory/maintenance': {
       id: '/api/public/inventory/maintenance'
       path: '/api/public/inventory/maintenance'
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShopRoute: ShopRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   JournalSlugRoute: JournalSlugRoute,
+  SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   JournalIndexRoute: JournalIndexRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
