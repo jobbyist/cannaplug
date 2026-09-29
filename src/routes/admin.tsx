@@ -16,6 +16,7 @@ import {
   PlusCircle,
   Search,
   ShoppingBag,
+  Store,
   Truck,
   Users,
   Wallet,
@@ -48,6 +49,7 @@ import {
   transitionAdminOrderFn,
 } from "@/lib/admin.functions";
 import type { AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
+import { PosPanel } from "@/components/admin/pos/PosPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 
 export const Route = createFileRoute("/admin")({
@@ -57,6 +59,7 @@ export const Route = createFileRoute("/admin")({
 
 const NAV_ITEMS: SidebarItem[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
+  { id: "pos", icon: Store, label: "POS" },
   { id: "orders", icon: ClipboardList, label: "Orders" },
   { id: "products", icon: Package, label: "Products" },
   { id: "inventory", icon: Boxes, label: "Inventory" },
@@ -323,6 +326,7 @@ function AdminPage() {
           </div>
         )}
 
+        {tab === "pos" && <PosPanel customers={customers} />}
         {tab === "orders" && (
           <OrdersPanel
             orders={orders}
@@ -362,7 +366,8 @@ function AdminPage() {
           <div>
             <h1 className="mb-4 font-display text-xl font-extrabold uppercase">Inventory</h1>
             <p className="mb-4 text-sm text-muted-foreground">
-              On-hand quantities are calculated from immutable stock-ledger movements.
+              Available = on hand minus stock held for unpaid online orders. Figures come from the
+              immutable stock ledger and reservations; change stock in POS → Stock control.
             </p>
             <div className="grid gap-3">
               {dashboard.inventory.map((item) => (
@@ -370,10 +375,11 @@ function AdminPage() {
                   <div className="mb-2 flex justify-between text-xs">
                     <span className="font-semibold">{item.product_name}</span>
                     <span>
-                      {item.quantity_on_hand} units · {item.batches} batches
+                      {item.available} available · {item.held} held · {item.quantity_on_hand} on
+                      hand · {item.batches} batches
                     </span>
                   </div>
-                  <Progress value={Math.min(100, Math.max(0, item.quantity_on_hand * 10))} />
+                  <Progress value={Math.min(100, Math.max(0, item.available * 10))} />
                 </div>
               ))}
             </div>

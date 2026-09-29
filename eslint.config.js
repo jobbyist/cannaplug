@@ -36,5 +36,10 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Real-PostgreSQL tests assert on dynamic JSON returned by RPCs; `any` is deliberate there.
+    files: ["src/test/db/**/*.ts"],
+    rules: { "@typescript-eslint/no-explicit-any": "off" },
+  },
   eslintPluginPrettier,
 );

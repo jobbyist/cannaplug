@@ -154,4 +154,4 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'inventory ledger append-only trigger missing';
   END IF;
-END $;
+END $$;

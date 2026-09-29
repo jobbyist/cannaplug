@@ -27,6 +27,9 @@ CREATE TEMP TABLE rbac_test_ids (
   user_id uuid NOT NULL
 );
 
+-- Fixture ids must stay readable after SET ROLE authenticated/anon below.
+GRANT SELECT ON rbac_test_ids TO PUBLIC;
+
 INSERT INTO rbac_test_ids(role, user_id) VALUES
   ('customer', :'customer_user_id'::uuid),
   ('budtender', :'budtender_user_id'::uuid),
