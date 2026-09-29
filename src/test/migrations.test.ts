@@ -23,6 +23,15 @@ describe("supabase migrations", () => {
     for (const f of sqlFiles(canonical)) expect(f).toMatch(/^\d{14}_[a-z0-9_]+\.sql$/);
   });
 
+  it("have balanced dollar-quote delimiters", () => {
+    for (const f of sqlFiles(canonical)) {
+      const sql = readFileSync(join(canonical, f), "utf8");
+      // A lone `$` opener/closer (e.g. `AS $` ... `$$;`) is a syntax error in Postgres.
+      expect(sql, `${f} has a malformed dollar-quote delimiter`).not.toMatch(/^(AS \$|\$;)\s*$/m);
+      expect((sql.match(/\$\$/g) ?? []).length % 2, `${f} has unbalanced $$ delimiters`).toBe(0);
+    }
+  });
+
   it("match the legacy drizzle mirror byte-for-byte, in order", () => {
     const a = sqlFiles(canonical);
     const b = sqlFiles(legacy);
