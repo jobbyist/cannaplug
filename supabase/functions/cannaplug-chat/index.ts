@@ -67,10 +67,13 @@ Deno.serve(async (req: Request) => {
 
     const { messages } = (await req.json()) as { messages?: ChatMessage[] };
     if (!Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "Request must include a non-empty messages array." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Request must include a non-empty messages array." }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
@@ -101,7 +104,9 @@ Deno.serve(async (req: Request) => {
       const errText = await response.text();
       console.error("Gemini API error", response.status, errText);
       return new Response(
-        JSON.stringify({ error: "The AI assistant is temporarily unavailable. Please try again shortly." }),
+        JSON.stringify({
+          error: "The AI assistant is temporarily unavailable. Please try again shortly.",
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

@@ -501,7 +501,9 @@ export function Header() {
                   >
                     <ShoppingBag size={18} />
                     <span className="cart-pill-label">Cart</span>
-                    <b key={count} className={count > 0 ? "cart-count has-items" : "cart-count"}>{count}</b>
+                    <b key={count} className={count > 0 ? "cart-count has-items" : "cart-count"}>
+                      {count}
+                    </b>
                   </button>
                 </SheetTrigger>
               }
@@ -818,10 +820,14 @@ function Newsroom() {
                   <img src={editorialImage} className={pos} alt="" loading="lazy" />
                 </div>
                 <div className="news-content">
-                  <p className="eyebrow">{cat} · {date}</p>
+                  <p className="eyebrow">
+                    {cat} · {date}
+                  </p>
                   <h3>{title}</h3>
                   <p>{excerpt}</p>
-                  <Link to="/journal">Read more <ArrowRight size={15} /></Link>
+                  <Link to="/journal">
+                    Read more <ArrowRight size={15} />
+                  </Link>
                 </div>
               </article>
             ))}

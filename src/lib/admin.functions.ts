@@ -23,7 +23,21 @@ export const getAdminDashboardFn = createServerFn({ method: "GET" })
 
 export const listAdminOrdersFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(({ context }) => listAdminOrders(context.userId));
+  .validator((data) =>
+    z
+      .object({
+        limit: z.number().int().min(1).max(100).optional(),
+        before: z.string().datetime().optional(),
+      })
+      .default({})
+      .parse(data),
+  )
+  .handler(({ context, data }) =>
+    listAdminOrders(context.userId, {
+      ...(data.limit ? { limit: data.limit } : {}),
+      ...(data.before ? { before: data.before } : {}),
+    }),
+  );
 
 export const getAdminOrderFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -32,12 +46,31 @@ export const getAdminOrderFn = createServerFn({ method: "GET" })
 
 export const transitionAdminOrderFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data) => z.object({
-    orderId: z.string().uuid(),
-    toStatus: z.enum(["awaiting_payment","confirmed","packing","ready","out_for_delivery","completed","cancelled"]),
-    note: z.string().max(500).optional(),
-  }).parse(data))
-  .handler(({ context, data }) => transitionAdminOrder(context.userId, data.orderId, data.toStatus as AdminOrderStatus, data.note));
+  .validator((data) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        toStatus: z.enum([
+          "awaiting_payment",
+          "confirmed",
+          "packing",
+          "ready",
+          "out_for_delivery",
+          "completed",
+          "cancelled",
+        ]),
+        note: z.string().max(500).optional(),
+      })
+      .parse(data),
+  )
+  .handler(({ context, data }) =>
+    transitionAdminOrder(
+      context.userId,
+      data.orderId,
+      data.toStatus as AdminOrderStatus,
+      data.note,
+    ),
+  );
 
 export const listAdminProductsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -59,8 +92,12 @@ const productSchema = z.object({
 
 export const saveAdminProductFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data) => z.object({ productId: z.string().uuid().optional(), input: productSchema }).parse(data))
-  .handler(({ context, data }) => saveAdminProduct(context.userId, data.input as AdminProductInput, data.productId));
+  .validator((data) =>
+    z.object({ productId: z.string().uuid().optional(), input: productSchema }).parse(data),
+  )
+  .handler(({ context, data }) =>
+    saveAdminProduct(context.userId, data.input as AdminProductInput, data.productId),
+  );
 
 export const deactivateAdminProductFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -75,8 +112,9 @@ export const listFulfilmentQueueFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(({ context }) => listFulfilmentQueue(context.userId));
 
-export const listStoreProductsFn = createServerFn({ method: "GET" })
-  .handler(() => listStoreProducts());
+export const listStoreProductsFn = createServerFn({ method: "GET" }).handler(() =>
+  listStoreProducts(),
+);
 
 export const listMemberOrdersFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

@@ -23,7 +23,17 @@ export const ORDER_TRANSITIONS: Record<AdminOrderStatus, AdminOrderStatus[]> = {
 export type AdminProduct = Tables<"products">;
 export type AdminProductInput = Pick<
   TablesInsert<"products">,
-  "slug" | "name" | "category" | "subcategory" | "description" | "price_rand" | "unit" | "strain_type" | "badge" | "sort_order" | "is_active"
+  | "slug"
+  | "name"
+  | "category"
+  | "subcategory"
+  | "description"
+  | "price_rand"
+  | "unit"
+  | "strain_type"
+  | "badge"
+  | "sort_order"
+  | "is_active"
 >;
 
 export type AdminOrder = Tables<"orders"> & {
@@ -64,36 +74,56 @@ async function assertRole(userId: string, minimum: "budtender" | "manager" | "ad
 
   if (error) throw error;
   const role = (data ?? []).sort((a, b) => levels[b.role] - levels[a.role])[0]?.role;
-  if (!role || levels[role] < levels[minimum]) throw new Error("Forbidden: insufficient staff permissions");
+  if (!role || levels[role] < levels[minimum])
+    throw new Error("Forbidden: insufficient staff permissions");
   return role;
 }
 
-async function loadOrders(limit = 50): Promise<AdminOrder[]> {
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
+const AUTH_LOOKUP_CONCURRENCY = 10;
+const MAX_PAGE_SIZE = 100;
 
-  const rows = data ?? [];
+type OrderRow = Tables<"orders">;
+
+/**
+ * Resolve auth emails in bounded batches so a page of orders can never fan out
+ * into an unbounded burst of Auth Admin API calls. A failed lookup degrades to
+ * a null email rather than failing the whole order list.
+ */
+async function loadEmails(ids: string[]): Promise<Map<string, string | null>> {
+  const emails = new Map<string, string | null>();
+  for (let i = 0; i < ids.length; i += AUTH_LOOKUP_CONCURRENCY) {
+    const batch = ids.slice(i, i + AUTH_LOOKUP_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const { data } = await supabaseAdmin.auth.admin.getUserById(id);
+          return [id, data.user?.email ?? null] as const;
+        } catch {
+          return [id, null] as const;
+        }
+      }),
+    );
+    for (const [id, email] of results) emails.set(id, email);
+  }
+  return emails;
+}
+
+async function hydrateOrders(rows: OrderRow[]): Promise<AdminOrder[]> {
+  if (!rows.length) return [];
   const orderIds = rows.map((row) => row.id);
-  const itemRows = orderIds.length
-    ? (await supabaseAdmin.from("order_items").select("*").in("order_id", orderIds)).data ?? []
-    : [];
   const ids = [...new Set(rows.map((row) => row.user_id))];
-  const profiles = ids.length
-    ? (await supabaseAdmin.from("profiles").select("id,full_name").in("id", ids)).data ?? []
-    : [];
-  const authUsers = await Promise.all(ids.map(async (id) => {
-    const result = await supabaseAdmin.auth.admin.getUserById(id);
-    return result.data.user ? { id, email: result.data.user.email ?? null } : { id, email: null };
-  }));
-  const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
-  const emailMap = new Map(authUsers.map((u) => [u.id, u.email]));
 
+  const [itemsResult, profilesResult, emailMap] = await Promise.all([
+    supabaseAdmin.from("order_items").select("*").in("order_id", orderIds),
+    supabaseAdmin.from("profiles").select("id,full_name").in("id", ids),
+    loadEmails(ids),
+  ]);
+  if (itemsResult.error) throw itemsResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+
+  const profileMap = new Map((profilesResult.data ?? []).map((p) => [p.id, p.full_name]));
   const itemsByOrder = new Map<string, Tables<"order_items">[]>();
-  for (const item of itemRows) {
+  for (const item of itemsResult.data ?? []) {
     const list = itemsByOrder.get(item.order_id) ?? [];
     list.push(item);
     itemsByOrder.set(item.order_id, list);
@@ -107,17 +137,36 @@ async function loadOrders(limit = 50): Promise<AdminOrder[]> {
   }));
 }
 
+export type OrderPage = {
+  limit?: number;
+  /** ISO created_at of the last row already loaded; returns the next (older) page. */
+  before?: string;
+  statuses?: AdminOrderStatus[];
+};
+
+async function loadOrders({ limit = 50, before, statuses }: OrderPage = {}): Promise<AdminOrder[]> {
+  let query = supabaseAdmin
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(Math.min(Math.max(limit, 1), MAX_PAGE_SIZE));
+  if (before) query = query.lt("created_at", before);
+  if (statuses?.length) query = query.in("status", statuses);
+  const { data, error } = await query;
+  if (error) throw error;
+  return hydrateOrders(data ?? []);
+}
+
 async function loadInventory(): Promise<InventorySummary[]> {
-  const db = supabaseAdmin as any;
-  const { data, error } = await db
+  const { data, error } = await supabaseAdmin
     .from("inventory_ledger")
     .select("product_id, quantity_delta, batch_id")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
-  const productIds: string[] = [...new Set<string>((data ?? []).map((row: { product_id: string }) => row.product_id))];
+  const productIds = [...new Set((data ?? []).map((row) => row.product_id))];
   const products = productIds.length
-    ? (await supabaseAdmin.from("products").select("id,name").in("id", productIds)).data ?? []
+    ? ((await supabaseAdmin.from("products").select("id,name").in("id", productIds)).data ?? [])
     : [];
   const names = new Map(products.map((p) => [p.id, p.name]));
   const batchesByProduct = new Map<string, Set<string>>();
@@ -148,21 +197,34 @@ async function loadActivity(limit = 8) {
   if (error) throw error;
   return (data ?? []).map((row) => ({
     label: `${row.action.replaceAll("_", " ")} · ${row.entity_type}`,
-    time: new Date(row.created_at).toLocaleString("en-ZA", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+    time: new Date(row.created_at).toLocaleString("en-ZA", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
   }));
 }
 
 export async function getAdminDashboard(userId: string): Promise<AdminDashboard> {
   await assertRole(userId, "budtender");
   const [orders, inventory, activity] = await Promise.all([
-    loadOrders(8),
+    loadOrders({ limit: 8 }),
     loadInventory(),
     loadActivity(),
   ]);
 
-  const { count: totalOrders } = await supabaseAdmin.from("orders").select("id", { count: "exact", head: true });
-  const { data: revenueRows } = await supabaseAdmin.from("orders").select("total_rand").eq("status", "completed");
-  const { count: totalCustomers } = await supabaseAdmin.from("user_roles").select("user_id", { count: "exact", head: true }).eq("role", "customer");
+  const { count: totalOrders } = await supabaseAdmin
+    .from("orders")
+    .select("id", { count: "exact", head: true });
+  const { data: revenueRows } = await supabaseAdmin
+    .from("orders")
+    .select("total_rand")
+    .eq("status", "completed");
+  const { count: totalCustomers } = await supabaseAdmin
+    .from("user_roles")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role", "customer");
 
   const lastSeven = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
@@ -180,7 +242,9 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     const key = date.toISOString().slice(0, 10);
     return {
       day: date.toLocaleDateString("en-ZA", { weekday: "short" }),
-      value: (recentSales ?? []).filter((row) => row.created_at.slice(0, 10) === key).reduce((sum, row) => sum + Number(row.total_rand), 0),
+      value: (recentSales ?? [])
+        .filter((row) => row.created_at.slice(0, 10) === key)
+        .reduce((sum, row) => sum + Number(row.total_rand), 0),
     };
   });
 
@@ -190,8 +254,12 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     .order("quantity", { ascending: false })
     .limit(100);
   const topMap = new Map<string, number>();
-  for (const row of topRows ?? []) topMap.set(row.product_name, (topMap.get(row.product_name) ?? 0) + row.quantity);
-  const topProducts = [...topMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, sold]) => ({ name, sold }));
+  for (const row of topRows ?? [])
+    topMap.set(row.product_name, (topMap.get(row.product_name) ?? 0) + row.quantity);
+  const topProducts = [...topMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, sold]) => ({ name, sold }));
 
   return {
     stats: {
@@ -208,15 +276,25 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
   };
 }
 
-export async function listAdminOrders(userId: string) {
+export async function listAdminOrders(
+  userId: string,
+  page: Pick<OrderPage, "limit" | "before"> = {},
+) {
   await assertRole(userId, "budtender");
-  return loadOrders(100);
+  return loadOrders({ limit: MAX_PAGE_SIZE, ...page });
 }
 
 export async function getAdminOrder(userId: string, orderId: string) {
   await assertRole(userId, "budtender");
-  const orders = await loadOrders(1000);
-  return orders.find((order) => order.id === orderId) ?? null;
+  const { data, error } = await supabaseAdmin
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const [order] = await hydrateOrders([data]);
+  return order ?? null;
 }
 
 export async function transitionAdminOrder(
@@ -226,12 +304,11 @@ export async function transitionAdminOrder(
   note?: string,
 ) {
   await assertRole(userId, "budtender");
-  const db = supabaseAdmin as any;
-  const { data, error } = await db.rpc("transition_order_status", {
+  const { data, error } = await supabaseAdmin.rpc("transition_order_status", {
     p_order_id: orderId,
     p_to_status: toStatus,
     p_actor_user_id: userId,
-    p_note: note ?? null,
+    ...(note ? { p_note: note } : {}),
   });
   if (error) throw error;
   await supabaseAdmin.from("audit_log").insert({
@@ -246,57 +323,108 @@ export async function transitionAdminOrder(
 
 export async function listAdminProducts(userId: string) {
   await assertRole(userId, "budtender");
-  const { data, error } = await supabaseAdmin.from("products").select("*").order("sort_order").order("name");
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("*")
+    .order("sort_order")
+    .order("name");
   if (error) throw error;
   return data ?? [];
 }
 
-export async function saveAdminProduct(userId: string, input: AdminProductInput, productId?: string) {
+export async function saveAdminProduct(
+  userId: string,
+  input: AdminProductInput,
+  productId?: string,
+) {
   await assertRole(userId, "manager");
   if (productId) {
-    const { data, error } = await supabaseAdmin.from("products").update(input as TablesUpdate<"products">).eq("id", productId).select().single();
+    const { data, error } = await supabaseAdmin
+      .from("products")
+      .update(input as TablesUpdate<"products">)
+      .eq("id", productId)
+      .select()
+      .single();
     if (error) throw error;
-    await supabaseAdmin.from("audit_log").insert({ actor_user_id: userId, action: "product_updated", entity_type: "product", entity_id: productId, metadata: { price_rand: input.price_rand } });
+    await supabaseAdmin.from("audit_log").insert({
+      actor_user_id: userId,
+      action: "product_updated",
+      entity_type: "product",
+      entity_id: productId,
+      metadata: { price_rand: input.price_rand },
+    });
     return data;
   }
   const { data, error } = await supabaseAdmin.from("products").insert(input).select().single();
   if (error) throw error;
-  await supabaseAdmin.from("audit_log").insert({ actor_user_id: userId, action: "product_created", entity_type: "product", entity_id: data.id });
+  await supabaseAdmin.from("audit_log").insert({
+    actor_user_id: userId,
+    action: "product_created",
+    entity_type: "product",
+    entity_id: data.id,
+  });
   return data;
 }
 
 export async function deactivateAdminProduct(userId: string, productId: string) {
   await assertRole(userId, "manager");
-  const { data, error } = await supabaseAdmin.from("products").update({ is_active: false }).eq("id", productId).select().single();
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .update({ is_active: false })
+    .eq("id", productId)
+    .select()
+    .single();
   if (error) throw error;
-  await supabaseAdmin.from("audit_log").insert({ actor_user_id: userId, action: "product_deactivated", entity_type: "product", entity_id: productId });
+  await supabaseAdmin.from("audit_log").insert({
+    actor_user_id: userId,
+    action: "product_deactivated",
+    entity_type: "product",
+    entity_id: productId,
+  });
   return data;
 }
 
 export async function listCustomers(userId: string) {
   await assertRole(userId, "budtender");
-  const { data: roles, error } = await supabaseAdmin.from("user_roles").select("user_id,role,created_at").eq("role", "customer").order("created_at", { ascending: false }).limit(250);
+  const { data: roles, error } = await supabaseAdmin
+    .from("user_roles")
+    .select("user_id,role,created_at")
+    .eq("role", "customer")
+    .order("created_at", { ascending: false })
+    .limit(250);
   if (error) throw error;
   const ids = [...new Set((roles ?? []).map((r) => r.user_id))];
-  const profiles = ids.length ? (await supabaseAdmin.from("profiles").select("id,full_name,phone,created_at").in("id", ids)).data ?? [] : [];
-  const counts = ids.length ? (await supabaseAdmin.from("orders").select("user_id,total_rand").in("user_id", ids)).data ?? [] : [];
+  const profiles = ids.length
+    ? ((await supabaseAdmin.from("profiles").select("id,full_name,phone,created_at").in("id", ids))
+        .data ?? [])
+    : [];
+  const counts = ids.length
+    ? ((await supabaseAdmin.from("orders").select("user_id,total_rand").in("user_id", ids)).data ??
+      [])
+    : [];
   return profiles.map((profile) => ({
     ...profile,
     orderCount: counts.filter((row) => row.user_id === profile.id).length,
-    spendRand: counts.filter((row) => row.user_id === profile.id).reduce((sum, row) => sum + Number(row.total_rand), 0),
+    spendRand: counts
+      .filter((row) => row.user_id === profile.id)
+      .reduce((sum, row) => sum + Number(row.total_rand), 0),
   }));
 }
 
 export async function listFulfilmentQueue(userId: string) {
   await assertRole(userId, "budtender");
-  const orders = await loadOrders(100);
-  return orders.filter((order) => ["confirmed", "packing", "ready", "out_for_delivery"].includes(order.status));
+  return loadOrders({
+    limit: MAX_PAGE_SIZE,
+    statuses: ["confirmed", "packing", "ready", "out_for_delivery"],
+  });
 }
 
 export async function listStoreProducts() {
   const { data, error } = await supabaseAdmin
     .from("products")
-    .select("id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,is_active,sort_order")
+    .select(
+      "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,is_active,sort_order",
+    )
     .eq("is_active", true)
     .order("sort_order")
     .order("name");
@@ -313,7 +441,10 @@ export async function listMemberOrders(userId: string) {
   if (error) throw error;
   const orderIds = (data ?? []).map((order) => order.id);
   const items = orderIds.length
-    ? (await supabaseAdmin.from("order_items").select("*").in("order_id", orderIds)).data ?? []
+    ? ((await supabaseAdmin.from("order_items").select("*").in("order_id", orderIds)).data ?? [])
     : [];
-  return (data ?? []).map((order) => ({ ...order, items: items.filter((item) => item.order_id === order.id) }));
+  return (data ?? []).map((order) => ({
+    ...order,
+    items: items.filter((item) => item.order_id === order.id),
+  }));
 }

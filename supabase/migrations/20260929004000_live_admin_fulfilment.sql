@@ -69,7 +69,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     INSERT INTO public.product_price_history (product_id, price_rand, effective_from)
@@ -205,11 +205,11 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   RAISE EXCEPTION 'order status history is append-only';
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS order_status_history_immutable ON public.order_status_history;
 CREATE TRIGGER order_status_history_immutable
@@ -221,11 +221,11 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   RAISE EXCEPTION 'inventory ledger is append-only';
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS inventory_ledger_immutable ON public.inventory_ledger;
 CREATE TRIGGER inventory_ledger_immutable
@@ -240,7 +240,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'product price history cannot be deleted';
@@ -260,7 +260,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS product_price_history_immutable ON public.product_price_history;
 CREATE TRIGGER product_price_history_immutable

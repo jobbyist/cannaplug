@@ -1,7 +1,13 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export const JOURNAL_CATEGORIES = ["Culture", "Industry", "Law & Policy", "Wellness", "Lifestyle"] as const;
+export const JOURNAL_CATEGORIES = [
+  "Culture",
+  "Industry",
+  "Law & Policy",
+  "Wellness",
+  "Lifestyle",
+] as const;
 
 export type JournalSource = { url: string; title: string };
 export type JournalArticle = {
@@ -43,13 +49,22 @@ export const journalArticleQuery = (slug: string) =>
   queryOptions({
     queryKey: ["journal", "article", slug],
     queryFn: async (): Promise<JournalArticle | null> => {
-      const { data, error } = await supabase.from("articles").select("*").eq("slug", slug).maybeSingle();
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
       if (error) throw error;
       return (data as unknown as JournalArticle) ?? null;
     },
   });
 
 export const formatJournalDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Johannesburg" });
+  new Date(iso).toLocaleDateString("en-ZA", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Africa/Johannesburg",
+  });
 
 export const UNSPLASH_REF = "https://unsplash.com/?utm_source=cannaplug&utm_medium=referral";

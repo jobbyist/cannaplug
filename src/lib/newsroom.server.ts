@@ -1,7 +1,13 @@
 // Editorial pipeline: Firecrawl research -> Gemini draft -> Gemini editor review -> Unsplash cover -> publish.
 import { EDITORIAL_MODEL, geminiStream, GatewayError } from "./ai-gateway.server";
 
-export const JOURNAL_CATEGORIES = ["Culture", "Industry", "Law & Policy", "Wellness", "Lifestyle"] as const;
+export const JOURNAL_CATEGORIES = [
+  "Culture",
+  "Industry",
+  "Law & Policy",
+  "Wellness",
+  "Lifestyle",
+] as const;
 
 const TOPIC_SEEDS = [
   "South African cannabis culture news",
@@ -42,7 +48,9 @@ async function research(query: string): Promise<Source[]> {
   });
   if (!res.ok) throw new Error(`Firecrawl search failed (${res.status})`);
   const json = (await res.json()) as {
-    data?: { web?: { url: string; title?: string; description?: string; markdown?: string }[] } | { url: string; title?: string; description?: string; markdown?: string }[];
+    data?:
+      | { web?: { url: string; title?: string; description?: string; markdown?: string }[] }
+      | { url: string; title?: string; description?: string; markdown?: string }[];
   };
   const items = Array.isArray(json.data) ? json.data : (json.data?.web ?? []);
   return items
@@ -93,7 +101,10 @@ async function writeArticle(sources: Source[], recentTitles: string[]): Promise<
 
   // Editorial review pass
   const reviewedText = await geminiStream(EDITORIAL_MODEL, [
-    { role: "system", content: `You are the senior editor of The CannaPlug Journal.\n${STYLE}\n\n${SHAPE}` },
+    {
+      role: "system",
+      content: `You are the senior editor of The CannaPlug Journal.\n${STYLE}\n\n${SHAPE}`,
+    },
     {
       role: "user",
       content: `Review and improve this draft. Fix factual overreach against the research, remove medical claims, tighten prose, strengthen headings and SEO, and keep the required structure and length. Return the final article as json.\n\nDRAFT:\n${JSON.stringify(draft)}\n\nRESEARCH TITLES:\n${sources.map((s) => `${s.title} (${s.url})`).join("\n")}`,
@@ -115,14 +126,20 @@ async function findCover(query: string) {
   );
   if (!res.ok) return null;
   const json = (await res.json()) as {
-    results?: { urls: { regular: string; raw: string }; user: { name: string; links: { html: string } }; links: { download_location: string } }[];
+    results?: {
+      urls: { regular: string; raw: string };
+      user: { name: string; links: { html: string } };
+      links: { download_location: string };
+    }[];
   };
   const pool = json.results ?? [];
   if (!pool.length) return null;
   const photo = pool[Math.floor(Math.random() * Math.min(pool.length, 6))];
   if (!photo) return null;
   // Required by Unsplash API guidelines
-  fetch(photo.links.download_location, { headers: { Authorization: `Client-ID ${key}` } }).catch(() => {});
+  fetch(photo.links.download_location, { headers: { Authorization: `Client-ID ${key}` } }).catch(
+    () => {},
+  );
   return {
     url: `${photo.urls.raw}&w=1600&q=80&fit=crop&auto=format`,
     name: photo.user.name,
@@ -141,7 +158,11 @@ function slugify(s: string) {
 export async function generateAndPublishArticle(publishedAt?: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const { data: state } = await supabaseAdmin.from("newsroom_job_state").select("*").eq("id", "default").maybeSingle();
+  const { data: state } = await supabaseAdmin
+    .from("newsroom_job_state")
+    .select("*")
+    .eq("id", "default")
+    .maybeSingle();
   if (state?.paused_at) throw new Error(`Pipeline paused: ${state.paused_reason ?? "unknown"}`);
 
   const { data: recent } = await supabaseAdmin
@@ -165,7 +186,9 @@ export async function generateAndPublishArticle(publishedAt?: string) {
     const article = await writeArticle(sources, recentTitles);
     const cover = await findCover(article.unsplash_query || "cannabis South Africa");
     const words = article.body_md.split(/\s+/).length;
-    const category = (JOURNAL_CATEGORIES as readonly string[]).includes(article.category) ? article.category : "Culture";
+    const category = (JOURNAL_CATEGORIES as readonly string[]).includes(article.category)
+      ? article.category
+      : "Culture";
     const slug = `${slugify(article.title)}-${Math.random().toString(36).slice(2, 6)}`;
 
     const { data: inserted, error } = await supabaseAdmin
