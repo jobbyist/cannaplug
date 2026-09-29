@@ -368,3 +368,68 @@ The signed production implementation plan and handoff document dated 2026-09-28 
 - SQL regression harness now checks transition rules, price-history capture, order/update authorization contracts, order-line write grants, admin-only product deletion and append-only audit triggers.
 - Vercel's current connected API authorization still prevents access to deployment/build logs for the CannaPlug team scope, so no claim of a successful hosted build is made from this session.
 - The migration remains packaged in PR #12 and has not been represented as applied to production.
+
+
+## 2026-09-29 — Milestone 3: POS & atomic inventory
+
+**Branch / PR:** `feat/milestone-3-pos-atomic-inventory` (see PR for the number)
+**Migration:** `supabase/migrations/20260929010000_pos_atomic_inventory.sql` (mirrored to `drizzle/migrations/0007_…`), rollback `supabase/rollbacks/20260929010000_pos_atomic_inventory_rollback.sql` (rehearsed: `scripts/rollback-rehearsal.sh`).
+**Principle:** *one* inventory engine and *no* client-controlled money or stock. The browser sends product ids, quantities, tender amounts and an idempotency key; PostgreSQL derives every price, total, stock decision and actor check.
+
+### 1. Inventory transaction model (extends Milestone 2 — no second engine)
+
+| Concept | Storage | Rule |
+|---|---|---|
+| **Batches** | `inventory_batches` (+`qty_on_hand`, `qty_held`) | `0 ≤ qty_held ≤ qty_on_hand` enforced by CHECK constraints |
+| **Stock movements** | `inventory_ledger` (+`movement_type`), read view `stock_movements` | append-only; a trigger applies every insert to `qty_on_hand`; sign/type CHECK; unique `(movement_type, reference_type, reference_id, batch_id)` so a business line can never move a batch twice |
+| **Reservations (held)** | `stock_reservations` (order line × batch) | insert-as-held → `consumed`/`released`/`expired` only; triggers maintain `qty_held`; one live reservation per line+batch |
+| **Available** | `qty_on_hand − qty_held` (view `inventory_availability`) | expired batches excluded |
+| **Consumed** | net of `online_sale`/`pos_sale` minus restock movements (same view) | derived, never stored |
+
+Movement types: `receipt`, `adjustment`, `online_sale`, `online_cancel_restock`, `pos_sale`, `pos_void_restock`, `pos_refund_restock`. Allocation is first-expiry-first-out.
+
+**Locking discipline (deadlock freedom):** every path locks `inventory_batches` rows **first, in one global order** (`product_id, expires_at NULLS LAST, received_at, id`) and only then touches reservations/ledger. Row order elsewhere: order → batches; session(share) → products(share) → advisory payment-reference locks → batches; sale → session(share) → batches (void/refund). Held is reduced *before* on-hand when consuming, so the CHECKs hold between statements. All mutating RPCs refuse to run below `READ COMMITTED`.
+
+### 2. Tables added
+`stock_reservations`, `operation_idempotency`, `payment_events`, `loyalty_ledger`, `cash_drawers`, `pos_sessions`, `pos_sales`, `pos_sale_items`, `pos_tenders`, `pos_refunds`, `pos_refund_items`, `pos_refund_payouts`; views `stock_movements`, `inventory_availability`.
+- `pos_sessions`: opening float, `expected_cash`, `actual_cash`, `variance`, `tender_totals`, `sales_count`, `approval_status` (`not_required|pending|approved|rejected`), `approved_by/at/note`; **one open session per drawer** (partial unique index); closed counts are immutable.
+- `pos_tenders`: `cash|card|eft|paypal`; `UNIQUE (method, reference)` — the same slip/capture cannot back two payments. `pos_sales`, `pos_tenders`, refunds, loyalty, payment events are append-only (triggers bind `service_role` too). A **deferred constraint trigger** re-checks at commit that `sum(items) = sum(tenders) = total` and that every line has matching stock movements, even for direct SQL.
+- Variance beyond `pos_variance_tolerance()` (R10.00) needs approval by someone **other than the cashier**.
+
+### 3. RPC surface (all `SECURITY DEFINER`, `search_path=''`, executable by `service_role` only)
+`receive_stock`, `adjust_stock` (manager, reason mandatory, audited) · `create_online_order` (server-priced order + hold; max 5 open holds/customer), `reserve_order_stock`, `confirm_order_payment` (idempotent webhook entry point; outcomes `confirmed | already_processed | amount_mismatch | stock_unavailable_needs_refund | paid_after_cancel_needs_refund`), `release_expired_reservations`, `purge_old_idempotency_keys` · `pos_upsert_drawer`, `pos_open_session`, `pos_close_session`, `pos_review_session` · `pos_complete_sale`, `pos_void_sale` (manager, audited), `pos_refund_sale` (manager, multi-method payouts, audited) · `accrue_pos_loyalty`.
+`transition_order_status` (Milestone 2 signature kept) now consumes/releases/restocks stock on confirm/cancel. Direct customer `INSERT` on `orders`/`order_items` is **revoked** (they used client-chosen totals); `create_online_order` replaces it.
+**Payments:** `paypal` is a *tender/event reference* only; no PayPal API or webhook signature verification is implemented (no credentials in scope). `confirm_order_payment` is the DB entry point a verified webhook handler must call.
+**Loyalty:** 1 point per R10 of net spend, accrued by a separate idempotent call **after** `pos_complete_sale` has committed (`pos-data.server.ts`); void/refund reverse points if they were already accrued; a failed accrual never fails the sale.
+
+### 4. UI (`/admin` → **POS**, visual language unchanged)
+`src/components/admin/pos/{PosPanel,StockControl}.tsx`, pure logic in `pos-logic.ts`, server boundary `src/lib/pos.functions.ts` (Zod, `.strict()` sale input — a price/total field is rejected), data layer `src/lib/pos-data.server.ts`.
+Speed-first search (autofocus, `/`, ↑/↓, Enter, `3*blue` quick quantity), keyboard quantity controls (↑/↓/+/−/Delete), `F4` exact cash, `F9`/Ctrl+Enter complete, split multi-tender with per-method references, cash-change helper, receipt, till open/close with **blind count** (expected cash is only revealed after the count is submitted), void/refund (managers), variance approvals, receive/adjust stock (managers). Idempotency keys are reused for retries of the *same* basket and rotated when it changes. Cron-protected `POST /api/public/inventory/maintenance` expires holds and purges idempotency keys (schedule it, e.g. every 5 minutes; holds are also swept opportunistically).
+
+### 5. Concurrency review (design findings and the protection for each)
+| Risk | Verdict / protection |
+|---|---|
+| SELECT-then-UPDATE stock | Eliminated: allocation uses `FOR UPDATE` on batches, values re-read under the lock; counters bounded by CHECKs; negative-control test shows the naive pattern oversells |
+| Reservation creation | Same lock order + unique live reservation per line/batch; duplicate/late/expired holds re-reserved or flagged `*_needs_refund` |
+| Duplicate network requests / retries | `operation_idempotency` keyed per actor, request-hash checked; concurrent duplicates block on the unique index; failed attempts roll their key back (never poisoned); key reuse with a different payload is rejected |
+| Webhook ↔ sale | `pg_advisory_xact_lock` per event and per payment reference (shared with POS tenders); `UNIQUE(provider,event_id)`; order row lock; cross-channel reference reuse rejected |
+| Till close vs sale/void/refund | sales take `FOR SHARE` on the session, close takes `FOR UPDATE` (waits for in-flight sales; later sales see `closed`); `closed_at` uses `clock_timestamp()` (a test found `now()` = transaction start made the audit timeline misleading) |
+| Loyalty after retries | unique `(source_type, source_id)`; sale row lock serialises accrual vs void/refund; post-commit only |
+| Negative stock / duplicate financial records | impossible at DB level: CHECKs, append-only triggers, unique reference/idempotency indexes, deferred reconciliation trigger |
+| Inventory-denial via unpaid holds | ≤5 live held orders per customer; TTL 5–120 min; sweep job |
+| Residual (documented) | a leaked `service_role` key bypasses RLS but not the triggers/CHECKs; running under REPEATABLE READ is refused; idempotency-key retention (30 days) must be scheduled |
+
+### 6. Test evidence (all executed in this session)
+- `bun run test:db` (real PostgreSQL 16, separate connections, warmed pool): **75/75**, run **6× consecutively** with no flake. Covers: 20-way last-unit race, 30-way stock-5 race, online-vs-POS last unit, 10-way online hold race, 12-way duplicate sale, lost-response retry, key reuse/poisoning/actor namespacing, card-slip reuse (sequential + concurrent), multi-tender/validation matrix, price-change-mid-sale, 40-way opposite-order multi-product sales (0 deadlocks), till close vs sales/refund/void (repeated rounds), double-close, one-open-drawer, variance approval segregation, concurrent refunds/refund-vs-void/partial split payouts, audited void/refund/adjustment, adjustment vs sale races, loyalty retry/void/refund races, webhook duplicates/double-capture/cancel race/expiry, cross-channel PayPal reference, RLS/EXECUTE privileges, REPEATABLE READ refusal, direct-SQL backstops.
+- **Mutation testing** (each protection removed in turn; the suite must fail): removing row locks + CHECKs → 5 tests fail; removing session locking → close test fails; disabling idempotency → 2 fail; removing sale-row locks in void/refund/accrual → 2 fail; removing order/advisory locks in the webhook → 2 fail. Surviving tests under a single mutation were protected by a second independent layer.
+- UI: 17 interactive tests (Testing Library + happy-dom; real keystrokes, mocked server layer) and 25 logic tests. **Not run:** the UI has not been exercised in a browser against the hosted backend from this session (no staff login).
+- Whole gate: `tsc` 0 errors, ESLint 0 errors, `vite build` OK.
+- Existing harnesses run for the first time on a fresh database: `milestone2_live_admin.sql` now passes. Three latent defects were found and fixed: unbalanced `$$` in that harness, the Milestone 2 price-history CHECK rejecting a same-instant zero-length interval (relaxed to `>=` in this migration), and a temp-table privilege in `rbac_rls.sql`. `rbac_rls.sql` still stops at line ~349 on a pre-existing fixture quirk (the admin fixture receives an extra `customer` role, so its "demote admin" statement hits `user_roles_user_id_role_key`); it passes every order/RLS assertion before that point and is unrelated to Milestone 3.
+
+### 7. Local harness
+`scripts/test-db.sh start|reset|stop` boots a disposable PostgreSQL with a minimal Supabase compatibility layer (`supabase/tests/local/bootstrap.sql`) and applies every migration; `scripts/gen-m3-types.mjs` regenerates the Milestone 3 part of `types.ts` from that schema.
+
+### 8. Deployment notes
+1. Apply `20260929010000_pos_atomic_inventory.sql` to the hosted project **before** deploying this code (the admin overview now reads `inventory_availability`).
+2. Schedule `POST /api/public/inventory/maintenance` (Bearer `LOVABLE_CRON_SECRET`).
+3. Create at least one drawer (POS tab → *Add drawer*) and receive opening stock before first sale.
