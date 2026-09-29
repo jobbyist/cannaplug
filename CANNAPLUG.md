@@ -447,3 +447,17 @@ Of the 15 review-triage tests (`src/test/db/pos-review-fixes.test.ts`), 13 fail 
 1. Apply `20260929010000_pos_atomic_inventory.sql` to the hosted project **before** deploying this code (the admin overview now reads `inventory_availability`).
 2. Schedule `POST /api/public/inventory/maintenance` (Bearer `LOVABLE_CRON_SECRET`).
 3. Create at least one drawer (POS tab → *Add drawer*) and receive opening stock before first sale.
+
+## Least-privilege grants hardening (Milestone 2 stock & order tables)
+
+Migration `20260929011000_m2_least_privilege_grants.sql` (mirror `drizzle/migrations/0008_…`, rollback in `supabase/rollbacks/`).
+Hosted Supabase grants ALL on new public tables to `anon`/`authenticated`; RLS blocked API access but TRUNCATE/TRIGGER/REFERENCES are not RLS-governed, so privilege hygiene should not rely on RLS alone.
+
+| Table | anon | authenticated |
+|---|---|---|
+| `inventory_batches`, `inventory_ledger`, `product_price_history`, `order_status_history` | none | SELECT |
+| `orders` | none | SELECT (+ any existing column-level UPDATE, untouched) |
+| `order_items` | none | SELECT |
+
+`service_role` (server functions, SECURITY DEFINER RPCs) is unchanged. Applied to live and verified via `information_schema.role_table_grants`; `inventory_availability` still readable (48 rows).
+Tests: `src/test/db/m2-grants.test.ts` (8 real-PG tests; fails 6/8 when the rollback is applied — negative control). `supabase/tests/local/bootstrap.sql` now mirrors hosted default privileges for anon/authenticated.

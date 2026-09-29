@@ -20,4 +20,6 @@ $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 
 
 GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
 GRANT SELECT ON auth.users TO service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+-- Hosted Supabase grants ALL on every new public table to these roles by default; mirror that so
+-- privilege hygiene is tested against realistic starting grants (migrations must revoke explicitly).
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
