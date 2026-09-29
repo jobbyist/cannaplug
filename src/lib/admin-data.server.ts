@@ -46,6 +46,8 @@ export type InventorySummary = {
   product_id: string;
   product_name: string;
   quantity_on_hand: number;
+  held: number;
+  available: number;
   batches: number;
 };
 
@@ -63,7 +65,7 @@ export type AdminDashboard = {
   activity: { label: string; time: string }[];
 };
 
-async function assertRole(userId: string, minimum: "budtender" | "manager" | "admin") {
+export async function assertRole(userId: string, minimum: "budtender" | "manager" | "admin") {
   const levels = { user: 10, customer: 10, budtender: 20, manager: 30, admin: 40 } as const;
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -158,34 +160,42 @@ async function loadOrders({ limit = 50, before, statuses }: OrderPage = {}): Pro
 }
 
 async function loadInventory(): Promise<InventorySummary[]> {
+  // Read model over the single inventory engine: on hand, held (online reservations) and available.
   const { data, error } = await supabaseAdmin
-    .from("inventory_ledger")
-    .select("product_id, quantity_delta, batch_id")
-    .order("created_at", { ascending: false });
+    .from("inventory_availability")
+    .select("product_id,on_hand,held,available,batches")
+    .gt("batches", 0);
   if (error) throw error;
 
-  const productIds = [...new Set((data ?? []).map((row) => row.product_id))];
-  const products = productIds.length
-    ? ((await supabaseAdmin.from("products").select("id,name").in("id", productIds)).data ?? [])
+  // View columns are nullable in generated types; normalise once here.
+  const rows = (data ?? []).flatMap((row) =>
+    row.product_id
+      ? [
+          {
+            product_id: row.product_id,
+            on_hand: row.on_hand ?? 0,
+            held: row.held ?? 0,
+            available: row.available ?? 0,
+            batches: row.batches ?? 0,
+          },
+        ]
+      : [],
+  );
+  const ids = rows.map((row) => row.product_id);
+  const products = ids.length
+    ? ((await supabaseAdmin.from("products").select("id,name").in("id", ids)).data ?? [])
     : [];
   const names = new Map(products.map((p) => [p.id, p.name]));
-  const batchesByProduct = new Map<string, Set<string>>();
-  const map = new Map<string, InventorySummary>();
-  for (const row of data ?? []) {
-    const current = map.get(row.product_id) ?? {
+  return rows
+    .map((row) => ({
       product_id: row.product_id,
       product_name: names.get(row.product_id) ?? "Unknown product",
-      quantity_on_hand: 0,
-      batches: 0,
-    };
-    current.quantity_on_hand += Number(row.quantity_delta ?? 0);
-    const batches = batchesByProduct.get(row.product_id) ?? new Set<string>();
-    batches.add(row.batch_id);
-    batchesByProduct.set(row.product_id, batches);
-    current.batches = batches.size;
-    map.set(row.product_id, current);
-  }
-  return [...map.values()].sort((a, b) => a.quantity_on_hand - b.quantity_on_hand);
+      quantity_on_hand: row.on_hand,
+      held: row.held,
+      available: row.available,
+      batches: row.batches,
+    }))
+    .sort((a, b) => a.available - b.available);
 }
 
 async function loadActivity(limit = 8) {
@@ -265,7 +275,7 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     stats: {
       totalOrders: totalOrders ?? 0,
       revenueRand: (revenueRows ?? []).reduce((sum, row) => sum + Number(row.total_rand), 0),
-      inventoryAlerts: inventory.filter((item) => item.quantity_on_hand <= 5).length,
+      inventoryAlerts: inventory.filter((item) => item.available <= 5).length,
       totalCustomers: totalCustomers ?? 0,
     },
     salesOverview,

@@ -142,6 +142,8 @@ export type Database = {
       };
       inventory_batches: {
         Row: {
+          qty_on_hand: number;
+          qty_held: number;
           batch_code: string;
           created_at: string;
           created_by: string | null;
@@ -153,6 +155,8 @@ export type Database = {
           unit_cost_rand: number | null;
         };
         Insert: {
+          qty_on_hand?: number;
+          qty_held?: number;
           batch_code: string;
           created_at?: string;
           created_by?: string | null;
@@ -164,6 +168,8 @@ export type Database = {
           unit_cost_rand?: number | null;
         };
         Update: {
+          qty_on_hand?: number;
+          qty_held?: number;
           batch_code?: string;
           created_at?: string;
           created_by?: string | null;
@@ -178,6 +184,7 @@ export type Database = {
       };
       inventory_ledger: {
         Row: {
+          movement_type: string;
           actor_user_id: string | null;
           batch_id: string;
           created_at: string;
@@ -189,6 +196,7 @@ export type Database = {
           reference_type: string | null;
         };
         Insert: {
+          movement_type: string;
           actor_user_id?: string | null;
           batch_id: string;
           created_at?: string;
@@ -200,6 +208,7 @@ export type Database = {
           reference_type?: string | null;
         };
         Update: {
+          movement_type?: string;
           actor_user_id?: string | null;
           batch_id?: string;
           created_at?: string;
@@ -272,6 +281,407 @@ export type Database = {
         };
         Relationships: [];
       };
+      // <m3-tables>
+      cash_drawers: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          location: string | null;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          location?: string | null;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          location?: string | null;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      loyalty_ledger: {
+        Row: {
+          created_at: string;
+          id: string;
+          points: number;
+          sale_id: string | null;
+          source_id: string;
+          source_type: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          points: number;
+          sale_id?: string | null;
+          source_id: string;
+          source_type: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          points?: number;
+          sale_id?: string | null;
+          source_id?: string;
+          source_type?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      operation_idempotency: {
+        Row: {
+          created_at: string;
+          key: string;
+          request_hash: string;
+          response: Json | null;
+          scope: string;
+        };
+        Insert: {
+          created_at?: string;
+          key: string;
+          request_hash: string;
+          response?: Json | null;
+          scope: string;
+        };
+        Update: {
+          created_at?: string;
+          key?: string;
+          request_hash?: string;
+          response?: Json | null;
+          scope?: string;
+        };
+        Relationships: [];
+      };
+      payment_events: {
+        Row: {
+          amount: number | null;
+          created_at: string;
+          id: string;
+          order_id: string | null;
+          outcome: string;
+          provider: string;
+          provider_event_id: string;
+        };
+        Insert: {
+          amount?: number | null;
+          created_at?: string;
+          id?: string;
+          order_id?: string | null;
+          outcome: string;
+          provider: string;
+          provider_event_id: string;
+        };
+        Update: {
+          amount?: number | null;
+          created_at?: string;
+          id?: string;
+          order_id?: string | null;
+          outcome?: string;
+          provider?: string;
+          provider_event_id?: string;
+        };
+        Relationships: [];
+      };
+      pos_refund_items: {
+        Row: {
+          id: string;
+          quantity: number;
+          refund_id: string;
+          sale_item_id: string;
+        };
+        Insert: {
+          id?: string;
+          quantity: number;
+          refund_id: string;
+          sale_item_id: string;
+        };
+        Update: {
+          id?: string;
+          quantity?: number;
+          refund_id?: string;
+          sale_item_id?: string;
+        };
+        Relationships: [];
+      };
+      pos_refund_payouts: {
+        Row: {
+          amount: number;
+          id: string;
+          method: string;
+          reference: string | null;
+          refund_id: string;
+        };
+        Insert: {
+          amount: number;
+          id?: string;
+          method: string;
+          reference?: string | null;
+          refund_id: string;
+        };
+        Update: {
+          amount?: number;
+          id?: string;
+          method?: string;
+          reference?: string | null;
+          refund_id?: string;
+        };
+        Relationships: [];
+      };
+      pos_refunds: {
+        Row: {
+          actor_user_id: string;
+          amount: number;
+          created_at: string;
+          id: string;
+          idempotency_key: string;
+          reason: string;
+          restocked: boolean;
+          sale_id: string;
+          session_id: string;
+        };
+        Insert: {
+          actor_user_id: string;
+          amount: number;
+          created_at?: string;
+          id?: string;
+          idempotency_key: string;
+          reason: string;
+          restocked: boolean;
+          sale_id: string;
+          session_id: string;
+        };
+        Update: {
+          actor_user_id?: string;
+          amount?: number;
+          created_at?: string;
+          id?: string;
+          idempotency_key?: string;
+          reason?: string;
+          restocked?: boolean;
+          sale_id?: string;
+          session_id?: string;
+        };
+        Relationships: [];
+      };
+      pos_sale_items: {
+        Row: {
+          id: string;
+          line_total: number;
+          product_id: string;
+          product_name: string;
+          quantity: number;
+          refunded_quantity: number;
+          sale_id: string;
+          unit_price_rand: number;
+        };
+        Insert: {
+          id?: string;
+          line_total: number;
+          product_id: string;
+          product_name: string;
+          quantity: number;
+          refunded_quantity?: number;
+          sale_id: string;
+          unit_price_rand: number;
+        };
+        Update: {
+          id?: string;
+          line_total?: number;
+          product_id?: string;
+          product_name?: string;
+          quantity?: number;
+          refunded_quantity?: number;
+          sale_id?: string;
+          unit_price_rand?: number;
+        };
+        Relationships: [];
+      };
+      pos_sales: {
+        Row: {
+          cashier_id: string;
+          created_at: string;
+          customer_id: string | null;
+          id: string;
+          idempotency_key: string;
+          receipt_number: string;
+          session_id: string;
+          status: string;
+          subtotal: number;
+          total: number;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          cashier_id: string;
+          created_at?: string;
+          customer_id?: string | null;
+          id?: string;
+          idempotency_key: string;
+          receipt_number: string;
+          session_id: string;
+          status?: string;
+          subtotal: number;
+          total: number;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          cashier_id?: string;
+          created_at?: string;
+          customer_id?: string | null;
+          id?: string;
+          idempotency_key?: string;
+          receipt_number?: string;
+          session_id?: string;
+          status?: string;
+          subtotal?: number;
+          total?: number;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [];
+      };
+      pos_sessions: {
+        Row: {
+          actual_cash: number | null;
+          approval_note: string | null;
+          approval_status: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          close_note: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          drawer_id: string;
+          expected_cash: number | null;
+          id: string;
+          opened_at: string;
+          opened_by: string;
+          opening_float: number;
+          sales_count: number | null;
+          status: string;
+          tender_totals: Json | null;
+          variance: number | null;
+        };
+        Insert: {
+          actual_cash?: number | null;
+          approval_note?: string | null;
+          approval_status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          close_note?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          drawer_id: string;
+          expected_cash?: number | null;
+          id?: string;
+          opened_at?: string;
+          opened_by: string;
+          opening_float: number;
+          sales_count?: number | null;
+          status?: string;
+          tender_totals?: Json | null;
+          variance?: number | null;
+        };
+        Update: {
+          actual_cash?: number | null;
+          approval_note?: string | null;
+          approval_status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          close_note?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          drawer_id?: string;
+          expected_cash?: number | null;
+          id?: string;
+          opened_at?: string;
+          opened_by?: string;
+          opening_float?: number;
+          sales_count?: number | null;
+          status?: string;
+          tender_totals?: Json | null;
+          variance?: number | null;
+        };
+        Relationships: [];
+      };
+      pos_tenders: {
+        Row: {
+          amount: number;
+          created_at: string;
+          id: string;
+          method: string;
+          reference: string | null;
+          sale_id: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          id?: string;
+          method: string;
+          reference?: string | null;
+          sale_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          id?: string;
+          method?: string;
+          reference?: string | null;
+          sale_id?: string;
+        };
+        Relationships: [];
+      };
+      stock_reservations: {
+        Row: {
+          batch_id: string;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          order_id: string;
+          order_item_id: string;
+          product_id: string;
+          quantity: number;
+          resolved_at: string | null;
+          status: string;
+        };
+        Insert: {
+          batch_id: string;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          order_id: string;
+          order_item_id: string;
+          product_id: string;
+          quantity: number;
+          resolved_at?: string | null;
+          status?: string;
+        };
+        Update: {
+          batch_id?: string;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          order_id?: string;
+          order_item_id?: string;
+          product_id?: string;
+          quantity?: number;
+          resolved_at?: string | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      // </m3-tables>
       order_items: {
         Row: {
           id: string;
@@ -451,9 +861,148 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      // <m3-views>
+      inventory_availability: {
+        Row: {
+          available: number | null;
+          batches: number | null;
+          consumed: number | null;
+          expired: number | null;
+          held: number | null;
+          on_hand: number | null;
+          product_id: string | null;
+        };
+        Relationships: [];
+      };
+      stock_movements: {
+        Row: {
+          actor_user_id: string | null;
+          batch_id: string | null;
+          created_at: string | null;
+          id: string | null;
+          movement_type: string | null;
+          product_id: string | null;
+          quantity_delta: number | null;
+          reason: string | null;
+          reference_id: string | null;
+          reference_type: string | null;
+        };
+        Relationships: [];
+      };
+      // </m3-views>
     };
     Functions: {
+      // <m3-functions>
+      accrue_pos_loyalty: { Args: { p_sale_id: string }; Returns: Json };
+      adjust_stock: {
+        Args: {
+          p_actor: string;
+          p_batch_id: string;
+          p_delta: number;
+          p_idempotency_key: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      confirm_order_payment: {
+        Args: {
+          p_amount: number;
+          p_order_id: string;
+          p_provider: string;
+          p_provider_event_id: string;
+        };
+        Returns: Json;
+      };
+      create_online_order: {
+        Args: {
+          p_contact_name: string | null;
+          p_contact_phone: string | null;
+          p_hold_minutes?: number;
+          p_idempotency_key: string;
+          p_items: Json;
+          p_notes: string | null;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      pos_close_session: {
+        Args: {
+          p_actor: string;
+          p_actual_cash: number;
+          p_idempotency_key: string;
+          p_note: string | null;
+          p_session_id: string;
+        };
+        Returns: Json;
+      };
+      pos_complete_sale: {
+        Args: {
+          p_actor: string;
+          p_customer_id: string | null;
+          p_idempotency_key: string;
+          p_items: Json;
+          p_session_id: string;
+          p_tenders: Json;
+        };
+        Returns: Json;
+      };
+      pos_open_session: {
+        Args: {
+          p_actor: string;
+          p_drawer_id: string;
+          p_idempotency_key: string;
+          p_opening_float: number;
+        };
+        Returns: Json;
+      };
+      pos_refund_sale: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_items: Json;
+          p_payouts: Json;
+          p_reason: string;
+          p_restock: boolean;
+          p_sale_id: string;
+          p_session_id: string;
+        };
+        Returns: Json;
+      };
+      pos_review_session: {
+        Args: { p_actor: string; p_approve: boolean; p_note: string; p_session_id: string };
+        Returns: Json;
+      };
+      pos_upsert_drawer: {
+        Args: {
+          p_actor: string;
+          p_drawer_id: string | null;
+          p_is_active: boolean;
+          p_location: string | null;
+          p_name: string;
+        };
+        Returns: Json;
+      };
+      pos_void_sale: {
+        Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_sale_id: string };
+        Returns: Json;
+      };
+      receive_stock: {
+        Args: {
+          p_actor: string;
+          p_batch_code: string;
+          p_expires_at: string | null;
+          p_idempotency_key: string;
+          p_notes: string | null;
+          p_product_id: string;
+          p_quantity: number;
+          p_unit_cost: number | null;
+        };
+        Returns: Json;
+      };
+      purge_old_idempotency_keys: { Args: { p_retain?: string }; Returns: number };
+      release_expired_reservations: { Args: never; Returns: number };
+      reserve_order_stock: { Args: { p_order_id: string; p_ttl_minutes?: number }; Returns: Json };
+      // </m3-functions>
       current_user_role: {
         Args: never;
         Returns: Database["public"]["Enums"]["app_role"];
