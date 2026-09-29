@@ -22,6 +22,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
+import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 
@@ -88,6 +89,11 @@ const JournalIndexRoute = JournalIndexRouteImport.update({
 const JournalSlugRoute = JournalSlugRouteImport.update({
   id: '/journal/$slug',
   path: '/journal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubscribeAdminApiRoute = SubscribeAdminApiRouteImport.update({
+  id: '/subscribe/admin-api',
+  path: '/subscribe/admin-api',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicInventoryMaintenanceRoute =
@@ -324,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/journal/$slug'
       fullPath: '/journal/$slug'
       preLoaderRoute: typeof JournalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscribe/admin-api': {
+      id: '/subscribe/admin-api'
+      path: '/subscribe/admin-api'
+      fullPath: '/subscribe/admin-api'
+      preLoaderRoute: typeof SubscribeAdminApiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/inventory/maintenance': {
