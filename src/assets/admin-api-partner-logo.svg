@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="176" height="40" viewBox="0 0 176 40" role="img" aria-label="Admin API partner logo placeholder">
-  <!-- PLACEHOLDER: replace this file with the supplied partner logo (same filename, or update the import in src/routes/subscribe.admin-api.tsx). -->
-  <rect x="1" y="1" width="38" height="38" rx="10" fill="none" stroke="#b6f36a" stroke-width="2"/>
-  <text x="20" y="26" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#b6f36a">{ }</text>
-  <text x="50" y="26" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff">Admin API</text>
-</svg>

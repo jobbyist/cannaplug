@@ -3,8 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Bot, Check, CreditCard, Gift, Loader2, MessageSquare, Percent, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import cannaplugLogo from "@/assets/cannaplug-logo-white.png";
-// PLACEHOLDER asset — replace with the supplied partner logo (see the SVG's header comment).
-import partnerLogo from "@/assets/admin-api-partner-logo.svg";
 import "@/subscribe-admin-api.css";
 
 type Interval = "monthly" | "annual";
@@ -110,7 +108,7 @@ function Brand() {
     >
       <img src={cannaplugLogo} alt="Cannaplug" />
       <span className="aapi-plus" aria-hidden />
-      <img src={partnerLogo} alt="Admin API integration partner" />
+      <img src="/shopify-api.png" alt="Admin API integration partner" />
     </a>
   );
 }
