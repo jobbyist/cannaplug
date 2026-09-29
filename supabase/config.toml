@@ -2,3 +2,5 @@ project_id = "ajaldrqkeuaywqgvdghy"
 
 [functions.cannaplug-chat]
 verify_jwt = false
+[functions.paypal-subscription]
+verify_jwt = false
