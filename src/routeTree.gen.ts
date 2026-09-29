@@ -22,6 +22,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
+import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +90,12 @@ const JournalSlugRoute = JournalSlugRouteImport.update({
   path: '/journal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicInventoryMaintenanceRoute =
+  ApiPublicInventoryMaintenanceRouteImport.update({
+    id: '/api/public/inventory/maintenance',
+    path: '/api/public/inventory/maintenance',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicNewsroomRunRoute = ApiPublicNewsroomRunRouteImport.update({
   id: '/api/public/newsroom/run',
   path: '/api/public/newsroom/run',
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/journal/': typeof JournalIndexRoute
+  '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +133,7 @@ export interface FileRoutesByTo {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/journal': typeof JournalIndexRoute
+  '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRoutesById {
@@ -142,6 +151,7 @@ export interface FileRoutesById {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/journal/': typeof JournalIndexRoute
+  '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/journal/'
+    | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/journal'
+    | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
   id:
     | '__root__'
@@ -192,6 +204,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/journal/'
+    | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +222,7 @@ export interface RootRouteChildren {
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   JournalSlugRoute: typeof JournalSlugRoute
   JournalIndexRoute: typeof JournalIndexRoute
+  ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
 }
 
@@ -305,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/inventory/maintenance': {
+      id: '/api/public/inventory/maintenance'
+      path: '/api/public/inventory/maintenance'
+      fullPath: '/api/public/inventory/maintenance'
+      preLoaderRoute: typeof ApiPublicInventoryMaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/newsroom/run': {
       id: '/api/public/newsroom/run'
       path: '/api/public/newsroom/run'
@@ -329,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsOfServiceRoute: TermsOfServiceRoute,
   JournalSlugRoute: JournalSlugRoute,
   JournalIndexRoute: JournalIndexRoute,
+  ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
 }
 export const routeTree = rootRouteImport
