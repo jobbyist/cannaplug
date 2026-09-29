@@ -38,7 +38,8 @@ export async function assertStaffAccess(
     throw error;
   }
 
-  return role;
+  // ROLE_LEVEL guard above guarantees role is budtender, manager or admin.
+  return role as StaffRole;
 }
 
 export function createStaffAuthorizationMiddleware(minimumRole: StaffRole = "budtender") {

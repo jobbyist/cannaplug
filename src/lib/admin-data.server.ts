@@ -115,7 +115,7 @@ async function loadInventory(): Promise<InventorySummary[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
 
-  const productIds = [...new Set((data ?? []).map((row: { product_id: string }) => row.product_id))];
+  const productIds: string[] = [...new Set<string>((data ?? []).map((row: { product_id: string }) => row.product_id))];
   const products = productIds.length
     ? (await supabaseAdmin.from("products").select("id,name").in("id", productIds)).data ?? []
     : [];

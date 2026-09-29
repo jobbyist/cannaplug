@@ -214,6 +214,18 @@ CREATE INDEX IF NOT EXISTS products_active_sort_idx
   ON public.products (is_active, sort_order);
 
 -- ---------------------------------------------------------------------------
+-- 5. RLS is enabled before any authenticated grants are exposed.
+-- Policies are created below in the same transaction; no committed state can
+-- expose a writable authenticated table before its RLS protection exists.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+-- ---------------------------------------------------------------------------
 -- 5. Grants
 -- ---------------------------------------------------------------------------
 
@@ -334,9 +346,9 @@ ON public.products FOR UPDATE TO authenticated
 USING ((SELECT public.has_at_least_role('manager'::public.app_role)))
 WITH CHECK ((SELECT public.has_at_least_role('manager'::public.app_role)));
 
-CREATE POLICY "products management delete"
+CREATE POLICY "products admin hard delete"
 ON public.products FOR DELETE TO authenticated
-USING ((SELECT public.has_at_least_role('manager'::public.app_role)));
+USING ((SELECT public.has_at_least_role('admin'::public.app_role)));
 
 -- Orders: customers see/create their own orders; staff can read/update operationally.
 DROP POLICY IF EXISTS "own orders select" ON public.orders;
@@ -480,13 +492,7 @@ CREATE POLICY "audit log management read"
 ON public.audit_log FOR SELECT TO authenticated
 USING ((SELECT public.has_at_least_role('manager'::public.app_role)));
 
--- Ensure operational tables remain RLS-protected.
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-
+-- RLS was enabled before authenticated grants above.
 -- ---------------------------------------------------------------------------
 -- 7. New-user bootstrap
 -- ---------------------------------------------------------------------------
