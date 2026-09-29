@@ -39,7 +39,10 @@ export const Route = createFileRoute("/api/public/newsroom/run")({
           return Response.json({ ok: true, article });
         } catch (error) {
           console.error("[newsroom] run failed", error);
-          return Response.json({ ok: false, error: error instanceof Error ? error.message : "failed" }, { status: 500 });
+          return Response.json(
+            { ok: false, error: error instanceof Error ? error.message : "failed" },
+            { status: 500 },
+          );
         }
       },
     },

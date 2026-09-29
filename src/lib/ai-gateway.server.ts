@@ -52,8 +52,10 @@ export async function geminiComplete(
   if (!response.ok) {
     const body = await response.text();
     console.error(`[AI Gateway] ${response.status}: ${body}`);
-    if (response.status === 429) throw new GatewayError(429, "The assistant is busy right now. Please try again in a moment.");
-    if (response.status === 402) throw new GatewayError(402, "AI credits for this workspace are used up.");
+    if (response.status === 429)
+      throw new GatewayError(429, "The assistant is busy right now. Please try again in a moment.");
+    if (response.status === 402)
+      throw new GatewayError(402, "AI credits for this workspace are used up.");
     throw new GatewayError(response.status, "The assistant is temporarily unavailable.");
   }
 

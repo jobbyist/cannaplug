@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type CartLine = {
   productId: string;
@@ -45,7 +53,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existing = current.find((item) => item.productId === line.productId);
       if (existing) {
         return current.map((item) =>
-          item.productId === line.productId ? { ...item, quantity: item.quantity + quantity } : item,
+          item.productId === line.productId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item,
         );
       }
       return [...current, { ...line, quantity }];

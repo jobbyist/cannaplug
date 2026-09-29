@@ -16,9 +16,7 @@ const ROLE_LEVEL: Record<AppRole, number> = {
 
 type AuthenticatedSupabase = SupabaseClient<Database>;
 
-export async function getCurrentUserRole(
-  supabase: AuthenticatedSupabase,
-): Promise<AppRole | null> {
+export async function getCurrentUserRole(supabase: AuthenticatedSupabase): Promise<AppRole | null> {
   const { data, error } = await supabase.rpc("current_user_role");
   if (error) throw error;
   return data;
@@ -77,9 +75,7 @@ export async function assertManagerAccess(
   return role as "manager" | "admin";
 }
 
-export async function assertAdminAccess(
-  supabase: AuthenticatedSupabase,
-): Promise<"admin"> {
+export async function assertAdminAccess(supabase: AuthenticatedSupabase): Promise<"admin"> {
   const role = await assertStaffAccess(supabase, "admin");
   return role as "admin";
 }

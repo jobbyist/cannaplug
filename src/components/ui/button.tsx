@@ -8,14 +8,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "rounded-full bg-primary text-primary-foreground uppercase tracking-wide hover:bg-primary/90",
-        primary: "rounded-full bg-primary text-primary-foreground uppercase tracking-wide hover:bg-primary/90",
+        default:
+          "rounded-full bg-primary text-primary-foreground uppercase tracking-wide hover:bg-primary/90",
+        primary:
+          "rounded-full bg-primary text-primary-foreground uppercase tracking-wide hover:bg-primary/90",
         outline:
           "rounded-full border border-primary bg-background text-primary uppercase tracking-wide hover:bg-primary hover:text-primary-foreground",
         secondary: "rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "rounded-md text-foreground hover:bg-muted",
         link: "text-primary underline-offset-4 hover:underline normal-case font-medium",
-        destructive: "rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        destructive:
+          "rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90",
         gold: "rounded-full bg-premium text-charcoal uppercase tracking-wide hover:bg-premium/85",
       },
       size: {
@@ -40,7 +43,9 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+    return (
+      <Comp ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props} />
+    );
   },
 );
 Button.displayName = "Button";

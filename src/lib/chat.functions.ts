@@ -19,8 +19,7 @@ const inputSchema = z.object({
 });
 
 export type ChatReply =
-  | { ok: true; reply: string; remaining: number }
-  | { ok: false; error: string; limited?: boolean };
+  { ok: true; reply: string; remaining: number } | { ok: false; error: string; limited?: boolean };
 
 export const askCannaPlug = createServerFn({ method: "POST" })
   .validator((data) => inputSchema.parse(data))
@@ -45,11 +44,20 @@ export const askCannaPlug = createServerFn({ method: "POST" })
       requestCount = 0;
     }
     if (totalCount >= SESSION_LIMIT) {
-      return { ok: false, limited: true, error: "You've reached the chat limit for this session. For more help, call +27 10 123 4567 or pop into the shop." };
+      return {
+        ok: false,
+        limited: true,
+        error:
+          "You've reached the chat limit for this session. For more help, call +27 10 123 4567 or pop into the shop.",
+      };
     }
     if (requestCount >= HOURLY_LIMIT) {
       const mins = Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 60000));
-      return { ok: false, limited: true, error: `You're sending messages quickly. Please try again in about ${mins} minute${mins === 1 ? "" : "s"}.` };
+      return {
+        ok: false,
+        limited: true,
+        error: `You're sending messages quickly. Please try again in about ${mins} minute${mins === 1 ? "" : "s"}.`,
+      };
     }
 
     await supabaseAdmin.from("chat_rate_limits").upsert({
@@ -65,16 +73,20 @@ export const askCannaPlug = createServerFn({ method: "POST" })
 
     try {
       const raw = await geminiComplete(
-        [
-          { role: "system", content: `${CANNAPLUG_SYSTEM_PROMPT}\n\n${menu}` },
-          ...history,
-        ],
+        [{ role: "system", content: `${CANNAPLUG_SYSTEM_PROMPT}\n\n${menu}` }, ...history],
         { maxTokens: 700, temperature: 0.6 },
       );
-      const reply = toPlainText(raw) || "Sorry, I couldn't put an answer together just then. Could you rephrase that?";
-      return { ok: true, reply, remaining: Math.min(HOURLY_LIMIT - requestCount - 1, SESSION_LIMIT - totalCount - 1) };
+      const reply =
+        toPlainText(raw) ||
+        "Sorry, I couldn't put an answer together just then. Could you rephrase that?";
+      return {
+        ok: true,
+        reply,
+        remaining: Math.min(HOURLY_LIMIT - requestCount - 1, SESSION_LIMIT - totalCount - 1),
+      };
     } catch (error) {
-      const message = error instanceof GatewayError ? error.message : "The assistant is temporarily unavailable.";
+      const message =
+        error instanceof GatewayError ? error.message : "The assistant is temporarily unavailable.";
       return { ok: false, error: message };
     }
   });

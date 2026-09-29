@@ -78,15 +78,21 @@ export function ChatWidget() {
         sessionId = crypto.randomUUID();
         window.sessionStorage.setItem(SESSION_KEY, sessionId);
       }
-      const history = nextMessages.filter((m, i) => !(i === 0 && m === GREETING) && m.content.trim()).slice(-20);
-      const result = await askCannaPlug({ data: { sessionId, messages: history.length ? history : nextMessages.slice(-1) } });
+      const history = nextMessages
+        .filter((m, i) => !(i === 0 && m === GREETING) && m.content.trim())
+        .slice(-20);
+      const result = await askCannaPlug({
+        data: { sessionId, messages: history.length ? history : nextMessages.slice(-1) },
+      });
       if (!result.ok) {
         setError(result.error);
       } else {
         setMessages((current) => [...current, { role: "assistant", content: result.reply }]);
       }
     } catch {
-      setError("Our assistant couldn't respond just now. Please try again, or contact the team directly.");
+      setError(
+        "Our assistant couldn't respond just now. Please try again, or contact the team directly.",
+      );
     } finally {
       setLoading(false);
     }
@@ -127,14 +133,26 @@ export function ChatWidget() {
                   <small>Ask about products &amp; policies</small>
                 </div>
               </div>
-              <button type="button" aria-label="Close chat" onClick={() => setOpen(false)} className="chat-close">
+              <button
+                type="button"
+                aria-label="Close chat"
+                onClick={() => setOpen(false)}
+                className="chat-close"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <div className="chat-body" ref={listRef}>
               {messages.map((message, index) => (
-                <div key={index} className={message.role === "user" ? "chat-bubble chat-bubble-user" : "chat-bubble chat-bubble-bot"}>
+                <div
+                  key={index}
+                  className={
+                    message.role === "user"
+                      ? "chat-bubble chat-bubble-user"
+                      : "chat-bubble chat-bubble-bot"
+                  }
+                >
                   {message.content}
                 </div>
               ))}
@@ -159,7 +177,8 @@ export function ChatWidget() {
               </button>
             </form>
             <p className="chat-disclaimer">
-              <MessageCircle size={11} /> AI answers are general guidance, not medical advice. 18+ only.
+              <MessageCircle size={11} /> AI answers are general guidance, not medical advice. 18+
+              only.
             </p>
           </motion.div>
         )}
