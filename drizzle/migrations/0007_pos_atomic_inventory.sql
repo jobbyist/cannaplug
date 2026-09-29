@@ -215,6 +215,8 @@ SELECT
   COALESCE(SUM(b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0)::integer AS held,
   COALESCE(SUM(b.qty_on_hand - b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0)::integer AS available,
   COALESCE(SUM(b.qty_on_hand) FILTER (WHERE b.expires_at IS NOT NULL AND b.expires_at <= now()), 0)::integer AS expired,
+  -- NET consumed: sales carry negative deltas (+qty here), restocks positive deltas (-qty here), so
+  -- voids/refunds/cancellations correctly REDUCE consumed. Do not "fix" the sign (see tests).
   COALESCE((
     SELECT -SUM(l.quantity_delta)
     FROM public.inventory_ledger l
@@ -456,9 +458,17 @@ BEGIN
   IF NOT (
     (OLD.status = 'completed' AND NEW.status IN ('voided', 'partially_refunded', 'refunded'))
     OR (OLD.status = 'partially_refunded' AND NEW.status IN ('partially_refunded', 'refunded'))
-    OR (OLD.status = NEW.status AND OLD.voided_at IS NOT DISTINCT FROM NEW.voided_at)
+    OR OLD.status = NEW.status
   ) THEN
     RAISE EXCEPTION 'invalid pos_sales status transition % -> %', OLD.status, NEW.status;
+  END IF;
+  -- Void metadata (who / when / why) is audit evidence: written exactly once, on the
+  -- completed -> voided transition, and never altered afterwards (nor set on a non-voided sale).
+  IF NOT (OLD.status = 'completed' AND NEW.status = 'voided')
+     AND (NEW.voided_at IS DISTINCT FROM OLD.voided_at
+          OR NEW.voided_by IS DISTINCT FROM OLD.voided_by
+          OR NEW.void_reason IS DISTINCT FROM OLD.void_reason) THEN
+    RAISE EXCEPTION 'pos_sales void metadata is immutable';
   END IF;
   RETURN NEW;
 END;
@@ -969,10 +979,15 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.release_expired_reservations()
 RETURNS integer
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $$ SELECT public._expire_holds(NULL) $$;
+AS $$
+BEGIN
+  PERFORM public._require_read_committed();
+  RETURN public._expire_holds(NULL);
+END;
+$$;
 
 -- Retention for the idempotency table. Keys only need to outlive realistic client retry windows.
 CREATE OR REPLACE FUNCTION public.purge_old_idempotency_keys(p_retain interval DEFAULT interval '30 days')
@@ -984,6 +999,7 @@ AS $$
 DECLARE
   v_n integer;
 BEGIN
+  PERFORM public._require_read_committed();
   IF p_retain < interval '1 day' THEN
     RAISE EXCEPTION 'retention must be at least 1 day';
   END IF;
@@ -1010,6 +1026,12 @@ DECLARE
   v_outcome text;
 BEGIN
   PERFORM public._require_read_committed();
+  -- Validate untrusted webhook input BEFORE taking any lock or doing any hashing work.
+  IF p_provider IS NULL OR p_provider NOT IN ('paypal', 'card', 'eft', 'manual')
+     OR p_provider_event_id IS NULL OR length(p_provider_event_id) NOT BETWEEN 4 AND 200
+     OR p_order_id IS NULL OR p_amount IS NULL OR p_amount <= 0 OR p_amount <> round(p_amount, 2) THEN
+    RAISE EXCEPTION 'invalid_payment_event: provider, event id (4-200 chars), order and a positive 2-decimal amount are required';
+  END IF;
   -- Serialise every delivery of the same event (and any POS tender using the same reference).
   PERFORM pg_advisory_xact_lock(hashtextextended('payref:' || p_provider || ':' || p_provider_event_id, 0));
   PERFORM pg_advisory_xact_lock(hashtextextended('payref:' || p_provider_event_id, 1));
@@ -1607,6 +1629,8 @@ BEGIN
   SET status = 'voided', voided_at = now(), voided_by = p_actor, void_reason = btrim(p_reason)
   WHERE id = p_sale_id;
 
+  -- No TOCTOU here: this transaction holds the pos_sales row FOR UPDATE and accrue_pos_loyalty must
+  -- take the same lock first, so accrual cannot interleave between this read and the insert below.
   SELECT COALESCE(SUM(points), 0) INTO v_current FROM public.loyalty_ledger WHERE sale_id = p_sale_id;
   IF v_current > 0 THEN
     INSERT INTO public.loyalty_ledger (user_id, sale_id, source_type, source_id, points)
@@ -1836,6 +1860,39 @@ BEGIN
 END;
 $$;
 
+-- Retry sweeper: credits committed sales whose post-commit accrual call failed (network/app crash).
+-- Idempotent and safe to run concurrently; the grace period keeps it out of the way of the
+-- in-flight application call (which is idempotent anyway).
+CREATE OR REPLACE FUNCTION public.accrue_missing_pos_loyalty(p_limit integer DEFAULT 200)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_sale record;
+  v_result jsonb;
+  v_done integer := 0;
+BEGIN
+  PERFORM public._require_read_committed();
+  FOR v_sale IN
+    SELECT s.id
+    FROM public.pos_sales s
+    WHERE s.customer_id IS NOT NULL
+      AND s.status <> 'voided'
+      AND s.created_at < now() - interval '1 minute'
+      AND NOT EXISTS (
+        SELECT 1 FROM public.loyalty_ledger l WHERE l.source_type = 'pos_sale' AND l.source_id = s.id)
+    ORDER BY s.created_at
+    LIMIT LEAST(GREATEST(COALESCE(p_limit, 200), 1), 1000)
+  LOOP
+    v_result := public.accrue_pos_loyalty(v_sale.id);
+    IF (v_result->>'accrued')::boolean THEN v_done := v_done + 1; END IF;
+  END LOOP;
+  RETURN v_done;
+END;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 13. Privileges and RLS
 -- ---------------------------------------------------------------------------
@@ -1854,7 +1911,7 @@ BEGIN
         '_check_pos_sale_consistency', '_require_read_committed', '_assert_staff', '_audit', '_idem_begin',
         '_idem_finish', '_lock_batches', '_expire_holds', '_allocate_fefo', '_reserve_order_items',
         '_consume_order_stock', '_cancel_order_stock', 'pos_variance_tolerance', 'create_online_order',
-        'reserve_order_stock', 'release_expired_reservations', 'purge_old_idempotency_keys', 'confirm_order_payment',
+        'reserve_order_stock', 'release_expired_reservations', 'purge_old_idempotency_keys', 'accrue_missing_pos_loyalty', 'confirm_order_payment',
         'transition_order_status', 'receive_stock', 'adjust_stock', 'pos_upsert_drawer', 'pos_open_session',
         'pos_close_session', 'pos_review_session', 'pos_complete_sale', 'pos_void_sale', 'pos_refund_sale',
         'accrue_pos_loyalty'])

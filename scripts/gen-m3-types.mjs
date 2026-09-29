@@ -83,7 +83,8 @@ async function viewBlock(name) {
   return `      ${name}: {\n        Row: {\n${row}\n        }\n        Relationships: []\n      }\n`;
 }
 
-const FUNCTIONS = `      accrue_pos_loyalty: { Args: { p_sale_id: string }; Returns: Json }
+const FUNCTIONS = `      accrue_missing_pos_loyalty: { Args: { p_limit?: number }; Returns: number }
+      accrue_pos_loyalty: { Args: { p_sale_id: string }; Returns: Json }
       adjust_stock: {
         Args: { p_actor: string; p_batch_id: string; p_delta: number; p_idempotency_key: string; p_reason: string }
         Returns: Json

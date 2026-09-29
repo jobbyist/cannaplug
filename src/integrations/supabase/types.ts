@@ -893,6 +893,7 @@ export type Database = {
     };
     Functions: {
       // <m3-functions>
+      accrue_missing_pos_loyalty: { Args: { p_limit?: number }; Returns: number };
       accrue_pos_loyalty: { Args: { p_sale_id: string }; Returns: Json };
       adjust_stock: {
         Args: {

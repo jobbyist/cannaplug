@@ -387,8 +387,14 @@ export async function posCompleteSale(
       loyalty = unwrap(
         await supabaseAdmin.rpc("accrue_pos_loyalty", { p_sale_id: sale.sale_id }),
       ) as unknown as LoyaltyOutcome;
-    } catch {
-      loyalty = { accrued: false, pending: true }; // safe to retry later: accrual is idempotent
+    } catch (err) {
+      // The sale is committed and must not fail. Accrual is idempotent and is retried by the
+      // maintenance job (accrue_missing_pos_loyalty), so record the failure for operators instead.
+      console.error("POS loyalty accrual failed after commit; retry job will credit it", {
+        saleId: sale.sale_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      loyalty = { accrued: false, pending: true };
     }
   }
   return { sale, loyalty };

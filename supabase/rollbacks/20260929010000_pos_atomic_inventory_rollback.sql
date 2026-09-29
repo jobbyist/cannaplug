@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS public.stock_reservations;
 DROP SEQUENCE IF EXISTS public.pos_receipt_seq;
 
 -- Functions.
+DROP FUNCTION IF EXISTS public.accrue_missing_pos_loyalty(integer);
 DROP FUNCTION IF EXISTS public.accrue_pos_loyalty(uuid);
 DROP FUNCTION IF EXISTS public.pos_refund_sale(uuid, uuid, uuid, jsonb, jsonb, text, boolean, text);
 DROP FUNCTION IF EXISTS public.pos_void_sale(uuid, uuid, text, text);
