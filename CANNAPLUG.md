@@ -524,7 +524,7 @@ The triggers fire for `transition_order_status` and any future payment path with
 - `types.ts` was missing `addresses`; `scripts/gen-m4-types.mjs` regenerates the M4 region (and the two new `orders` columns) from the local schema.
 
 ### 10. Deployment checklist
-1. Apply `20260930001000_member_account_live.sql` to the hosted project **before** deploying this code (the account page reads the new tables and RPCs).
+1. Apply `20260930001000_member_account_live.sql` to the hosted project **before** deploying this code (the account page reads the new tables and RPCs). **Done 2026-10-01** on `Cannaplug 012` (`khltynzzcjhlujxbgyod`): applied as hosted migration `20260930001000_member_account_live`; post-apply checks confirmed 6 new tables with RLS, service-role-only RPCs, no client writes on loyalty/addresses, `note`/`actor_user_id` unreadable to `authenticated`, 4 tables in `supabase_realtime`, seed tiers/rules present, legacy table preserved as `loyalty_transactions_legacy` (0 rows).
 2. In the Supabase dashboard confirm `orders`, `order_status_history`, `loyalty_accounts`, `loyalty_transactions` appear under *Database → Replication → supabase_realtime*, then sign in as a member, change an order's status as staff, and confirm the timeline updates without a reload. (If Realtime ever drops the history stream for a column-limited table, the page still converges: `orders` UPDATE events and the reconnect re-read refresh it.)
 3. Regenerate nothing by hand: `types.ts` already includes the M4 schema.
 
