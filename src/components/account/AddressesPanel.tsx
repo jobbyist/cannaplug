@@ -77,8 +77,9 @@ export function AddressesPanel({
 
   const field = (key: keyof Draft, label: string, props: { required?: boolean } = {}) => (
     <div className="grid gap-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={`addr-${key}`}>{label}</Label>
       <Input
+        id={`addr-${key}`}
         value={editing?.draft[key] ?? ""}
         required={props.required ?? false}
         onChange={(e) =>
@@ -130,8 +131,9 @@ export function AddressesPanel({
             {field("postal_code", "Postal code")}
           </div>
           <div className="grid gap-1.5">
-            <Label>Delivery notes</Label>
+            <Label htmlFor="addr-delivery_notes">Delivery notes</Label>
             <Textarea
+              id="addr-delivery_notes"
               rows={2}
               value={editing.draft.delivery_notes}
               onChange={(e) =>
