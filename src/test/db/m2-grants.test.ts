@@ -2,12 +2,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { connect, DB_URL } from "./helpers";
 
 const WRITE = ["INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"];
-const STOCK_TABLES = [
-  "inventory_batches",
-  "inventory_ledger",
-  "product_price_history",
-  "order_status_history",
-];
+const STOCK_TABLES = ["inventory_batches", "inventory_ledger", "product_price_history"];
+// Milestone 4: customers read their own timeline, but only through a column-level grant that omits
+// `note` and `actor_user_id` (see member-account.test.ts), so there is no table-level privilege.
+const HISTORY_TABLE = "order_status_history";
 
 describe.skipIf(!DB_URL)("Milestone 2 least-privilege grants", () => {
   const sql = DB_URL ? connect(2) : (undefined as never);
@@ -29,6 +27,14 @@ describe.skipIf(!DB_URL)("Milestone 2 least-privilege grants", () => {
       expect(await privs(t, "authenticated")).toEqual(["SELECT"]);
     },
   );
+
+  it("order_status_history: no table-level client privilege, service_role keeps full access", async () => {
+    expect(await privs(HISTORY_TABLE, "anon")).toEqual([]);
+    expect(await privs(HISTORY_TABLE, "authenticated")).toEqual([]);
+    expect(await privs(HISTORY_TABLE, "service_role")).toEqual(
+      expect.arrayContaining(["SELECT", "INSERT"]),
+    );
+  });
 
   it("anon has nothing on orders / order_items", async () => {
     expect(await privs("orders", "anon")).toEqual([]);

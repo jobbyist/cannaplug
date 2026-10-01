@@ -461,3 +461,76 @@ Hosted Supabase grants ALL on new public tables to `anon`/`authenticated`; RLS b
 
 `service_role` (server functions, SECURITY DEFINER RPCs) is unchanged. Applied to live and verified via `information_schema.role_table_grants`; `inventory_availability` still readable (48 rows).
 Tests: `src/test/db/m2-grants.test.ts` (8 real-PG tests; fails 6/8 when the rollback is applied — negative control). `supabase/tests/local/bootstrap.sql` now mirrors hosted default privileges for anon/authenticated.
+
+## 2026-09-30 — Milestone 4: live member account (`/account`)
+
+**Migration:** `supabase/migrations/20260930001000_member_account_live.sql` (mirrored to `drizzle/migrations/0010_…`), rollback `supabase/rollbacks/20260930001000_member_account_live_rollback.sql` (rehearsed: `scripts/rollback-rehearsal-m4.sh` — restores the Milestone 3 POS functions byte-for-byte, leaves no M4 objects, and the migration re-applies afterwards).
+**Principle:** the browser can *read* its own account and *ask* for things; it can never write money, points, ownership or another member's data. Every mutation is a database transaction whose actor comes from the verified JWT.
+**UX:** unchanged layout, sidebar, cards, badges and typography; the same tabs now show live state.
+
+### 1. Prototype state removed
+`src/routes/account.tsx` no longer fetches or computes anything locally: no `slice(0,3)` "saved products", no `spend / 10` points, no hard-coded address copy. The only `@/fixtures` import left is `catalog-presentation` (it picks a category *image*; it holds no data). `src/test/account-no-prototype.test.ts` enforces this, and also that no browser code writes a loyalty table / `points_balance`, and that no server-function validator accepts a user id, price, total or balance.
+Code layout: route shell `src/routes/account.tsx`; panels `src/components/account/*`; one data hook `use-member-account.ts` (load + Realtime); server layer `src/lib/member-data.server.ts` + `src/lib/member.functions.ts`; pure helpers `src/lib/member-logic.ts`; Realtime wiring `src/lib/member-realtime.ts`.
+
+### 2. Addresses — server-side ownership
+- Reads: RLS `addresses select own or staff` (unchanged), through the member's own client.
+- Writes: **direct client INSERT/UPDATE/DELETE on `addresses` is revoked.** `member_save_address`, `member_set_default_address`, `member_delete_address` (service-role-only RPCs, `search_path=''`) take `p_user_id` from the verified token. Ownership is part of the row lookup (`WHERE id = $1 AND user_id = $2`), so another member's id is indistinguishable from a missing one (`address_not_found`). A per-member advisory lock makes "exactly one default" and the 10-address cap hold under concurrency; deleting the default promotes the most recent address.
+
+### 3. Order timeline + Realtime
+- `order_status_history` is now readable by the **owning customer** only through a *column-level* grant — `id, order_id, from_status, to_status, created_at` — plus policy `own order status history`. `note` and `actor_user_id` (staff-internal) are not readable by any client role. Staff keep reading full history through the service-role admin functions. (This replaces the table-level `SELECT` from the Milestone 2 hardening for this one table; `m2-grants.test.ts` was updated accordingly.)
+- `orders`, `order_status_history`, `loyalty_accounts`, `loyalty_transactions` are added to the `supabase_realtime` publication (guarded: skipped if the publication does not exist).
+- Client: `subscribeToMemberUpdates` opens one channel (`member-account:<uid>`) on those four tables (`user_id=eq.<uid>` filters where the column exists; the history table is scoped by RLS). Events are only a *signal*: bursts are coalesced and the UI re-reads authoritative state, and a reconnect triggers a re-read, so a dropped event cannot leave stale data. Events naming another member are ignored (defence in depth, not the security boundary).
+- Active orders always show their timeline; finished orders collapse it.
+
+### 4. Loyalty (ledger-derived; never client-editable)
+| Table | Role |
+|---|---|
+| `loyalty_transactions` | **Append-only ledger.** `txn_type` earn/redeem/reversal, signed `points`, `balance_after`. `UNIQUE (source_type, source_id)` — one row per business event. CHECK: every row links to its source (`order_id = source_id` for `order*`, `pos_sale_id` for `pos_*`). |
+| `loyalty_accounts` | Cache of the ledger: `points_balance`, `lifetime_points`, `tier_id`. A trigger guard rejects any write that does not come from the ledger trigger — **for every role including `service_role`**. No client role has INSERT/UPDATE/DELETE. |
+| `loyalty_tiers` | seed 0 / sprout 500 / bloom 2000 / canopy 5000 **lifetime** points (spending points never demotes). Seed data — edit via SQL/admin later. |
+| `loyalty_rules` | `earn_rand_per_point` (10), `redeem_rand_per_point` (0.10), `redeem_min_points` (100), `redeem_max_pct_of_order` (50, CHECK ≤ 90). POS accrual and POS refund reversal now read these too (defaults reproduce Milestone 3 exactly). |
+
+How a ledger row is applied (`_loyalty_apply_txn`, BEFORE INSERT): lock the member's account row → return `NULL` (skip, no side effect) if the `(source_type, source_id)` already exists → refuse a **redemption** larger than the balance → update balance/lifetime/tier and stamp `balance_after`. The account lock serialises all of a member's ledger writes, which is what makes retries idempotent and double-spend impossible. A *reversal* may legitimately take the balance negative (clawback after a voided/refunded sale whose points were already spent); redemption is then blocked until it is positive again.
+
+Milestone 3's `loyalty_ledger` stays as the POS event feed and is **mirrored** into `loyalty_transactions` by a trigger in the same transaction (existing rows were back-filled), so there is one balance and one tier across channels.
+
+### 5. Accrual and redemption — database transactions linked to the source
+| Event | Mechanism |
+|---|---|
+| Online order completed | `AFTER UPDATE OF status` trigger on `orders` → `accrue_order_loyalty(order)`; earns on `total_rand` (what was actually paid, after any points discount). Idempotent per order; also callable for retries. |
+| Online order cancelled | same trigger → `reverse_order_loyalty(order)`: returns redeemed points (`order_redeem_release`) and claws back earned ones (`order_cancel`), once each. |
+| POS sale | unchanged flow (`accrue_pos_loyalty` after commit + sweeper), now rule-driven; void/refund reverse through the mirror. |
+| Redemption | `redeem_loyalty_points(user, order, points, key)`: order must be **owned by the caller** and `awaiting_payment`; one redemption per order; min / balance / max-share-of-item-subtotal limits; `total_rand` becomes the payable amount (so `confirm_order_payment` compares against the discounted figure) with `orders.loyalty_points_redeemed` / `loyalty_discount_rand` recording it. Idempotency-key replay returns the stored result. |
+The triggers fire for `transition_order_status` and any future payment path without touching those functions. Lock order is orders → account everywhere (POS: sale → ledger → account).
+
+### 6. Wishlist and back-in-stock (RLS)
+- `wishlist_items (user_id, product_id)` and `back_in_stock_subscriptions`: members `SELECT`/`DELETE` their own rows and `INSERT (user_id, product_id)` only — policies require `user_id = auth.uid()`; the subscription `status` cannot be set by a client. The server functions use the member's **own** client so RLS is the enforcement, not application code.
+- Guards (triggers): wishlist cap 200 and active products only; a subscription is accepted only for an *active, currently unavailable* product (`product_in_stock` otherwise), capped at 50 active.
+- `claim_back_in_stock_notifications(limit)` (service-role) atomically flips due subscriptions to `notified` (`FOR UPDATE SKIP LOCKED`) and returns who to tell. **Not scheduled yet** — see *Known gaps*.
+- Members only ever learn a boolean `in_stock`; counts stay staff-only.
+
+### 7. Reorder
+`reorder_check(user, order)` (read-only) re-evaluates every line against today's catalogue → `ok | price_changed | insufficient_stock | unavailable`, plus the current total. `create_reorder(user, order, expected_total, key)` re-runs that check **inside the transaction that creates the order**, refuses if the total the member confirmed differs from the live one (`price_changed`) or any line is unavailable (`reorder_unavailable`), then calls the existing `create_online_order` (server pricing + stock hold; a last-unit race still ends in `insufficient_stock`, never an oversold order). The UI shows the re-validated lines and total in a confirmation dialog first. Idempotent per key; ownership-checked.
+
+### 8. Test evidence (executed in this session)
+- **Real PostgreSQL** (`bun run test:db`): **137/137** — the 98 pre-existing (POS concurrency, review triage, M2 grants) plus **39 new** in `src/test/db/member-account.test.ts` covering address ownership/default/cap/RLS, timeline visibility and column privileges, publication membership, accrual idempotency (sequential + 12-way concurrent), tier promotion, POS mirror/void, client-write denial on every loyalty table (incl. `service_role` guard and append-only), redemption minimum/balance/share/once-per-order/replay/4-way double-spend/ownership/paid-order/cancel-release/earn-after-discount/clawback, wishlist + subscription RLS, notifier hand-off, reorder price/stock/retired/idempotency/ownership/last-unit race.
+- **Mutation testing** (clean DB reset per run; each protection removed, suite must fail): idempotency check → **29** tests fail; overspend check → 3; redeem ownership check → 1; per-order cap → 1; reorder price re-check → 1. Baseline 137/137 afterwards. (A first attempt was invalid — the postgres OS user could not read my scratch file so nothing was mutated — and was discarded and redone.)
+- **Browser layer** (Testing Library + happy-dom, network mocked): `member-realtime.test.ts` (5: subscription shape/filters, burst coalescing, foreign-row guard, cleanup, status forwarding), `member-timeline-live.test.tsx` (the real hook + timeline: a Realtime event makes a new status step appear without reload, and unmount removes the channel), `member-logic.test.ts` (10), `account-no-prototype.test.ts` (4).
+- Whole gate: `tsc` 0 errors, ESLint 0 errors (9 pre-existing warnings), `vite build` OK, unit suite 71/71.
+- **Not verified from this session:** (a) behaviour against the *hosted* Supabase Realtime server — the tests prove the RLS/column-grant visibility Realtime evaluates, and the client wiring, but not a live websocket; (b) the UI in a real browser with a member login. See deployment checklist.
+
+### 9. Fixed while here
+- `src/test/migrations.test.ts` was **already failing on `main`**: `drizzle/migrations` lacked a mirror of `20260929007000_admin_api_subscriptions.sql`, so the index-wise byte comparison was off by one. Added the mirror as `0007_…` and renumbered the later mirrors (`0008_pos_…`, `0009_m2_…`, this milestone `0010_…`) — file renames only, contents unchanged. Older notes in this file that say "mirrored to 0007/0008" refer to the previous numbering.
+- `types.ts` was missing `addresses`; `scripts/gen-m4-types.mjs` regenerates the M4 region (and the two new `orders` columns) from the local schema.
+
+### 10. Deployment checklist
+1. Apply `20260930001000_member_account_live.sql` to the hosted project **before** deploying this code (the account page reads the new tables and RPCs).
+2. In the Supabase dashboard confirm `orders`, `order_status_history`, `loyalty_accounts`, `loyalty_transactions` appear under *Database → Replication → supabase_realtime*, then sign in as a member, change an order's status as staff, and confirm the timeline updates without a reload. (If Realtime ever drops the history stream for a column-limited table, the page still converges: `orders` UPDATE events and the reconnect re-read refresh it.)
+3. Regenerate nothing by hand: `types.ts` already includes the M4 schema.
+
+### 11. Known gaps (deliberate, not forgotten)
+- **Checkout is still the prototype.** `/checkout` fabricates an order number and never calls `create_online_order`, so the only way a *real* online order appears in `/account` today is via **Reorder** (or an order created server-side). Wiring checkout to `create_online_order` + `confirm_order_payment` is the next milestone and unlocks the redeem-at-checkout UX; the redeem RPC and the Orders-tab control are ready for it.
+- **Back-in-stock emails are not sent.** Subscriptions and `claim_back_in_stock_notifications` exist; nothing calls the claim yet. Wire it into `/api/public/inventory/maintenance` *together with* the Resend sender — claiming without sending would mark subscriptions notified and lose the notice, so it is intentionally not added to the cron alone.
+- Loyalty rules/tiers have no admin UI (SQL only); no tier-based earn multiplier (it would also have to apply to POS refund reversal — a deliberate follow-up). No manual points adjustment RPC (would be a ledger row with an audited staff actor).
+- Deleting an `auth.users` row that has loyalty history is blocked by the append-only ledger (same behaviour as Milestone 3's `loyalty_ledger`); a data-erasure policy (anonymise rather than delete) is a separate decision.
+- Local harness: `bootstrap.sql` now creates an empty `supabase_realtime` publication so the publication membership test can run; it is test-only and never applied to hosted projects.

@@ -23,13 +23,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { DashboardSidebar, type SidebarItem } from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { rand } from "@/lib/cart";
-import { listMemberOrdersFn, listStoreProductsFn } from "@/lib/admin.functions";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
+import { useMemberAccount } from "@/components/account/use-member-account";
+import { OrdersPanel } from "@/components/account/OrdersPanel";
+import { SavedPanel } from "@/components/account/SavedPanel";
+import { RewardsPanel } from "@/components/account/RewardsPanel";
+import { AddressesPanel } from "@/components/account/AddressesPanel";
+import { statusLabel } from "@/lib/member-logic";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import logoImage from "@/assets/cannaplug-logo.png";
 import logoImageWhite from "@/assets/cannaplug-logo-white.png";
@@ -217,26 +221,28 @@ const NAV_ITEMS: SidebarItem[] = [
 function MemberPortal() {
   const { user, signOut } = useAuth();
   const [tab, setTab] = useState("dashboard");
-  const [orders, setOrders] = useState<Awaited<ReturnType<typeof listMemberOrdersFn>>>([]);
-  const [products, setProducts] = useState<Awaited<ReturnType<typeof listStoreProductsFn>>>([]);
+  const [flash, setFlash] = useState<string | null>(null);
+  const { data: account, error, reload } = useMemberAccount(user!.id);
+
   useEffect(() => {
-    void Promise.all([listMemberOrdersFn(), listStoreProductsFn()]).then(
-      ([orderRows, productRows]) => {
-        setOrders(orderRows);
-        setProducts(productRows);
-      },
-    );
-  }, []);
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(null), 6000);
+    return () => clearTimeout(timer);
+  }, [flash]);
+
   const displayName =
     (user?.user_metadata?.["full_name"] as string | undefined) ?? user?.email ?? "Member";
+  const orders = account?.orders ?? [];
   const spend = orders
     .filter((order) => order.status === "completed")
     .reduce((sum, order) => sum + Number(order.total_rand), 0);
-  const rewardsPoints = Math.floor(spend / 10);
-  const rewardsToNextTier = 500 - (rewardsPoints % 500);
-  const rewardsPercent = rewardsPoints % 500;
-  const saved = products.slice(0, 3);
-  const recommended = products.slice(3, 6);
+  const products = account?.products ?? [];
+  const savedIds = new Set(account?.wishlist ?? []);
+  const saved = (account?.wishlist ?? [])
+    .map((id) => products.find((p) => p.id === id))
+    .filter((p): p is (typeof products)[number] => Boolean(p))
+    .slice(0, 3);
+  const recommended = products.filter((p) => !savedIds.has(p.id)).slice(0, 3);
 
   return (
     <div className="site flex min-h-screen flex-col bg-background md:flex-row">
@@ -268,7 +274,26 @@ function MemberPortal() {
             <CircleUserRound size={18} />
           </span>
         </header>
-        {tab === "dashboard" && (
+        {flash && (
+          <p
+            role="status"
+            className="mb-4 rounded-md bg-primary/10 px-3 py-2 text-xs font-medium text-primary"
+          >
+            {flash}
+          </p>
+        )}
+        {error && !account && (
+          <p className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}{" "}
+            <button className="font-semibold underline" onClick={() => void reload()}>
+              Retry
+            </button>
+          </p>
+        )}
+        {!account && !error && (
+          <p className="text-sm text-muted-foreground">Loading your account…</p>
+        )}
+        {account && tab === "dashboard" && (
           <div className="flex flex-col gap-6">
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-primary p-5 text-primary-foreground">
@@ -281,7 +306,7 @@ function MemberPortal() {
               </div>
               <div className="rounded-xl border border-border bg-card p-5">
                 <p className="text-xs uppercase text-muted-foreground">Rewards points</p>
-                <p className="font-display text-2xl font-extrabold">{rewardsPoints}</p>
+                <p className="font-display text-2xl font-extrabold">{account.loyalty.balance}</p>
               </div>
             </section>
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -295,6 +320,9 @@ function MemberPortal() {
                     View all
                   </button>
                 </div>
+                {orders.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No orders yet.</p>
+                )}
                 {orders.slice(0, 5).map((order) => (
                   <div
                     key={order.id}
@@ -306,126 +334,36 @@ function MemberPortal() {
                         {new Date(order.created_at).toLocaleDateString("en-ZA")}
                       </p>
                     </div>
-                    <Badge>{order.status}</Badge>
+                    <Badge>{statusLabel(order.status)}</Badge>
                   </div>
                 ))}
               </div>
               <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="mb-3 font-display text-sm font-bold uppercase">Saved Products</h3>
+                {saved.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Products you save will appear here.
+                  </p>
+                )}
                 {saved.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-3 border-b border-border py-3 last:border-0"
-                  >
-                    <img
-                      src={getCatalogImage(p.category)}
-                      alt=""
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <div className="flex-1 text-xs">
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-muted-foreground">{p.category}</p>
-                    </div>
-                    <b>{rand(p.price_rand)}</b>
-                  </div>
+                  <ProductRow key={p.id} product={p} />
                 ))}
               </div>
               <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="mb-3 font-display text-sm font-bold uppercase">Recommended</h3>
                 {recommended.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-3 border-b border-border py-3 last:border-0"
-                  >
-                    <img
-                      src={getCatalogImage(p.category)}
-                      alt=""
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <div className="flex-1 text-xs">
-                      <p className="font-semibold">{p.name}</p>
-                      <p className="text-muted-foreground">{p.category}</p>
-                    </div>
-                    <b>{rand(p.price_rand)}</b>
-                  </div>
+                  <ProductRow key={p.id} product={p} />
                 ))}
               </div>
             </section>
           </div>
         )}
-        {tab === "orders" && (
-          <div className="flex flex-col gap-4">
-            <h2 className="font-display text-lg font-bold uppercase">Order history</h2>
-            {orders.map((order) => (
-              <div key={order.id} className="rounded-xl border border-border bg-card p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{order.order_number}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString("en-ZA")}
-                    </p>
-                  </div>
-                  <Badge>{order.status}</Badge>
-                </div>
-                <ul className="mb-3 text-xs text-muted-foreground">
-                  {order.items.map((item) => (
-                    <li key={item.id}>
-                      {item.quantity} × {item.product_name}
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-right text-sm font-bold">{rand(order.total_rand)}</p>
-              </div>
-            ))}
-          </div>
+        {account && tab === "orders" && (
+          <OrdersPanel account={account} reload={reload} notify={setFlash} />
         )}
-        {tab === "saved" && (
-          <div>
-            <h2 className="mb-4 font-display text-lg font-bold uppercase">Saved Products</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {products.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
-                >
-                  <img
-                    src={getCatalogImage(p.category)}
-                    alt=""
-                    className="h-14 w-14 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.subcategory ?? p.category}</p>
-                  </div>
-                  <b className="text-sm">{rand(p.price_rand)}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {tab === "rewards" && (
-          <div className="max-w-lg rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-2 font-display text-lg font-bold uppercase">Rewards & loyalty</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Points are calculated from completed account spend at 1 point per R10. A persisted
-              loyalty ledger will be introduced separately.
-            </p>
-            <div className="mb-2 flex justify-between text-xs font-semibold">
-              <span>{rewardsPoints} points</span>
-              <span>{rewardsPoints + rewardsToNextTier} points</span>
-            </div>
-            <Progress value={rewardsPercent} />
-          </div>
-        )}
-        {tab === "addresses" && (
-          <div className="max-w-lg rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-4 font-display text-lg font-bold uppercase">Delivery addresses</h2>
-            <p className="text-sm text-muted-foreground">
-              Saved delivery addresses are managed securely in your account. Address editing is
-              scheduled for the fulfilment milestone.
-            </p>
-          </div>
-        )}
+        {account && tab === "saved" && <SavedPanel account={account} reload={reload} />}
+        {account && tab === "rewards" && <RewardsPanel account={account} />}
+        {account && tab === "addresses" && <AddressesPanel account={account} reload={reload} />}
         {tab === "payment" && (
           <div className="max-w-lg rounded-xl border border-border bg-card p-6">
             <h2 className="mb-4 font-display text-lg font-bold uppercase">Payment methods</h2>
@@ -464,6 +402,27 @@ function MemberPortal() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function ProductRow({
+  product,
+}: {
+  product: { id: string; name: string; category: string; price_rand: number };
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border py-3 last:border-0">
+      <img
+        src={getCatalogImage(product.category)}
+        alt=""
+        className="h-10 w-10 rounded-lg object-cover"
+      />
+      <div className="flex-1 text-xs">
+        <p className="font-semibold">{product.name}</p>
+        <p className="text-muted-foreground">{product.category}</p>
+      </div>
+      <b>{rand(Number(product.price_rand))}</b>
     </div>
   );
 }

@@ -153,3 +153,93 @@ export async function val<T = any>(q: PromiseLike<readonly unknown[]>): Promise<
   const rows = (await q) as Record<string, unknown>[];
   return Object.values(rows[0] ?? {})[0] as T;
 }
+
+/**
+ * Runs `fn` exactly as a signed-in browser client would: role `authenticated` with the JWT subject
+ * set, so RLS policies and column grants apply (this is what PostgREST and Realtime evaluate).
+ * The transaction commits; a thrown error aborts it and rejects.
+ */
+export async function asUser<T>(sql: Sql, userId: string, fn: (tx: Sql) => Promise<T>): Promise<T> {
+  return (await sql.begin(async (tx) => {
+    await tx`SET LOCAL ROLE authenticated`;
+    await tx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+    return fn(tx as unknown as Sql);
+  })) as T;
+}
+
+/** Same, as `anon` (no subject). */
+export async function asAnon<T>(sql: Sql, fn: (tx: Sql) => Promise<T>): Promise<T> {
+  return (await sql.begin(async (tx) => {
+    await tx`SET LOCAL ROLE anon`;
+    return fn(tx as unknown as Sql);
+  })) as T;
+}
+
+/** Places an online order for `customer` (server-priced) and returns its id. */
+export async function placeOrder(
+  sql: Sql,
+  customer: string,
+  items: { product_id: string; quantity: number }[],
+): Promise<{ orderId: string; total: number }> {
+  const r = await rpc(
+    sql,
+    "create_online_order",
+    customer,
+    items,
+    "Test",
+    "0820000000",
+    null,
+    key("ord"),
+    30,
+  );
+  return { orderId: r.order_id as string, total: Number(r.total) };
+}
+
+/** Walks an order through the real fulfilment state machine as staff. */
+export async function advanceOrder(
+  sql: Sql,
+  staff: string,
+  orderId: string,
+  to: "confirmed" | "completed" | "cancelled",
+): Promise<void> {
+  const path =
+    to === "completed" ? ["confirmed", "packing", "ready", "out_for_delivery", "completed"] : [to];
+  for (const status of path)
+    await rpc(sql, "transition_order_status", orderId, status, staff, null);
+}
+
+/** Gives `customer` exactly `points` loyalty points by completing a real order (1 point per R10). */
+export async function earnPoints(
+  sql: Sql,
+  manager: string,
+  customer: string,
+  points: number,
+): Promise<string> {
+  const product = await mkProduct(sql, points * 10);
+  await receive(sql, manager, product, 1);
+  const { orderId } = await placeOrder(sql, customer, [{ product_id: product, quantity: 1 }]);
+  await advanceOrder(sql, manager, orderId, "completed");
+  return orderId;
+}
+
+export async function loyaltyOf(sql: Sql, userId: string) {
+  const [row] = await sql`
+    SELECT a.points_balance, a.lifetime_points, t.code AS tier
+    FROM public.loyalty_accounts a LEFT JOIN public.loyalty_tiers t ON t.id = a.tier_id
+    WHERE a.user_id = ${userId}`;
+  return (row ?? null) as {
+    points_balance: number;
+    lifetime_points: number;
+    tier: string | null;
+  } | null;
+}
+
+/** Every account's cached balance must equal the sum of its ledger rows (and match balance_after). */
+export async function assertLoyaltyConsistent(sql: Sql): Promise<void> {
+  const bad = await sql`
+    SELECT a.user_id, a.points_balance,
+           COALESCE((SELECT SUM(t.points) FROM public.loyalty_transactions t WHERE t.user_id = a.user_id), 0)::int AS ledger_sum
+    FROM public.loyalty_accounts a
+    WHERE a.points_balance <> COALESCE((SELECT SUM(t.points) FROM public.loyalty_transactions t WHERE t.user_id = a.user_id), 0)`;
+  if (bad.length) throw new Error(`loyalty balances diverged from ledger: ${JSON.stringify(bad)}`);
+}
