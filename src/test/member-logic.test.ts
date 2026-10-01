@@ -33,6 +33,16 @@ describe("tier progress", () => {
     });
     expect(tierProgress(500, tiers).current?.code).toBe("sprout");
   });
+  it("never yields NaN/Infinity for a malformed tier table (duplicate minimums)", () => {
+    const dup = [
+      { code: "a", name: "A", min_lifetime_points: 100, perks: [] },
+      { code: "b", name: "B", min_lifetime_points: 100, perks: [] },
+    ];
+    for (const lifetime of [0, 99, 100, 500]) {
+      const p = tierProgress(lifetime, dup);
+      expect(Number.isFinite(p.percent)).toBe(true);
+    }
+  });
   it("reports the top tier as complete", () => {
     expect(tierProgress(9999, tiers)).toMatchObject({
       current: { code: "bloom" },

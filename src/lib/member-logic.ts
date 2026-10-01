@@ -60,9 +60,11 @@ export function tierProgress(lifetime: number, tiers: LoyaltyTier[]) {
   const current = [...sorted].reverse().find((t) => t.min_lifetime_points <= lifetime) ?? null;
   const next = sorted.find((t) => t.min_lifetime_points > lifetime) ?? null;
   const floor = current?.min_lifetime_points ?? 0;
-  const percent = next
-    ? Math.min(100, Math.max(0, ((lifetime - floor) / (next.min_lifetime_points - floor)) * 100))
-    : 100;
+  // `next.min > lifetime >= floor`, so the span is positive for any sane tier table; the guard keeps
+  // a hand-edited table with duplicate minimums from producing NaN/Infinity in the UI.
+  const span = next ? next.min_lifetime_points - floor : 0;
+  const percent =
+    next && span > 0 ? Math.min(100, Math.max(0, ((lifetime - floor) / span) * 100)) : 100;
   return {
     current,
     next,
