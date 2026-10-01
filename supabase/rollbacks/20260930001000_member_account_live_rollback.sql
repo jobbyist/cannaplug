@@ -252,6 +252,19 @@ DROP TABLE IF EXISTS public.loyalty_accounts;
 DROP TABLE IF EXISTS public.loyalty_rules;
 DROP TABLE IF EXISTS public.loyalty_tiers;
 
+-- Put the legacy (empty, unused) table back under its original name if the migration moved it aside.
+DO $$
+BEGIN
+  IF to_regclass('public.loyalty_transactions_legacy') IS NOT NULL
+     AND to_regclass('public.loyalty_transactions') IS NULL THEN
+    ALTER TABLE public.loyalty_transactions_legacy RENAME TO loyalty_transactions;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'loyalty_transactions_legacy_pkey') THEN
+      ALTER TABLE public.loyalty_transactions RENAME CONSTRAINT loyalty_transactions_legacy_pkey TO loyalty_transactions_pkey;
+    END IF;
+  END IF;
+END
+$$;
+
 DROP FUNCTION IF EXISTS public._back_in_stock_guard();
 DROP FUNCTION IF EXISTS public._wishlist_guard();
 DROP FUNCTION IF EXISTS public._product_available(uuid);

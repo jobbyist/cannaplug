@@ -14,6 +14,33 @@
 -- (which takes it from the verified JWT, never from the browser).
 
 -- ---------------------------------------------------------------------------
+-- 0. Pre-existing legacy table
+-- ---------------------------------------------------------------------------
+
+-- The hosted project predates this repo's migrations and carries an unused, empty
+-- `loyalty_transactions` from the original Lovable schema (columns: transaction_type, order_id text,
+-- description; nothing references it). Its name and primary-key name collide with the ledger below, so
+-- it is moved aside — renamed, never dropped — ONLY when that legacy shape is detected. Fresh
+-- databases (and re-runs) do not have the legacy column, so this is a no-op for them.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'loyalty_transactions'
+               AND column_name = 'transaction_type') THEN
+    IF to_regclass('public.loyalty_transactions_legacy') IS NOT NULL THEN
+      RAISE EXCEPTION 'loyalty_transactions_legacy already exists; resolve manually before applying';
+    END IF;
+    ALTER TABLE public.loyalty_transactions RENAME TO loyalty_transactions_legacy;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'loyalty_transactions_pkey'
+               AND conrelid = 'public.loyalty_transactions_legacy'::regclass) THEN
+      ALTER TABLE public.loyalty_transactions_legacy
+        RENAME CONSTRAINT loyalty_transactions_pkey TO loyalty_transactions_legacy_pkey;
+    END IF;
+  END IF;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 1. Addresses
 -- ---------------------------------------------------------------------------
 
