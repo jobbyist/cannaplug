@@ -106,6 +106,8 @@ export type ReorderCheck = {
   order_number: string;
   lines: ReorderLine[];
   orderable: boolean;
+  /** Delivery fee re-priced at today's rate (0 for orders that had none). */
+  delivery_fee?: number;
   current_total: number | null;
 };
 
@@ -148,6 +150,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   wishlist_full: "Your saved list is full",
   product_in_stock: "This product is in stock right now",
   subscription_limit: "You can follow up to 50 products",
+  invalid_delivery_method: "That delivery option is not available",
+  delivery_unavailable: "That delivery option is no longer offered",
+  checkout_unavailable: "Some items in your basket are no longer available",
+  address_incomplete: "Please add a suburb or city to that address",
+  invalid_contact: "Please enter your name and a valid phone number",
+  payment_method_unsupported: "Only EFT is available right now",
+  invalid_items: "Your basket could not be read — please refresh it",
 };
 
 /** Detail text after the code is user-safe for these (it carries numbers the member needs). */
@@ -157,6 +166,8 @@ const SHOW_DETAIL = new Set([
   "price_changed",
   "reorder_unavailable",
   "insufficient_stock",
+  "checkout_unavailable",
+  "delivery_unavailable",
 ]);
 
 export function friendlyMemberError(err: unknown): Error {

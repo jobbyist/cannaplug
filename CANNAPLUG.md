@@ -529,8 +529,53 @@ The triggers fire for `transition_order_status` and any future payment path with
 3. Regenerate nothing by hand: `types.ts` already includes the M4 schema.
 
 ### 11. Known gaps (deliberate, not forgotten)
-- **Checkout is still the prototype.** `/checkout` fabricates an order number and never calls `create_online_order`, so the only way a *real* online order appears in `/account` today is via **Reorder** (or an order created server-side). Wiring checkout to `create_online_order` + `confirm_order_payment` is the next milestone and unlocks the redeem-at-checkout UX; the redeem RPC and the Orders-tab control are ready for it.
-- **Back-in-stock emails are not sent.** Subscriptions and `claim_back_in_stock_notifications` exist; nothing calls the claim yet. Wire it into `/api/public/inventory/maintenance` *together with* the Resend sender — claiming without sending would mark subscriptions notified and lose the notice, so it is intentionally not added to the cron alone.
+- **Checkout** was still the prototype when Milestone 4 shipped; it is wired end to end in the *Checkout end to end* section below.
+- **Back-in-stock emails are not sent** — deferred to a separate PR, see *Roadmap commitments* below (must land before Milestone 7).
 - Loyalty rules/tiers have no admin UI (SQL only); no tier-based earn multiplier (it would also have to apply to POS refund reversal — a deliberate follow-up). No manual points adjustment RPC (would be a ledger row with an audited staff actor).
 - Deleting an `auth.users` row that has loyalty history is blocked by the append-only ledger (same behaviour as Milestone 3's `loyalty_ledger`); a data-erasure policy (anonymise rather than delete) is a separate decision.
 - Local harness: `bootstrap.sql` now creates an empty `supabase_realtime` publication so the publication membership test can run; it is test-only and never applied to hosted projects.
+
+
+## Roadmap commitments
+
+- **Back-in-stock emails — separate PR, MUST land before Milestone 7.** Decided 2026-10-01. Subscriptions (`back_in_stock_subscriptions`), the member UI (bell on out-of-stock products, "Back in stock" badge) and the atomic job entry point `claim_back_in_stock_notifications(limit)` already exist (Milestone 4); nothing sends mail yet. The follow-up PR must:
+  1. send through Resend and wire a scheduled job — add it to `POST /api/public/inventory/maintenance` **together with** the sender, never the claim alone: the claim flips rows to `notified`, so claiming without a successful send silently loses the notification (`FOR UPDATE SKIP LOCKED` already prevents two senders getting the same row);
+  2. decide failure handling (the claim has no un-claim: either make the sender retry within the same job run, or add a `notify_failed_at`/retry column and a re-queue RPC in that PR);
+  3. include the product link, an unsubscribe path (deleting the subscription row is already allowed by RLS), and respect marketing-consent rules;
+  4. cover it with tests like the rest of the member milestone (idempotent per subscription, no duplicate emails under concurrent job runs).
+- **Compliance gate on online orders** (age / identity verification via `customer_verification`, any purchase limits) is not enforced anywhere in the online-order path — checkout, reorder and `create_online_order` alike. It needs a decision on the rules before it can be built.
+
+## 2026-10-01 — Checkout end to end (`/checkout` → `/admin` and `/account`)
+
+**Migration:** `supabase/migrations/20260930002000_checkout_orders.sql` (mirror `drizzle/migrations/0011_…`), rollback `supabase/rollbacks/20260930002000_checkout_orders_rollback.sql` (rehearsed: `scripts/rollback-rehearsal-m41.sh` — restores the Milestone 4 functions byte-for-byte). Built by `scripts/build-m41-migration.py` (lifts and patches four M4 functions from the M4 file so they cannot drift).
+**Depends on:** Milestone 4 (`20260930001000_member_account_live.sql`). **Applied to hosted:** *no* — apply it before deploying this code.
+**Principle (unchanged):** the browser says *what* (product ids, quantities, one of its own saved address ids, a delivery option code, contact details, the total it displayed). The database decides *how much*.
+
+### What the member now experiences
+Cart → Details (name, phone, saved or new address, optional notes) → Delivery (server-owned options) → Payment (a **server quote** of live prices, stock and total) → **Place order** → real order number, a 2-hour stock hold and EFT instructions with the order number as the reference. The cart is emptied only after the server confirms the order exists. The order is immediately in `/account` (Orders tab, live timeline over Realtime, points redemption, reorder) and in `/admin` (Orders, with address, delivery method, contact and payment info).
+
+### Server model
+| Piece | Behaviour |
+|---|---|
+| `delivery_options` | server-owned fees (`standard` R80, `discreet` R120); anon/authenticated can only read active rows. |
+| `orders` + `delivery_method`, `delivery_fee_rand`, `delivery_address` (jsonb **snapshot**), `payment_method` | the snapshot survives later edits/deletion of the saved address (tested). `total_rand` = items + delivery − points discount (the figure payment is checked against). |
+| `checkout_quote(items, method)` | read-only; re-prices against the live catalogue, reports per-line `ok / insufficient_stock / unavailable`, fee and total. |
+| `checkout_place_order(...)` | one transaction, service-role only: contact validation → idempotency → **address ownership** (`WHERE id AND user_id`; another member's id reads as `address_not_found`) → quote → refuse if items unavailable → refuse if `expected_total` ≠ live total (`price_changed`) → `create_online_order` (server pricing + 120-minute stock hold) → stamp delivery/payment → audit. Idempotent per key; double-submits return the same order. |
+| Patched M4 functions | `redeem_loyalty_points` (discount applies to goods; delivery stays payable), `accrue_order_loyalty` (points earned on goods only, not delivery), `reorder_check` / `create_reorder` (delivery re-priced today; method + address snapshot carried over; a retired delivery option blocks the reorder). |
+
+### Payments — honest scope
+**No payment processor is integrated, so none is faked.** The prototype's card/SnapScan options, its client-side `PLUGBACK10` discount and its `Math.random()` order number are gone. Only **EFT** is offered (`payment_method_unsupported` for anything else, enforced in SQL). Staff confirm receipt in `/admin` → Orders → *Confirm EFT received*: bank reference + amount received go through the existing `confirm_order_payment` (the webhook path), which is idempotent per bank reference (a reference cannot be reused on another order), amount-checked (`amount_mismatch` changes nothing), consumes stock atomically, and writes a `payment_events` receipt plus an audit row. The bare "Confirmed" button is hidden for unpaid orders (the transition itself is still permitted server-side for staff). If the 2-hour hold lapsed before the EFT arrived, confirmation re-reserves if stock remains, else returns `stock_unavailable_needs_refund` and leaves the order unpaid (tested).
+When a card/wallet processor is added it should call `confirm_order_payment` from a signed webhook and add its code to the `payment_method` CHECK and `checkout_place_order`.
+
+### Test evidence (executed in this session)
+- **Real PostgreSQL:** `bun run test:db` **155/155** (137 prior + 18 new in `src/test/db/checkout.test.ts`): quote pricing/fees/stock/validation; real order with server total, snapshot, 120-minute hold and timeline row; snapshot survives address edit/delete; stale/forged total refused with nothing created; unavailable stock refused; address ownership + completeness; contact validation and EFT-only; 8-way idempotent double-submit (one order, stock held once; key reuse with different body rejected); last-units race (exactly one wins); browser roles cannot call the RPCs and cannot edit delivery fees; the order is visible to its owner and not to another member, and the admin query shows the address; EFT confirmation (amount mismatch → nothing; idempotent per reference; stock consumed); lapsed-hold payment (refund-needed outcome, order stays unpaid); loyalty interplay (redeem + delivery fee, earn on goods only); reorder carries delivery and re-prices the fee, blocks on retired option.
+- **Mutation checks** (clean DB each run): total check removed → fails; address-ownership check removed → fails; stock check removed → fails; EFT-only check removed → fails; fee not added to total → 6 fail; redeem ignoring delivery → fails; accrual on delivery → fails. All seven caught; baseline 155/155.
+- **Browser layer** (`src/test/checkout-flow.test.tsx`, real page + cart, server mocked, 6 tests): happy path sends only ids/quantities/owned address id/displayed total/one key (asserted: no price or user id in the payload), shows server totals, real order number and EFT reference, clears the cart only after success; a price change keeps the cart, shows the new total and uses a fresh key; unavailable items block ordering; only EFT is offered and there is no promo/prototype text; contact validation; new address saved through the server and selected. `account-no-prototype.test.ts` also guards `checkout.tsx` against regressing (no `Math.random`, `PLUGBACK`, `SnapScan`; order only via `placeOrderFn`; cart cleared after it) and checks checkout validators accept no price/fee/user id.
+- Whole gate: `tsc` 0 errors, ESLint 0 errors, `vite build` OK, unit suite 80/80.
+- **Not verified from this session:** the flow in a real browser against the hosted backend (needs the migration applied and a member + staff login), and live Realtime delivery of the new order to an open `/account` tab.
+
+### Known gaps
+- No card/wallet payments (see above). Delivery fees are flat per option (no zone/weight pricing); `delivery_options` has no admin UI (SQL only).
+- Guest checkout is not supported (sign-in is required, as before).
+- The compliance gate and back-in-stock emails are tracked under *Roadmap commitments*.
+- Promo codes were removed rather than faked; a real promo/voucher system would be a server-side table + redemption RPC like loyalty.

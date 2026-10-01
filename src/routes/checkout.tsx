@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronRight,
-  CreditCard,
+  Landmark,
   Lock,
+  MapPin,
   Minus,
   Plus,
   ShoppingBag,
@@ -16,8 +17,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { useIdempotencyKey } from "@/hooks/useIdempotencyKey";
 import { useCart } from "@/lib/cart";
 import { rand } from "@/lib/cart";
+import { BANKING_DETAILS } from "@/lib/banking";
+import {
+  listCheckoutAddressesFn,
+  listDeliveryOptionsFn,
+  placeOrderFn,
+  quoteCheckoutFn,
+} from "@/lib/checkout.functions";
+import { saveAddressFn } from "@/lib/member.functions";
+import type { CheckoutQuote, PlacedOrder } from "@/lib/checkout-data.server";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout | CannaPlug" }] }),
@@ -27,16 +38,27 @@ export const Route = createFileRoute("/checkout")({
 const STEPS = ["Cart", "Details", "Delivery", "Payment", "Confirmation"] as const;
 type Step = (typeof STEPS)[number];
 
-const DELIVERY_OPTIONS = [
-  { id: "standard", label: "Standard delivery", copy: "2–3 working days", price: 80 },
-  { id: "discreet", label: "Discreet delivery", copy: "Plain packaging, in-hand", price: 120 },
-] as const;
+type DeliveryOption = { code: string; label: string; description: string | null; fee_rand: number };
+type SavedAddress = {
+  id: string;
+  label: string;
+  recipient_name: string | null;
+  phone: string | null;
+  line1: string;
+  line2: string | null;
+  suburb: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  delivery_notes: string | null;
+  is_default: boolean;
+};
 
-const PAYMENT_METHODS = [
-  { id: "card", label: "Credit / Debit card", icon: CreditCard },
-  { id: "eft", label: "EFT / Bank transfer", icon: Lock },
-  { id: "snapscan", label: "SnapScan", icon: ShoppingBag },
-] as const;
+const errorText = (err: unknown) =>
+  err instanceof Error ? err.message : "Something went wrong. Please try again.";
+
+const addressLine = (a: SavedAddress) =>
+  [a.line1, a.line2, a.suburb, a.city, a.province, a.postal_code].filter(Boolean).join(", ");
 
 function Stepper({ step }: { step: Step }) {
   const index = STEPS.indexOf(step);
@@ -64,25 +86,43 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
+/** Shows the SERVER's quote when there is one; otherwise a clearly labelled estimate. */
 function OrderSummary({
-  deliveryPrice,
-  promoDiscount,
+  quote,
+  deliveryFee,
 }: {
-  deliveryPrice: number;
-  promoDiscount: number;
+  quote: CheckoutQuote | null;
+  deliveryFee: number | null;
 }) {
   const { lines, total } = useCart();
-  const grandTotal = Math.max(total + deliveryPrice - promoDiscount, 0);
+  const estimate = quote === null;
+  const grand = quote ? quote.total : total + (deliveryFee ?? 0);
   return (
     <aside className="h-fit rounded-xl border border-border bg-card p-5">
       <h2 className="mb-4 font-display text-sm font-bold uppercase">Order summary</h2>
       <ul className="mb-4 flex flex-col gap-3">
-        {lines.map((line) => (
-          <li key={line.productId} className="flex items-center justify-between gap-3 text-xs">
-            <span className="text-foreground">
+        {(quote
+          ? quote.lines.map((l) => ({
+              key: l.product_id,
+              name: l.name,
+              quantity: l.quantity,
+              amount: l.line_total,
+              problem: l.status !== "ok",
+            }))
+          : lines.map((l) => ({
+              key: l.productId,
+              name: l.name,
+              quantity: l.quantity,
+              amount: l.price * l.quantity,
+              problem: false,
+            }))
+        ).map((line) => (
+          <li key={line.key} className="flex items-center justify-between gap-3 text-xs">
+            <span className={line.problem ? "text-destructive" : "text-foreground"}>
               {line.name} <span className="text-muted-foreground">× {line.quantity}</span>
+              {line.problem && " — unavailable"}
             </span>
-            <span className="font-semibold">{rand(line.price * line.quantity)}</span>
+            <span className="font-semibold">{line.amount === null ? "—" : rand(line.amount)}</span>
           </li>
         ))}
         {lines.length === 0 && (
@@ -92,22 +132,23 @@ function OrderSummary({
       <div className="flex flex-col gap-2 border-t border-border pt-3 text-xs">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Subtotal</span>
-          <span>{rand(total)}</span>
+          <span>{rand(quote ? quote.subtotal : total)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Delivery</span>
-          <span>{deliveryPrice ? rand(deliveryPrice) : "—"}</span>
+          <span>
+            {quote ? rand(quote.delivery_fee) : deliveryFee !== null ? rand(deliveryFee) : "—"}
+          </span>
         </div>
-        {promoDiscount > 0 && (
-          <div className="flex justify-between text-primary">
-            <span>Promo discount</span>
-            <span>-{rand(promoDiscount)}</span>
-          </div>
-        )}
         <div className="mt-1 flex justify-between border-t border-border pt-2 text-sm font-bold">
-          <span>Total</span>
-          <span>{rand(grandTotal)}</span>
+          <span>Total{estimate ? " (estimate)" : ""}</span>
+          <span>{quote && quote.total === null ? "—" : rand(grand ?? 0)}</span>
         </div>
+        {estimate && (
+          <p className="text-[0.65rem] text-muted-foreground">
+            Final prices and stock are confirmed before you place the order.
+          </p>
+        )}
       </div>
     </aside>
   );
@@ -117,23 +158,163 @@ function CheckoutPage() {
   const { user } = useAuth();
   const { lines, setQuantity, remove, clear } = useCart();
   const [step, setStep] = useState<Step>("Cart");
-  const [delivery, setDelivery] = useState<(typeof DELIVERY_OPTIONS)[number]["id"]>("standard");
-  const [payment, setPayment] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("card");
-  const [promo, setPromo] = useState("");
-  const [promoDiscount, setPromoDiscount] = useState(0);
-  const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
-  const deliveryPrice = DELIVERY_OPTIONS.find((d) => d.id === delivery)?.price ?? 0;
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [notes, setNotes] = useState("");
 
-  const applyPromo = (event: FormEvent) => {
-    event.preventDefault();
-    setPromoDiscount(promo.trim().toUpperCase() === "PLUGBACK10" ? 100 : 0);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({
+    line1: "",
+    suburb: "",
+    city: "",
+    province: "",
+    postal_code: "",
+  });
+
+  const [options, setOptions] = useState<DeliveryOption[]>([]);
+  const [delivery, setDelivery] = useState<string | null>(null);
+
+  const [quote, setQuote] = useState<CheckoutQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const orderKey = useIdempotencyKey();
+
+  // Prefill the name ONCE when the member is known; never overwrite what they have typed or cleared
+  // (a token refresh hands us a new `user` object).
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    const name = user?.user_metadata?.["full_name"];
+    if (typeof name === "string") {
+      prefilled.current = true;
+      setContactName((current) => current || name);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void listDeliveryOptionsFn()
+      .then((rows) => {
+        const list = rows as DeliveryOption[];
+        setOptions(list);
+        setDelivery((current) => current ?? list[0]?.code ?? null);
+      })
+      .catch((err) => setError(errorText(err)));
+  }, []);
+
+  const loadAddresses = useCallback(async (selectId?: string) => {
+    try {
+      const rows = (await listCheckoutAddressesFn()) as SavedAddress[];
+      setAddresses(rows);
+      setAddressId(
+        (current) =>
+          selectId ?? current ?? rows.find((a) => a.is_default)?.id ?? rows[0]?.id ?? null,
+      );
+      setAddressesLoaded(true);
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && step === "Details" && !addressesLoaded) void loadAddresses();
+  }, [user, step, addressesLoaded, loadAddresses]);
+
+  const cartKey = lines.map((l) => `${l.productId}:${l.quantity}`).join(",");
+  useEffect(() => {
+    if (step !== "Payment" || !delivery || lines.length === 0) return;
+    let cancelled = false;
+    setQuoting(true);
+    quoteCheckoutFn({
+      data: {
+        items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        deliveryMethod: delivery,
+      },
+    })
+      .then((q) => !cancelled && setQuote(q as CheckoutQuote))
+      .catch((err) => !cancelled && setError(errorText(err)))
+      .finally(() => !cancelled && setQuoting(false));
+    return () => {
+      cancelled = true;
+    };
+    // `lines` is represented by cartKey so quantity edits re-quote without refetch loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, delivery, cartKey]);
+
+  const deliveryFee = options.find((o) => o.code === delivery)?.fee_rand ?? null;
+  const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
+  const contactValid =
+    contactName.trim().length >= 2 && /^[0-9+() -]{7,40}$/.test(contactPhone.trim());
+
+  const saveNewAddress = async () => {
+    setError(null);
+    try {
+      const saved = (await saveAddressFn({
+        data: {
+          address: { label: "Delivery", ...draft },
+          makeDefault: addresses.length === 0,
+        },
+      })) as { id: string };
+      setAdding(false);
+      setDraft({ line1: "", suburb: "", city: "", province: "", postal_code: "" });
+      await loadAddresses(saved.id);
+    } catch (err) {
+      setError(errorText(err));
+    }
   };
 
-  const placeOrder = () => {
-    setOrderNumber(`CP-${Math.floor(10000 + Math.random() * 89999)}`);
-    setStep("Confirmation");
-    clear();
+  const placeOrder = async () => {
+    if (!quote || quote.total === null || !delivery || !addressId) return;
+    setPlacing(true);
+    setError(null);
+    try {
+      const result = await placeOrderFn({
+        data: {
+          items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+          contactName: contactName.trim(),
+          contactPhone: contactPhone.trim(),
+          deliveryMethod: delivery,
+          addressId,
+          paymentMethod: "eft",
+          expectedTotal: quote.total,
+          notes: notes.trim() === "" ? null : notes.trim(),
+          key: orderKey.get(),
+        },
+      });
+      // The cart is only emptied once the server has confirmed the order exists.
+      orderKey.reset();
+      setPlaced(result as PlacedOrder);
+      clear();
+      setStep("Confirmation");
+    } catch (err) {
+      setError(errorText(err));
+      // Price or stock moved while the member was reviewing: show the fresh numbers and a fresh intent.
+      orderKey.reset();
+      try {
+        setQuote(
+          (await quoteCheckoutFn({
+            data: {
+              items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+              deliveryMethod: delivery,
+            },
+          })) as CheckoutQuote,
+        );
+      } catch {
+        /* the error above is already shown */
+      }
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const go = (next: Step) => {
+    setError(null);
+    setStep(next);
   };
 
   return (
@@ -150,6 +331,15 @@ function CheckoutPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+            {error && step !== "Confirmation" && (
+              <p
+                role="alert"
+                className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              >
+                {error}
+              </p>
+            )}
+
             {step === "Cart" && (
               <div className="flex flex-col gap-4">
                 {lines.length === 0 && (
@@ -202,20 +392,16 @@ function CheckoutPage() {
                     </div>
                   </div>
                 ))}
-                <form onSubmit={applyPromo} className="mt-2 flex gap-2">
-                  <Input
-                    value={promo}
-                    onChange={(e) => setPromo(e.target.value)}
-                    placeholder="Promo code (try PLUGBACK10)"
-                  />
-                  <Button type="submit" variant="outline" size="sm">
-                    Apply
-                  </Button>
-                </form>
+                {lines.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Have loyalty points? You can apply them to your order from{" "}
+                    <b>My Account → Orders</b> after you place it.
+                  </p>
+                )}
                 <Button
                   className="self-end"
                   disabled={lines.length === 0}
-                  onClick={() => setStep("Details")}
+                  onClick={() => go("Details")}
                 >
                   Continue <ChevronRight size={15} />
                 </Button>
@@ -234,7 +420,7 @@ function CheckoutPage() {
                   </Link>
                   <button
                     className="text-xs text-muted-foreground underline"
-                    onClick={() => setStep("Cart")}
+                    onClick={() => go("Cart")}
                   >
                     Back to cart
                   </button>
@@ -243,42 +429,155 @@ function CheckoutPage() {
                 <div className="flex flex-col gap-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="grid gap-1.5">
-                      <Label>Full name</Label>
+                      <Label htmlFor="co-name">Full name</Label>
                       <Input
-                        defaultValue={
-                          (user.user_metadata?.["full_name"] as string | undefined) ?? ""
-                        }
+                        id="co-name"
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
                         placeholder="Your name"
                         required
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label>Email</Label>
+                      <Label htmlFor="co-email">Email</Label>
                       <Input
+                        id="co-email"
                         type="email"
-                        defaultValue={user.email ?? ""}
-                        placeholder="you@example.com"
+                        value={user.email ?? ""}
+                        readOnly
+                        disabled
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="co-phone">Phone</Label>
+                      <Input
+                        id="co-phone"
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        placeholder="+27 XX XXX XXXX"
                         required
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label>Phone</Label>
-                      <Input placeholder="+27 XX XXX XXXX" required />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Postal code</Label>
-                      <Input placeholder="0002" required />
-                    </div>
-                    <div className="grid gap-1.5 sm:col-span-2">
-                      <Label>Delivery address</Label>
-                      <Input placeholder="Street address, suburb, city" required />
+                      <Label htmlFor="co-notes">Delivery notes (optional)</Label>
+                      <Input
+                        id="co-notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        maxLength={500}
+                        placeholder="Gate code, best time…"
+                      />
                     </div>
                   </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">
+                      Delivery address
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {addresses.map((a) => (
+                        <label
+                          key={a.id}
+                          className={
+                            "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition " +
+                            (addressId === a.id ? "border-primary bg-primary/5" : "border-border")
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="address"
+                            className="mt-1 accent-primary"
+                            checked={addressId === a.id}
+                            onChange={() => setAddressId(a.id)}
+                          />
+                          <MapPin size={16} className="mt-0.5 text-primary" />
+                          <span className="text-xs">
+                            <b className="text-sm">{a.label}</b>
+                            <br />
+                            <span className="text-muted-foreground">{addressLine(a)}</span>
+                          </span>
+                        </label>
+                      ))}
+                      {addressesLoaded && addresses.length === 0 && !adding && (
+                        <p className="text-xs text-muted-foreground">
+                          You have no saved addresses yet.
+                        </p>
+                      )}
+                    </div>
+                    {adding ? (
+                      <div className="mt-3 grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
+                        <div className="grid gap-1.5 sm:col-span-2">
+                          <Label htmlFor="co-line1">Street address</Label>
+                          <Input
+                            id="co-line1"
+                            value={draft.line1}
+                            onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="co-suburb">Suburb</Label>
+                          <Input
+                            id="co-suburb"
+                            value={draft.suburb}
+                            onChange={(e) => setDraft({ ...draft, suburb: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="co-city">City</Label>
+                          <Input
+                            id="co-city"
+                            value={draft.city}
+                            onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="co-province">Province</Label>
+                          <Input
+                            id="co-province"
+                            value={draft.province}
+                            onChange={(e) => setDraft({ ...draft, province: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="co-postal">Postal code</Label>
+                          <Input
+                            id="co-postal"
+                            value={draft.postal_code}
+                            onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex gap-2 sm:col-span-2">
+                          <Button
+                            size="sm"
+                            disabled={
+                              draft.line1.trim().length < 3 ||
+                              (draft.city.trim() === "" && draft.suburb.trim() === "")
+                            }
+                            onClick={() => void saveNewAddress()}
+                          >
+                            Save address
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setAdding(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-3 text-xs font-semibold text-primary"
+                        onClick={() => setAdding(true)}
+                      >
+                        + Add a new address
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex justify-between">
-                    <Button variant="outline" onClick={() => setStep("Cart")}>
+                    <Button variant="outline" onClick={() => go("Cart")}>
                       Back
                     </Button>
-                    <Button onClick={() => setStep("Delivery")}>
+                    <Button disabled={!contactValid || !addressId} onClick={() => go("Delivery")}>
                       Continue <ChevronRight size={15} />
                     </Button>
                   </div>
@@ -287,12 +586,17 @@ function CheckoutPage() {
 
             {step === "Delivery" && (
               <div className="flex flex-col gap-4">
-                {DELIVERY_OPTIONS.map((option) => (
+                {selectedAddress && (
+                  <p className="text-xs text-muted-foreground">
+                    Delivering to <b>{selectedAddress.label}</b> — {addressLine(selectedAddress)}
+                  </p>
+                )}
+                {options.map((option) => (
                   <label
-                    key={option.id}
+                    key={option.code}
                     className={
                       "flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 transition " +
-                      (delivery === option.id ? "border-primary bg-primary/5" : "border-border")
+                      (delivery === option.code ? "border-primary bg-primary/5" : "border-border")
                     }
                   >
                     <div className="flex items-center gap-3">
@@ -300,23 +604,26 @@ function CheckoutPage() {
                         type="radio"
                         name="delivery"
                         className="accent-primary"
-                        checked={delivery === option.id}
-                        onChange={() => setDelivery(option.id)}
+                        checked={delivery === option.code}
+                        onChange={() => setDelivery(option.code)}
                       />
                       <Truck size={18} className="text-primary" />
                       <div>
                         <p className="text-sm font-semibold">{option.label}</p>
-                        <p className="text-xs text-muted-foreground">{option.copy}</p>
+                        <p className="text-xs text-muted-foreground">{option.description}</p>
                       </div>
                     </div>
-                    <b className="text-sm">{rand(option.price)}</b>
+                    <b className="text-sm">{rand(Number(option.fee_rand))}</b>
                   </label>
                 ))}
+                {options.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Loading delivery options…</p>
+                )}
                 <div className="flex justify-between">
-                  <Button variant="outline" onClick={() => setStep("Details")}>
+                  <Button variant="outline" onClick={() => go("Details")}>
                     Back
                   </Button>
-                  <Button onClick={() => setStep("Payment")}>
+                  <Button disabled={!delivery} onClick={() => go("Payment")}>
                     Continue <ChevronRight size={15} />
                   </Button>
                 </div>
@@ -325,45 +632,79 @@ function CheckoutPage() {
 
             {step === "Payment" && (
               <div className="flex flex-col gap-4">
-                {PAYMENT_METHODS.map((method) => (
-                  <label
-                    key={method.id}
-                    className={
-                      "flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition " +
-                      (payment === method.id ? "border-primary bg-primary/5" : "border-border")
-                    }
-                  >
-                    <input
-                      type="radio"
-                      name="payment"
-                      className="accent-primary"
-                      checked={payment === method.id}
-                      onChange={() => setPayment(method.id)}
-                    />
-                    <method.icon size={18} className="text-primary" />
-                    <span className="text-sm font-semibold">{method.label}</span>
-                  </label>
-                ))}
+                <label className="flex items-start gap-3 rounded-lg border border-primary bg-primary/5 p-4">
+                  <input type="radio" checked readOnly className="mt-1 accent-primary" />
+                  <Landmark size={18} className="mt-0.5 text-primary" />
+                  <span>
+                    <span className="text-sm font-semibold">EFT / Bank transfer</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Place your order now and we hold your items for 2 hours. Pay by EFT using your
+                      order number as the reference — we confirm and dispatch as soon as the payment
+                      clears.
+                    </span>
+                  </span>
+                </label>
+                {quote && !quote.orderable && (
+                  <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    Some items are no longer available in the quantity in your basket. Please update
+                    your cart to continue.
+                  </p>
+                )}
                 <div className="flex justify-between">
-                  <Button variant="outline" onClick={() => setStep("Delivery")}>
+                  <Button variant="outline" onClick={() => go("Delivery")}>
                     Back
                   </Button>
-                  <Button onClick={placeOrder}>
-                    Place order <ChevronRight size={15} />
-                  </Button>
+                  <div className="flex gap-2">
+                    {quote && !quote.orderable && (
+                      <Button variant="outline" onClick={() => go("Cart")}>
+                        Edit cart
+                      </Button>
+                    )}
+                    <Button
+                      disabled={
+                        placing || quoting || !quote || !quote.orderable || quote.total === null
+                      }
+                      onClick={() => void placeOrder()}
+                    >
+                      {placing
+                        ? "Placing order…"
+                        : quoting
+                          ? "Checking prices…"
+                          : `Place order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`}{" "}
+                      <ChevronRight size={15} />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {step === "Confirmation" && (
-              <div className="flex flex-col items-center gap-3 py-10 text-center">
+            {step === "Confirmation" && placed && (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <span className="grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground">
                   <Check size={26} />
                 </span>
-                <h2 className="font-display text-xl font-extrabold uppercase">Order confirmed</h2>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Thanks{user?.email ? `, ${user.email}` : ""} — order <b>{orderNumber}</b> is being
-                  prepared. This is a presentation prototype, so no payment was actually captured.
+                <h2 className="font-display text-xl font-extrabold uppercase">Order placed</h2>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  Thanks{user?.email ? `, ${user.email}` : ""} — order <b>{placed.order_number}</b>{" "}
+                  is reserved for you for {placed.hold_minutes / 60} hours. Please pay{" "}
+                  <b>{rand(Number(placed.total))}</b> by EFT using <b>{placed.order_number}</b> as
+                  the payment reference.
+                </p>
+                <dl className="w-full max-w-sm rounded-lg border border-border p-4 text-left text-xs">
+                  {BANKING_DETAILS.map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-3 py-1">
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd className="font-semibold">{value}</dd>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-3 border-t border-border py-1 pt-2">
+                    <dt className="text-muted-foreground">Reference</dt>
+                    <dd className="font-semibold">{placed.order_number}</dd>
+                  </div>
+                </dl>
+                <p className="max-w-sm text-xs text-muted-foreground">
+                  Your order is not dispatched until the payment has cleared. You can follow its
+                  progress live in your account.
                 </p>
                 <Link to="/account">
                   <Button size="sm">View your orders</Button>
@@ -374,8 +715,8 @@ function CheckoutPage() {
 
           {step !== "Confirmation" && (
             <OrderSummary
-              deliveryPrice={step === "Cart" || step === "Details" ? 0 : deliveryPrice}
-              promoDiscount={promoDiscount}
+              quote={step === "Payment" ? quote : null}
+              deliveryFee={step === "Cart" || step === "Details" ? null : deliveryFee}
             />
           )}
         </div>
