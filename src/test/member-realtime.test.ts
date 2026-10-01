@@ -49,6 +49,10 @@ describe("member realtime subscription", () => {
       event: "INSERT",
     });
     expect(byTable["loyalty_accounts"]).toMatchObject({ filter: "user_id=eq.user-1" });
+    expect(byTable["customer_verification"]).toMatchObject({
+      event: "*",
+      filter: "user_id=eq.user-1",
+    });
     // history has no user_id column: scoping is RLS's job, so no client filter is claimed.
     expect(byTable["order_status_history"]).toMatchObject({ event: "INSERT" });
     expect(byTable["order_status_history"]!["filter"]).toBeUndefined();
@@ -70,6 +74,18 @@ describe("member realtime subscription", () => {
     vi.advanceTimersByTime(100);
     expect(onChange).toHaveBeenCalledTimes(2);
     expect([...onChange.mock.calls[1]![0]]).toEqual(["orders"]);
+  });
+
+  it("signals a verification decision for this member and ignores another member's", () => {
+    const { client, emit } = fakeClient();
+    const onChange = vi.fn();
+    subscribeToMemberUpdates(client, "user-1", onChange, { debounceMs: 10 });
+    emit("customer_verification", { user_id: "user-2", status: "verified" }, "UPDATE");
+    vi.advanceTimersByTime(50);
+    expect(onChange).not.toHaveBeenCalled();
+    emit("customer_verification", { user_id: "user-1", status: "verified" }, "UPDATE");
+    vi.advanceTimersByTime(50);
+    expect([...onChange.mock.calls[0]![0]]).toEqual(["verification"]);
   });
 
   it("ignores any row that names a different member (defence in depth)", () => {

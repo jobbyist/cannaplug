@@ -1,6 +1,6 @@
 // Generates the Milestone 4 fragment of src/integrations/supabase/types.ts from the LOCAL test
 // database (scripts/test-db.sh start) so the types cannot drift from the SQL. Idempotent: it
-// replaces the region between the M4 markers, and adds/updates columns on existing tables.
+// replaces the region between the M4 markers (ID verification, Milestone 4.2, rides in the same region), and adds/updates columns on existing tables.
 //   node scripts/gen-m3-types.mjs
 import postgres from "postgres";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -13,6 +13,7 @@ const TYPES = new URL("../src/integrations/supabase/types.ts", import.meta.url);
 const NEW_TABLES = [
   "addresses",
   "back_in_stock_subscriptions",
+  "customer_verification",
   "delivery_options",
   "loyalty_accounts",
   "loyalty_rules",
@@ -114,6 +115,22 @@ const FUNCTIONS = `      accrue_order_loyalty: { Args: { p_order_id: string }; R
       }
       reorder_check: { Args: { p_order_id: string; p_user_id: string }; Returns: Json }
       reverse_order_loyalty: { Args: { p_order_id: string }; Returns: Json }
+      verification_log_document_view: { Args: { p_actor: string; p_user_id: string }; Returns: Json }
+      verification_review: {
+        Args: {
+          p_actor: string
+          p_decision: string
+          p_idempotency_key: string
+          p_note: string | null
+          p_rejection_code: string | null
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      verification_submit: {
+        Args: { p_document_path: string; p_document_type: string; p_dob: string; p_idempotency_key: string; p_user_id: string }
+        Returns: Json
+      }
 `;
 
 let src = readFileSync(TYPES, "utf8");

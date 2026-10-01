@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import WebSocket from "ws";
 import type { Page } from "@playwright/test";
-import { ANON, API, PASSWORD, RUN_FILE, sql } from "./db";
+import { ANON, API, PASSWORD, RUN_FILE, SERVICE, sql } from "./db";
 
-export { ANON, API, PASSWORD, sql };
+export { ANON, API, PASSWORD, SERVICE, sql };
 
 /** Users created fresh for THIS run by global-setup (so the suite is re-runnable). */
 const run = JSON.parse(readFileSync(RUN_FILE, "utf8")) as {

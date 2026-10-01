@@ -2,6 +2,7 @@
 //   /auth/v1/*      -> GoTrue   :9999   (prefix stripped)
 //   /rest/v1/*      -> PostgREST :3000  (prefix stripped)
 //   /realtime/v1/*  -> Realtime :4000   (-> /socket/*, Host rewritten to the seeded tenant)
+//   /storage/v1/*   -> Storage  :5000   (prefix stripped)
 // Adds permissive CORS like Kong's cors plugin. Usage: node gateway.mjs [port]
 import http from "node:http";
 import net from "node:net";
@@ -10,6 +11,7 @@ const PORT = Number(process.argv[2] ?? 54321);
 const ROUTES = [
   { prefix: "/auth/v1/", port: 9999, rewrite: (p) => "/" + p },
   { prefix: "/rest/v1/", port: 3000, rewrite: (p) => "/" + p },
+  { prefix: "/storage/v1/", port: 5000, rewrite: (p) => "/" + p },
   {
     prefix: "/realtime/v1/",
     port: 4000,

@@ -272,9 +272,15 @@ SELECT pg_temp.assert(
   'budtender must not update products'
 );
 
-UPDATE public.customer_verification
-SET status = 'verified'
-WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer');
+DO $$
+BEGIN
+  UPDATE public.customer_verification SET status = 'verified'
+  WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer');
+  RAISE EXCEPTION 'budtender must not update verification';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL; -- expected: verification state is written only by the review functions (service role)
+END
+$$;
 SELECT pg_temp.assert(
   (SELECT status FROM public.customer_verification WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer')) = 'unverified',
   'budtender must not update verification'
@@ -304,12 +310,18 @@ SELECT pg_temp.assert(
   'manager should update products'
 );
 
-UPDATE public.customer_verification
-SET status = 'verified'
-WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer');
+DO $$
+BEGIN
+  UPDATE public.customer_verification SET status = 'verified'
+  WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer');
+  RAISE EXCEPTION 'manager must not write verification directly (review goes through verification_review)';
+EXCEPTION WHEN insufficient_privilege THEN
+  NULL; -- expected: verification state is written only by the review functions (service role)
+END
+$$;
 SELECT pg_temp.assert(
-  (SELECT status FROM public.customer_verification WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer')) = 'verified',
-  'manager should update verification'
+  (SELECT status FROM public.customer_verification WHERE user_id = (SELECT user_id FROM rbac_test_ids WHERE role = 'customer')) = 'unverified',
+  'manager must not write verification directly (review goes through verification_review)'
 );
 
 UPDATE public.user_roles

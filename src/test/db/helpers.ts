@@ -29,6 +29,23 @@ export async function mkUser(sql: Sql, role: Role): Promise<string> {
   return id;
 }
 
+/** A customer whose ID has been approved (the state required to place online orders). */
+export async function mkMember(sql: Sql): Promise<string> {
+  const id = await mkUser(sql, "customer");
+  await verifyDirect(sql, id);
+  return id;
+}
+
+/** Marks a user verified without going through the review flow (fixture setup only). */
+export async function verifyDirect(sql: Sql, userId: string): Promise<void> {
+  const approver = await mkUser(sql, "manager");
+  await sql`INSERT INTO public.customer_verification
+              (user_id, status, method, verified_at, verified_by, reviewed_at, reviewed_by)
+            VALUES (${userId}, 'verified', 'manual_id_review', now(), ${approver}, now(), ${approver})
+            ON CONFLICT (user_id) DO UPDATE SET status = 'verified', method = 'manual_id_review',
+              verified_at = now(), verified_by = ${approver}`;
+}
+
 export async function mkProduct(sql: Sql, price = 50): Promise<string> {
   const id = uid();
   await sql`INSERT INTO public.products (id, slug, name, category, price_rand)

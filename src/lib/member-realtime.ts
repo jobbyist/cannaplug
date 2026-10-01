@@ -8,7 +8,7 @@
  * dropped or duplicated event can never leave the screen wrong for long.
  */
 
-export type MemberChangeKind = "orders" | "timeline" | "loyalty";
+export type MemberChangeKind = "orders" | "timeline" | "loyalty" | "verification";
 
 type Payload = { new?: Record<string, unknown> | null; old?: Record<string, unknown> | null };
 
@@ -93,6 +93,17 @@ export function subscribeToMemberUpdates(
         filter: `user_id=eq.${userId}`,
       },
       signal("loyalty"),
+    )
+    // An ID decision (approved / rejected) should show up without a refresh.
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "customer_verification",
+        filter: `user_id=eq.${userId}`,
+      },
+      signal("verification"),
     )
     .subscribe((status) => {
       if (!closed) options.onStatus?.(status);

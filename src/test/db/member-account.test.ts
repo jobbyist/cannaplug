@@ -13,6 +13,7 @@ import {
   failedWith,
   key,
   loyaltyOf,
+  mkMember,
   mkProduct,
   mkSession,
   mkUser,
@@ -821,7 +822,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     }
 
     it("reports ok lines and the current total", async () => {
-      const c = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
       const { orderId, total } = await pastOrder(c);
       const check = await rpc(sql, "reorder_check", c, orderId);
       expect(check).toMatchObject({ orderable: true, current_total: total });
@@ -829,7 +830,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     });
 
     it("creates a new order at CURRENT prices and holds stock", async () => {
-      const c = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
       const { product, orderId } = await pastOrder(c, 100, 2, 10);
       await sql`UPDATE public.products SET price_rand = 120 WHERE id = ${product}`;
       const check = await rpc(sql, "reorder_check", c, orderId);
@@ -854,7 +855,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     });
 
     it("refuses to create anything when the price moved since the member confirmed", async () => {
-      const c = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
       const { product, orderId, total } = await pastOrder(c);
       await sql`UPDATE public.products SET price_rand = 150 WHERE id = ${product}`;
       const before = await val(sql`SELECT count(*)::int FROM public.orders WHERE user_id = ${c}`);
@@ -868,7 +869,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     });
 
     it("refuses when stock is short or the product was retired", async () => {
-      const c = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
       const short = await pastOrder(c, 100, 4, 5); // 1 left after the order
       const check = await rpc(sql, "reorder_check", c, short.orderId);
       expect(check).toMatchObject({ orderable: false, current_total: null });
@@ -888,8 +889,8 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     });
 
     it("is idempotent per key and ownership-checked", async () => {
-      const c = await mkUser(sql, "customer");
-      const other = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
+      const other = await mkMember(sql);
       const { orderId, total } = await pastOrder(c);
       const k = key("ro");
       const first = await rpc(sql, "create_reorder", c, orderId, total, k);
@@ -915,8 +916,8 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
     });
 
     it("never oversells when two reorders race for the last units", async () => {
-      const c = await mkUser(sql, "customer");
-      const d = await mkUser(sql, "customer");
+      const c = await mkMember(sql);
+      const d = await mkMember(sql);
       const product = await mkProduct(sql, 100);
       await receive(sql, manager, product, 4);
       const mk = async (u: string) => {

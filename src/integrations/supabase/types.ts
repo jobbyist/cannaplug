@@ -767,6 +767,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      customer_verification: {
+        Row: {
+          attempt_count: number;
+          created_at: string;
+          declared_dob: string | null;
+          document_path: string | null;
+          document_type: string | null;
+          metadata: Json;
+          method: string | null;
+          provider_reference: string | null;
+          rejection_code: string | null;
+          rejection_note: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+          submitted_at: string | null;
+          updated_at: string;
+          user_id: string;
+          verified_at: string | null;
+          verified_by: string | null;
+        };
+        Insert: {
+          attempt_count?: number;
+          created_at?: string;
+          declared_dob?: string | null;
+          document_path?: string | null;
+          document_type?: string | null;
+          metadata?: Json;
+          method?: string | null;
+          provider_reference?: string | null;
+          rejection_code?: string | null;
+          rejection_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+          updated_at?: string;
+          user_id: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Update: {
+          attempt_count?: number;
+          created_at?: string;
+          declared_dob?: string | null;
+          document_path?: string | null;
+          document_type?: string | null;
+          metadata?: Json;
+          method?: string | null;
+          provider_reference?: string | null;
+          rejection_code?: string | null;
+          rejection_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+          updated_at?: string;
+          user_id?: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Relationships: [];
+      };
       delivery_options: {
         Row: {
           code: string;
@@ -1211,6 +1274,31 @@ export type Database = {
       };
       reorder_check: { Args: { p_order_id: string; p_user_id: string }; Returns: Json };
       reverse_order_loyalty: { Args: { p_order_id: string }; Returns: Json };
+      verification_log_document_view: {
+        Args: { p_actor: string; p_user_id: string };
+        Returns: Json;
+      };
+      verification_review: {
+        Args: {
+          p_actor: string;
+          p_decision: string;
+          p_idempotency_key: string;
+          p_note: string | null;
+          p_rejection_code: string | null;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      verification_submit: {
+        Args: {
+          p_document_path: string;
+          p_document_type: string;
+          p_dob: string;
+          p_idempotency_key: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       // </m4-functions>
       // <m3-functions>
       accrue_missing_pos_loyalty: { Args: { p_limit?: number }; Returns: number };
