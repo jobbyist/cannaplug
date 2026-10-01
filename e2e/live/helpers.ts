@@ -45,6 +45,8 @@ export async function signInUi(page: Page, email: string) {
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  // Wait until the session is established (and persisted) before the caller navigates away.
+  await page.getByText("Good to see you").waitFor();
 }
 
 /** Password-grant sign-in straight against GoTrue: returns the member's JWT (for raw API/WS clients). */

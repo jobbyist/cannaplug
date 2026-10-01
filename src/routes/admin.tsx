@@ -496,6 +496,8 @@ function OrdersPanel({
   onSelect: (id: string) => void;
   onTransition: (id: string, status: AdminOrderStatus) => Promise<void>;
 }) {
+  // The EFT form unmounts the moment the order is confirmed, so its outcome message lives here.
+  const [paymentNote, setPaymentNote] = useState<{ orderId: string; text: string } | null>(null);
   // Unpaid orders are confirmed through the EFT receipt form below (records the bank reference and
   // checks the amount), not by a bare status change.
   const next = selected
@@ -535,6 +537,14 @@ function OrdersPanel({
               </div>
             ))}
           </div>
+          {paymentNote && paymentNote.orderId === selected.id && (
+            <p
+              role="status"
+              className="mb-4 rounded-md bg-primary/10 px-3 py-2 text-xs font-medium"
+            >
+              {paymentNote.text}
+            </p>
+          )}
           <OrderDelivery order={selected} />
           <div className="border-t border-border pt-4">
             {Number(selected.delivery_fee_rand) > 0 && (
@@ -554,7 +564,11 @@ function OrdersPanel({
               <span>{rand(selected.total_rand)}</span>
             </div>
             {selected.status === "awaiting_payment" && (
-              <EftConfirm order={selected} onConfirm={onConfirmPayment} />
+              <EftConfirm
+                order={selected}
+                onConfirm={onConfirmPayment}
+                onResult={(text) => setPaymentNote(text ? { orderId: selected.id, text } : null)}
+              />
             )}
             <p className="mb-2 text-[0.65rem] font-bold uppercase text-muted-foreground">
               Next fulfilment steps
@@ -653,8 +667,11 @@ const EFT_MESSAGES: Record<string, string> = {
 function EftConfirm({
   order,
   onConfirm,
+  onResult,
 }: {
   order: NonNullable<Awaited<ReturnType<typeof getAdminOrderFn>>>;
+  /** Reports the outcome to the parent: this form unmounts as soon as the order leaves awaiting_payment. */
+  onResult: (text: string | null) => void;
   onConfirm: (
     id: string,
     bankReference: string,
@@ -664,11 +681,9 @@ function EftConfirm({
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState(String(order.total_rand));
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     setReference("");
     setAmount(String(order.total_rand));
-    setMessage(null);
   }, [order.id, order.total_rand]);
   const valid = reference.trim().length >= 4 && /^[0-9]{1,8}(\.[0-9]{1,2})?$/.test(amount);
   return (
@@ -701,16 +716,16 @@ function EftConfirm({
         disabled={!valid || busy}
         onClick={async () => {
           setBusy(true);
-          setMessage(null);
+          onResult(null);
           try {
             const result = await onConfirm(order.id, reference.trim(), amount);
-            setMessage(
+            onResult(
               result.duplicate
                 ? "That bank reference was already recorded."
                 : (EFT_MESSAGES[result.outcome] ?? result.outcome),
             );
           } catch (err) {
-            setMessage(err instanceof Error ? err.message : "Could not record the payment.");
+            onResult(err instanceof Error ? err.message : "Could not record the payment.");
           } finally {
             setBusy(false);
           }
@@ -718,11 +733,6 @@ function EftConfirm({
       >
         {busy ? "Recording…" : "Confirm payment"}
       </Button>
-      {message && (
-        <p role="status" className="mt-2 text-xs">
-          {message}
-        </p>
-      )}
     </div>
   );
 }
