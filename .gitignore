@@ -42,3 +42,6 @@ dist-ssr
 # Test output
 test-results/
 playwright-report/
+e2e/live/.run.json
+test-results/
+playwright-report/

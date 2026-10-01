@@ -682,6 +682,227 @@ export type Database = {
         Relationships: [];
       };
       // </m3-tables>
+      // <m4-tables>
+      addresses: {
+        Row: {
+          city: string | null;
+          country: string;
+          created_at: string;
+          delivery_notes: string | null;
+          id: string;
+          is_default: boolean;
+          label: string;
+          line1: string;
+          line2: string | null;
+          phone: string | null;
+          postal_code: string | null;
+          province: string | null;
+          recipient_name: string | null;
+          suburb: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          city?: string | null;
+          country?: string;
+          created_at?: string;
+          delivery_notes?: string | null;
+          id?: string;
+          is_default?: boolean;
+          label?: string;
+          line1: string;
+          line2?: string | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          province?: string | null;
+          recipient_name?: string | null;
+          suburb?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          city?: string | null;
+          country?: string;
+          created_at?: string;
+          delivery_notes?: string | null;
+          id?: string;
+          is_default?: boolean;
+          label?: string;
+          line1?: string;
+          line2?: string | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          province?: string | null;
+          recipient_name?: string | null;
+          suburb?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      back_in_stock_subscriptions: {
+        Row: {
+          created_at: string;
+          id: string;
+          notified_at: string | null;
+          product_id: string;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          notified_at?: string | null;
+          product_id: string;
+          status?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          notified_at?: string | null;
+          product_id?: string;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      loyalty_accounts: {
+        Row: {
+          created_at: string;
+          lifetime_points: number;
+          points_balance: number;
+          tier_id: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          lifetime_points?: number;
+          points_balance?: number;
+          tier_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          lifetime_points?: number;
+          points_balance?: number;
+          tier_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      loyalty_rules: {
+        Row: {
+          code: string;
+          description: string;
+          updated_at: string;
+          value: number;
+        };
+        Insert: {
+          code: string;
+          description: string;
+          updated_at?: string;
+          value: number;
+        };
+        Update: {
+          code?: string;
+          description?: string;
+          updated_at?: string;
+          value?: number;
+        };
+        Relationships: [];
+      };
+      loyalty_tiers: {
+        Row: {
+          code: string;
+          id: string;
+          is_active: boolean;
+          min_lifetime_points: number;
+          name: string;
+          perks: string[];
+          sort_order: number;
+        };
+        Insert: {
+          code: string;
+          id?: string;
+          is_active?: boolean;
+          min_lifetime_points: number;
+          name: string;
+          perks?: string[];
+          sort_order?: number;
+        };
+        Update: {
+          code?: string;
+          id?: string;
+          is_active?: boolean;
+          min_lifetime_points?: number;
+          name?: string;
+          perks?: string[];
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      loyalty_transactions: {
+        Row: {
+          balance_after: number;
+          created_at: string;
+          id: string;
+          order_id: string | null;
+          points: number;
+          pos_sale_id: string | null;
+          source_id: string;
+          source_type: string;
+          txn_type: string;
+          user_id: string;
+        };
+        Insert: {
+          balance_after: number;
+          created_at?: string;
+          id?: string;
+          order_id?: string | null;
+          points: number;
+          pos_sale_id?: string | null;
+          source_id: string;
+          source_type: string;
+          txn_type: string;
+          user_id: string;
+        };
+        Update: {
+          balance_after?: number;
+          created_at?: string;
+          id?: string;
+          order_id?: string | null;
+          points?: number;
+          pos_sale_id?: string | null;
+          source_id?: string;
+          source_type?: string;
+          txn_type?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      wishlist_items: {
+        Row: {
+          created_at: string;
+          product_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          product_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          product_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      // </m4-tables>
       order_items: {
         Row: {
           id: string;
@@ -726,6 +947,8 @@ export type Database = {
       };
       orders: {
         Row: {
+          loyalty_points_redeemed: number;
+          loyalty_discount_rand: number;
           contact_name: string | null;
           contact_phone: string | null;
           created_at: string;
@@ -737,6 +960,8 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          loyalty_points_redeemed?: number;
+          loyalty_discount_rand?: number;
           contact_name?: string | null;
           contact_phone?: string | null;
           created_at?: string;
@@ -748,6 +973,8 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          loyalty_points_redeemed?: number;
+          loyalty_discount_rand?: number;
           contact_name?: string | null;
           contact_phone?: string | null;
           created_at?: string;
@@ -892,6 +1119,44 @@ export type Database = {
       // </m3-views>
     };
     Functions: {
+      // <m4-functions>
+      accrue_order_loyalty: { Args: { p_order_id: string }; Returns: Json };
+      claim_back_in_stock_notifications: { Args: { p_limit?: number }; Returns: Json };
+      create_reorder: {
+        Args: {
+          p_expected_total: number;
+          p_idempotency_key: string;
+          p_source_order_id: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      member_delete_address: { Args: { p_address_id: string; p_user_id: string }; Returns: Json };
+      member_save_address: {
+        Args: {
+          p_address_id: string | null;
+          p_data: Json;
+          p_make_default?: boolean;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      member_set_default_address: {
+        Args: { p_address_id: string; p_user_id: string };
+        Returns: Json;
+      };
+      redeem_loyalty_points: {
+        Args: {
+          p_idempotency_key: string;
+          p_order_id: string;
+          p_points: number;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_check: { Args: { p_order_id: string; p_user_id: string }; Returns: Json };
+      reverse_order_loyalty: { Args: { p_order_id: string }; Returns: Json };
+      // </m4-functions>
       // <m3-functions>
       accrue_missing_pos_loyalty: { Args: { p_limit?: number }; Returns: number };
       accrue_pos_loyalty: { Args: { p_sale_id: string }; Returns: Json };
