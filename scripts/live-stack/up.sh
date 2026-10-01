@@ -37,7 +37,7 @@ docker run -d --name live-gotrue --network host \
   -e GOTRUE_API_HOST=127.0.0.1 -e PORT=9999 -e API_EXTERNAL_URL=http://127.0.0.1:54321 \
   -e GOTRUE_DB_DRIVER=postgres -e "GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:live-pass@127.0.0.1:$PORT/live?search_path=auth" \
   -e GOTRUE_SITE_URL=http://127.0.0.1:4173 -e GOTRUE_URI_ALLOW_LIST=http://127.0.0.1:4173 \
-  -e GOTRUE_JWT_SECRET="$JWT_SECRET" -e GOTRUE_JWT_EXP=3600 -e GOTRUE_JWT_ADMIN_ROLES=service_role \
+  -e GOTRUE_JWT_SECRET="$JWT_SECRET" -e GOTRUE_JWT_EXP=3600 -e GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated -e GOTRUE_JWT_ADMIN_ROLES=service_role \
   -e GOTRUE_DISABLE_SIGNUP=false -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true -e GOTRUE_MAILER_AUTOCONFIRM=true \
   public.ecr.aws/supabase/gotrue:v2.158.1 >/dev/null
 for i in $(seq 1 30); do curl -sf -m 2 http://127.0.0.1:9999/health >/dev/null && break; sleep 1; done
