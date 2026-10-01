@@ -182,10 +182,12 @@ function ReorderDialog({
       await onDone(result.order_number);
       onClose();
     } catch (err) {
-      setError(errorText(err));
-      // Price or stock moved while the member was looking: show the fresh numbers.
+      const message = errorText(err);
+      // Price or stock moved while the member was looking: show the fresh numbers AND say why they
+      // changed. load() clears the error, so the message is set once the refresh has completed.
       key.reset();
       await load();
+      setError(message);
     } finally {
       setBusy(false);
     }

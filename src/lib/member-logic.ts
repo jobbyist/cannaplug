@@ -159,7 +159,21 @@ const SHOW_DETAIL = new Set([
   "insufficient_stock",
 ]);
 
+/**
+ * An error whose message is already safe to show a member. friendlyMemberError passes these through
+ * untouched, so translating twice (data layer, then server-function boundary) cannot degrade a specific
+ * message ("You do not have enough points") into the generic fallback.
+ */
+export class MemberError extends Error {
+  readonly memberFacing = true;
+  constructor(message: string) {
+    super(message);
+    this.name = "MemberError";
+  }
+}
+
 export function friendlyMemberError(err: unknown): Error {
+  if (err instanceof MemberError) return err;
   const raw =
     err instanceof Error
       ? err.message
@@ -169,16 +183,16 @@ export function friendlyMemberError(err: unknown): Error {
   const code = /^([a-z_]+)(?::|$)/.exec(raw)?.[1];
   if (code && ERROR_MESSAGES[code]) {
     const detail = raw.slice(code.length + 1).trim();
-    return new Error(
+    return new MemberError(
       SHOW_DETAIL.has(code) && detail
         ? `${ERROR_MESSAGES[code]} (${detail})`
         : ERROR_MESSAGES[code]!,
     );
   }
-  if (/duplicate key|already exists/i.test(raw)) return new Error("That is already saved");
+  if (/duplicate key|already exists/i.test(raw)) return new MemberError("That is already saved");
   if (/row-level security|permission denied/i.test(raw))
-    return new Error("You do not have permission for this action");
-  return new Error("The action could not be completed. Please retry.");
+    return new MemberError("You do not have permission for this action");
+  return new MemberError("The action could not be completed. Please retry.");
 }
 
 const LOYALTY_SOURCE_LABELS: Record<string, string> = {

@@ -128,6 +128,21 @@ describe("friendly errors", () => {
       "That order could not be found",
     );
   });
+  it("is idempotent: translating twice (data layer, then server-function boundary) keeps the message", () => {
+    // Found by the live browser run: a second pass used to collapse every specific message into the
+    // generic fallback, so members never saw "not enough points", "prices changed", etc.
+    for (const raw of [
+      "insufficient_points: balance is 5 points",
+      "price_changed: the current total is R240",
+      "below_minimum: the minimum redemption is 100 points",
+      "address_not_found",
+    ]) {
+      const once = friendlyMemberError(new Error(raw));
+      const twice = friendlyMemberError(friendlyMemberError(once));
+      expect(twice.message).toBe(once.message);
+      expect(twice.message).not.toBe("The action could not be completed. Please retry.");
+    }
+  });
   it("never leaks raw database errors", () => {
     expect(
       friendlyMemberError(new Error('relation "x" does not exist at character 14')).message,
