@@ -555,7 +555,7 @@ Also fixed: the address form's labels were not associated with their inputs (acc
 ## 2026-10-01 — Checkout end to end (`/checkout` → `/admin` and `/account`)
 
 **Migration:** `supabase/migrations/20260930002000_checkout_orders.sql` (mirror `drizzle/migrations/0011_…`), rollback `supabase/rollbacks/20260930002000_checkout_orders_rollback.sql` (rehearsed: `scripts/rollback-rehearsal-m41.sh` — restores the Milestone 4 functions byte-for-byte). Built by `scripts/build-m41-migration.py` (lifts and patches four M4 functions from the M4 file so they cannot drift).
-**Depends on:** Milestone 4 (`20260930001000_member_account_live.sql`). **Applied to hosted:** *no* — apply it before deploying this code.
+**Depends on:** Milestone 4 (`20260930001000_member_account_live.sql`). **Applied to hosted:** *yes* — `20260930002000_checkout_orders` applied to Cannaplug 012 (`khltynzzcjhlujxbgyod`) on 2026-10-01 and verified (2 delivery options, 4 new order columns + CHECKs, `checkout_*` functions executable by `service_role` only, RLS on `delivery_options`).
 **Principle (unchanged):** the browser says *what* (product ids, quantities, one of its own saved address ids, a delivery option code, contact details, the total it displayed). The database decides *how much*.
 
 ### What the member now experiences
