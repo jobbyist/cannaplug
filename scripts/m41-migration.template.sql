@@ -30,6 +30,17 @@ ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS delivery_address jsonb,
   ADD COLUMN IF NOT EXISTS payment_method text CHECK (payment_method IN ('eft', 'card', 'paypal', 'cash'));
 
+-- A delivery method and its address snapshot always travel together: an order can never claim a delivery
+-- method without the snapshot staff deliver to (or the reverse), and the snapshot is a JSON object.
+-- Deliberately NOT `delivery_address NOT NULL`: orders are created by create_online_order first and
+-- stamped by _checkout_apply_delivery in the same transaction, and older / staff-created orders
+-- legitimately have no delivery details.
+ALTER TABLE public.orders
+  ADD CONSTRAINT orders_delivery_snapshot_chk
+    CHECK ((delivery_method IS NULL) = (delivery_address IS NULL)),
+  ADD CONSTRAINT orders_delivery_address_object_chk
+    CHECK (delivery_address IS NULL OR jsonb_typeof(delivery_address) = 'object');
+
 COMMENT ON COLUMN public.orders.delivery_address IS
   'Snapshot of the member address at order time (the saved address may later change or be deleted).';
 COMMENT ON COLUMN public.orders.total_rand IS

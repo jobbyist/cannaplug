@@ -326,6 +326,45 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
     expect(res.filter((r) => r.ok)).toHaveLength(1);
   });
 
+  it("a delivery method and its address snapshot can only exist together (DB invariant)", async () => {
+    const u = await mkUser(sql, "customer");
+    const { items } = await basket();
+    // Orders created outside checkout (staff / legacy path) legitimately have neither.
+    const plain = await rpc(
+      sql,
+      "create_online_order",
+      u,
+      items,
+      "N",
+      "0820000000",
+      null,
+      key("ord"),
+      30,
+    );
+    const [o] =
+      await sql`SELECT delivery_method, delivery_address FROM public.orders WHERE id = ${plain.order_id}`;
+    expect(o).toMatchObject({ delivery_method: null, delivery_address: null });
+    // ...but a method without a snapshot, a snapshot without a method, or a non-object snapshot is refused.
+    const noSnapshot = await attempt(
+      sql`UPDATE public.orders SET delivery_method = 'standard' WHERE id = ${plain.order_id}`,
+    );
+    expect(!noSnapshot.ok && noSnapshot.message).toContain("orders_delivery_snapshot_chk");
+    const noMethod = await attempt(
+      sql`UPDATE public.orders SET delivery_address = '{"line1":"x"}'::jsonb WHERE id = ${plain.order_id}`,
+    );
+    expect(!noMethod.ok && noMethod.message).toContain("orders_delivery_snapshot_chk");
+    const notObject = await attempt(
+      sql`UPDATE public.orders SET delivery_method = 'standard', delivery_address = '"just text"'::jsonb WHERE id = ${plain.order_id}`,
+    );
+    expect(!notObject.ok && notObject.message).toContain("orders_delivery_address_object_chk");
+    // Every order that checkout creates satisfies it.
+    const a = await addr(u);
+    const placed = await place(u, items, a, 280);
+    const [c] =
+      await sql`SELECT delivery_method, delivery_address IS NOT NULL AS has_snapshot FROM public.orders WHERE id = ${placed.order_id}`;
+    expect(c).toMatchObject({ delivery_method: "standard", has_snapshot: true });
+  });
+
   it("is not callable by browser roles", async () => {
     const u = await mkUser(sql, "customer");
     const a = await addr(u);
