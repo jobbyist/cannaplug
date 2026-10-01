@@ -10,7 +10,12 @@ const PORT = Number(process.argv[2] ?? 54321);
 const ROUTES = [
   { prefix: "/auth/v1/", port: 9999, rewrite: (p) => "/" + p },
   { prefix: "/rest/v1/", port: 3000, rewrite: (p) => "/" + p },
-  { prefix: "/realtime/v1/", port: 4000, rewrite: (p) => "/socket/" + p, host: "realtime-dev.supabase-realtime" },
+  {
+    prefix: "/realtime/v1/",
+    port: 4000,
+    rewrite: (p) => "/socket/" + p,
+    host: "realtime-dev.supabase-realtime",
+  },
 ];
 const CORS = {
   "access-control-allow-origin": "*",
@@ -36,10 +41,13 @@ http
       return;
     }
     const headers = { ...req.headers, host: m.r.host ?? `127.0.0.1:${m.r.port}` };
-    const up = http.request({ host: "127.0.0.1", port: m.r.port, method: req.method, path: m.path, headers }, (ur) => {
-      res.writeHead(ur.statusCode ?? 502, { ...ur.headers, ...CORS });
-      ur.pipe(res);
-    });
+    const up = http.request(
+      { host: "127.0.0.1", port: m.r.port, method: req.method, path: m.path, headers },
+      (ur) => {
+        res.writeHead(ur.statusCode ?? 502, { ...ur.headers, ...CORS });
+        ur.pipe(res);
+      },
+    );
     up.on("error", (e) => res.writeHead(502, CORS).end(String(e)));
     req.pipe(up);
   })

@@ -12,5 +12,7 @@ const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365 * 5;
 export const ANON = sign({ role: "anon", iss: "supabase-local", exp });
 export const SERVICE = sign({ role: "service_role", iss: "supabase-local", exp });
 if (import.meta.url === `file://${process.argv[1]}`) {
-  console.log(`export JWT_SECRET=${JWT_SECRET}\nexport ANON_KEY=${ANON}\nexport SERVICE_ROLE_KEY=${SERVICE}`);
+  console.log(
+    `export JWT_SECRET=${JWT_SECRET}\nexport ANON_KEY=${ANON}\nexport SERVICE_ROLE_KEY=${SERVICE}`,
+  );
 }
