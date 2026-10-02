@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FetchLike } from "@/lib/ai/gemini";
 import {
+  ComplianceError,
   TOPIC_SEEDS,
   batchTimestamps,
+  complianceViolations,
   dailyRunAllowed,
   parseDraft,
   research,
@@ -168,5 +170,46 @@ describe("scheduling helpers (06:00 SAST = 04:00 UTC)", () => {
     expect(slugify("Hello, World! — Cannabis & Culture")).toBe("hello-world-cannabis-culture");
     expect(slugify("x".repeat(200)).length).toBeLessThanOrEqual(70);
     expect(TOPIC_SEEDS.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe("compliance gate (articles publish automatically only when compliant)", () => {
+  const ok = { title: "Pretoria's festival season", excerpt: "x".repeat(150), body_md: body() };
+  it("passes ordinary cultural writing, including safety language about children", () => {
+    expect(complianceViolations(ok)).toEqual([]);
+    expect(
+      complianceViolations({ ...ok, body_md: "Keep products away from children and pets." }),
+    ).toEqual([]);
+  });
+  it.each([
+    "This strain cures insomnia overnight.",
+    "It relieves chronic pain and treats anxiety.",
+    "Enjoy the health benefits of terpenes.",
+    "The recommended dose is 10 mg.",
+    "Our flower is lab tested and SAHPRA approved.",
+    "A guide for teens who want to try it.",
+    "Lorem ipsum dolor sit amet",
+  ])("rejects: %s", (line) => {
+    expect(
+      complianceViolations({ ...ok, body_md: `${ok.body_md}\n\n${line}` }).length,
+    ).toBeGreaterThan(0);
+  });
+  it("uses the clean first draft when the editor's version is non-compliant, and fails when both are", async () => {
+    const sources = Array.from({ length: 4 }, (_, i) => ({
+      url: `https://s.example/${i}`,
+      title: `S${i}`,
+      content: "c".repeat(300),
+    }));
+    const bad = draft({ body_md: body() + "\n\nThis cures anxiety." });
+    const clean = await writeArticle(
+      gem([JSON.stringify(draft({ title: "Clean draft" })), JSON.stringify(bad)]),
+      "k",
+      sources,
+      [],
+    );
+    expect(clean.title).toBe("Clean draft");
+    await expect(
+      writeArticle(gem([JSON.stringify(bad), JSON.stringify(bad)]), "k", sources, []),
+    ).rejects.toBeInstanceOf(ComplianceError);
   });
 });

@@ -95,39 +95,39 @@
     },
     {
       "id": "C-05",
-      "claim": "Contact telephone number +27 10 123 4567 (looks like a dummy number)",
-      "needs": "Confirmation from the client that this is the live support line",
+      "claim": "Contact telephone number +27 68 291 2107 (supplied by the owner on 2026-10-02 to replace the earlier dummy number)",
+      "needs": "Written confirmation from the client that this is the live support line",
       "locations": [
         {
           "file": "src/components/CannaPlugHome.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/components/LegalLayout.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/routes/faq.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/routes/account.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/routes/refund-policy.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/routes/delivery-policy.tsx",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         },
         {
           "file": "src/lib/ai/chat-prompt.ts",
-          "snippet": "+27 10 123 4567"
+          "snippet": "+27 68 291 2107"
         }
       ],
-      "status": "placeholder"
+      "status": "pending"
     },
     {
       "id": "C-06",
@@ -201,6 +201,18 @@
         {
           "file": "src/routes/privacy-policy.tsx",
           "snippet": "Information Officer"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-11",
+      "claim": "Responsible-consumption notice shown from the footer, worded as following South African law and SAHPRA requirements",
+      "needs": "Client / regulatory-adviser sign-off on the wording, with the source document it is based on",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "It follows the requirements of South African law and SAHPRA."
         }
       ],
       "status": "pending"

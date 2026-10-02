@@ -1225,6 +1225,21 @@ footer {
   display: grid;
   place-items: center;
 }
+.footer-main .footer-link-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: color-mix(in oklab, var(--primary-foreground) 75%, transparent);
+  font: inherit;
+  font-size: 0.72rem;
+  margin-bottom: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.footer-link-button:hover {
+  text-decoration: underline;
+}
 .socials svg {
   width: 15px;
 }

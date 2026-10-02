@@ -22,7 +22,7 @@ export interface Claim {
 
 const root = new URL("../", import.meta.url).pathname;
 const REGULATED =
-  /SAHPRA|Section 21|Registration No|Reg\. No|lab[- ]tested|Licensed Medical|\+27 10 123 4567|63210843975/i;
+  /SAHPRA|Section 21|Registration No|Reg\. No|lab[- ]tested|Licensed Medical|\+27 68 291 2107|63210843975/i;
 
 export function validate(
   claims: Claim[],

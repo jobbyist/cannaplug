@@ -41,8 +41,11 @@ describe("compliance copy register", () => {
       [],
     );
   });
-  it("the suspicious placeholder phone number is flagged as such, not silently trusted", () => {
-    expect(claims.find((c) => c.id === "C-05")?.status).toBe("placeholder");
+  it("the replacement phone number is registered everywhere it appears and no longer the dummy number", () => {
+    const c05 = claims.find((c) => c.id === "C-05");
+    expect(c05?.locations.length).toBeGreaterThan(0);
+    expect(c05?.status).not.toBe("approved");
+    for (const l of c05?.locations ?? []) expect(read(l.file)).not.toContain("123 4567");
   });
   it("a claim can only be approved with named client approval AND complete documentary evidence", () => {
     const ok: Claim = {

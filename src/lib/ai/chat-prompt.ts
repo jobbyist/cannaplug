@@ -7,7 +7,7 @@ export const SITE_FACTS = {
   name: "Cannaplug",
   address: "Shop 002, One On Mutual, Pretoria Central, South Africa",
   hours: "Monday to Friday 09:00 to 19:00, Saturday 09:00 to 20:00, Sunday 09:00 to 15:00",
-  phone: "+27 10 123 4567",
+  phone: "+27 68 291 2107",
   email: "info@cannaplug012.co.za",
   instagram: "@cannaplug_012",
   delivery: [

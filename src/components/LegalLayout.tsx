@@ -53,7 +53,7 @@ export function LegalLayout({
           >
             info@cannaplug012.co.za
           </a>{" "}
-          or +27 10 123 4567.
+          or +27 68 291 2107.
         </div>
       </main>
       <Footer />

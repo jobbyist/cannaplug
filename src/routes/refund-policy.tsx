@@ -109,7 +109,7 @@ function RefundPolicyPage() {
               >
                 info@cannaplug012.co.za
               </a>{" "}
-              or +27 10 123 4567, Mon–Fri 09:00–19:00, Sat 09:00–20:00, Sun 09:00–15:00.
+              or +27 68 291 2107, Mon–Fri 09:00–19:00, Sat 09:00–20:00, Sun 09:00–15:00.
             </p>
           ),
         },

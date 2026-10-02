@@ -11,7 +11,6 @@ import {
   ChevronRight,
   CircleUserRound,
   Clock3,
-  Facebook,
   Headphones,
   Instagram,
   Leaf,
@@ -31,7 +30,6 @@ import {
   Truck,
   UsersRound,
   X,
-  Youtube,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -40,6 +38,14 @@ import { journalListQuery, formatJournalDate } from "@/lib/journal";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SheetTrigger } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/hooks/useAuth";
@@ -263,12 +269,7 @@ function StoryNavigation() {
               <span>{item.label}</span>
             </button>
           ))}
-          <a
-            className="story-social"
-            href="https://instagram.com/cannaplug_012"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="story-social" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
             Join our community <Instagram size={16} />
           </a>
         </div>
@@ -424,7 +425,7 @@ function MobileNav({
             </div>
             <div className="mobile-nav-foot">
               <span>18+ · Consume responsibly</span>
-              <a href="https://instagram.com/cannaplug_012" target="_blank" rel="noreferrer">
+              <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
                 Instagram <Instagram size={15} />
               </a>
             </div>
@@ -946,7 +947,7 @@ function ContactSection() {
           <ul>
             <li>
               <Phone size={18} />
-              <a href="tel:+27101234567">+27 10 123 4567</a>
+              <a href="tel:+27682912107">+27 68 291 2107</a>
             </li>
             <li>
               <Mail size={18} />
@@ -1105,12 +1106,85 @@ const footerInfoLinks: [string, string][] = [
   ["Terms of Service", "/terms-of-service"],
   ["Refund Policy", "/refund-policy"],
   ["Delivery Policy", "/delivery-policy"],
-  ["Responsible consumption", "/#contact"],
 ];
 
+const INSTAGRAM_URL = "https://instagram.com/cannaplug_012";
+const WHATSAPP_CHANNEL_URL = "https://whatsapp.com/channel/0029Vb8vaazDJ6H8OHue3E3Z";
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M12.04 2a9.9 9.9 0 0 0-8.47 14.99L2 22l5.17-1.35A9.9 9.9 0 1 0 12.04 2Zm0 18.1a8.2 8.2 0 0 1-4.18-1.14l-.3-.18-3.07.8.82-2.99-.2-.31a8.2 8.2 0 1 1 6.93 3.82Zm4.5-6.13c-.25-.12-1.46-.72-1.69-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.97-.14.16-.29.18-.54.06a6.7 6.7 0 0 1-1.98-1.22 7.4 7.4 0 0 1-1.37-1.7c-.14-.25-.02-.38.1-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.4-.42-.56-.42h-.47c-.16 0-.43.06-.65.31-.23.25-.86.84-.86 2.05s.88 2.38 1 2.55c.12.16 1.73 2.64 4.2 3.7.59.26 1.05.41 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.46-.6 1.66-1.17.2-.58.2-1.07.14-1.17-.06-.1-.23-.16-.48-.29Z" />
+    </svg>
+  );
+}
+
+/** Responsible-use notice. Wording is registered in compliance/copy-register.json (C-11). */
+function ResponsibleConsumptionDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Responsible consumption</DialogTitle>
+          <DialogDescription>
+            Please read this before you order or use any CannaPlug product. It follows the
+            requirements of South African law and SAHPRA.
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="grid gap-2 text-sm leading-relaxed">
+          <li>
+            <b>Adults only.</b> Products are for people aged 18 and over. We may ask for ID and we
+            do not supply minors.
+          </li>
+          <li>
+            <b>Use only as permitted.</b> Possess and use cannabis only as permitted by South
+            African law and any SAHPRA requirement that applies to you.
+          </li>
+          <li>
+            <b>Speak to your healthcare practitioner</b> before you start, especially if you take
+            other medicine, are pregnant or breastfeeding, or have a heart, lung or mental-health
+            condition.
+          </li>
+          <li>
+            <b>Start low, go slow.</b> Begin with a small amount and wait before taking more.
+            Effects differ from person to person and can last for hours.
+          </li>
+          <li>
+            <b>Do not drive</b> or operate machinery while you are under the influence of cannabis.
+          </li>
+          <li>
+            <b>Keep products secure</b> and out of reach of children and pets, in their original
+            packaging.
+          </li>
+          <li>
+            <b>Never share or resell</b> products. Do not mix cannabis with alcohol.
+          </li>
+          <li>
+            If you feel unwell, stop and seek medical help. In an emergency call 112 or go to your
+            nearest hospital.
+          </li>
+        </ul>
+        <DialogFooter>
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            I understand
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function Footer() {
+  const [responsibleOpen, setResponsibleOpen] = useState(false);
   return (
     <footer>
+      <ResponsibleConsumptionDialog open={responsibleOpen} onOpenChange={setResponsibleOpen} />
       <div className="footer-main">
         <div className="footer-brand">
           <Logo inverse />
@@ -1136,38 +1210,29 @@ export function Footer() {
               {label}
             </a>
           ))}
+          <button
+            type="button"
+            className="footer-link-button"
+            onClick={() => setResponsibleOpen(true)}
+          >
+            Responsible consumption
+          </button>
         </div>
         <div className="newsletter">
           <h3>Stay connected</h3>
           <p>Get the latest stories, events and CannaPlug news.</p>
           <NewsletterForm />
           <div className="socials">
-            <a
-              aria-label="Instagram"
-              href="https://instagram.com/cannaplug_012"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a aria-label="Instagram" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
               <Instagram />
             </a>
             <a
-              aria-label="TikTok"
-              href="https://www.tiktok.com/@cannaplug_012"
+              aria-label="WhatsApp Channel"
+              href={WHATSAPP_CHANNEL_URL}
               target="_blank"
               rel="noreferrer"
             >
-              <Youtube />
-            </a>
-            <a aria-label="X" href="https://x.com/cannaplug_012" target="_blank" rel="noreferrer">
-              <X />
-            </a>
-            <a
-              aria-label="Facebook"
-              href="https://facebook.com/cannaplug"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Facebook />
+              <WhatsAppIcon />
             </a>
           </div>
         </div>
