@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Cog,
   CreditCard,
+  History,
   LayoutDashboard,
   Megaphone,
   Newspaper,
@@ -28,6 +29,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Badge } from "@/components/ui/badge";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
+import { AuditPanel } from "@/components/admin/AuditPanel";
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -69,6 +71,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "pos", icon: Store, label: "POS" },
   { id: "orders", icon: ClipboardList, label: "Orders" },
   { id: "payments", icon: CreditCard, label: "Payments" },
+  { id: "audit", icon: History, label: "Audit log" },
   { id: "products", icon: Package, label: "Products" },
   { id: "inventory", icon: Boxes, label: "Inventory" },
   { id: "customers", icon: Users, label: "Customers" },
@@ -410,6 +413,7 @@ function AdminPage() {
           </div>
         )}
         {tab === "payments" && <PaymentsPanel />}
+        {tab === "audit" && <AuditPanel />}
         {tab === "id-checks" && <IdChecksPanel />}
         {tab === "clinical" && <ClinicalDocsPanel />}
         {tab === "customers" && (

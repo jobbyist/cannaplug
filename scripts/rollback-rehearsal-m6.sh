@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Rehearses the three Milestone 6 migrations' rollbacks on a scratch DB, newest first, exactly as they would be run
+# Rehearses the four Milestone 6 migrations' rollbacks on a scratch DB, newest first, exactly as they would be run
 # in an emergency, then re-applies them. Needs scripts/test-db.sh start.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/16/bin}"
 PORT="${TEST_PGPORT:-54329}"
 DB="rollback_rehearsal_m6"
-M=(20261004001000_public_forms 20261004002000_ai_quota 20261004003000_least_privilege_baseline)
+M=(20261004001000_public_forms 20261004002000_ai_quota 20261004003000_least_privilege_baseline 20261004004000_audit_hardening)
 run() { if [ "$(id -u)" = 0 ]; then su postgres -s /bin/bash -c "$*"; else bash -c "$*"; fi; }
 P="$PG_BIN/psql -X -q -h 127.0.0.1 -p $PORT -U postgres"
 q() { run "$P -At -d $DB -c \"$1\""; }
@@ -29,5 +29,5 @@ done
 for f in "${M[@]}"; do
   run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/migrations/$f.sql" >/dev/null 2>&1 || { echo "FAIL re-applying $f"; exit 1; }
 done
-echo "5. all three migrations re-applied after rollback"
+echo "5. all four migrations re-applied after rollback"
 run "$P -d postgres -c 'DROP DATABASE $DB WITH (FORCE)'" 2>/dev/null
