@@ -70,6 +70,18 @@ export const ID_MIME_TO_EXT: Record<string, string> = {
 };
 export const ID_ACCEPT = Object.keys(ID_MIME_TO_EXT).join(",");
 
+const UUID_RE = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/**
+ * True only for a path in the exact shape the server mints: `<userId>/<uuid>.<jpg|png|webp|pdf>`.
+ * Checked BEFORE any storage access, so a traversal path (`<me>/../<other>/x.jpg`) can never be
+ * downloaded, inspected or deleted on another member's behalf. The database repeats the same rule.
+ */
+export function isOwnUploadPath(userId: string, path: string): boolean {
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return false;
+  return new RegExp(`^${userId}/${UUID_RE}\\.(jpg|png|webp|pdf)$`, "i").test(path);
+}
+
 /** Identifies the real file type from its first bytes — the browser-declared type is not trusted. */
 export function sniffMime(bytes: Uint8Array): string | null {
   const is = (offset: number, ...sig: number[]) => sig.every((b, i) => bytes[offset + i] === b);

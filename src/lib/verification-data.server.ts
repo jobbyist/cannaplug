@@ -7,6 +7,7 @@ import {
   ID_MAX_ATTEMPTS,
   ID_MAX_BYTES,
   ID_MIME_TO_EXT,
+  isOwnUploadPath,
   sniffMime,
   type DocumentType,
 } from "@/lib/verification-logic";
@@ -88,7 +89,7 @@ export async function submitVerification(
   userId: string,
   input: { documentType: DocumentType; path: string; dob: string; key: string },
 ) {
-  if (!input.path.startsWith(`${userId}/`))
+  if (!isOwnUploadPath(userId, input.path))
     throw friendlyMemberError(new Error("invalid_document_path"));
   const problem = await inspectUpload(input.path);
   if (problem) {

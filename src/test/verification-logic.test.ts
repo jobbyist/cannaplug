@@ -3,6 +3,7 @@ import {
   ID_MAX_BYTES,
   checkIdFile,
   dobProblem,
+  isOwnUploadPath,
   latestAdultBirthDate,
   rejectionMessage,
   sniffMime,
@@ -104,5 +105,34 @@ describe("error wording", () => {
     expect(friendlyMemberError(new Error("forbidden: manager access required")).message).toMatch(
       /permission/,
     );
+  });
+});
+
+describe("isOwnUploadPath — checked before any storage access", () => {
+  const me = "11111111-1111-4111-8111-111111111111";
+  const other = "22222222-2222-4222-8222-222222222222";
+  const file = "33333333-3333-4333-8333-333333333333";
+  it("accepts exactly the server-minted shape", () => {
+    for (const ext of ["jpg", "png", "webp", "pdf"])
+      expect(isOwnUploadPath(me, `${me}/${file}.${ext}`)).toBe(true);
+  });
+  it("refuses traversal, foreign folders, nesting, odd names and bad extensions", () => {
+    for (const path of [
+      `${me}/../${other}/${file}.jpg`,
+      `${other}/${file}.jpg`,
+      `${me}/${file}.jpg/extra`,
+      `${me}/sub/${file}.jpg`,
+      `${me}/${file}.exe`,
+      `${me}/${file}.jpg.exe`,
+      `${me}/not-a-uuid.jpg`,
+      `${me}//${file}.jpg`,
+      `${me}/${file}.jpg\n`,
+      "",
+    ])
+      expect(isOwnUploadPath(me, path), path).toBe(false);
+  });
+  it("refuses a malformed user id instead of building a pattern from it", () => {
+    expect(isOwnUploadPath(".*", `${me}/${file}.jpg`)).toBe(false);
+    expect(isOwnUploadPath("", `/${file}.jpg`)).toBe(false);
   });
 });
