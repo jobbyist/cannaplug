@@ -996,6 +996,668 @@ export type Database = {
         Relationships: [];
       };
       // </m4-tables>
+      // <clinical-tables>
+      clinical_retention_policy: {
+        Row: {
+          basis: string;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          proposed_min_years: number;
+          purge_enabled: boolean;
+          record_class: string;
+          status: string;
+        };
+        Insert: {
+          basis: string;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          proposed_min_years: number;
+          purge_enabled?: boolean;
+          record_class: string;
+          status?: string;
+        };
+        Update: {
+          basis?: string;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          proposed_min_years?: number;
+          purge_enabled?: boolean;
+          record_class?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      doctor_patient_assignments: {
+        Row: {
+          assigned_by: string | null;
+          created_at: string;
+          doctor_id: string;
+          ended_at: string | null;
+          ended_by: string | null;
+          id: string;
+          member_id: string;
+          status: string;
+        };
+        Insert: {
+          assigned_by?: string | null;
+          created_at?: string;
+          doctor_id: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          id?: string;
+          member_id: string;
+          status?: string;
+        };
+        Update: {
+          assigned_by?: string | null;
+          created_at?: string;
+          doctor_id?: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          id?: string;
+          member_id?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      doctor_profiles: {
+        Row: {
+          created_at: string;
+          first_name: string;
+          hpcsa_number: string | null;
+          id: string;
+          is_active: boolean;
+          last_name: string;
+          practice_address: string | null;
+          practice_email: string | null;
+          practice_name: string | null;
+          practice_number: string | null;
+          practice_phone: string | null;
+          prescribing_authorised: boolean;
+          qualification: string | null;
+          signature_provider: string | null;
+          signature_provider_ref: string | null;
+          signature_status: string;
+          speciality: string | null;
+          title: string;
+          updated_at: string;
+          user_id: string;
+          verification_note: string | null;
+          verification_status: string;
+          verified_at: string | null;
+          verified_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          first_name: string;
+          hpcsa_number?: string | null;
+          id?: string;
+          is_active?: boolean;
+          last_name: string;
+          practice_address?: string | null;
+          practice_email?: string | null;
+          practice_name?: string | null;
+          practice_number?: string | null;
+          practice_phone?: string | null;
+          prescribing_authorised?: boolean;
+          qualification?: string | null;
+          signature_provider?: string | null;
+          signature_provider_ref?: string | null;
+          signature_status?: string;
+          speciality?: string | null;
+          title?: string;
+          updated_at?: string;
+          user_id: string;
+          verification_note?: string | null;
+          verification_status?: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          first_name?: string;
+          hpcsa_number?: string | null;
+          id?: string;
+          is_active?: boolean;
+          last_name?: string;
+          practice_address?: string | null;
+          practice_email?: string | null;
+          practice_name?: string | null;
+          practice_number?: string | null;
+          practice_phone?: string | null;
+          prescribing_authorised?: boolean;
+          qualification?: string | null;
+          signature_provider?: string | null;
+          signature_provider_ref?: string | null;
+          signature_status?: string;
+          speciality?: string | null;
+          title?: string;
+          updated_at?: string;
+          user_id?: string;
+          verification_note?: string | null;
+          verification_status?: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Relationships: [];
+      };
+      document_counters: {
+        Row: {
+          document_type: string;
+          last_value: number;
+          year: number;
+        };
+        Insert: {
+          document_type: string;
+          last_value?: number;
+          year: number;
+        };
+        Update: {
+          document_type?: string;
+          last_value?: number;
+          year?: number;
+        };
+        Relationships: [];
+      };
+      document_events: {
+        Row: {
+          actor_role: string;
+          actor_user_id: string | null;
+          created_at: string;
+          document_id: string;
+          event_type: string;
+          id: number;
+          ip_address: string | null;
+          metadata: Json;
+          user_agent: string | null;
+        };
+        Insert: {
+          actor_role: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          document_id: string;
+          event_type: string;
+          id?: number;
+          ip_address?: string | null;
+          metadata?: Json;
+          user_agent?: string | null;
+        };
+        Update: {
+          actor_role?: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          document_id?: string;
+          event_type?: string;
+          id?: number;
+          ip_address?: string | null;
+          metadata?: Json;
+          user_agent?: string | null;
+        };
+        Relationships: [];
+      };
+      document_requests: {
+        Row: {
+          admin_reference: string | null;
+          assigned_at: string | null;
+          assigned_by: string | null;
+          created_at: string;
+          created_by: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          doctor_id: string | null;
+          document_id: string | null;
+          document_type: string;
+          fulfilled_at: string | null;
+          id: string;
+          member_id: string;
+          member_note: string | null;
+          source: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          admin_reference?: string | null;
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          doctor_id?: string | null;
+          document_id?: string | null;
+          document_type: string;
+          fulfilled_at?: string | null;
+          id?: string;
+          member_id: string;
+          member_note?: string | null;
+          source?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          admin_reference?: string | null;
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          doctor_id?: string | null;
+          document_id?: string | null;
+          document_type?: string;
+          fulfilled_at?: string | null;
+          id?: string;
+          member_id?: string;
+          member_note?: string | null;
+          source?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      document_signature_policy: {
+        Row: {
+          confirmation_note: string | null;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          document_type: string;
+          required_assurance: string;
+          updated_at: string;
+        };
+        Insert: {
+          confirmation_note?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          document_type: string;
+          required_assurance: string;
+          updated_at?: string;
+        };
+        Update: {
+          confirmation_note?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          document_type?: string;
+          required_assurance?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      document_signatures: {
+        Row: {
+          assurance_level: string;
+          certificate_issuer: string | null;
+          certificate_serial: string | null;
+          certificate_subject: string | null;
+          created_at: string;
+          doctor_id: string;
+          document_hash_after_signature: string | null;
+          document_hash_before_signature: string;
+          document_id: string;
+          failure_code: string | null;
+          id: string;
+          provider_request_id: string | null;
+          signature_metadata: Json;
+          signature_method: string;
+          signature_provider: string;
+          signature_reference: string | null;
+          signed_at: string | null;
+          status: string;
+        };
+        Insert: {
+          assurance_level: string;
+          certificate_issuer?: string | null;
+          certificate_serial?: string | null;
+          certificate_subject?: string | null;
+          created_at?: string;
+          doctor_id: string;
+          document_hash_after_signature?: string | null;
+          document_hash_before_signature: string;
+          document_id: string;
+          failure_code?: string | null;
+          id?: string;
+          provider_request_id?: string | null;
+          signature_metadata?: Json;
+          signature_method: string;
+          signature_provider: string;
+          signature_reference?: string | null;
+          signed_at?: string | null;
+          status?: string;
+        };
+        Update: {
+          assurance_level?: string;
+          certificate_issuer?: string | null;
+          certificate_serial?: string | null;
+          certificate_subject?: string | null;
+          created_at?: string;
+          doctor_id?: string;
+          document_hash_after_signature?: string | null;
+          document_hash_before_signature?: string;
+          document_id?: string;
+          failure_code?: string | null;
+          id?: string;
+          provider_request_id?: string | null;
+          signature_metadata?: Json;
+          signature_method?: string;
+          signature_provider?: string;
+          signature_reference?: string | null;
+          signed_at?: string | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      document_templates: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          change_note: string | null;
+          created_at: string;
+          created_by: string | null;
+          document_type: string;
+          effective_from: string | null;
+          effective_until: string | null;
+          id: string;
+          name: string;
+          review_note: string | null;
+          status: string;
+          template_content: string;
+          template_schema: Json;
+          updated_at: string;
+          version: number;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          change_note?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          document_type: string;
+          effective_from?: string | null;
+          effective_until?: string | null;
+          id?: string;
+          name: string;
+          review_note?: string | null;
+          status?: string;
+          template_content: string;
+          template_schema: Json;
+          updated_at?: string;
+          version: number;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          change_note?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          document_type?: string;
+          effective_from?: string | null;
+          effective_until?: string | null;
+          id?: string;
+          name?: string;
+          review_note?: string | null;
+          status?: string;
+          template_content?: string;
+          template_schema?: Json;
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [];
+      };
+      document_verifications: {
+        Row: {
+          created_at: string;
+          document_hash: string | null;
+          document_id: string;
+          id: string;
+          requester_hash: string | null;
+          verification_status: string;
+          verification_token: string;
+          verified_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          document_hash?: string | null;
+          document_id: string;
+          id?: string;
+          requester_hash?: string | null;
+          verification_status: string;
+          verification_token: string;
+          verified_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          document_hash?: string | null;
+          document_id?: string;
+          id?: string;
+          requester_hash?: string | null;
+          verification_status?: string;
+          verification_token?: string;
+          verified_at?: string;
+        };
+        Relationships: [];
+      };
+      document_verify_attempts: {
+        Row: {
+          attempts: number;
+          bucket: string;
+          window_start: string;
+        };
+        Insert: {
+          attempts?: number;
+          bucket: string;
+          window_start: string;
+        };
+        Update: {
+          attempts?: number;
+          bucket?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
+      medical_documents: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          created_by: string;
+          doctor_id: string;
+          document_hash: string | null;
+          document_id: string;
+          document_type: string;
+          document_version: number;
+          expires_at: string | null;
+          id: string;
+          issued_at: string | null;
+          member_id: string;
+          pdf_storage_path: string | null;
+          rendered_content: string | null;
+          review_note: string | null;
+          review_started_at: string | null;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          source_data_snapshot: Json;
+          status: string;
+          supersedes_document_id: string | null;
+          template_id: string;
+          template_version: number;
+          updated_at: string;
+          verification_token: string;
+          voided_at: string | null;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          doctor_id: string;
+          document_hash?: string | null;
+          document_id: string;
+          document_type: string;
+          document_version?: number;
+          expires_at?: string | null;
+          id?: string;
+          issued_at?: string | null;
+          member_id: string;
+          pdf_storage_path?: string | null;
+          rendered_content?: string | null;
+          review_note?: string | null;
+          review_started_at?: string | null;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          source_data_snapshot?: Json;
+          status?: string;
+          supersedes_document_id?: string | null;
+          template_id: string;
+          template_version: number;
+          updated_at?: string;
+          verification_token: string;
+          voided_at?: string | null;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          doctor_id?: string;
+          document_hash?: string | null;
+          document_id?: string;
+          document_type?: string;
+          document_version?: number;
+          expires_at?: string | null;
+          id?: string;
+          issued_at?: string | null;
+          member_id?: string;
+          pdf_storage_path?: string | null;
+          rendered_content?: string | null;
+          review_note?: string | null;
+          review_started_at?: string | null;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          source_data_snapshot?: Json;
+          status?: string;
+          supersedes_document_id?: string | null;
+          template_id?: string;
+          template_version?: number;
+          updated_at?: string;
+          verification_token?: string;
+          voided_at?: string | null;
+        };
+        Relationships: [];
+      };
+      prescription_orders: {
+        Row: {
+          created_at: string;
+          directions: string | null;
+          document_id: string;
+          dosage_form: string | null;
+          duration: string | null;
+          frequency: string | null;
+          generic_name: string | null;
+          id: string;
+          indication: string | null;
+          issue_date: string | null;
+          medicine_name: string | null;
+          member_id: string;
+          prescriber_id: string;
+          quantity_numeric: number | null;
+          quantity_words: string | null;
+          repeats: number | null;
+          route: string | null;
+          special_instructions: string | null;
+          status: string;
+          strength: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          directions?: string | null;
+          document_id: string;
+          dosage_form?: string | null;
+          duration?: string | null;
+          frequency?: string | null;
+          generic_name?: string | null;
+          id?: string;
+          indication?: string | null;
+          issue_date?: string | null;
+          medicine_name?: string | null;
+          member_id: string;
+          prescriber_id: string;
+          quantity_numeric?: number | null;
+          quantity_words?: string | null;
+          repeats?: number | null;
+          route?: string | null;
+          special_instructions?: string | null;
+          status?: string;
+          strength?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          directions?: string | null;
+          document_id?: string;
+          dosage_form?: string | null;
+          duration?: string | null;
+          frequency?: string | null;
+          generic_name?: string | null;
+          id?: string;
+          indication?: string | null;
+          issue_date?: string | null;
+          medicine_name?: string | null;
+          member_id?: string;
+          prescriber_id?: string;
+          quantity_numeric?: number | null;
+          quantity_words?: string | null;
+          repeats?: number | null;
+          route?: string | null;
+          special_instructions?: string | null;
+          status?: string;
+          strength?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      signature_providers: {
+        Row: {
+          assurance_level: string;
+          confirmation_note: string | null;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          display_name: string;
+          enabled: boolean;
+          provider: string;
+          signature_method: string;
+          updated_at: string;
+        };
+        Insert: {
+          assurance_level?: string;
+          confirmation_note?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          display_name: string;
+          enabled?: boolean;
+          provider: string;
+          signature_method: string;
+          updated_at?: string;
+        };
+        Update: {
+          assurance_level?: string;
+          confirmation_note?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          display_name?: string;
+          enabled?: boolean;
+          provider?: string;
+          signature_method?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // </clinical-tables>
       order_items: {
         Row: {
           id: string;
@@ -1224,6 +1886,335 @@ export type Database = {
       // </m3-views>
     };
     Functions: {
+      // <clinical-functions>
+      clinical_document_access: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_kind: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_admin_events: {
+        Args: { p_actor: string | null; p_limit?: number };
+        Returns: Json;
+      };
+      clinical_document_admin_list: {
+        Args: { p_actor: string | null; p_limit?: number; p_status?: string | null };
+        Returns: Json;
+      };
+      clinical_document_begin_signing: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_expected_hash: string | null;
+          p_ip?: string | null;
+          p_provider: string | null;
+          p_provider_request_id: string | null;
+          p_ua?: string | null;
+          p_unsigned_pdf_hash: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_complete_signing: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_sig: Json;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_create: {
+        Args: {
+          p_actor: string | null;
+          p_clinical: Json;
+          p_expires_at: string | null;
+          p_idempotency_key: string | null;
+          p_ip?: string | null;
+          p_member_id: string | null;
+          p_prescription: Json;
+          p_supersedes?: string | null;
+          p_template_id: string | null;
+          p_token: string | null;
+          p_type: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_decide: {
+        Args: {
+          p_actor: string | null;
+          p_decision: string | null;
+          p_doc: string | null;
+          p_expected_hash: string | null;
+          p_ip?: string | null;
+          p_note: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_doctor_events: {
+        Args: { p_actor: string | null; p_limit?: number };
+        Returns: Json;
+      };
+      clinical_document_doctor_view: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_expire_due: { Args: Record<PropertyKey, never>; Returns: number };
+      clinical_document_issue: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_pdf_path: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_log_notification: {
+        Args: { p_channel: string | null; p_doc: string | null; p_ok: boolean };
+        Returns: undefined;
+      };
+      clinical_document_prepare: {
+        Args: { p_actor: string | null; p_doc: string | null; p_issue_date: string | null };
+        Returns: Json;
+      };
+      clinical_document_revoke: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_reason: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_set_provider_request: {
+        Args: { p_actor: string | null; p_doc: string | null; p_request_id: string | null };
+        Returns: Json;
+      };
+      clinical_document_signing_failed: {
+        Args: {
+          p_actor: string | null;
+          p_cancelled?: boolean;
+          p_code: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_submit: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_rendered: string | null;
+          p_snapshot_hash: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_update_draft: {
+        Args: {
+          p_actor: string | null;
+          p_clinical: Json;
+          p_doc: string | null;
+          p_expires_at: string | null;
+          p_ip?: string | null;
+          p_prescription: Json;
+          p_set_expiry?: boolean;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      clinical_document_void: {
+        Args: {
+          p_actor: string | null;
+          p_doc: string | null;
+          p_ip?: string | null;
+          p_reason: string | null;
+          p_ua?: string | null;
+        };
+        Returns: Json;
+      };
+      doctor_admin_set_status: {
+        Args: {
+          p_actor: string | null;
+          p_doctor_id: string | null;
+          p_note: string | null;
+          p_prescribing_authorised?: boolean;
+          p_signature_provider?: string | null;
+          p_signature_provider_ref?: string | null;
+          p_signature_status?: string | null;
+          p_status: string | null;
+        };
+        Returns: Json;
+      };
+      doctor_admin_upsert: {
+        Args: { p_actor: string | null; p_data: Json; p_user_id: string | null };
+        Returns: Json;
+      };
+      doctor_assign_patient: {
+        Args: {
+          p_actor: string | null;
+          p_assign: boolean;
+          p_doctor_id: string | null;
+          p_member_id: string | null;
+        };
+        Returns: Json;
+      };
+      doctor_list_documents: { Args: { p_actor: string | null }; Returns: Json };
+      doctor_list_patients: { Args: { p_actor: string | null }; Returns: Json };
+      doctor_update_own_profile: { Args: { p_actor: string | null; p_data: Json }; Returns: Json };
+      document_verify_blocked: {
+        Args: { p_bucket: string | null; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
+      document_verify_lookup: { Args: { p_token: string | null }; Returns: Json };
+      document_verify_rate_check: {
+        Args: { p_bucket: string | null; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
+      document_verify_record: {
+        Args: {
+          p_doc: string | null;
+          p_observed_hash: string | null;
+          p_requester_hash: string | null;
+          p_status: string | null;
+          p_token: string | null;
+        };
+        Returns: undefined;
+      };
+      document_verify_refund: {
+        Args: { p_bucket: string | null; p_window_seconds: number };
+        Returns: undefined;
+      };
+      member_list_documents: { Args: { p_user: string | null }; Returns: Json };
+      request_admin_create: {
+        Args: {
+          p_actor: string | null;
+          p_doctor: string | null;
+          p_idempotency_key: string | null;
+          p_member: string | null;
+          p_reference: string | null;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      request_assign: {
+        Args: { p_actor: string | null; p_doctor: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_cancel: { Args: { p_actor: string | null; p_request: string | null }; Returns: Json };
+      request_create: {
+        Args: {
+          p_actor: string | null;
+          p_idempotency_key: string | null;
+          p_note: string | null;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      request_decline: {
+        Args: { p_actor: string | null; p_reason: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_link_document: {
+        Args: { p_actor: string | null; p_doc: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_list_admin: {
+        Args: { p_actor: string | null; p_status?: string | null };
+        Returns: Json;
+      };
+      request_list_doctor: { Args: { p_actor: string | null }; Returns: Json };
+      request_list_member: { Args: { p_user: string | null }; Returns: Json };
+      signature_policy_set: {
+        Args: {
+          p_actor: string | null;
+          p_note: string | null;
+          p_required: string | null;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      signature_provider_set: {
+        Args: {
+          p_actor: string | null;
+          p_assurance: string | null;
+          p_enabled: boolean;
+          p_note: string | null;
+          p_provider: string | null;
+        };
+        Returns: Json;
+      };
+      template_create: {
+        Args: {
+          p_actor: string | null;
+          p_content: string | null;
+          p_name: string | null;
+          p_note: string | null;
+          p_schema: Json;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      template_decide: {
+        Args: {
+          p_actor: string | null;
+          p_approve: boolean;
+          p_effective_until?: string | null;
+          p_note: string | null;
+          p_template_id: string | null;
+        };
+        Returns: Json;
+      };
+      template_list: { Args: { p_actor: string | null }; Returns: Json };
+      template_new_version: {
+        Args: {
+          p_actor: string | null;
+          p_content: string | null;
+          p_note: string | null;
+          p_schema: Json;
+          p_template_id: string | null;
+        };
+        Returns: Json;
+      };
+      template_retire: {
+        Args: {
+          p_actor: string | null;
+          p_note: string | null;
+          p_revoke: boolean;
+          p_template_id: string | null;
+        };
+        Returns: Json;
+      };
+      template_submit: {
+        Args: { p_actor: string | null; p_template_id: string | null };
+        Returns: Json;
+      };
+      template_update_draft: {
+        Args: {
+          p_actor: string | null;
+          p_content: string | null;
+          p_note: string | null;
+          p_schema: Json;
+          p_template_id: string | null;
+        };
+        Returns: Json;
+      };
+      // </clinical-functions>
       // <m4-functions>
       accrue_order_loyalty: { Args: { p_order_id: string }; Returns: Json };
       checkout_place_order: {

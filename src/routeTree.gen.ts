@@ -15,6 +15,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
+import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
@@ -22,9 +23,12 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
+import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
+import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
+import { Route as ApiPublicSignaturesWebhookRouteImport } from './routes/api/public/signatures/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -54,6 +58,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const DeliveryPolicyRoute = DeliveryPolicyRouteImport.update({
   id: '/delivery-policy',
   path: '/delivery-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorRoute = DoctorRouteImport.update({
+  id: '/doctor',
+  path: '/doctor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -91,9 +100,19 @@ const JournalSlugRoute = JournalSlugRouteImport.update({
   path: '/journal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MemberDocumentsRoute = MemberDocumentsRouteImport.update({
+  id: '/member/documents',
+  path: '/member/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscribeAdminApiRoute = SubscribeAdminApiRouteImport.update({
   id: '/subscribe/admin-api',
   path: '/subscribe/admin-api',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyTokenRoute = VerifyTokenRouteImport.update({
+  id: '/verify/$token',
+  path: '/verify/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicInventoryMaintenanceRoute =
@@ -107,6 +126,12 @@ const ApiPublicNewsroomRunRoute = ApiPublicNewsroomRunRouteImport.update({
   path: '/api/public/newsroom/run',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSignaturesWebhookRoute =
+  ApiPublicSignaturesWebhookRouteImport.update({
+    id: '/api/public/signatures/webhook',
+    path: '/api/public/signatures/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,16 +140,20 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
+  '/doctor': typeof DoctorRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/member/documents': typeof MemberDocumentsRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,16 +162,20 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
+  '/doctor': typeof DoctorRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/member/documents': typeof MemberDocumentsRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,16 +185,20 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
+  '/doctor': typeof DoctorRoute
   '/faq': typeof FaqRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
+  '/member/documents': typeof MemberDocumentsRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
+  '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,16 +209,20 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/delivery-policy'
+    | '/doctor'
     | '/faq'
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/member/documents'
     | '/subscribe/admin-api'
+    | '/verify/$token'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/signatures/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -190,16 +231,20 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/delivery-policy'
+    | '/doctor'
     | '/faq'
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/member/documents'
     | '/subscribe/admin-api'
+    | '/verify/$token'
     | '/journal'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/signatures/webhook'
   id:
     | '__root__'
     | '/'
@@ -208,16 +253,20 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/delivery-policy'
+    | '/doctor'
     | '/faq'
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
     | '/journal/$slug'
+    | '/member/documents'
     | '/subscribe/admin-api'
+    | '/verify/$token'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/signatures/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -227,16 +276,20 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
+  DoctorRoute: typeof DoctorRoute
   FaqRoute: typeof FaqRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   ShopRoute: typeof ShopRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   JournalSlugRoute: typeof JournalSlugRoute
+  MemberDocumentsRoute: typeof MemberDocumentsRoute
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
+  VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
+  ApiPublicSignaturesWebhookRoute: typeof ApiPublicSignaturesWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -281,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/delivery-policy'
       fullPath: '/delivery-policy'
       preLoaderRoute: typeof DeliveryPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctor': {
+      id: '/doctor'
+      path: '/doctor'
+      fullPath: '/doctor'
+      preLoaderRoute: typeof DoctorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -332,11 +392,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/member/documents': {
+      id: '/member/documents'
+      path: '/member/documents'
+      fullPath: '/member/documents'
+      preLoaderRoute: typeof MemberDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscribe/admin-api': {
       id: '/subscribe/admin-api'
       path: '/subscribe/admin-api'
       fullPath: '/subscribe/admin-api'
       preLoaderRoute: typeof SubscribeAdminApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify/$token': {
+      id: '/verify/$token'
+      path: '/verify/$token'
+      fullPath: '/verify/$token'
+      preLoaderRoute: typeof VerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/inventory/maintenance': {
@@ -353,6 +427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicNewsroomRunRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/signatures/webhook': {
+      id: '/api/public/signatures/webhook'
+      path: '/api/public/signatures/webhook'
+      fullPath: '/api/public/signatures/webhook'
+      preLoaderRoute: typeof ApiPublicSignaturesWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -363,16 +444,20 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
+  DoctorRoute: DoctorRoute,
   FaqRoute: FaqRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   ShopRoute: ShopRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   JournalSlugRoute: JournalSlugRoute,
+  MemberDocumentsRoute: MemberDocumentsRoute,
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
+  VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
+  ApiPublicSignaturesWebhookRoute: ApiPublicSignaturesWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
