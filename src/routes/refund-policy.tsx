@@ -48,9 +48,9 @@ function RefundPolicyPage() {
                 possible, photos of the product and packaging, to{" "}
                 <a
                   className="font-semibold text-primary underline-offset-2 hover:underline"
-                  href="mailto:hello@cannaplug.co.za"
+                  href="mailto:info@cannaplug012.co.za"
                 >
-                  hello@cannaplug.co.za
+                  info@cannaplug012.co.za
                 </a>
                 . We will investigate and resolve valid claims promptly.
               </p>
@@ -105,9 +105,9 @@ function RefundPolicyPage() {
               For any refund, return or cancellation query, reach our support team at{" "}
               <a
                 className="font-semibold text-primary underline-offset-2 hover:underline"
-                href="mailto:hello@cannaplug.co.za"
+                href="mailto:info@cannaplug012.co.za"
               >
-                hello@cannaplug.co.za
+                info@cannaplug012.co.za
               </a>{" "}
               or +27 10 123 4567, Mon–Fri 09:00–19:00, Sat 09:00–20:00, Sun 09:00–15:00.
             </p>

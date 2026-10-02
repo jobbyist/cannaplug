@@ -890,11 +890,17 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
   describe("notification queue", () => {
     // other test files share this database, so claim a wide batch and look only at our own rows
     const claimMine = async (ids: string[], lease = 300) => {
-      // the claim batch is capped at 100, so park everything that is not ours
-      await sql`UPDATE public.notification_events SET status = 'suppressed' WHERE status IN ('queued', 'failed') AND next_attempt_at <= now() AND NOT (id = ANY(${ids}::uuid[]))`;
-      return (await sql`SELECT id, attempts FROM public.notification_claim(500, ${lease})`).filter(
-        (r) => ids.includes(r["id"] as string),
-      );
+      // the claim batch is capped at 100 and other files share this table: park what is not ours, and
+      // retry briefly in case a concurrent writer slipped rows in between.
+      for (let tries = 0; tries < 4; tries++) {
+        await sql`UPDATE public.notification_events SET status = 'suppressed' WHERE status IN ('queued', 'failed') AND next_attempt_at <= now() AND NOT (id = ANY(${ids}::uuid[]))`;
+        const mine = (
+          await sql`SELECT id, attempts FROM public.notification_claim(500, ${lease})`
+        ).filter((r) => ids.includes(r["id"] as string));
+        if (mine.length > 0) return mine;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return [];
     };
     const enqueue = (
       template: string,

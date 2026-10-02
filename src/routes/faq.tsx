@@ -170,9 +170,9 @@ function FaqPage() {
           <div className="flex flex-col gap-1 text-xs font-semibold">
             <a
               className="flex items-center gap-2 text-primary hover:underline"
-              href="mailto:hello@cannaplug.co.za"
+              href="mailto:info@cannaplug012.co.za"
             >
-              <Mail size={14} /> hello@cannaplug.co.za
+              <Mail size={14} /> info@cannaplug012.co.za
             </a>
             <a
               className="flex items-center gap-2 text-primary hover:underline"

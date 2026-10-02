@@ -456,7 +456,7 @@ function MemberPortal() {
               <CalendarClock size={16} className="text-primary" /> +27 10 123 4567
             </div>
             <div className="mt-2 flex items-center gap-2 text-sm">
-              <Bell size={16} className="text-primary" /> hello@cannaplug.co.za
+              <Bell size={16} className="text-primary" /> info@cannaplug012.co.za
             </div>
           </div>
         )}

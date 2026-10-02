@@ -6,6 +6,8 @@
  */
 export interface Rendered {
   subject: string;
+  /** Where a reply should go (e.g. the person who filled in the contact form). */
+  replyTo?: string;
   html: string;
   text: string;
   /** Short text for SMS / WhatsApp, if this template has one. */
@@ -86,6 +88,7 @@ const strip = (html: string) =>
 
 type Ctx = { siteUrl: string };
 type Template = (d: TemplateData, c: Ctx) => Omit<Rendered, "text"> & { text?: string };
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const orderRows = (d: TemplateData): [string, string][] => [
   ["Order", esc(d["order_number"])],
@@ -212,6 +215,51 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open payments", url: adminUrl(c) },
     }),
   }),
+  contact_form_staff: (d) => ({
+    subject: `Website message: ${String(d["subject"] ?? "").slice(0, 120)}`,
+    ...(EMAIL_RE.test(String(d["email"] ?? "")) ? { replyTo: String(d["email"]) } : {}),
+    html: layout({
+      preheader: "A message from the website contact form.",
+      title: "New website message",
+      bodyHtml:
+        kv([
+          ["From", esc(d["name"])],
+          ["Email", esc(d["email"])],
+          ["Subject", esc(d["subject"])],
+        ]) +
+        `<p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(d["message"])}</p>`,
+      footerNote: "Reply to this email to answer the sender directly.",
+    }),
+  }),
+  contact_form_ack: (d, c) => ({
+    subject: "We received your message",
+    html: layout({
+      preheader: "Thanks for getting in touch.",
+      title: "Thanks for getting in touch",
+      bodyHtml:
+        p(`Hi ${esc(String(d["name"] ?? "there").split(" ")[0])},`) +
+        p(
+          "We have received your message and a member of the team will reply as soon as they can — usually within one business day.",
+        ) +
+        kv([["Subject", esc(d["subject"])]]),
+      cta: { label: "Visit Cannaplug", url: c.siteUrl },
+    }),
+  }),
+  newsletter_welcome: (d, c) => ({
+    subject: "Welcome to Cannaplug",
+    html: layout({
+      preheader: "You are on the list for stories, events and news.",
+      title: "You're on the list",
+      bodyHtml:
+        p(
+          "Thanks for subscribing. You will hear from us about new stories in the Journal, events and Cannaplug news.",
+        ) +
+        p(
+          `Changed your mind? <a href="${esc(c.siteUrl.replace(/\/+$/, ""))}/unsubscribe?token=${esc(d["unsubscribe_token"])}" style="color:${BRAND.green}">Unsubscribe in one click</a>.`,
+        ),
+      cta: { label: "Read the Journal", url: `${c.siteUrl.replace(/\/+$/, "")}/journal` },
+    }),
+  }),
   staff_eft_approval: (d, c) => ({
     subject: "EFT awaiting your approval",
     html: layout({
@@ -246,6 +294,7 @@ export function renderTemplate(template: string, data: TemplateData, ctx: Ctx): 
   if (!t) return null;
   const r = t(data ?? {}, ctx);
   const out: Rendered = { subject: r.subject, html: r.html, text: r.text ?? strip(r.html) };
+  if (r.replyTo) out.replyTo = r.replyTo;
   if (r.sms) out.sms = r.sms;
   return out;
 }

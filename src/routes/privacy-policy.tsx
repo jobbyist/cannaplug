@@ -131,9 +131,9 @@ function PrivacyPolicyPage() {
                 To exercise any of these rights, contact our Information Officer at{" "}
                 <a
                   className="font-semibold text-primary underline-offset-2 hover:underline"
-                  href="mailto:hello@cannaplug.co.za"
+                  href="mailto:info@cannaplug012.co.za"
                 >
-                  hello@cannaplug.co.za
+                  info@cannaplug012.co.za
                 </a>
                 .
               </p>

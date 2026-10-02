@@ -683,6 +683,72 @@ export type Database = {
       };
       // </m3-tables>
       // <m5-tables>
+      contact_submissions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip_hash: string | null
+          message: string
+          name: string
+          status: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip_hash?: string | null
+          message: string
+          name: string
+          status?: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip_hash?: string | null
+          message?: string
+          name?: string
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      newsletter_subscribers: {
+        Row: {
+          consent_at: string
+          consent_source: string
+          created_at: string
+          email: string
+          id: string
+          ip_hash: string | null
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          consent_at?: string
+          consent_source?: string
+          created_at?: string
+          email: string
+          id?: string
+          ip_hash?: string | null
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          consent_at?: string
+          consent_source?: string
+          created_at?: string
+          email?: string
+          id?: string
+          ip_hash?: string | null
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
       fx_rates: {
         Row: {
           base_currency: string
@@ -2159,6 +2225,9 @@ export type Database = {
     };
     Functions: {
       // <m5-functions>
+      contact_submit: { Args: { p_email: string; p_inbox: string; p_ip_hash: string; p_message: string; p_name: string; p_subject: string }; Returns: Json }
+      newsletter_subscribe: { Args: { p_email: string; p_ip_hash: string; p_source?: string }; Returns: Json }
+      newsletter_unsubscribe: { Args: { p_token: string }; Returns: Json }
       eft_approve: { Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string }; Returns: Json }
       eft_reject: { Args: { p_actor: string; p_reason: string; p_transaction_id: string }; Returns: Json }
       eft_submit: {

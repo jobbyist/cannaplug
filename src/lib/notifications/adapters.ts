@@ -32,6 +32,7 @@ export function resendAdapter(
         subject: m.subject,
         html: m.html,
         text: m.text,
+        ...(m.replyTo ? { reply_to: m.replyTo } : {}),
       }),
     });
     const text = await res.text();

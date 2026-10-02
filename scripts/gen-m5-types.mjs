@@ -10,6 +10,8 @@ const sql = postgres(url, { onnotice: () => {} });
 const TYPES = new URL("../src/integrations/supabase/types.ts", import.meta.url);
 
 const NEW_TABLES = [
+  "contact_submissions",
+  "newsletter_subscribers",
   "fx_rates",
   "notification_events",
   "payment_settings",
@@ -77,7 +79,10 @@ async function viewBlock(name) {
   return `      ${name}: {\n        Row: {\n${row}\n        }\n        Relationships: []\n      }\n`;
 }
 
-const FUNCTIONS = `      eft_approve: { Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string }; Returns: Json }
+const FUNCTIONS = `      contact_submit: { Args: { p_email: string; p_inbox: string; p_ip_hash: string; p_message: string; p_name: string; p_subject: string }; Returns: Json }
+      newsletter_subscribe: { Args: { p_email: string; p_ip_hash: string; p_source?: string }; Returns: Json }
+      newsletter_unsubscribe: { Args: { p_token: string }; Returns: Json }
+      eft_approve: { Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string }; Returns: Json }
       eft_reject: { Args: { p_actor: string; p_reason: string; p_transaction_id: string }; Returns: Json }
       eft_submit: {
         Args: { p_actor: string; p_amount: number; p_bank_reference: string; p_idempotency_key: string; p_note: string | null; p_order_id: string; p_received_on: string }

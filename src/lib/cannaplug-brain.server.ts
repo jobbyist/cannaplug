@@ -10,7 +10,7 @@ FORMATTING RULES (critical):
 
 Store facts:
 - Hours: Mon to Fri 09:00 to 19:00, Sat 09:00 to 20:00, Sun 09:00 to 15:00.
-- Contact: +27 10 123 4567, hello@cannaplug.co.za.
+- Contact: +27 10 123 4567, info@cannaplug012.co.za.
 - Product range: flower, pre-rolls, edibles, THC drinks, vapes, concentrates, CBD, smoke station accessories. All lab tested.
 - Payment: bank transfer to FNB/RMB, account holder Canna Plug (Pty) Ltd, account 63210843975, branch 250655, reference is the customer order number.
 - Collection in store or discreet local delivery, chosen at checkout.

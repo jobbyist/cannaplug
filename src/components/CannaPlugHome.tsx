@@ -1,3 +1,4 @@
+import { submitContactFn, subscribeNewsletterFn } from "@/lib/forms.functions";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, useScroll } from "framer-motion";
@@ -906,10 +907,30 @@ function StoreVideo() {
 }
 
 function ContactSection() {
-  const [sent, setSent] = useState(false);
-  const submit = (e: FormEvent) => {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSent(true);
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    setState("sending");
+    setError(null);
+    try {
+      await submitContactFn({
+        data: {
+          name: String(f.get("name") ?? ""),
+          email: String(f.get("email") ?? ""),
+          subject: String(f.get("subject") ?? ""),
+          message: String(f.get("message") ?? ""),
+          website: String(f.get("website") ?? ""),
+        },
+      });
+      form.reset();
+      setState("sent");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setState("error");
+    }
   };
   return (
     <section className="contact" id="contact">
@@ -929,7 +950,7 @@ function ContactSection() {
             </li>
             <li>
               <Mail size={18} />
-              <a href="mailto:hello@cannaplug.co.za">hello@cannaplug.co.za</a>
+              <a href="mailto:info@cannaplug012.co.za">info@cannaplug012.co.za</a>
             </li>
             <li>
               <MapPin size={18} />
@@ -959,36 +980,113 @@ function ContactSection() {
           <div>
             <label>
               Name
-              <input required placeholder="Your name" />
+              <input required name="name" minLength={2} maxLength={120} placeholder="Your name" />
             </label>
             <label>
               Email
-              <input required type="email" placeholder="you@example.com" />
+              <input
+                required
+                name="email"
+                type="email"
+                maxLength={254}
+                placeholder="you@example.com"
+              />
             </label>
           </div>
           <label>
             Subject
-            <input required placeholder="How can we help?" />
+            <input
+              required
+              name="subject"
+              minLength={2}
+              maxLength={200}
+              placeholder="How can we help?"
+            />
           </label>
           <label>
             Message
-            <textarea required rows={5} placeholder="Write your message…" />
+            <textarea
+              required
+              name="message"
+              minLength={5}
+              maxLength={4000}
+              rows={5}
+              placeholder="Write your message…"
+            />
           </label>
-          <Button type="submit">
-            {sent ? (
+          {/* honeypot: hidden from people, irresistible to bots */}
+          <input
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", height: 0, width: 0, opacity: 0 }}
+          />
+          <Button type="submit" disabled={state === "sending"}>
+            {state === "sent" ? (
               <>
-                <Check size={16} /> Message ready
+                <Check size={16} /> Message sent
               </>
             ) : (
               <>
-                Send message <ArrowRight size={16} />
+                {state === "sending" ? "Sending…" : "Send message"} <ArrowRight size={16} />
               </>
             )}
           </Button>
-          {sent && <small>Thanks — this visual prototype does not submit messages yet.</small>}
+          {state === "sent" && (
+            <small>Thanks — we have received your message and emailed you a confirmation.</small>
+          )}
+          {state === "error" && <small role="alert">{error}</small>}
         </form>
       </Reveal>
     </section>
+  );
+}
+
+function NewsletterForm() {
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    setState("sending");
+    try {
+      await subscribeNewsletterFn({
+        data: { email: String(f.get("email") ?? ""), website: String(f.get("website") ?? "") },
+      });
+      form.reset();
+      setState("done");
+    } catch {
+      setState("error");
+    }
+  };
+  return (
+    <form onSubmit={submit}>
+      <input
+        aria-label="Email address"
+        name="email"
+        required
+        type="email"
+        maxLength={254}
+        placeholder="Email address"
+      />
+      <input
+        name="website"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-9999px", height: 0, width: 0, opacity: 0 }}
+      />
+      <Button type="submit" disabled={state === "sending"}>
+        {state === "done" ? "Joined" : "Join"} <ArrowRight size={15} />
+      </Button>
+      {state === "done" && (
+        <small role="status">Thanks — check your inbox for a welcome email.</small>
+      )}
+      {state === "error" && (
+        <small role="alert">Could not subscribe just now. Please try again.</small>
+      )}
+    </form>
   );
 }
 
@@ -1042,12 +1140,7 @@ export function Footer() {
         <div className="newsletter">
           <h3>Stay connected</h3>
           <p>Get the latest stories, events and CannaPlug news.</p>
-          <form onSubmit={(e) => e.preventDefault()}>
-            <input aria-label="Email address" type="email" placeholder="Email address" />
-            <Button type="submit">
-              Join <ArrowRight size={15} />
-            </Button>
-          </form>
+          <NewsletterForm />
           <div className="socials">
             <a
               aria-label="Instagram"
