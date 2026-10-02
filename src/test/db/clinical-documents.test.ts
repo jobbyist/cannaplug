@@ -28,6 +28,7 @@ import {
   todaySast,
   token,
   LETTER_CONTENT,
+  RX_CONTENT,
   type World,
 } from "./clinical-helpers";
 
@@ -196,19 +197,67 @@ describe.skipIf(!DB_URL)("clinical documents (real PostgreSQL)", () => {
   });
 
   describe("templates", () => {
-    it("seed templates are DRAFT and cannot be activated while they carry the placeholder marker", async () => {
+    it("the supplied wording is seeded as DRAFT (never active) and is structurally valid", async () => {
       const seeds =
-        await sql`SELECT id, status FROM public.document_templates WHERE template_content LIKE '%[[SEED-PLACEHOLDER]]%'`;
+        await sql`SELECT id, status, document_type, template_content, template_schema FROM public.document_templates WHERE created_by IS NULL AND version = 1`;
       expect(seeds.length).toBeGreaterThanOrEqual(2);
       expect(seeds.every((s: any) => s.status === "DRAFT")).toBe(true);
-      await rpc(sql, "template_submit", w.admin, seeds[0]!.id);
+      for (const t of seeds) {
+        await sql`SELECT public._template_validate(${t.document_type}, ${t.template_content}, ${sql.json(t.template_schema)})`;
+        expect(t.template_content).not.toContain("SEED-PLACEHOLDER");
+      }
+      const letter = seeds.find((s: any) => s.document_type === "MEDICAL_LETTER");
+      expect(letter.template_content).toContain("MEDICAL PRACTITIONER LETTER");
+      expect(letter.template_content).toContain("{{signature.status}}");
+    });
+
+    it("any template still carrying the placeholder marker can never be activated", async () => {
+      const content = LETTER_CONTENT + "\n[[SEED-PLACEHOLDER]]";
+      const t = await rpc(
+        sql,
+        "template_create",
+        w.admin,
+        "MEDICAL_LETTER",
+        `Marker ${key("n")}`,
+        content,
+        schemaFor(content),
+        null,
+      );
+      await rpc(sql, "template_submit", w.admin, t.template_id);
       const r = await attempt(
-        rpc(sql, "template_decide", w.doctorUser, seeds[0]!.id, true, "ok", null),
+        rpc(sql, "template_decide", w.doctorUser, t.template_id, true, "ok", null),
       );
       expect(failedWith(r, "template_placeholder")).toBe(true);
-      await sql`UPDATE public.document_templates SET status = 'DRAFT' WHERE id = ${seeds[0]!.id}`.catch(
-        () => {},
-      );
+    });
+
+    it("a letter of fixed wording needs no clinical field, and a prescription need not print the expiry", async () => {
+      const fixed =
+        "Letter {{document.document_id}} {{member.full_name}} {{doctor.full_name}} {{doctor.hpcsa_number}} {{signature.status}} {{document.verification_url}}";
+      await expect(
+        rpc(
+          sql,
+          "template_create",
+          w.admin,
+          "MEDICAL_LETTER",
+          `Fixed ${key("n")}`,
+          fixed,
+          schemaFor(fixed),
+          null,
+        ),
+      ).resolves.toBeTruthy();
+      const rx = RX_CONTENT.replaceAll("valid until {{document.expiry_date}}", "");
+      await expect(
+        rpc(
+          sql,
+          "template_create",
+          w.admin,
+          "PRESCRIPTION_ORDER",
+          `NoExp ${key("n")}`,
+          rx,
+          schemaFor(rx),
+          null,
+        ),
+      ).resolves.toBeTruthy();
     });
 
     it("an administrator cannot approve wording; only a verified practitioner can", async () => {

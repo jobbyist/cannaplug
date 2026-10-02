@@ -342,3 +342,25 @@ export function friendlyClinicalError(err: unknown): Error {
     return new ClinicalError("You do not have permission for this action", "forbidden");
   return new ClinicalError("The action could not be completed. Please retry.", "clinical_error");
 }
+
+// ---------------------------------------------------------------------------
+// Late-bound signature placeholders
+// ---------------------------------------------------------------------------
+
+export const SIGNATURE_PENDING_STATUS = "Pending — applied when the practitioner signs";
+export const SIGNATURE_PENDING_DATE = "Pending";
+
+/** Values for {{signature.status}} / {{signature.signed_at}}: pending before signing, the facts after. */
+export function signaturePlaceholderValues(
+  sig: { practitioner: string; assurance: AssuranceLevel; signedAt: string } | null,
+) {
+  if (!sig)
+    return {
+      "signature.status": SIGNATURE_PENDING_STATUS,
+      "signature.signed_at": SIGNATURE_PENDING_DATE,
+    };
+  return {
+    "signature.status": `Signed electronically by ${sig.practitioner} (${ASSURANCE_LABELS[sig.assurance].toLowerCase()})`,
+    "signature.signed_at": `${new Intl.DateTimeFormat("en-ZA", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Johannesburg" }).format(new Date(sig.signedAt))} (SAST)`,
+  };
+}

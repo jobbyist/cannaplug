@@ -265,8 +265,30 @@ const patients: PatientRow[] = [
   },
 ];
 const templates = [
-  { id: "t1", document_type: "PRESCRIPTION_ORDER", name: "Rx", version: 1, status: "ACTIVE" },
-  { id: "t2", document_type: "MEDICAL_LETTER", name: "Letter", version: 2, status: "ACTIVE" },
+  {
+    id: "t1",
+    document_type: "PRESCRIPTION_ORDER",
+    name: "Rx",
+    version: 1,
+    status: "ACTIVE",
+    template_content: "x",
+  },
+  {
+    id: "t2",
+    document_type: "MEDICAL_LETTER",
+    name: "Letter",
+    version: 2,
+    status: "ACTIVE",
+    template_content: "Letter {{clinical.statement}}",
+  },
+  {
+    id: "t4",
+    document_type: "MEDICAL_LETTER",
+    name: "Fixed",
+    version: 1,
+    status: "ACTIVE",
+    template_content: "Fixed wording only",
+  },
   { id: "t3", document_type: "MEDICAL_LETTER", name: "Old", version: 1, status: "ARCHIVED" },
 ] as TemplateRow[];
 
@@ -329,7 +351,7 @@ describe("document editor: the practitioner enters everything", () => {
       within(screen.getByLabelText(label))
         .getAllByRole("option")
         .map((o) => o.textContent);
-    expect(options("Template")).toEqual(["Select…", "Letter v2"]);
+    expect(options("Template")).toEqual(["Select…", "Letter v2", "Fixed v1"]);
     expect(options("Patient")).toEqual(["Select…", "Test Member (CP-M-ABCD1234)"]);
   });
 
@@ -341,12 +363,25 @@ describe("document editor: the practitioner enters everything", () => {
     expect((option as HTMLOptionElement).disabled).toBe(true);
   });
 
-  it("letters have no suggested wording either", () => {
+  it("letters have no suggested wording either", async () => {
     renderEditor("MEDICAL_LETTER");
+    await userEvent.selectOptions(screen.getByLabelText("Patient"), "m1");
+    await userEvent.selectOptions(screen.getByLabelText("Template"), "t2");
     expect((screen.getByLabelText("Practitioner statement") as HTMLTextAreaElement).value).toBe("");
     expect(
       (screen.getByRole("button", { name: "Prepare for review" }) as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+
+  it("a fixed-wording template asks for nothing to be typed and can be prepared once patient and template are chosen", async () => {
+    renderEditor("MEDICAL_LETTER");
+    await userEvent.selectOptions(screen.getByLabelText("Patient"), "m1");
+    await userEvent.selectOptions(screen.getByLabelText("Template"), "t4");
+    expect(screen.queryByLabelText("Practitioner statement")).toBeNull();
+    expect(screen.getByText(/fixed practitioner-approved wording/)).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Prepare for review" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 });
 

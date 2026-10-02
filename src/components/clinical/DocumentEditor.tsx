@@ -147,6 +147,10 @@ export function DocumentEditor({
     () => templates.filter((t) => t.document_type === type && t.status === "ACTIVE"),
     [templates, type],
   );
+  const templateText = templates.find((t) => t.id === templateId)?.template_content ?? "";
+  const clinicalFields = CLINICAL_FIELDS.filter((f) =>
+    templateText.includes(`{{clinical.${f.key}}}`),
+  );
   const rxInput = useMemo<PrescriptionInput>(() => {
     const n = (v: string | undefined) => (v === undefined || v.trim() === "" ? null : Number(v));
     const s = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
@@ -229,7 +233,9 @@ export function DocumentEditor({
   const canSave = Boolean(memberId && templateId) || Boolean(documentId);
   const ready =
     canSave &&
-    (type === "MEDICAL_LETTER" ? Boolean(clinical["statement"]?.trim()) : problems.length === 0);
+    (type === "MEDICAL_LETTER"
+      ? clinicalFields.every((f) => f.key !== "statement" || Boolean(clinical["statement"]?.trim()))
+      : problems.length === 0);
 
   return (
     <Dialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
@@ -310,7 +316,13 @@ export function DocumentEditor({
 
         {type === "MEDICAL_LETTER" ? (
           <div className="grid gap-3">
-            {CLINICAL_FIELDS.map((f) => (
+            {clinicalFields.length === 0 && templateId && (
+              <p className="text-sm text-muted-foreground">
+                This template is fixed practitioner-approved wording. There is nothing to enter for
+                this letter other than the optional expiry date.
+              </p>
+            )}
+            {clinicalFields.map((f) => (
               <div key={f.key}>
                 <Label htmlFor={`c-${f.key}`}>{f.label}</Label>
                 <Textarea

@@ -21,7 +21,12 @@ import {
   signingOptionsFn,
   voidDocumentFn,
 } from "@/lib/clinical/clinical.functions";
-import { ASSURANCE_LABELS, documentTypeLabel } from "@/lib/clinical/logic";
+import {
+  ASSURANCE_LABELS,
+  documentTypeLabel,
+  signaturePlaceholderValues,
+} from "@/lib/clinical/logic";
+import { resolveLateBound } from "@/lib/clinical/template-engine";
 import type { DoctorView, SigningOption } from "@/lib/clinical/documents-data.server";
 import {
   Notice,
@@ -211,7 +216,15 @@ export function ReviewDialog({ documentId, onClose, onChanged, onEditDraft, onNe
                   aria-label="Exact document text"
                   className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-4 font-sans text-sm leading-relaxed"
                 >
-                  {view.rendered_content}
+                  {resolveLateBound(
+                    view.rendered_content,
+                    ["DRAFT", "PENDING_DOCTOR_REVIEW", "APPROVED", "SIGNING"].includes(view.status)
+                      ? signaturePlaceholderValues(null)
+                      : {
+                          "signature.status": "See the signed PDF",
+                          "signature.signed_at": "See the signed PDF",
+                        },
+                  )}
                 </pre>
               </div>
             ) : (

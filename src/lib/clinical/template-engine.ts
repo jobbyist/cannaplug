@@ -31,6 +31,9 @@ export const ALLOWED_PLACEHOLDERS = [
   "document.issue_date",
   "document.expiry_date",
   "document.document_id",
+  "document.verification_url",
+  "signature.status",
+  "signature.signed_at",
   "prescription.medicine_name",
   "prescription.generic_name",
   "prescription.dosage_form",
@@ -44,6 +47,7 @@ export const ALLOWED_PLACEHOLDERS = [
   "prescription.repeats",
   "prescription.indication",
   "prescription.special_instructions",
+  "prescription.issue_date",
   "clinical.statement",
   "clinical.indication_summary",
   "clinical.treatment_summary",
@@ -86,6 +90,24 @@ export type RenderData = {
   prescription?: ValueBag | undefined;
   clinical?: ValueBag | undefined;
 };
+
+/**
+ * Late-bound placeholders have no value when the text is frozen and hashed (the document is not signed yet).
+ * The frozen text keeps the token; `resolveLateBound` fills it when the PDF is drawn or the review screen is shown.
+ */
+export const LATE_BOUND_KEYS = ["signature.status", "signature.signed_at"] as const;
+const LATE_BOUND = new Set<string>(LATE_BOUND_KEYS);
+
+/** Fills the late-bound tokens in frozen text. Any token without a supplied value is left as is. */
+export function resolveLateBound(
+  text: string,
+  values: Partial<Record<(typeof LATE_BOUND_KEYS)[number], string>>,
+): string {
+  return text.replace(PLACEHOLDER, (m, raw: string) => {
+    const key = raw.trim();
+    return LATE_BOUND.has(key) ? (values[key as (typeof LATE_BOUND_KEYS)[number]] ?? m) : m;
+  });
+}
 
 export class TemplateError extends Error {
   constructor(
@@ -148,18 +170,12 @@ export function validateTemplate(
   if (type === "MEDICAL_LETTER") {
     if (keys.some((k) => k.startsWith("prescription.")))
       problems.push("A medical letter cannot contain prescription fields");
-    if (!keys.some((k) => k.startsWith("clinical.")))
-      problems.push(
-        "A medical letter needs at least one practitioner-entered {{clinical.*}} field",
-      );
   } else {
     if (keys.some((k) => k.startsWith("clinical.")))
       problems.push("A prescription cannot contain clinical.* letter fields");
     for (const f of RX_REQUIRED)
       if (!keys.includes(`prescription.${f}`))
         problems.push(`A prescription template must contain {{prescription.${f}}}`);
-    if (!keys.includes("document.expiry_date"))
-      problems.push("A prescription template must contain {{document.expiry_date}}");
   }
   for (const must of [
     "doctor.full_name",
@@ -171,7 +187,12 @@ export function validateTemplate(
   return problems;
 }
 
-const DATE_KEYS = new Set(["document.issue_date", "document.expiry_date", "member.date_of_birth"]);
+const DATE_KEYS = new Set([
+  "document.issue_date",
+  "document.expiry_date",
+  "member.date_of_birth",
+  "prescription.issue_date",
+]);
 const MULTILINE_KEYS = new Set([
   "clinical.statement",
   "clinical.indication_summary",
@@ -231,6 +252,10 @@ export function renderTemplate(content: string, schema: TemplateSchema, data: Re
     const rendered = line.replace(PLACEHOLDER, (_m, rawKey: string) => {
       const key = rawKey.trim();
       hadPlaceholder = true;
+      if (LATE_BOUND.has(key)) {
+        anyValue = true;
+        return `{{${key}}}`;
+      }
       const value = sanitiseValue(key, lookup(data, key));
       if (value === "") {
         if (required.has(key) && !missing.includes(key)) missing.push(key);
@@ -269,14 +294,14 @@ function validateTemplateShape(content: string): string[] {
 const OPTIONAL_KEYS = new Set([
   "prescription.generic_name",
   "prescription.special_instructions",
-  "doctor.qualification",
   "doctor.speciality",
   "doctor.practice_number",
-  "doctor.practice_name",
   "doctor.practice_address",
   "doctor.practice_phone",
   "doctor.practice_email",
   "document.expiry_date",
+  "signature.status",
+  "signature.signed_at",
 ]);
 
 /**

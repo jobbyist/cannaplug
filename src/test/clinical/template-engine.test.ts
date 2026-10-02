@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ALLOWED_PLACEHOLDERS,
@@ -5,6 +7,7 @@ import {
   defaultSchemaFor,
   extractPlaceholders,
   renderTemplate,
+  resolveLateBound,
   sanitiseValue,
   validateTemplate,
   type RenderData,
@@ -274,5 +277,115 @@ describe("template engine", () => {
       expect(sanitiseValue("member.full_name", null)).toBe("");
       expect(sanitiseValue("member.full_name", { a: 1 })).toBe("");
     });
+  });
+});
+
+describe("the supplied letter and prescription wording", () => {
+  const sql = readFileSync(
+    join(process.cwd(), "supabase/migrations/20261002002000_clinical_template_wording.sql"),
+    "utf8",
+  );
+  const [letter, rx] = [...sql.matchAll(/\$tpl\$([\s\S]*?)\$tpl\$/g)].map((m) => m[1]!);
+  const doctor = {
+    title: "Dr",
+    full_name: "Jane Smith",
+    qualification: "MBChB",
+    hpcsa_number: "MP0123456",
+    practice_name: "Test Practice",
+    practice_number: "PR1",
+  };
+  const member = {
+    full_name: "Test Member",
+    member_id: "CP-M-ABCD1234",
+    date_of_birth: "1990-05-17",
+  };
+  const url = "https://cannaplug.example/verify/" + "A".repeat(43);
+
+  it("both templates pass validation with their derived schema", () => {
+    expect(
+      validateTemplate("MEDICAL_LETTER", letter!, defaultSchemaFor("MEDICAL_LETTER", letter!)),
+    ).toEqual([]);
+    expect(
+      validateTemplate("PRESCRIPTION_ORDER", rx!, defaultSchemaFor("PRESCRIPTION_ORDER", rx!)),
+    ).toEqual([]);
+  });
+
+  it("the letter renders with no per-document clinical entry and drops empty optional lines", () => {
+    const out = renderTemplate(letter!, defaultSchemaFor("MEDICAL_LETTER", letter!), {
+      doctor,
+      member,
+      document: {
+        document_id: "CP-MED-2026-000184",
+        issue_date: "2026-10-02",
+        verification_url: url,
+      },
+    });
+    expect(out).toContain(
+      "I, Jane Smith, MBChB, HPCSA Registration No. MP0123456, practising at Test Practice, confirm that I have assessed:",
+    );
+    expect(out).toContain("Date of Birth: 17 May 1990");
+    expect(out).toContain(`Document Verification: ${url}`);
+    expect(out).toContain("Practice No.: PR1");
+    expect(out).not.toMatch(/Tel|@/);
+    expect(out).toContain("Electronic Signature: {{signature.status}}");
+  });
+
+  it("refuses to render the letter without the practitioner's qualification or practice name", () => {
+    expect(() =>
+      renderTemplate(letter!, defaultSchemaFor("MEDICAL_LETTER", letter!), {
+        doctor: { ...doctor, qualification: "" },
+        member,
+        document: { document_id: "X", issue_date: "2026-10-02", verification_url: url },
+      }),
+    ).toThrow(/doctor\.qualification/);
+  });
+
+  it("late-bound signature tokens survive freezing and are filled only afterwards", () => {
+    const frozen = renderTemplate(letter!, defaultSchemaFor("MEDICAL_LETTER", letter!), {
+      doctor,
+      member,
+      document: { document_id: "X", issue_date: "2026-10-02", verification_url: url },
+    });
+    expect(resolveLateBound(frozen, { "signature.status": "Pending" })).toContain(
+      "Electronic Signature: Pending",
+    );
+    expect(resolveLateBound(frozen, {})).toBe(frozen);
+    expect(frozen).toBe(resolveLateBound(frozen, {}));
+  });
+
+  it("the prescription renders from the practitioner's entries only, with the issue date from the prescription", () => {
+    const prescription = {
+      issue_date: "2026-10-02",
+      medicine_name: "M",
+      dosage_form: "F",
+      strength: "S",
+      quantity_numeric: 5,
+      quantity_words: "five",
+      directions: "D",
+      route: "R",
+      frequency: "Q",
+      duration: "T",
+      repeats: 0,
+      indication: "I",
+    };
+    const out = renderTemplate(rx!, defaultSchemaFor("PRESCRIPTION_ORDER", rx!), {
+      doctor,
+      member,
+      document: { document_id: "CP-RX-2026-000001", verification_url: url },
+      prescription,
+    });
+    expect(out).toContain("Date of Issue: 02 October 2026");
+    expect(out).toContain("Quantity: 5\nQuantity in Words: five");
+    expect(out).toContain("Repeats / Repeat Authorisation: 0");
+    expect(out).not.toContain("Generic Name");
+    expect(out).toContain("Signature Date: {{signature.signed_at}}");
+    expect(() =>
+      renderTemplate(rx!, defaultSchemaFor("PRESCRIPTION_ORDER", rx!), {
+        doctor,
+        member,
+        document: { document_id: "X", verification_url: url },
+        prescription: { ...prescription, strength: undefined },
+      }),
+    ).toThrow(/strength/);
   });
 });

@@ -7,6 +7,7 @@ import {
   ClinicalError,
   friendlyClinicalError,
   meetsAssurance,
+  signaturePlaceholderValues,
   todayInSouthAfrica,
   validatePrescription,
   type AssuranceLevel,
@@ -19,6 +20,7 @@ import { SignatureProviderError } from "@/lib/clinical/signature-provider";
 import { getSignatureProvider, hashSigned } from "@/lib/clinical/signature-providers.server";
 import {
   renderTemplate,
+  resolveLateBound,
   TemplateError,
   type RenderData,
   type TemplateSchema,
@@ -489,7 +491,19 @@ function pdfInput(doc: DocForSigning, signature: PdfSignatureBlock | null) {
   return {
     documentId: doc.document_id,
     documentType: doc.document_type,
-    content: doc.rendered_content ?? "",
+    // The frozen text carries {{signature.*}} tokens; the PDF shows PENDING before signing and the facts after.
+    content: resolveLateBound(
+      doc.rendered_content ?? "",
+      signaturePlaceholderValues(
+        signature
+          ? {
+              practitioner: signature.practitioner,
+              assurance: signature.assurance,
+              signedAt: signature.signedAt,
+            }
+          : null,
+      ),
+    ),
     issueDate: (doc.source_data_snapshot.document?.["issue_date"] as string | undefined) ?? null,
     expiresAt: doc.expires_at,
     verificationUrl: verificationUrl(doc.verification_token),
