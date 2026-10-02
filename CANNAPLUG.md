@@ -845,3 +845,32 @@ Verified: till sales accept **cash, card and manual EFT** (and split tenders); n
 ### Not verified here (needs your credentials)
 Real Yoco/PayPal **sandbox** round-trips and real Resend sends were not run (no keys in this environment); the adapters follow the providers' current docs and are
 exercised against faithful local fakes. Run a sandbox payment per provider after adding the env vars, before going live.
+
+## 2026-10-04 — Milestone 6: production release candidate
+
+### Change log
+- **Audit** (`docs/release/audit.md`): secrets, client imports, CORS, SQL, validation, error handling. Fixes: `paypal-subscription` CORS allowlist; legacy `cannaplug-chat` edge function + `ai-gateway`/`cannaplug-brain` removed; dependency overrides (nanoid, js-yaml, esbuild) so `bun audit` is clean at runtime.
+- **Migrations 20261004001000–006000** (drizzle 0019–0024, each with a rollback): public forms, AI quota, least-privilege baseline, audit hardening, email automations, legacy function exposure. All applied to hosted; advisors show only intended items.
+- **Security headers/CSP** (`src/lib/clinical/security-headers.ts`, `src/server.ts`): CSP, HSTS, Permissions-Policy; sensitive paths `frame-ancestors none`.
+- **Audit events** for admin/manager/POS actions + `/admin` Audit log tab; authorization verified for every money/inventory/role/loyalty mutation (`security-audit` tests).
+- **CI** (`.github/workflows/ci.yml`): lint, typecheck, unit, real-Postgres, build, live Playwright. **Scheduler** (`scheduled-jobs.yml`): dispatch every 5 min, hourly maintenance, daily newsroom.
+- **Release tooling**: `scripts/verify-release.sh`, `scripts/smoke-deployed.mjs`, `scripts/rollback-rehearsal-m6.sh`, `supabase/tests/verify-hosted.sql`, runbook/rollback/staging/checklist in `docs/release/`.
+- **Compliance register** (`compliance/copy-register.json`, `scripts/check-compliance-copy.ts`): 10 claims, all unapproved; `--strict` blocks release until client approval + documentary evidence.
+- **Forms** deliver to info@cannaplug012.co.za (assumed — the spec line was truncated; confirm).
+- **Email automations + templates** (`src/lib/notifications/templates.ts`, `docs/email-previews/`, `supabase/templates/`), `scripts/send-test-emails.ts`.
+- **Ask CannaPlug** on `gemini-2.5-flash` with a site-data system prompt and free-tier quota (RPM 8, RPD 180, chat 140, per-IP 12/h).
+- **Journal pipeline** (Gemini + Firecrawl): 3 launch articles via `newsroom-launch-batch`, then 1/day at 04:00 UTC (06:00 SAST).
+- **PDF guide**: `docs/Cannaplug-Platform-Guide.pdf` (34 pp), built by `scripts/pdf/`.
+
+### Test evidence (this branch)
+- `tsc --noEmit` clean; lint 0 errors (16 pre-existing warnings).
+- `vitest`: 446 passed (+390 DB tests skipped without a DB URL); `bun run test:db` (real Postgres): 390 passed.
+- `vite build` OK; rollback rehearsals m4, m5b, payments, m6 pass.
+- Live Playwright suite (local stack + mock providers) and the local smoke script passed.
+
+### Not done / needs the owner
+- Test emails from `updates@cannaplug.co.za` not sent (the Resend account here lacks that domain): run `RESEND_API_KEY=… bun scripts/send-test-emails.ts <to>`.
+- Add `GEMINI_API_KEY`, `FIRECRAWL_API_KEY` to Vercel env, then dispatch `newsroom-launch-batch`; add GitHub secrets `APP_URL`, `CRON_SECRET`.
+- Real Yoco/PayPal sandbox round-trips untested (mock providers only).
+- Compliance copy: 10 claims unapproved; phone +27 10 123 4567 looks like a placeholder.
+- Hosted: delete the `cannaplug-chat` edge function, enable leaked-password protection, decide on the `admin_emails` signup trigger.

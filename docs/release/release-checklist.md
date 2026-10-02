@@ -3,28 +3,32 @@
 Tick in order. **[needs you]** = requires your accounts/decisions; everything else has been done and has evidence in `CANNAPLUG.md`.
 
 ## Gates
+
 - [x] `scripts/verify-release.sh` green (typecheck, lint, unit, real-PostgreSQL, rollback rehearsals, build)
 - [x] Live browser suite green (real auth/RLS/Realtime, payments against mock providers)
 - [x] Hosted migrations applied and verified (`supabase/tests/verify-hosted.sql` all true; security advisories reviewed)
 - [x] Smoke suite passes against the local stack (`scripts/smoke-deployed.mjs`)
 - [ ] **[needs you]** Deploy preview/staging with sandbox keys and run `docs/release/staging.md` §B (one real sandbox payment per provider)
 - [ ] **[needs you]** `bun scripts/check-compliance-copy.ts --strict` passes — **currently blocks**: 10 compliance claims await client approval + documentary
-  evidence (SAHPRA authorisation, company registration, lab-test certificates, bank letter, legal sign-off, live phone number). Fill `compliance/copy-register.json`.
+      evidence (SAHPRA authorisation, company registration, lab-test certificates, bank letter, legal sign-off, live phone number). Fill `compliance/copy-register.json`.
 
 ## Configuration **[needs you]**
+
 - [ ] Vercel env vars from `runbook.md` §2 (provider keys, `RESEND_API_KEY`, `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, `SITE_URL`, `LOVABLE_CRON_SECRET`)
-- [ ] GitHub secrets `APP_URL`, `CRON_SECRET`; run *Scheduled jobs → dispatch* once; then *newsroom-launch-batch* for the three launch articles
+- [ ] GitHub secrets `APP_URL`, `CRON_SECRET`; run _Scheduled jobs → dispatch_ once; then _newsroom-launch-batch_ for the three launch articles
 - [ ] Yoco + PayPal webhooks registered (live); Resend domain `cannaplug.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
 - [ ] Delete the hosted `cannaplug-chat` edge function (replaced by the server function)
 - [ ] Decide on the `admin_emails` sign-up trigger (audit finding 12)
 - [ ] Run the three DROP statements and record the two ID migrations on hosted if not done (see CANNAPLUG.md, ID verification)
 
 ## Go-live
+
 - [ ] Production migrations before code (already applied to the hosted project used so far)
 - [ ] Deploy; smoke script against production; place and refund one real low-value order per provider
 - [ ] Watch `/admin → Payments`, `notification_events` and the audit log for the first hour
 
 ## Remaining non-blocking work (post-launch)
+
 1. Real sandbox/e2e round-trips against Yoco/PayPal/Resend in CI (needs sandbox secrets in GitHub).
 2. Admin UI for composing marketing campaigns (`promo_announcement` template and consent-aware queue exist; sending is by SQL/service for now).
 3. Map admin/staff panel errors to friendly messages (they currently show server text).
