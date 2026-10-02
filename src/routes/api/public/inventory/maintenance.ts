@@ -42,8 +42,20 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         } catch (err) {
           console.error("ID document sweep failed", err instanceof Error ? err.message : err);
         }
+        // Also best-effort: expire abandoned payment attempts and flush the notification queue.
+        let notifications: unknown = null;
+        try {
+          const [{ runNotificationDispatch }, stale] = await Promise.all([
+            import("@/lib/notifications/dispatch.server"),
+            supabaseAdmin.rpc("payments_expire_stale"),
+          ]);
+          notifications = { ...(await runNotificationDispatch(new URL(request.url).origin)), paymentsExpired: stale.data ?? 0 };
+        } catch (err) {
+          console.error("notification dispatch failed", err instanceof Error ? err.message : err);
+        }
         return Response.json({
           ok: true,
+          notifications,
           idDocumentSweep: idSweep,
           expiredHolds: expired.data,
           purgedKeys: purged.data,
