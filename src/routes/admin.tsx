@@ -9,6 +9,7 @@ import {
   CircleUserRound,
   ClipboardList,
   Cog,
+  CreditCard,
   LayoutDashboard,
   Megaphone,
   Newspaper,
@@ -27,6 +28,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Badge } from "@/components/ui/badge";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
+import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -66,6 +68,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
   { id: "pos", icon: Store, label: "POS" },
   { id: "orders", icon: ClipboardList, label: "Orders" },
+  { id: "payments", icon: CreditCard, label: "Payments" },
   { id: "products", icon: Package, label: "Products" },
   { id: "inventory", icon: Boxes, label: "Inventory" },
   { id: "customers", icon: Users, label: "Customers" },
@@ -80,7 +83,7 @@ const NAV_ITEMS: SidebarItem[] = [
 ];
 
 const transitions: Record<AdminOrderStatus, AdminOrderStatus[]> = {
-  awaiting_payment: ["confirmed", "cancelled"],
+  awaiting_payment: ["cancelled"], // confirmation only comes from a verified payment
   confirmed: ["packing", "cancelled"],
   packing: ["ready"],
   ready: ["out_for_delivery"],
@@ -406,6 +409,7 @@ function AdminPage() {
             </div>
           </div>
         )}
+        {tab === "payments" && <PaymentsPanel />}
         {tab === "id-checks" && <IdChecksPanel />}
         {tab === "clinical" && <ClinicalDocsPanel />}
         {tab === "customers" && (
@@ -664,6 +668,9 @@ function OrderDelivery({
 
 const EFT_MESSAGES: Record<string, string> = {
   confirmed: "Payment recorded — the order is confirmed and stock has been taken.",
+  pending_approval:
+    "Recorded. This amount needs a SECOND manager to approve it (Payments tab) before the order is confirmed.",
+  order_total_changed: "The order total changed after this payment was recorded. Nothing was changed.",
   amount_mismatch: "The amount received does not match the order total. Nothing was changed.",
   already_processed: "This order has already been processed.",
   paid_after_cancel_needs_refund: "This order was cancelled — the payment needs a refund.",
@@ -697,7 +704,7 @@ function EftConfirm({
   return (
     <div className="mb-4 rounded-lg border border-dashed border-border p-3">
       <p className="mb-2 text-[0.65rem] font-bold uppercase text-muted-foreground">
-        Confirm EFT received
+        Confirm EFT received (manager)
       </p>
       <p className="mb-2 text-[0.65rem] text-muted-foreground">
         Customer reference: <b>{order.order_number}</b>. Enter the bank reference and the amount

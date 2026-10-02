@@ -92,13 +92,20 @@ export type PlaceOrderInput = {
   contactPhone: string;
   deliveryMethod: string;
   addressId: string;
-  paymentMethod: "eft";
+  paymentMethod: "eft" | "card" | "paypal";
   expectedTotal: number;
   notes: string | null;
   key: string;
 };
 
 export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput) {
+  if (input.paymentMethod !== "eft") {
+    // Only offer online payment when the provider is actually configured (never place an unpayable order).
+    const { availableOnlineMethods } = await import("@/lib/payments/payments-data.server");
+    if (!availableOnlineMethods()[input.paymentMethod]) {
+      throw friendlyMemberError(new Error("payment_method_unsupported"));
+    }
+  }
   return unwrap(
     await supabaseAdmin.rpc("checkout_place_order", {
       p_user_id: userId,

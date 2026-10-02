@@ -24,10 +24,12 @@ import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
 import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
+import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
+import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
 import { Route as ApiPublicPaymentsPaypalWebhookRouteImport } from './routes/api/public/payments/paypal-webhook'
 import { Route as ApiPublicPaymentsYocoWebhookRouteImport } from './routes/api/public/payments/yoco-webhook'
 import { Route as ApiPublicSignaturesWebhookRouteImport } from './routes/api/public/signatures/webhook'
@@ -107,6 +109,11 @@ const MemberDocumentsRoute = MemberDocumentsRouteImport.update({
   path: '/member/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentReturnRoute = PaymentReturnRouteImport.update({
+  id: '/payment/return',
+  path: '/payment/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscribeAdminApiRoute = SubscribeAdminApiRouteImport.update({
   id: '/subscribe/admin-api',
   path: '/subscribe/admin-api',
@@ -128,6 +135,12 @@ const ApiPublicNewsroomRunRoute = ApiPublicNewsroomRunRouteImport.update({
   path: '/api/public/newsroom/run',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNotificationsDispatchRoute =
+  ApiPublicNotificationsDispatchRouteImport.update({
+    id: '/api/public/notifications/dispatch',
+    path: '/api/public/notifications/dispatch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsPaypalWebhookRoute =
   ApiPublicPaymentsPaypalWebhookRouteImport.update({
     id: '/api/public/payments/paypal-webhook',
@@ -162,11 +175,13 @@ export interface FileRoutesByFullPath {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
   '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
@@ -186,11 +201,13 @@ export interface FileRoutesByTo {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
   '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
@@ -211,11 +228,13 @@ export interface FileRoutesById {
   '/terms-of-service': typeof TermsOfServiceRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
   '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
@@ -237,11 +256,13 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/member/documents'
+    | '/payment/return'
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/notifications/dispatch'
     | '/api/public/payments/paypal-webhook'
     | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
@@ -261,11 +282,13 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/member/documents'
+    | '/payment/return'
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/notifications/dispatch'
     | '/api/public/payments/paypal-webhook'
     | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
@@ -285,11 +308,13 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/journal/$slug'
     | '/member/documents'
+    | '/payment/return'
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/notifications/dispatch'
     | '/api/public/payments/paypal-webhook'
     | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
@@ -310,11 +335,13 @@ export interface RootRouteChildren {
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   JournalSlugRoute: typeof JournalSlugRoute
   MemberDocumentsRoute: typeof MemberDocumentsRoute
+  PaymentReturnRoute: typeof PaymentReturnRoute
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
+  ApiPublicNotificationsDispatchRoute: typeof ApiPublicNotificationsDispatchRoute
   ApiPublicPaymentsPaypalWebhookRoute: typeof ApiPublicPaymentsPaypalWebhookRoute
   ApiPublicPaymentsYocoWebhookRoute: typeof ApiPublicPaymentsYocoWebhookRoute
   ApiPublicSignaturesWebhookRoute: typeof ApiPublicSignaturesWebhookRoute
@@ -427,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MemberDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/return': {
+      id: '/payment/return'
+      path: '/payment/return'
+      fullPath: '/payment/return'
+      preLoaderRoute: typeof PaymentReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscribe/admin-api': {
       id: '/subscribe/admin-api'
       path: '/subscribe/admin-api'
@@ -453,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/newsroom/run'
       fullPath: '/api/public/newsroom/run'
       preLoaderRoute: typeof ApiPublicNewsroomRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/notifications/dispatch': {
+      id: '/api/public/notifications/dispatch'
+      path: '/api/public/notifications/dispatch'
+      fullPath: '/api/public/notifications/dispatch'
+      preLoaderRoute: typeof ApiPublicNotificationsDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/payments/paypal-webhook': {
@@ -494,11 +535,13 @@ const rootRouteChildren: RootRouteChildren = {
   TermsOfServiceRoute: TermsOfServiceRoute,
   JournalSlugRoute: JournalSlugRoute,
   MemberDocumentsRoute: MemberDocumentsRoute,
+  PaymentReturnRoute: PaymentReturnRoute,
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
+  ApiPublicNotificationsDispatchRoute: ApiPublicNotificationsDispatchRoute,
   ApiPublicPaymentsPaypalWebhookRoute: ApiPublicPaymentsPaypalWebhookRoute,
   ApiPublicPaymentsYocoWebhookRoute: ApiPublicPaymentsYocoWebhookRoute,
   ApiPublicSignaturesWebhookRoute: ApiPublicSignaturesWebhookRoute,

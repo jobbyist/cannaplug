@@ -12,6 +12,10 @@ import {
   key,
   loyaltyOf,
   mkMember,
+  mkSession,
+  sell,
+  cash,
+  card,
   mkProduct,
   mkUser,
   placeOrder,
@@ -577,6 +581,40 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
   });
 
   // -------------------------------------------------------------------------------------------
+  describe("POS tenders: cash, card and manual EFT", () => {
+    it("a till sale can be paid in cash, by card, by manual EFT, or split across all three", async () => {
+      const { sessionId } = await mkSession(sql, manager, budtender);
+      const eft = (amount: number, reference: string) => ({ method: "eft", amount: String(amount), reference });
+      const run = async (price: number, tenders: unknown[]) => {
+        const product = await mkProduct(sql, price);
+        await receive(sql, manager, product, 5);
+        return sell(sql, budtender, sessionId, [{ product_id: product, quantity: 1 }], tenders);
+      };
+      for (const [price, tenders] of [
+        [100, [cash(100)]],
+        [120, [card(120, `CARD-${uid().slice(0, 8)}`)]],
+        [130, [eft(130, `EFT-${uid().slice(0, 8)}`)]],
+        [300, [cash(100), card(100, `CARD-${uid().slice(0, 8)}`), eft(100, `EFT-${uid().slice(0, 8)}`)]],
+      ] as const) {
+        const sale = await run(price, [...tenders]);
+        expect(sale.sale_id, JSON.stringify(tenders)).toBeTruthy();
+      }
+    });
+
+    it("a manual EFT or card reference can only be recorded once, and non-cash needs a reference", async () => {
+      const { sessionId } = await mkSession(sql, manager, budtender);
+      const product = await mkProduct(sql, 100);
+      await receive(sql, manager, product, 5);
+      const ref = `EFT-${uid().slice(0, 8)}`;
+      const eft = { method: "eft", amount: "100", reference: ref };
+      await sell(sql, budtender, sessionId, [{ product_id: product, quantity: 1 }], [eft]);
+      const again = await attempt(sell(sql, budtender, sessionId, [{ product_id: product, quantity: 1 }], [eft]));
+      expect(failedWith(again, "payment_reference_in_use")).toBe(true);
+      const bare = await attempt(sell(sql, budtender, sessionId, [{ product_id: product, quantity: 1 }], [{ method: "eft", amount: "100" }]));
+      expect(failedWith(bare, "invalid_tenders")).toBe(true);
+    });
+  });
+
   describe("notification queue", () => {
     // other test files share this database, so claim a wide batch and look only at our own rows
     const claimMine = async (ids: string[], lease = 300) => {
