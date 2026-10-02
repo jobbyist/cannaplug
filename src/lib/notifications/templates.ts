@@ -15,10 +15,15 @@ export interface Rendered {
 export type TemplateData = Record<string, unknown>;
 
 const esc = (v: unknown): string =>
-  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  String(v ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 
 const rand = (v: unknown) =>
-  `R${Number(v ?? 0).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ /g, " ")}`;
+  `R${Number(v ?? 0)
+    .toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .replace(/\u00a0/g, " ")}`;
 
 export const BRAND = {
   name: "Cannaplug",
@@ -31,7 +36,13 @@ export const BRAND = {
   supportEmail: "info@cannaplug012.co.za",
 } as const;
 
-function layout(opts: { preheader: string; title: string; bodyHtml: string; cta?: { label: string; url: string }; footerNote?: string }): string {
+function layout(opts: {
+  preheader: string;
+  title: string;
+  bodyHtml: string;
+  cta?: { label: string; url: string };
+  footerNote?: string;
+}): string {
   const { preheader, title, bodyHtml, cta, footerNote } = opts;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
 <body style="margin:0;background:${BRAND.bg};font-family:Inter,Arial,sans-serif;color:${BRAND.ink}">
@@ -53,10 +64,25 @@ ${footerNote ? `<p style="margin:0 0 8px;border-left:3px solid ${BRAND.gold};pad
 const p = (s: string) => `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">${s}</p>`;
 const kv = (rows: [string, string][]) =>
   `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 16px;border:1px solid #e3ece5;border-radius:10px">${rows
-    .map(([k, v]) => `<tr><td style="padding:9px 14px;color:${BRAND.muted};font-size:13px;border-bottom:1px solid #eef3ef">${esc(k)}</td><td style="padding:9px 14px;font-size:14px;font-weight:600;text-align:right;border-bottom:1px solid #eef3ef">${v}</td></tr>`)
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:9px 14px;color:${BRAND.muted};font-size:13px;border-bottom:1px solid #eef3ef">${esc(k)}</td><td style="padding:9px 14px;font-size:14px;font-weight:600;text-align:right;border-bottom:1px solid #eef3ef">${v}</td></tr>`,
+    )
     .join("")}</table>`;
 
-const strip = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<br\s*\/?>/g, "\n").replace(/<\/(p|tr|h1|table)>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\n{3,}/g, "\n\n").trim();
+const strip = (html: string) =>
+  html
+    .replace(/<style[\s\S]*?<\/style>/g, "")
+    .replace(/<br\s*\/?>/g, "\n")
+    .replace(/<\/(p|tr|h1|table)>/g, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
 type Ctx = { siteUrl: string };
 type Template = (d: TemplateData, c: Ctx) => Omit<Rendered, "text"> & { text?: string };
@@ -79,7 +105,11 @@ export const TEMPLATES: Record<string, Template> = {
         title: "Order received",
         bodyHtml:
           p(hi(d)) +
-          p(eft ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears." : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.") +
+          p(
+            eft
+              ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears."
+              : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.",
+          ) +
           kv(orderRows(d)),
         cta: { label: "View my order", url: accountUrl(c) },
         footerNote: "Your order is only confirmed once payment has been verified.",
@@ -88,53 +118,114 @@ export const TEMPLATES: Record<string, Template> = {
   },
   order_confirmed: (d, c) => ({
     subject: `Payment confirmed — order ${d["order_number"]}`,
-    html: layout({ preheader: "We have your payment and are preparing your order.", title: "Payment confirmed",
-      bodyHtml: p(hi(d)) + p("We have verified your payment and are now preparing your order.") + kv(orderRows(d)),
-      cta: { label: "Track my order", url: accountUrl(c) } }),
+    html: layout({
+      preheader: "We have your payment and are preparing your order.",
+      title: "Payment confirmed",
+      bodyHtml:
+        p(hi(d)) +
+        p("We have verified your payment and are now preparing your order.") +
+        kv(orderRows(d)),
+      cta: { label: "Track my order", url: accountUrl(c) },
+    }),
   }),
   order_ready: (d, c) => ({
     subject: `Your order ${d["order_number"]} is ready`,
     sms: `Cannaplug: order ${d["order_number"]} is ready.`,
-    html: layout({ preheader: "Your order is packed and ready.", title: "Your order is ready",
-      bodyHtml: p(hi(d)) + p(d["delivery_method"] === "collection" ? "Your order is ready for collection. Bring a valid ID." : "Your order is packed and will go out for delivery shortly.") + kv(orderRows(d)),
-      cta: { label: "View my order", url: accountUrl(c) } }),
+    html: layout({
+      preheader: "Your order is packed and ready.",
+      title: "Your order is ready",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          d["delivery_method"] === "collection"
+            ? "Your order is ready for collection. Bring a valid ID."
+            : "Your order is packed and will go out for delivery shortly.",
+        ) +
+        kv(orderRows(d)),
+      cta: { label: "View my order", url: accountUrl(c) },
+    }),
   }),
   order_out_for_delivery: (d, c) => ({
     subject: `Order ${d["order_number"]} is on its way`,
     sms: `Cannaplug: order ${d["order_number"]} is out for delivery. Please have your ID ready.`,
-    html: layout({ preheader: "Your delivery is on its way.", title: "Out for delivery",
-      bodyHtml: p(hi(d)) + p("Your order is on its way. Please have your ID ready — we verify it on delivery.") + kv(orderRows(d)),
-      cta: { label: "Track my order", url: accountUrl(c) } }),
+    html: layout({
+      preheader: "Your delivery is on its way.",
+      title: "Out for delivery",
+      bodyHtml:
+        p(hi(d)) +
+        p("Your order is on its way. Please have your ID ready — we verify it on delivery.") +
+        kv(orderRows(d)),
+      cta: { label: "Track my order", url: accountUrl(c) },
+    }),
   }),
   order_completed: (d, c) => ({
     subject: `Order ${d["order_number"]} completed`,
-    html: layout({ preheader: "Thank you for shopping with Cannaplug.", title: "Order completed",
-      bodyHtml: p(hi(d)) + p("Your order is complete. Thank you for shopping with us — your loyalty points have been added.") + kv(orderRows(d)),
-      cta: { label: "See my points", url: accountUrl(c) } }),
+    html: layout({
+      preheader: "Thank you for shopping with Cannaplug.",
+      title: "Order completed",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          "Your order is complete. Thank you for shopping with us — your loyalty points have been added.",
+        ) +
+        kv(orderRows(d)),
+      cta: { label: "See my points", url: accountUrl(c) },
+    }),
   }),
   order_cancelled: (d, c) => ({
     subject: `Order ${d["order_number"]} cancelled`,
-    html: layout({ preheader: "Your order was cancelled.", title: "Order cancelled",
-      bodyHtml: p(hi(d)) + p("Your order has been cancelled and any stock held for it has been released. If you already paid, we will be in touch about your refund.") + kv(orderRows(d)),
-      cta: { label: "Shop again", url: c.siteUrl } }),
+    html: layout({
+      preheader: "Your order was cancelled.",
+      title: "Order cancelled",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          "Your order has been cancelled and any stock held for it has been released. If you already paid, we will be in touch about your refund.",
+        ) +
+        kv(orderRows(d)),
+      cta: { label: "Shop again", url: c.siteUrl },
+    }),
   }),
   staff_new_order: (d, c) => ({
     subject: `New order ${d["order_number"]} — ${rand(d["total_rand"])}`,
-    html: layout({ preheader: "A new online order is awaiting payment.", title: "New online order",
-      bodyHtml: p("A new online order has been placed and is awaiting payment.") + kv([...orderRows(d), ["Payment", esc(d["payment_method"])], ["Delivery", esc(d["delivery_method"])]]),
-      cta: { label: "Open in admin", url: adminUrl(c) } }),
+    html: layout({
+      preheader: "A new online order is awaiting payment.",
+      title: "New online order",
+      bodyHtml:
+        p("A new online order has been placed and is awaiting payment.") +
+        kv([
+          ...orderRows(d),
+          ["Payment", esc(d["payment_method"])],
+          ["Delivery", esc(d["delivery_method"])],
+        ]),
+      cta: { label: "Open in admin", url: adminUrl(c) },
+    }),
   }),
   staff_payment_review: (d, c) => ({
     subject: "Payment needs review",
-    html: layout({ preheader: "A payment could not be settled automatically.", title: "Payment needs review",
-      bodyHtml: p(esc(d["reason"] ?? "A payment needs a person to look at it.")) + (d["transaction_id"] ? kv([["Transaction", esc(d["transaction_id"])]]) : ""),
-      cta: { label: "Open payments", url: adminUrl(c) } }),
+    html: layout({
+      preheader: "A payment could not be settled automatically.",
+      title: "Payment needs review",
+      bodyHtml:
+        p(esc(d["reason"] ?? "A payment needs a person to look at it.")) +
+        (d["transaction_id"] ? kv([["Transaction", esc(d["transaction_id"])]]) : ""),
+      cta: { label: "Open payments", url: adminUrl(c) },
+    }),
   }),
   staff_refund_needed: (d, c) => ({
     subject: "Refund needed — payment received for an unfulfillable order",
-    html: layout({ preheader: "Money arrived that cannot be applied to an order.", title: "Refund needed",
-      bodyHtml: p(esc(d["reason"] ?? "A payment was received that cannot be applied to its order. Please refund the customer.")) + (d["order_id"] ? kv([["Order", esc(d["order_number"] ?? d["order_id"])]]) : ""),
-      cta: { label: "Open payments", url: adminUrl(c) } }),
+    html: layout({
+      preheader: "Money arrived that cannot be applied to an order.",
+      title: "Refund needed",
+      bodyHtml:
+        p(
+          esc(
+            d["reason"] ??
+              "A payment was received that cannot be applied to its order. Please refund the customer.",
+          ),
+        ) + (d["order_id"] ? kv([["Order", esc(d["order_number"] ?? d["order_id"])]]) : ""),
+      cta: { label: "Open payments", url: adminUrl(c) },
+    }),
   }),
 };
 

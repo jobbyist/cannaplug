@@ -37,8 +37,7 @@ export interface VerifiedEvent {
 }
 
 export type VerifyOutcome =
-  | { ok: true; event: VerifiedEvent }
-  | { ok: false; reason: RejectReason };
+  { ok: true; event: VerifiedEvent } | { ok: false; reason: RejectReason };
 
 export type RejectReason =
   | "missing_headers"

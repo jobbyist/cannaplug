@@ -1,3 +1,4 @@
+import { isSafeRedirect } from "./yoco";
 import {
   ProviderError,
   toMinor,
@@ -44,7 +45,8 @@ export function paypalFromEnv(env: Record<string, string | undefined>): PayPalCo
   };
 }
 
-const str = (v: unknown, max = 256): string | null => (typeof v === "string" && v.length > 0 && v.length <= max ? v : null);
+const str = (v: unknown, max = 256): string | null =>
+  typeof v === "string" && v.length > 0 && v.length <= max ? v : null;
 
 interface PayPalOrder {
   id?: unknown;
@@ -52,7 +54,13 @@ interface PayPalOrder {
   purchase_units?: {
     custom_id?: unknown;
     payee?: { merchant_id?: unknown };
-    payments?: { captures?: { id?: unknown; status?: unknown; amount?: { value?: unknown; currency_code?: unknown } }[] };
+    payments?: {
+      captures?: {
+        id?: unknown;
+        status?: unknown;
+        amount?: { value?: unknown; currency_code?: unknown };
+      }[];
+    };
   }[];
 }
 
@@ -66,7 +74,8 @@ export function paypalOrderFacts(order: PayPalOrder, mode: Mode): VerifiedFacts 
     transaction_id: str(pu?.custom_id),
     provider_ref: str(order.id),
     provider_payment_id: str(capture?.id),
-    amount_minor: value !== undefined && Number.isFinite(Number(value)) ? toMinor(value as string) : null,
+    amount_minor:
+      value !== undefined && Number.isFinite(Number(value)) ? toMinor(value as string) : null,
     currency: str(capture?.amount?.currency_code, 3),
     mode,
     merchant_id: str(pu?.payee?.merchant_id),
@@ -80,11 +89,17 @@ export function paypalOrderFacts(order: PayPalOrder, mode: Mode): VerifiedFacts 
 
 export interface PayPalProvider extends PaymentProvider {
   /** Capture an approved order server-side; returns the verified facts and a stable event key. */
-  captureOrder(orderId: string, transactionId: string): Promise<{ eventKey: string; payload: unknown; facts: VerifiedFacts }>;
+  captureOrder(
+    orderId: string,
+    transactionId: string,
+  ): Promise<{ eventKey: string; payload: unknown; facts: VerifiedFacts }>;
 }
 
 export function createPayPalProvider(cfg: PayPalConfig, fetchFn: FetchLike): PayPalProvider {
-  const base = (cfg.apiBase ?? (cfg.env === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com")).replace(/\/+$/, "");
+  const base = (
+    cfg.apiBase ??
+    (cfg.env === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com")
+  ).replace(/\/+$/, "");
   const mode: Mode = cfg.env === "live" ? "live" : "test";
 
   async function token(): Promise<string> {
@@ -103,11 +118,18 @@ export function createPayPalProvider(cfg: PayPalConfig, fetchFn: FetchLike): Pay
     return at;
   }
 
-  async function api(path: string, init: { method?: string; headers?: Record<string, string>; body?: string }) {
+  async function api(
+    path: string,
+    init: { method?: string; headers?: Record<string, string>; body?: string },
+  ) {
     const at = await token();
     const res = await fetchFn(`${base}${path}`, {
       ...init,
-      headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+      headers: {
+        Authorization: `Bearer ${at}`,
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+      },
     });
     const text = await res.text();
     let json: unknown = null;
@@ -156,7 +178,8 @@ export function createPayPalProvider(cfg: PayPalConfig, fetchFn: FetchLike): Pay
       const body = r.json as { id?: unknown; links?: { rel?: string; href?: string }[] } | null;
       const id = str(body?.id);
       const link = body?.links?.find((l) => l.rel === "payer-action" || l.rel === "approve")?.href;
-      if (!r.ok || !id || !link || !/^https:\/\//.test(link)) throw new ProviderError(`PayPal order failed (${r.status})`, r.status);
+      if (!r.ok || !id || !link || !isSafeRedirect(link, cfg.apiBase))
+        throw new ProviderError(`PayPal order failed (${r.status})`, r.status);
       return { providerRef: id, redirectUrl: link };
     },
 
@@ -214,24 +237,39 @@ export function createPayPalProvider(cfg: PayPalConfig, fetchFn: FetchLike): Pay
         `"webhook_event":${raw}}`;
       let verdict: { ok: boolean; status: number; json: unknown };
       try {
-        verdict = await api("/v1/notifications/verify-webhook-signature", { method: "POST", body: postback });
+        verdict = await api("/v1/notifications/verify-webhook-signature", {
+          method: "POST",
+          body: postback,
+        });
       } catch {
         return { ok: false, reason: "verification_unavailable" };
       }
       if (!verdict.ok) return { ok: false, reason: "verification_unavailable" };
-      if ((verdict.json as { verification_status?: string } | null)?.verification_status !== "SUCCESS") {
+      if (
+        (verdict.json as { verification_status?: string } | null)?.verification_status !== "SUCCESS"
+      ) {
         return { ok: false, reason: "invalid_signature" };
       }
 
       // Verified. Money facts still come from PayPal's API, keyed by the order the capture belongs to.
-      const isCapture = eventType === "PAYMENT.CAPTURE.COMPLETED" || eventType === "PAYMENT.CAPTURE.DENIED";
+      const isCapture =
+        eventType === "PAYMENT.CAPTURE.COMPLETED" || eventType === "PAYMENT.CAPTURE.DENIED";
       const orderId = str(
-        (event.resource?.["supplementary_data"] as { related_ids?: { order_id?: unknown } } | undefined)?.related_ids?.order_id,
+        (
+          event.resource?.["supplementary_data"] as
+            { related_ids?: { order_id?: unknown } } | undefined
+        )?.related_ids?.order_id,
       );
       if (!isCapture || !orderId || !/^[A-Za-z0-9-]{5,40}$/.test(orderId)) {
         const ignored: VerifiedFacts = {
-          kind: "ignored", transaction_id: null, provider_ref: null, provider_payment_id: null,
-          amount_minor: null, currency: null, mode: null, merchant_id: null,
+          kind: "ignored",
+          transaction_id: null,
+          provider_ref: null,
+          provider_payment_id: null,
+          amount_minor: null,
+          currency: null,
+          mode: null,
+          merchant_id: null,
         };
         return { ok: true, event: { eventKey, eventType, payload: event, facts: ignored } };
       }
@@ -242,7 +280,15 @@ export function createPayPalProvider(cfg: PayPalConfig, fetchFn: FetchLike): Pay
         return { ok: false, reason: "verification_unavailable" };
       }
       if (!order.ok) return { ok: false, reason: "verification_unavailable" };
-      return { ok: true, event: { eventKey, eventType, payload: event, facts: paypalOrderFacts(order.json as PayPalOrder, mode) } };
+      return {
+        ok: true,
+        event: {
+          eventKey,
+          eventType,
+          payload: event,
+          facts: paypalOrderFacts(order.json as PayPalOrder, mode),
+        },
+      };
     },
   };
   return provider;

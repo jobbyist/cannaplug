@@ -21,7 +21,10 @@ export const Route = createFileRoute("/api/public/notifications/dispatch")({
           ]);
           return Response.json({ ok: true, ...summary, paymentsExpired: expired.data ?? 0 });
         } catch (err) {
-          console.error("notification dispatch failed", err instanceof Error ? err.message : "error");
+          console.error(
+            "notification dispatch failed",
+            err instanceof Error ? err.message : "error",
+          );
           return Response.json({ ok: false }, { status: 500 });
         }
       },

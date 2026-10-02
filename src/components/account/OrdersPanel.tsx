@@ -358,7 +358,10 @@ export function OrdersPanel({
               <RedeemPoints order={order} account={account} onDone={reload} />
             )}
             {order.status === "awaiting_payment" && (
-              <PayNow orderId={order.id} hint="Prefer EFT? Use the order number as your payment reference." />
+              <PayNow
+                orderId={order.id}
+                hint="Prefer EFT? Use the order number as your payment reference."
+              />
             )}
             <div className="mt-3 flex justify-end">
               <Button size="sm" variant="outline" onClick={() => setReordering(order)}>

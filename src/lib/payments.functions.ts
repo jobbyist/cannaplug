@@ -20,11 +20,23 @@ export const getOnlineMethodsFn = createServerFn({ method: "GET" }).handler(asyn
 export const startPaymentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) =>
-    z.object({ orderId: uuid, provider: z.enum(["yoco", "paypal"]), key: z.string().min(8).max(120) }).parse(d),
+    z
+      .object({
+        orderId: uuid,
+        provider: z.enum(["yoco", "paypal"]),
+        key: z.string().min(8).max(120),
+      })
+      .parse(d),
   )
   .handler(async ({ context, data }) => {
     const { startMemberPayment } = await import("@/lib/payments/payments-data.server");
-    return startMemberPayment(context.userId, data.orderId, data.provider, data.key, await origin());
+    return startMemberPayment(
+      context.userId,
+      data.orderId,
+      data.provider,
+      data.key,
+      await origin(),
+    );
   });
 
 export const confirmPayPalReturnFn = createServerFn({ method: "POST" })
@@ -47,7 +59,9 @@ export const paymentStatusFn = createServerFn({ method: "GET" })
 
 export const getPaymentsOverviewFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => (await import("@/lib/payments/payments-data.server")).getPaymentsOverview(context.userId));
+  .handler(async ({ context }) =>
+    (await import("@/lib/payments/payments-data.server")).getPaymentsOverview(context.userId),
+  );
 
 export const submitEftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -56,38 +70,66 @@ export const submitEftFn = createServerFn({ method: "POST" })
       .object({
         orderId: uuid,
         bankReference: z.string().trim().min(4).max(100),
-        amountReceived: z.string().regex(/^[0-9]{1,8}(\.[0-9]{1,2})?$/, "Amount must be a positive number, max 2 decimals"),
+        amountReceived: z
+          .string()
+          .regex(/^[0-9]{1,8}(\.[0-9]{1,2})?$/, "Amount must be a positive number, max 2 decimals"),
       })
       .parse(d),
   )
   .handler(async ({ context, data }) =>
-    (await import("@/lib/payments/payments-data.server")).submitEft(context.userId, data.orderId, data.bankReference, Number(data.amountReceived)),
+    (await import("@/lib/payments/payments-data.server")).submitEft(
+      context.userId,
+      data.orderId,
+      data.bankReference,
+      Number(data.amountReceived),
+    ),
   );
 
 export const approveEftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ transactionId: uuid }).parse(d))
   .handler(async ({ context, data }) =>
-    (await import("@/lib/payments/payments-data.server")).approveEft(context.userId, data.transactionId),
+    (await import("@/lib/payments/payments-data.server")).approveEft(
+      context.userId,
+      data.transactionId,
+    ),
   );
 
 export const rejectEftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ transactionId: uuid, reason: z.string().trim().min(3).max(300) }).parse(d))
+  .validator((d) =>
+    z.object({ transactionId: uuid, reason: z.string().trim().min(3).max(300) }).parse(d),
+  )
   .handler(async ({ context, data }) =>
-    (await import("@/lib/payments/payments-data.server")).rejectEft(context.userId, data.transactionId, data.reason),
+    (await import("@/lib/payments/payments-data.server")).rejectEft(
+      context.userId,
+      data.transactionId,
+      data.reason,
+    ),
   );
 
 export const updateFxSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ mode: z.enum(["live", "manual"]), marginPercent: z.number().min(0).max(10) }).parse(d))
+  .validator((d) =>
+    z
+      .object({ mode: z.enum(["live", "manual"]), marginPercent: z.number().min(0).max(10) })
+      .parse(d),
+  )
   .handler(async ({ context, data }) =>
     (await import("@/lib/payments/payments-data.server")).updateFxSettings(context.userId, data),
   );
 
 export const setManualFxRateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d) => z.object({ rate: z.number().min(5).max(60), validHours: z.number().int().min(1).max(168) }).parse(d))
+  .validator((d) =>
+    z
+      .object({ rate: z.number().min(5).max(60), validHours: z.number().int().min(1).max(168) })
+      .parse(d),
+  )
   .handler(async ({ context, data }) =>
-    (await import("@/lib/payments/payments-data.server")).setManualFxRate(context.userId, data.rate, data.validHours),
+    (await import("@/lib/payments/payments-data.server")).setManualFxRate(
+      context.userId,
+      data.rate,
+      data.validHours,
+    ),
   );

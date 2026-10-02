@@ -444,7 +444,11 @@ export async function confirmOrderPayment(
 ) {
   const { submitEft } = await import("@/lib/payments/payments-data.server");
   const r = await submitEft(userId, orderId, bankReference, amountReceived);
-  return { outcome: r.outcome as EftConfirmOutcome, duplicate: r.replayed === true, order_id: orderId };
+  return {
+    outcome: r.outcome as EftConfirmOutcome,
+    duplicate: r.replayed === true,
+    order_id: orderId,
+  };
 }
 
 export async function listFulfilmentQueue(userId: string) {

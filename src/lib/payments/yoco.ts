@@ -38,7 +38,12 @@ export function yocoFromEnv(env: Record<string, string | undefined>): YocoConfig
   return { secretKey, webhookSecret, apiBase: env["YOCO_API_BASE"]?.trim() || undefined };
 }
 
-export function signYocoPayload(secret: string, id: string, timestamp: string, raw: string): string {
+export function signYocoPayload(
+  secret: string,
+  id: string,
+  timestamp: string,
+  raw: string,
+): string {
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
   return createHmac("sha256", key).update(`${id}.${timestamp}.${raw}`).digest("base64");
 }
@@ -54,7 +59,12 @@ export function verifyYocoWebhook(
   raw: string,
   headers: Headers,
   nowSeconds = Math.floor(Date.now() / 1000),
-): { ok: true } | { ok: false; reason: "missing_headers" | "bad_timestamp" | "stale_timestamp" | "invalid_signature" } {
+):
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing_headers" | "bad_timestamp" | "stale_timestamp" | "invalid_signature";
+    } {
   const id = headers.get("webhook-id");
   const timestamp = headers.get("webhook-timestamp");
   const signature = headers.get("webhook-signature");
@@ -84,12 +94,19 @@ interface YocoEvent {
   };
 }
 
-const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 && v.length <= 200 ? v : null);
+/** Hosted pages must be https; plain http is accepted only for a local mock when the API base is overridden. */
+export const isSafeRedirect = (url: string, apiBaseOverride?: string | undefined): boolean =>
+  /^https:\/\//.test(url) ||
+  (!!apiBaseOverride && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url));
+
+const str = (v: unknown): string | null =>
+  typeof v === "string" && v.length > 0 && v.length <= 200 ? v : null;
 
 export function yocoFacts(event: YocoEvent): VerifiedFacts {
   const p = event.payload ?? {};
   const amount = typeof p.amount === "number" && Number.isInteger(p.amount) ? p.amount : null;
-  const mode: "live" | "test" | null = p.mode === "live" ? "live" : p.mode === "test" ? "test" : null;
+  const mode: "live" | "test" | null =
+    p.mode === "live" ? "live" : p.mode === "test" ? "test" : null;
   const base = {
     transaction_id: str(p.metadata?.transactionId),
     provider_ref: str(p.metadata?.checkoutId),
@@ -100,11 +117,16 @@ export function yocoFacts(event: YocoEvent): VerifiedFacts {
     merchant_id: null,
   };
   if (event.type === "payment.succeeded") return { kind: "payment_succeeded", ...base };
-  if (event.type === "payment.failed") return { kind: "payment_failed", ...base, reason: "payment failed at Yoco" };
+  if (event.type === "payment.failed")
+    return { kind: "payment_failed", ...base, reason: "payment failed at Yoco" };
   return { kind: "ignored", ...base };
 }
 
-export function createYocoProvider(cfg: YocoConfig, fetchFn: FetchLike, now = () => Date.now()): PaymentProvider {
+export function createYocoProvider(
+  cfg: YocoConfig,
+  fetchFn: FetchLike,
+  now = () => Date.now(),
+): PaymentProvider {
   const base = (cfg.apiBase ?? "https://payments.yoco.com").replace(/\/+$/, "");
   return {
     id: "yoco",
@@ -142,7 +164,8 @@ export function createYocoProvider(cfg: YocoConfig, fetchFn: FetchLike, now = ()
       }
       const id = str(body.id);
       const redirectUrl = str(body.redirectUrl);
-      if (!id || !redirectUrl || !/^https:\/\//.test(redirectUrl)) throw new ProviderError("Yoco returned no checkout");
+      if (!id || !redirectUrl || !isSafeRedirect(redirectUrl, cfg.apiBase))
+        throw new ProviderError("Yoco returned no checkout");
       // Defence in depth: the provider must echo the amount we asked for.
       if (body.amount !== Math.round(req.amount * 100) || body.currency !== "ZAR") {
         throw new ProviderError("Yoco checkout amount did not match the order");
@@ -161,7 +184,8 @@ export function createYocoProvider(cfg: YocoConfig, fetchFn: FetchLike, now = ()
       }
       const eventKey = str(event.id);
       const eventType = str(event.type);
-      if (!eventKey || !eventType || eventKey.length < 6) return { ok: false, reason: "malformed_body" };
+      if (!eventKey || !eventType || eventKey.length < 6)
+        return { ok: false, reason: "malformed_body" };
       return { ok: true, event: { eventKey, eventType, payload: event, facts: yocoFacts(event) } };
     },
   };

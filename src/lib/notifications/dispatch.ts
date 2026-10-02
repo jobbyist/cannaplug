@@ -15,7 +15,8 @@ export interface QueuedNotification {
   attempts: number;
 }
 
-export type SendResult = { ok: true; messageId: string } | { ok: false; error: string; permanent: boolean };
+export type SendResult =
+  { ok: true; messageId: string } | { ok: false; error: string; permanent: boolean };
 
 export interface NotificationDb {
   claim(limit: number, leaseSeconds: number): Promise<QueuedNotification[]>;
@@ -23,7 +24,13 @@ export interface NotificationDb {
 }
 
 export interface ChannelAdapters {
-  email?: (m: { id: string; to: string; subject: string; html: string; text: string }) => Promise<SendResult>;
+  email?: (m: {
+    id: string;
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }) => Promise<SendResult>;
   sms?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
   whatsapp?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
 }
@@ -37,13 +44,25 @@ export interface DispatchSummary {
 }
 
 export async function dispatchBatch(
-  deps: { db: NotificationDb; adapters: ChannelAdapters; siteUrl: string; now?: () => number; budgetMs?: number },
+  deps: {
+    db: NotificationDb;
+    adapters: ChannelAdapters;
+    siteUrl: string;
+    now?: () => number;
+    budgetMs?: number;
+  },
   limit = 25,
 ): Promise<DispatchSummary> {
   const now = deps.now ?? Date.now;
   const started = now();
   const budget = deps.budgetMs ?? 20_000;
-  const summary: DispatchSummary = { claimed: 0, sent: 0, retried: 0, dead: 0, skippedNotConfigured: false };
+  const summary: DispatchSummary = {
+    claimed: 0,
+    sent: 0,
+    retried: 0,
+    dead: 0,
+    skippedNotConfigured: false,
+  };
   // Without an email adapter nothing is claimed, so no attempt counters burn down while unconfigured.
   if (!deps.adapters.email) {
     summary.skippedNotConfigured = true;
@@ -67,19 +86,33 @@ export async function dispatchBatch(
   return summary;
 }
 
-async function sendOne(n: QueuedNotification, adapters: ChannelAdapters, siteUrl: string): Promise<SendResult> {
+async function sendOne(
+  n: QueuedNotification,
+  adapters: ChannelAdapters,
+  siteUrl: string,
+): Promise<SendResult> {
   const rendered = renderTemplate(n.template, n.data, { siteUrl });
   if (!rendered) return { ok: false, error: `unknown_template:${n.template}`, permanent: true };
   try {
     if (n.channel === "email") {
       if (!adapters.email) return { ok: false, error: "email_not_configured", permanent: false };
-      return await adapters.email({ id: n.id, to: n.recipient, subject: rendered.subject, html: rendered.html, text: rendered.text });
+      return await adapters.email({
+        id: n.id,
+        to: n.recipient,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
     }
     const adapter = n.channel === "sms" ? adapters.sms : adapters.whatsapp;
     if (!adapter) return { ok: false, error: `${n.channel}_not_configured`, permanent: false };
     if (!rendered.sms) return { ok: false, error: "template_has_no_short_form", permanent: true };
     return await adapter({ id: n.id, to: n.recipient, body: rendered.sms });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message.slice(0, 200) : "send_failed", permanent: false };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message.slice(0, 200) : "send_failed",
+      permanent: false,
+    };
   }
 }

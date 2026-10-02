@@ -17,10 +17,19 @@ export const Route = createFileRoute("/api/public/payments/paypal-webhook")({
         const raw = await request.text();
         const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
         try {
-          const r = await handleWebhook(paymentsDeps(new URL(request.url).origin), "paypal", raw, request.headers, hashIp(ip));
+          const r = await handleWebhook(
+            paymentsDeps(new URL(request.url).origin),
+            "paypal",
+            raw,
+            request.headers,
+            hashIp(ip),
+          );
           return new Response(r.body, { status: r.status });
         } catch (err) {
-          console.error("paypal webhook processing failed", err instanceof Error ? err.message : "error");
+          console.error(
+            "paypal webhook processing failed",
+            err instanceof Error ? err.message : "error",
+          );
           return new Response("error", { status: 500 }); // provider will redeliver; replay is safe
         }
       },

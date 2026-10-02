@@ -49,7 +49,10 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
             import("@/lib/notifications/dispatch.server"),
             supabaseAdmin.rpc("payments_expire_stale"),
           ]);
-          notifications = { ...(await runNotificationDispatch(new URL(request.url).origin)), paymentsExpired: stale.data ?? 0 };
+          notifications = {
+            ...(await runNotificationDispatch(new URL(request.url).origin)),
+            paymentsExpired: stale.data ?? 0,
+          };
         } catch (err) {
           console.error("notification dispatch failed", err instanceof Error ? err.message : err);
         }

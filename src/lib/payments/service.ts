@@ -1,4 +1,11 @@
-import type { Mode, PaymentProvider, ProviderId, RejectReason, VerifiedEvent, VerifiedFacts } from "./provider";
+import type {
+  Mode,
+  PaymentProvider,
+  ProviderId,
+  RejectReason,
+  VerifiedEvent,
+  VerifiedFacts,
+} from "./provider";
 import type { PayPalProvider } from "./paypal";
 
 /**
@@ -25,13 +32,28 @@ export interface InitiateResult {
 }
 
 export interface PaymentsDb {
-  initiate(a: { userId: string; orderId: string; provider: ProviderId; mode: Mode; merchantId: string | null; key: string }): Promise<InitiateResult>;
+  initiate(a: {
+    userId: string;
+    orderId: string;
+    provider: ProviderId;
+    mode: Mode;
+    merchantId: string | null;
+    key: string;
+  }): Promise<InitiateResult>;
   getTx(id: string): Promise<TxView | null>;
   findPayPalTx(userId: string, providerRef: string): Promise<TxView | null>;
   attach(txId: string, providerRef: string, redirectUrl: string): Promise<void>;
   markFailed(txId: string, reason: string): Promise<void>;
-  apply(provider: ProviderId, e: { eventKey: string; eventType: string; payload: unknown; facts: VerifiedFacts }): Promise<{ status: string; outcome: string; replayed: boolean }>;
-  reject(provider: ProviderId, reason: RejectReason, ipHash: string | null, hint: string | null): Promise<void>;
+  apply(
+    provider: ProviderId,
+    e: { eventKey: string; eventType: string; payload: unknown; facts: VerifiedFacts },
+  ): Promise<{ status: string; outcome: string; replayed: boolean }>;
+  reject(
+    provider: ProviderId,
+    reason: RejectReason,
+    ipHash: string | null,
+    hint: string | null,
+  ): Promise<void>;
 }
 
 export interface PaymentsDeps {
@@ -45,7 +67,11 @@ export interface PaymentsDeps {
 
 export class PaymentError extends Error {
   constructor(
-    readonly code: "payment_provider_unavailable" | "payment_provider_error" | "payment_not_found" | "fx_rate_unavailable",
+    readonly code:
+      | "payment_provider_unavailable"
+      | "payment_provider_error"
+      | "payment_not_found"
+      | "fx_rate_unavailable",
     message: string,
   ) {
     super(message);
@@ -67,30 +93,46 @@ export async function startPayment(
   a: { userId: string; orderId: string; provider: ProviderId; key: string },
 ): Promise<StartedPayment> {
   const provider = deps.providers[a.provider];
-  if (!provider) throw new PaymentError("payment_provider_unavailable", "This payment method is not available right now.");
+  if (!provider)
+    throw new PaymentError(
+      "payment_provider_unavailable",
+      "This payment method is not available right now.",
+    );
 
   if (a.provider === "paypal") {
     try {
       await deps.ensureFx();
     } catch (err) {
       deps.warn?.("fx unavailable", err);
-      throw new PaymentError("fx_rate_unavailable", "PayPal is temporarily unavailable. Please pay by card or EFT.");
+      throw new PaymentError(
+        "fx_rate_unavailable",
+        "PayPal is temporarily unavailable. Please pay by card or EFT.",
+      );
     }
   }
 
   const init = await deps.db.initiate({
-    userId: a.userId, orderId: a.orderId, provider: a.provider, mode: provider.mode,
-    merchantId: provider.merchantId, key: a.key,
+    userId: a.userId,
+    orderId: a.orderId,
+    provider: a.provider,
+    mode: provider.mode,
+    merchantId: provider.merchantId,
+    key: a.key,
   });
   // Re-read: an idempotent replay returns the response cached at first initiation.
   const tx = await deps.db.getTx(init.transaction_id);
   if (!tx) throw new PaymentError("payment_not_found", "Payment not found.");
 
   const started = (url: string): StartedPayment => ({
-    transactionId: tx.id, provider: a.provider, redirectUrl: url,
-    amount: Number(tx.expected_amount), currency: tx.expected_currency, fxRate: tx.fx_rate === null ? null : Number(tx.fx_rate),
+    transactionId: tx.id,
+    provider: a.provider,
+    redirectUrl: url,
+    amount: Number(tx.expected_amount),
+    currency: tx.expected_currency,
+    fxRate: tx.fx_rate === null ? null : Number(tx.fx_rate),
   });
-  if (tx.provider_ref && tx.redirect_url && tx.status === "pending") return started(tx.redirect_url);
+  if (tx.provider_ref && tx.redirect_url && tx.status === "pending")
+    return started(tx.redirect_url);
 
   const ret = `${deps.siteUrl.replace(/\/+$/, "")}/payment/return?order=${encodeURIComponent(a.orderId)}&provider=${a.provider}`;
   try {
@@ -108,7 +150,10 @@ export async function startPayment(
   } catch (err) {
     deps.warn?.("provider checkout failed", err);
     await deps.db.markFailed(tx.id, "provider_checkout_failed").catch(() => undefined);
-    throw new PaymentError("payment_provider_error", "We could not start that payment. Please try again or choose another method.");
+    throw new PaymentError(
+      "payment_provider_error",
+      "We could not start that payment. Please try again or choose another method.",
+    );
   }
 }
 
@@ -134,7 +179,14 @@ export async function handleWebhook(
   }
   const v = await provider.verifyWebhook(raw, headers);
   if (!v.ok) {
-    await deps.db.reject(providerId, v.reason, ipHash, headers.get("webhook-id") ?? headers.get("paypal-transmission-id")).catch(() => undefined);
+    await deps.db
+      .reject(
+        providerId,
+        v.reason,
+        ipHash,
+        headers.get("webhook-id") ?? headers.get("paypal-transmission-id"),
+      )
+      .catch(() => undefined);
     if (v.reason === "verification_unavailable") return { status: 503, body: "try again" };
     return { status: v.reason === "malformed_body" ? 400 : 401, body: "rejected" };
   }
@@ -149,7 +201,11 @@ export type ReturnStatus = "paid" | "pending" | "failed" | "not_found";
  * Member returns from PayPal. The token in the URL is only a lookup key: the capture is performed and
  * read server-side with our credentials, and its facts go through the same verified path as a webhook.
  */
-export async function confirmPayPalReturn(deps: PaymentsDeps, userId: string, orderToken: string): Promise<ReturnStatus> {
+export async function confirmPayPalReturn(
+  deps: PaymentsDeps,
+  userId: string,
+  orderToken: string,
+): Promise<ReturnStatus> {
   const provider = deps.providers.paypal as PayPalProvider | undefined;
   if (!provider) return "not_found";
   const tx = await deps.db.findPayPalTx(userId, orderToken);
@@ -157,7 +213,10 @@ export async function confirmPayPalReturn(deps: PaymentsDeps, userId: string, or
   if (tx.status === "succeeded") return "paid";
   const cap = await provider.captureOrder(orderToken, tx.id);
   const r = await deps.db.apply("paypal", {
-    eventKey: cap.eventKey, eventType: "api.order.capture", payload: cap.payload, facts: cap.facts,
+    eventKey: cap.eventKey,
+    eventType: "api.order.capture",
+    payload: cap.payload,
+    facts: cap.facts,
   });
   if (r.outcome === "confirmed" || r.outcome === "already_processed") return "paid";
   return cap.facts.kind === "payment_failed" ? "failed" : "pending";

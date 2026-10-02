@@ -9,7 +9,10 @@
  * Pure and dependency-injected so it is unit-testable without the network.
  */
 
-export type FetchLike = (url: string, init?: { signal?: AbortSignal }) => Promise<{
+export type FetchLike = (
+  url: string,
+  init?: { signal?: AbortSignal },
+) => Promise<{
   ok: boolean;
   status: number;
   json(): Promise<unknown>;
@@ -43,7 +46,11 @@ async function getJson(fetchFn: FetchLike, url: string, timeoutMs: number): Prom
 
 /** ECB reference rates via Frankfurter: USD per 1 ZAR, inverted to ZAR per USD. */
 async function frankfurter(fetchFn: FetchLike, timeoutMs: number): Promise<MarketRate> {
-  const body = (await getJson(fetchFn, "https://api.frankfurter.dev/v1/latest?base=ZAR&symbols=USD", timeoutMs)) as {
+  const body = (await getJson(
+    fetchFn,
+    "https://api.frankfurter.dev/v1/latest?base=ZAR&symbols=USD",
+    timeoutMs,
+  )) as {
     rates?: { USD?: number };
   };
   const usdPerZar = body?.rates?.USD;
@@ -67,7 +74,10 @@ async function erApi(fetchFn: FetchLike, timeoutMs: number): Promise<MarketRate>
  * more conservative = lower ZAR-per-USD, i.e. higher USD price, is used). Throws if none is usable.
  */
 export async function fetchMarketRate(fetchFn: FetchLike, timeoutMs = 4000): Promise<MarketRate> {
-  const settled = await Promise.allSettled([frankfurter(fetchFn, timeoutMs), erApi(fetchFn, timeoutMs)]);
+  const settled = await Promise.allSettled([
+    frankfurter(fetchFn, timeoutMs),
+    erApi(fetchFn, timeoutMs),
+  ]);
   const ok = settled
     .filter((s): s is PromiseFulfilledResult<MarketRate> => s.status === "fulfilled")
     .map((s) => s.value)
@@ -75,7 +85,10 @@ export async function fetchMarketRate(fetchFn: FetchLike, timeoutMs = 4000): Pro
   if (ok.length === 0) throw new Error("fx_feed_unavailable");
   if (ok.length === 2) {
     const [a, b] = ok as [MarketRate, MarketRate];
-    if (Math.abs(a.zarPerUsd - b.zarPerUsd) / Math.min(a.zarPerUsd, b.zarPerUsd) > MAX_FEED_DISAGREEMENT) {
+    if (
+      Math.abs(a.zarPerUsd - b.zarPerUsd) / Math.min(a.zarPerUsd, b.zarPerUsd) >
+      MAX_FEED_DISAGREEMENT
+    ) {
       throw new Error("fx_feeds_disagree");
     }
     const lower = a.zarPerUsd <= b.zarPerUsd ? a : b;
@@ -112,7 +125,8 @@ export async function ensureFreshRate(deps: FxDeps): Promise<{ refreshed: boolea
     if (!latest) throw new Error("fx_rate_unavailable: manual mode and no current rate");
     return { refreshed: false };
   }
-  if (latest?.live && deps.now() - latest.createdAtMs < cfg.refreshSeconds * 1000) return { refreshed: false };
+  if (latest?.live && deps.now() - latest.createdAtMs < cfg.refreshSeconds * 1000)
+    return { refreshed: false };
   try {
     const market = await fetchMarketRate(deps.fetch);
     const rate = applyMargin(market.zarPerUsd, cfg.marginPercent);

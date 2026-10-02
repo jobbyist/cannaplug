@@ -37,11 +37,17 @@ export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
       <div className="flex flex-wrap gap-2">
         {methods.card && (
           <Button size="sm" disabled={busy !== null} onClick={() => void pay("yoco")}>
-            <CreditCard size={13} className="mr-1.5" /> {busy === "yoco" ? "Opening…" : "Card / Instant EFT"}
+            <CreditCard size={13} className="mr-1.5" />{" "}
+            {busy === "yoco" ? "Opening…" : "Card / Instant EFT"}
           </Button>
         )}
         {methods.paypal && (
-          <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void pay("paypal")}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            onClick={() => void pay("paypal")}
+          >
             <Lock size={13} className="mr-1.5" /> {busy === "paypal" ? "Opening…" : "PayPal (USD)"}
           </Button>
         )}

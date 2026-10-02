@@ -670,7 +670,8 @@ const EFT_MESSAGES: Record<string, string> = {
   confirmed: "Payment recorded — the order is confirmed and stock has been taken.",
   pending_approval:
     "Recorded. This amount needs a SECOND manager to approve it (Payments tab) before the order is confirmed.",
-  order_total_changed: "The order total changed after this payment was recorded. Nothing was changed.",
+  order_total_changed:
+    "The order total changed after this payment was recorded. Nothing was changed.",
   amount_mismatch: "The amount received does not match the order total. Nothing was changed.",
   already_processed: "This order has already been processed.",
   paid_after_cancel_needs_refund: "This order was cancelled — the payment needs a refund.",

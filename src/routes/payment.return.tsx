@@ -19,7 +19,9 @@ export const Route = createFileRoute("/payment/return")({
     // PayPal appends its order id as `token`
     token: typeof s["token"] === "string" ? s["token"] : "",
   }),
-  head: () => ({ meta: [{ title: "Payment | CannaPlug" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Payment | CannaPlug" }, { name: "robots", content: "noindex" }],
+  }),
   component: PaymentReturn,
 });
 
@@ -71,7 +73,9 @@ function PaymentReturn() {
       <main className="mx-auto flex w-full max-w-[560px] flex-col items-center gap-4 px-4 py-16 text-center">
         {!user && !loading ? (
           <>
-            <h1 className="font-display text-xl font-extrabold uppercase">Sign in to see your payment</h1>
+            <h1 className="font-display text-xl font-extrabold uppercase">
+              Sign in to see your payment
+            </h1>
             <Link to="/account">
               <Button size="sm">Sign in</Button>
             </Link>
@@ -83,7 +87,8 @@ function PaymentReturn() {
             </span>
             <h1 className="font-display text-xl font-extrabold uppercase">Payment confirmed</h1>
             <p className="text-sm text-muted-foreground">
-              Order <b>{view?.orderNumber}</b> is paid and being prepared. We have emailed your confirmation.
+              Order <b>{view?.orderNumber}</b> is paid and being prepared. We have emailed your
+              confirmation.
             </p>
           </>
         ) : view?.orderStatus === "cancelled" ? (
@@ -101,7 +106,8 @@ function PaymentReturn() {
             </span>
             <h1 className="font-display text-xl font-extrabold uppercase">Payment not completed</h1>
             <p className="text-sm text-muted-foreground">
-              Nothing was charged. Your order is still reserved for a short time — you can try again from your account.
+              Nothing was charged. Your order is still reserved for a short time — you can try again
+              from your account.
             </p>
           </>
         ) : (

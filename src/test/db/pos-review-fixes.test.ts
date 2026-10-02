@@ -147,7 +147,9 @@ describe.skipIf(!DB_URL)("Amazon Q review triage (real PostgreSQL)", () => {
       const r = await attempt(rpc(sql, "confirm_order_payment", provider, eventId, uid(), amount));
       expect(failedWith(r, "invalid_payment_event")).toBe(true);
       expect(
-        await val<number>(sql`SELECT count(*)::int FROM public.payment_events WHERE provider = ${provider} AND provider_event_id = ${eventId}`),
+        await val<number>(
+          sql`SELECT count(*)::int FROM public.payment_events WHERE provider = ${provider} AND provider_event_id = ${eventId}`,
+        ),
       ).toBe(0);
     });
   });

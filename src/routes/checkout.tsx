@@ -185,7 +185,10 @@ function CheckoutPage() {
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
-  const [methods, setMethods] = useState<{ card: boolean; paypal: boolean }>({ card: false, paypal: false });
+  const [methods, setMethods] = useState<{ card: boolean; paypal: boolean }>({
+    card: false,
+    paypal: false,
+  });
   const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal">("eft");
   const [payError, setPayError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -205,7 +208,11 @@ function CheckoutPage() {
     setPayError(null);
     try {
       const started = await startPaymentFn({
-        data: { orderId, provider: method === "card" ? "yoco" : "paypal", key: crypto.randomUUID() },
+        data: {
+          orderId,
+          provider: method === "card" ? "yoco" : "paypal",
+          key: crypto.randomUUID(),
+        },
       });
       window.location.assign(started.redirectUrl);
     } catch (err) {
@@ -798,10 +805,11 @@ function CheckoutPage() {
                 {placed.payment_method === "eft" ? (
                   <>
                     <p className="max-w-md text-sm text-muted-foreground">
-                      Thanks{user?.email ? `, ${user.email}` : ""} — order <b>{placed.order_number}</b>{" "}
-                      is reserved for you for {placed.hold_minutes / 60} hours. Please pay{" "}
-                      <b>{rand(Number(placed.total))}</b> by EFT using <b>{placed.order_number}</b> as
-                      the payment reference.
+                      Thanks{user?.email ? `, ${user.email}` : ""} — order{" "}
+                      <b>{placed.order_number}</b> is reserved for you for{" "}
+                      {placed.hold_minutes / 60} hours. Please pay{" "}
+                      <b>{rand(Number(placed.total))}</b> by EFT using <b>{placed.order_number}</b>{" "}
+                      as the payment reference.
                     </p>
                     <dl className="w-full max-w-sm rounded-lg border border-border p-4 text-left text-xs">
                       {BANKING_DETAILS.map(([label, value]) => (
@@ -824,20 +832,34 @@ function CheckoutPage() {
                   <>
                     <p className="max-w-md text-sm text-muted-foreground">
                       Order <b>{placed.order_number}</b> is reserved for you.{" "}
-                      {paying ? "Taking you to the secure payment page…" : "Complete your payment to confirm it."}
+                      {paying
+                        ? "Taking you to the secure payment page…"
+                        : "Complete your payment to confirm it."}
                     </p>
                     {payError && (
-                      <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      <p
+                        role="alert"
+                        className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                      >
                         {payError}
                       </p>
                     )}
                     {!paying && (
-                      <Button size="sm" onClick={() => void startOnlinePayment(placed.order_id, payMethod === "paypal" ? "paypal" : "card")}>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void startOnlinePayment(
+                            placed.order_id,
+                            payMethod === "paypal" ? "paypal" : "card",
+                          )
+                        }
+                      >
                         Pay now
                       </Button>
                     )}
                     <p className="max-w-sm text-xs text-muted-foreground">
-                      Your order is confirmed only after the payment provider verifies your payment — not when you return to this page.
+                      Your order is confirmed only after the payment provider verifies your payment
+                      — not when you return to this page.
                     </p>
                   </>
                 )}
