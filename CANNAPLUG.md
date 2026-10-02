@@ -821,7 +821,7 @@ attempts are burned. **Schedule `POST /api/public/notifications/dispatch` every 
 | --- | --- |
 | `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`) | Yoco checkout + webhook verification; register `https://<site>/api/public/payments/yoco-webhook` |
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV` (`sandbox`/`live`) | PayPal orders + webhook verification (merchant id is compared on every capture); webhook URL `…/api/public/payments/paypal-webhook`, events `PAYMENT.CAPTURE.COMPLETED`/`DENIED` |
-| `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL` | Email (default sender `Cannaplug Support <updates@cannaplug.co.za>`) |
+| `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL` | Email (default sender `Cannaplug Support <update@updates.cannaplug012.co.za>`) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` / `TWILIO_WHATSAPP_FROM` | Optional SMS/WhatsApp (also set `payment_settings.sms_enabled`) |
 | `SITE_URL` | Return-URL origin (defaults to the request origin) |
 | `LOVABLE_CRON_SECRET` | Cron bearer for the dispatcher/maintenance |
@@ -869,7 +869,7 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Live Playwright suite (local stack + mock providers) and the local smoke script passed.
 
 ### Not done / needs the owner
-- Test emails from `updates@cannaplug.co.za` not sent (the Resend account here lacks that domain): run `RESEND_API_KEY=… bun scripts/send-test-emails.ts <to>`.
+- Test emails from `update@updates.cannaplug012.co.za` not sent (the Resend account here lacks that domain): run `RESEND_API_KEY=… bun scripts/send-test-emails.ts <to>`.
 - Add `GEMINI_API_KEY`, `FIRECRAWL_API_KEY` to Vercel env, then dispatch `newsroom-launch-batch`; add GitHub secrets `APP_URL`, `CRON_SECRET`.
 - Real Yoco/PayPal sandbox round-trips untested (mock providers only).
 - Compliance copy: 10 claims unapproved; phone +27 10 123 4567 looks like a placeholder.

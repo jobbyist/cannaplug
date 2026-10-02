@@ -4,7 +4,7 @@ import { z } from "zod";
 /**
  * Public website forms. No account is needed, so every submission is validated, honeypot-checked and
  * rate-limited by hashed IP in the database. Nothing is emailed from the request: the RPCs enqueue
- * notifications that the cron dispatcher sends from "Cannaplug Support <updates@cannaplug.co.za>".
+ * notifications that the cron dispatcher sends from "Cannaplug Support <update@updates.cannaplug012.co.za>".
  */
 export const SITE_INBOX = "info@cannaplug012.co.za";
 

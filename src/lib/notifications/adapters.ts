@@ -5,7 +5,7 @@ export type Fetch = (
   init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
-export const DEFAULT_FROM = "Cannaplug Support <updates@cannaplug.co.za>";
+export const DEFAULT_FROM = "Cannaplug Support <update@updates.cannaplug012.co.za>";
 
 /** HTTP status → verdict. 4xx other than 408/429 means the message itself is bad, so retrying is pointless. */
 function verdict(status: number, body: string): SendResult | null {

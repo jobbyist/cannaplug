@@ -272,7 +272,7 @@ chapter(
   "touch",
   "Emails and other touchpoints",
   "Every automatic message, who gets it and what triggers it.",
-  `<p>Messages are sent from <b>Cannaplug Support &lt;updates@cannaplug.co.za&gt;</b>. They are queued first and retried automatically, so a temporary outage never loses a message.</p>
+  `<p>Messages are sent from <b>Cannaplug Support &lt;update@updates.cannaplug012.co.za&gt;</b>. They are queued first and retried automatically, so a temporary outage never loses a message.</p>
 ${table(
   ["Message", "Recipient", "Triggered by"],
   [

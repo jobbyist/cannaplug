@@ -2,7 +2,7 @@ name: Scheduled jobs
 
 # Vercel Hobby crons run once a day at most, and the app needs three schedules, so GitHub Actions is the scheduler.
 # Required repository secrets:
-#   APP_URL        e.g. https://cannaplug.co.za   (no trailing slash)
+#   APP_URL        e.g. https://cannaplug012.co.za   (no trailing slash)
 #   CRON_SECRET    the same value as LOVABLE_CRON_SECRET in the Vercel environment
 on:
   schedule:

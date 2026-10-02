@@ -8,7 +8,7 @@ import {
 } from "@/lib/notifications/dispatch";
 import { TEMPLATES, renderTemplate } from "@/lib/notifications/templates";
 
-const ctx = { siteUrl: "https://cannaplug.co.za" };
+const ctx = { siteUrl: "https://cannaplug012.co.za" };
 const data = {
   order_number: "CP-100",
   total_rand: 1234.5,
@@ -58,7 +58,7 @@ describe("adapters", () => {
     expect(url).toBe("https://api.resend.com/emails");
     expect(init!.headers!["Idempotency-Key"]).toBe("n-1");
     expect(JSON.parse(init!.body!)).toMatchObject({
-      from: "Cannaplug Support <updates@cannaplug.co.za>",
+      from: "Cannaplug Support <update@updates.cannaplug012.co.za>",
       to: ["a@example.com"],
     });
   });

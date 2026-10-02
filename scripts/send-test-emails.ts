@@ -1,6 +1,6 @@
 // RESEND_API_KEY=re_... bun scripts/send-test-emails.ts you@example.com [template ...]
-// Sends every template (or the named ones) as "[TEST] ..." from "Cannaplug Support <updates@cannaplug.co.za>".
-// Use the SAME Resend account/key that the app uses, and make sure cannaplug.co.za is verified in it.
+// Sends every template (or the named ones) as "[TEST] ..." from "Cannaplug Support <update@updates.cannaplug012.co.za>".
+// Use the SAME Resend account/key that the app uses, and make sure updates.cannaplug012.co.za is verified in it.
 import { renderAll } from "./email-samples";
 
 const [to, ...only] = process.argv.slice(2);
@@ -9,7 +9,7 @@ if (!to || !key) {
   console.error("usage: RESEND_API_KEY=... bun scripts/send-test-emails.ts <to> [template...]");
   process.exit(1);
 }
-const from = process.env["NOTIFY_FROM_EMAIL"] ?? "Cannaplug Support <updates@cannaplug.co.za>";
+const from = process.env["NOTIFY_FROM_EMAIL"] ?? "Cannaplug Support <update@updates.cannaplug012.co.za>";
 let failed = 0;
 for (const { name, rendered } of renderAll().filter((a) => !only.length || only.includes(a.name))) {
   const res = await fetch("https://api.resend.com/emails", {

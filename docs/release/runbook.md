@@ -23,7 +23,7 @@ need your accounts or credentials are marked **[needs you]**.
 | Site                    | `SITE_URL`, `CONTACT_INBOX` (default `info@cannaplug012.co.za`), `VERIFICATION_IP_SALT`                                                                   |                                                                                                  |
 | Yoco                    | `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`)                                                                            | Test vs live is read from the key prefix.                                                        |
 | PayPal                  | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV`                                                       | `PAYPAL_MERCHANT_ID` is compared on every capture.                                               |
-| Email                   | `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL`                                                                                                            | Default sender `Cannaplug Support <updates@cannaplug.co.za>`; domain must be verified in Resend. |
+| Email                   | `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL`                                                                                                            | Default sender `Cannaplug Support <update@updates.cannaplug012.co.za>`; domain must be verified in Resend. |
 | SMS/WhatsApp (optional) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`                                                                      | Also switch on `payment_settings.sms_enabled`.                                                   |
 | AI                      | `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, optional `UNSPLASH_ACCESS_KEY`, `GEMINI_RPM_LIMIT` (8), `GEMINI_RPD_LIMIT` (180), `CHAT_RPD_LIMIT` (140)           | The free-tier numbers are shown in Google AI Studio; set the limits just below them.             |
 | Clinical                | `SIGNATURE_ATTESTATION_SECRET`, `EXTERNAL_SIGNATURE_API_URL/KEY/WEBHOOK_SECRET`, `DOCUMENT_EMAIL_FROM`, `PUBLIC_APP_URL`                                  | See the clinical section of CANNAPLUG.md.                                                        |
@@ -48,7 +48,7 @@ Add repository secrets `APP_URL` and `CRON_SECRET`. Then:
 1. **Yoco**: dashboard → Developers → Webhooks: URL `https://<site>/api/public/payments/yoco-webhook`; copy the `whsec_…` secret.
 2. **PayPal**: developer dashboard → app → Webhooks: URL `https://<site>/api/public/payments/paypal-webhook`, events
    `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`; copy the Webhook ID. Merchant ID is under Account settings.
-3. **Resend**: verify `cannaplug.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
+3. **Resend**: verify `updates.cannaplug012.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
 4. **Supabase Auth emails**: custom SMTP + templates, see `supabase/templates/README.md`.
 5. Run **one sandbox payment per provider** end to end before going live (the code is tested against faithful fakes, not the real sandboxes).
 

@@ -1,7 +1,7 @@
 import { TEMPLATES, renderTemplate } from "../src/lib/notifications/templates";
 
 /** Sample data for every template, shared by the preview renderer and the test-send script. */
-export const SITE = "https://cannaplug.co.za";
+export const SITE = "https://cannaplug012.co.za";
 const order = {
   order_id: "o1",
   order_number: "CP-100245",
