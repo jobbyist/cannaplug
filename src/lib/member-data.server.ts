@@ -23,44 +23,62 @@ const ORDER_LIMIT = 50;
 const TXN_LIMIT = 50;
 
 export async function getMemberAccount(db: UserClient) {
-  const [orders, addresses, account, tiers, rules, txns, wishlist, alerts, products, availability] =
-    await Promise.all([
-      db.from("orders").select("*").order("created_at", { ascending: false }).limit(ORDER_LIMIT),
-      db
-        .from("addresses")
-        .select("*")
-        .order("is_default", { ascending: false })
-        .order("updated_at", { ascending: false }),
-      db.from("loyalty_accounts").select("points_balance,lifetime_points,tier_id").maybeSingle(),
-      db
-        .from("loyalty_tiers")
-        .select("id,code,name,min_lifetime_points,perks")
-        .order("min_lifetime_points"),
-      db.from("loyalty_rules").select("code,value"),
-      db
-        .from("loyalty_transactions")
-        .select("id,txn_type,source_type,order_id,pos_sale_id,points,balance_after,created_at")
-        .order("created_at", { ascending: false })
-        .limit(TXN_LIMIT),
-      db
-        .from("wishlist_items")
-        .select("product_id,created_at")
-        .order("created_at", { ascending: false }),
-      db
-        .from("back_in_stock_subscriptions")
-        .select("id,product_id,status,created_at,notified_at")
-        .order("created_at", { ascending: false }),
-      db
-        .from("products")
-        .select(
-          "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,sort_order",
-        )
-        .eq("is_active", true)
-        .order("sort_order")
-        .order("name"),
-      // Stock counts are staff-only; members only ever learn a boolean per product.
-      supabaseAdmin.from("inventory_availability").select("product_id,available"),
-    ]);
+  const [
+    orders,
+    addresses,
+    account,
+    tiers,
+    rules,
+    txns,
+    wishlist,
+    alerts,
+    products,
+    availability,
+    verification,
+  ] = await Promise.all([
+    db.from("orders").select("*").order("created_at", { ascending: false }).limit(ORDER_LIMIT),
+    db
+      .from("addresses")
+      .select("*")
+      .order("is_default", { ascending: false })
+      .order("updated_at", { ascending: false }),
+    db.from("loyalty_accounts").select("points_balance,lifetime_points,tier_id").maybeSingle(),
+    db
+      .from("loyalty_tiers")
+      .select("id,code,name,min_lifetime_points,perks")
+      .order("min_lifetime_points"),
+    db.from("loyalty_rules").select("code,value"),
+    db
+      .from("loyalty_transactions")
+      .select("id,txn_type,source_type,order_id,pos_sale_id,points,balance_after,created_at")
+      .order("created_at", { ascending: false })
+      .limit(TXN_LIMIT),
+    db
+      .from("wishlist_items")
+      .select("product_id,created_at")
+      .order("created_at", { ascending: false }),
+    db
+      .from("back_in_stock_subscriptions")
+      .select("id,product_id,status,created_at,notified_at")
+      .order("created_at", { ascending: false }),
+    db
+      .from("products")
+      .select(
+        "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,sort_order",
+      )
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name"),
+    // Stock counts are staff-only; members only ever learn a boolean per product.
+    supabaseAdmin.from("inventory_availability").select("product_id,available"),
+    // Column-limited by grant: the storage path and declared date of birth are never readable here.
+    db
+      .from("customer_verification")
+      .select(
+        "status,document_type,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
+      )
+      .maybeSingle(),
+  ]);
 
   const orderRows = unwrap(orders);
   const orderIds = orderRows.map((o) => o.id);
@@ -110,6 +128,7 @@ export async function getMemberAccount(db: UserClient) {
     wishlist: (unwrap(wishlist) ?? []).map((w) => w.product_id),
     alerts: unwrap(alerts) ?? [],
     products: (unwrap(products) ?? []).map((p) => ({ ...p, in_stock: inStock.has(p.id) })),
+    verification: unwrap(verification),
   };
 }
 

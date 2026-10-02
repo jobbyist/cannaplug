@@ -40,9 +40,17 @@ export default async function globalSetup() {
     other: `other-${stamp}@live.test`,
     manager: `manager-${stamp}@live.test`,
   };
-  await createUser(run.member, "Mia Member", "customer");
-  await createUser(run.other, "Omar Other", "customer");
+  const member = await createUser(run.member, "Mia Member", "customer");
+  const other = await createUser(run.other, "Omar Other", "customer");
   const manager = await createUser(run.manager, "Manny Manager", "manager");
+  // The PR 19 / PR 20 specs place real orders, which now needs an approved ID. These two members are
+  // approved up front; id-verification.spec.ts creates its own members and goes through the real review.
+  for (const id of [member, other])
+    sql(
+      `insert into public.customer_verification (user_id, status, method, verified_at, verified_by, reviewed_at, reviewed_by)
+       values ('${id}', 'verified', 'manual_id_review', now(), '${manager}', now(), '${manager}')
+       on conflict (user_id) do update set status = 'verified';`,
+    );
 
   sql(`
     insert into public.products (slug, name, category, subcategory, price_rand, unit, is_active, sort_order) values

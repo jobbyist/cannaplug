@@ -28,6 +28,8 @@ import {
   quoteCheckoutFn,
 } from "@/lib/checkout.functions";
 import { saveAddressFn } from "@/lib/member.functions";
+import { getMyVerificationFn } from "@/lib/verification.functions";
+import { verificationView, type VerificationView } from "@/lib/verification-logic";
 import type { CheckoutQuote, PlacedOrder } from "@/lib/checkout-data.server";
 
 export const Route = createFileRoute("/checkout")({
@@ -184,6 +186,24 @@ function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const orderKey = useIdempotencyKey();
+
+  // Online orders need an approved ID. The database enforces it; this only explains it up front.
+  const [idStatus, setIdStatus] = useState<VerificationView | null>(null);
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const load = () =>
+      getMyVerificationFn()
+        .then((row) => !cancelled && setIdStatus(verificationView(row)))
+        .catch(() => undefined);
+    void load();
+    window.addEventListener("focus", load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", load);
+    };
+  }, [userId]);
 
   // Prefill the name ONCE when the member is known; never overwrite what they have typed or cleared
   // (a token refresh hands us a new `user` object).
@@ -417,6 +437,29 @@ function CheckoutPage() {
                   </p>
                   <Link to="/account">
                     <Button size="sm">Sign in to continue</Button>
+                  </Link>
+                  <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => go("Cart")}
+                  >
+                    Back to cart
+                  </button>
+                </div>
+              ) : idStatus && !idStatus.canOrder ? (
+                <div
+                  role="status"
+                  className="flex flex-col items-center gap-3 py-10 text-center"
+                  data-testid="checkout-id-gate"
+                >
+                  <Lock className="text-muted-foreground" />
+                  <p className="font-display text-sm font-bold uppercase">{idStatus.headline}</p>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    {idStatus.detail} Your cart is saved.
+                  </p>
+                  <Link to="/account">
+                    <Button size="sm">
+                      {idStatus.status === "pending" ? "View status" : "Verify my ID"}
+                    </Button>
                   </Link>
                   <button
                     className="text-xs text-muted-foreground underline"

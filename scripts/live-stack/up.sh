@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Brings up a LOCAL Supabase-equivalent stack for the live browser tests (test-only; never touches hosted):
-#   Postgres 16 (wal_level=logical) :54330  ->  GoTrue :9999, PostgREST :3000, Realtime :4000  ->  gateway :54321
+#   Postgres 16 (wal_level=logical) :54330  ->  GoTrue :9999, PostgREST :3000, Realtime :4000, Storage :5000  ->  gateway :54321
 # Prereqs: a running Docker daemon, apt package postgresql-16-wal2json (Realtime 2.33 decodes with wal2json),
 # and the images below (pulled from Supabase's public ECR mirror; Docker Hub may rate-limit).
 # Afterwards:  . /tmp/live.env && . scripts/live-stack/app-env.sh && bun run dev --host 127.0.0.1 --port 4173
@@ -14,7 +14,7 @@ PSQL="$PGBIN/psql -X -q -h 127.0.0.1 -p $PORT -U postgres"
 
 [ -f /usr/lib/postgresql/16/lib/wal2json.so ] || { echo "missing: apt-get install postgresql-16-wal2json"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon not running (try: nohup dockerd &)"; exit 1; }
-for img in postgrest:v12.2.3 gotrue:v2.158.1 realtime:v2.33.58; do
+for img in postgrest:v12.2.3 gotrue:v2.158.1 realtime:v2.33.58 storage-api:v1.11.13; do
   docker image inspect public.ecr.aws/supabase/$img >/dev/null 2>&1 || docker pull -q public.ecr.aws/supabase/$img
 done
 
@@ -28,7 +28,8 @@ run "$PGBIN/pg_ctl -D $D status >/dev/null 2>&1" || run "$PGBIN/pg_ctl -D $D -o 
 # 2. keys + fresh database
 node "$ROOT/scripts/live-stack/keys.mjs" | sed 's/^export //' > /tmp/live.env
 set -a; . /tmp/live.env; set +a
-docker rm -f live-gotrue live-postgrest live-realtime >/dev/null 2>&1 || true
+docker rm -f live-gotrue live-postgrest live-realtime live-storage >/dev/null 2>&1 || true
+rm -rf "${LIVE_STORAGE:-/var/tmp/live-storage}"; mkdir -p "${LIVE_STORAGE:-/var/tmp/live-storage}"
 run "$PSQL -d postgres -c 'DROP DATABASE IF EXISTS live WITH (FORCE)' -c 'CREATE DATABASE live'" 2>&1 | grep -v NOTICE || true
 run "$PSQL -d live -v ON_ERROR_STOP=1 -f $ROOT/scripts/live-stack/prepare-db.sql"
 
@@ -42,7 +43,25 @@ docker run -d --name live-gotrue --network host \
   public.ecr.aws/supabase/gotrue:v2.158.1 >/dev/null
 for i in $(seq 1 30); do curl -sf -m 2 http://127.0.0.1:9999/health >/dev/null && break; sleep 1; done
 
-# 4. the app's migrations (after auth exists, as on hosted)
+# 3b. Storage (creates the real storage schema; the ID-verification migration adds its private bucket there)
+docker run -d --name live-storage --network host -v "${LIVE_STORAGE:-/var/tmp/live-storage}:/var/lib/storage" \
+  -e SERVER_PORT=5000 -e ANON_KEY="$ANON_KEY" -e SERVICE_KEY="$SERVICE_ROLE_KEY" -e AUTH_JWT_SECRET="$JWT_SECRET" \
+  -e PGRST_JWT_SECRET="$JWT_SECRET" -e POSTGREST_URL=http://127.0.0.1:3000 \
+  -e DATABASE_URL="postgres://supabase_storage_admin:live-pass@127.0.0.1:$PORT/live" \
+  -e FILE_SIZE_LIMIT=52428800 -e STORAGE_BACKEND=file -e FILE_STORAGE_BACKEND_PATH=/var/lib/storage \
+  -e TENANT_ID=stub -e REGION=stub -e GLOBAL_S3_BUCKET=stub -e ENABLE_IMAGE_TRANSFORMATION=false \
+  public.ecr.aws/supabase/storage-api:v1.11.13 >/dev/null
+for i in $(seq 1 40); do curl -sf -m 2 http://127.0.0.1:5000/status >/dev/null && break; sleep 1; done
+# Hosted Supabase grants these by default; storage-api's own migrations do not on a bare Postgres.
+# (RLS on storage.objects is on and has no policies, so clients still cannot read or write objects.)
+run "$PSQL -d live -v ON_ERROR_STOP=1" <<'SQL'
+GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA storage TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA storage TO anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA storage TO anon, authenticated, service_role;
+SQL
+
+# 4. the app's migrations (after auth and storage exist, as on hosted)
 for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort); do
   run "$PSQL -d live -v ON_ERROR_STOP=1 -f $f" >/dev/null 2>/tmp/live-mig.err || { echo "FAIL applying $f"; grep -v NOTICE /tmp/live-mig.err | head; exit 1; }
 done

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   BadgeCheck,
   Bell,
@@ -27,6 +27,8 @@ import { DashboardSidebar, type SidebarItem } from "@/components/dashboard/Sideb
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { rand } from "@/lib/cart";
+import { VerificationBanner, VerificationPanel } from "@/components/account/VerificationPanel";
+import { dobProblem, latestAdultBirthDate } from "@/lib/verification-logic";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
@@ -59,6 +61,7 @@ function AuthPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -72,13 +75,20 @@ function AuthPanel() {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
       } else {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const dobIssue = dobProblem(dob);
+        if (dobIssue) throw new Error(dobIssue);
+        const { data: created, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName } },
+          options: { data: { full_name: fullName, date_of_birth: dob } },
         });
         if (signUpError) throw signUpError;
-        setNotice("Account created — check your inbox to confirm your email, then sign in.");
+        // With email confirmation on there is no session yet; the ID upload is the first thing
+        // the member sees once they sign in.
+        if (!created.session)
+          setNotice(
+            "Account created — check your inbox to confirm your email, then sign in. You'll verify your ID next.",
+          );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -152,6 +162,23 @@ function AuthPanel() {
                   <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 </div>
               )}
+              {mode === "signup" && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="signup-dob">Date of birth</Label>
+                  <Input
+                    id="signup-dob"
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    max={latestAdultBirthDate()}
+                    required
+                  />
+                  <p className="text-[0.7rem] text-muted-foreground">
+                    You must be 18 or older. We'll ask for a photo of your ID after you sign in —
+                    it's reviewed by hand before you can order.
+                  </p>
+                </div>
+              )}
               <div className="grid gap-1.5">
                 <Label>Email address</Label>
                 <Input
@@ -209,6 +236,7 @@ function AuthPanel() {
 
 const NAV_ITEMS: SidebarItem[] = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { id: "verification", icon: ShieldCheck, label: "ID Verification" },
   { id: "orders", icon: ListOrdered, label: "Orders" },
   { id: "saved", icon: Heart, label: "Saved Products" },
   { id: "rewards", icon: Sparkles, label: "Rewards & Loyalty" },
@@ -223,6 +251,14 @@ function MemberPortal() {
   const [tab, setTab] = useState("dashboard");
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
+
+  // Onboarding: a member who has never submitted an ID lands on the verification step first.
+  const onboarded = useRef(false);
+  useEffect(() => {
+    if (!account || onboarded.current) return;
+    onboarded.current = true;
+    if (!account.verification) setTab("verification");
+  }, [account]);
 
   useEffect(() => {
     if (!flash) return;
@@ -293,8 +329,22 @@ function MemberPortal() {
         {!account && !error && (
           <p className="text-sm text-muted-foreground">Loading your account…</p>
         )}
+        {account && tab === "verification" && (
+          <VerificationPanel
+            verification={account.verification}
+            defaultDob={(user?.user_metadata?.["date_of_birth"] as string | undefined) ?? ""}
+            onDone={async () => {
+              await reload();
+              setFlash("Thanks — your ID has been submitted for review.");
+            }}
+          />
+        )}
         {account && tab === "dashboard" && (
           <div className="flex flex-col gap-6">
+            <VerificationBanner
+              verification={account.verification}
+              onOpen={() => setTab("verification")}
+            />
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-primary p-5 text-primary-foreground">
                 <p className="text-xs uppercase opacity-70">Orders</p>

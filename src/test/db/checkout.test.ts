@@ -12,6 +12,7 @@ import {
   key,
   loyaltyOf,
   mkProduct,
+  mkMember,
   mkUser,
   receive,
   rpc,
@@ -129,7 +130,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("places a real order: server total, delivery snapshot, stock held, timeline row", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u, {
       suburb: "Gardens",
       postal_code: "8001",
@@ -187,7 +188,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("keeps the delivery snapshot even if the saved address changes or is deleted", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
     const r = await place(u, items, a, 280);
@@ -205,7 +206,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("refuses when the total the member saw is stale, and creates nothing", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { product, items } = await basket(100, 2);
     await sql`UPDATE public.products SET price_rand = 110 WHERE id = ${product}`;
@@ -226,7 +227,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("refuses unavailable stock/products without creating an order", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket(100, 5, 3);
     const r = await attempt(place(u, items, a, 580));
@@ -235,8 +236,8 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("enforces address ownership and completeness", async () => {
-    const owner = await mkUser(sql, "customer");
-    const thief = await mkUser(sql, "customer");
+    const owner = await mkMember(sql);
+    const thief = await mkMember(sql);
     const a = await addr(owner);
     const { items } = await basket();
     expect(failedWith(await attempt(place(thief, items, a, 280)), "address_not_found")).toBe(true);
@@ -262,7 +263,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("validates contact details and only offers EFT", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
     expect(
@@ -292,7 +293,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("is idempotent: a double-click / retry creates one order and holds stock once", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket(100, 2, 10);
     const k = key("co");
@@ -316,7 +317,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("never oversells when two members check out the last units at once", async () => {
-    const [c, d] = [await mkUser(sql, "customer"), await mkUser(sql, "customer")];
+    const [c, d] = [await mkMember(sql), await mkMember(sql)];
     const [ac, ad] = [await addr(c), await addr(d)];
     const { items } = await basket(100, 2, 2);
     const res = await Promise.all([
@@ -327,7 +328,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("a delivery method and its address snapshot can only exist together (DB invariant)", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const { items } = await basket();
     // Orders created outside checkout (staff / legacy path) legitimately have neither.
     const plain = await rpc(
@@ -366,7 +367,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("is not callable by browser roles", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
     const calls = [
@@ -384,7 +385,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
         (r) => r["code"],
       ),
     ).toEqual(["discreet", "standard"]);
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     expect(
       (await attempt(asUser(sql, u, (tx) => tx`UPDATE public.delivery_options SET fee_rand = 0`)))
         .ok,
@@ -405,8 +406,8 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
 
   // ---- reaches /admin and /account -----------------------------------------------------------
   it("the order is visible to its owner (account) and to staff tooling (admin), not to other members", async () => {
-    const u = await mkUser(sql, "customer");
-    const other = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
+    const other = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
     const r = await place(u, items, a, 280);
@@ -442,7 +443,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("EFT payment confirmation: amount-checked, idempotent per bank reference, consumes stock", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { product, items } = await basket(100, 2, 10);
     const r = await place(u, items, a, 280);
@@ -467,7 +468,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("a delayed EFT after the hold expired still confirms while stock exists, and fails safely when it does not", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items, product } = await basket(100, 2, 2);
     const r = await place(u, items, a, 280);
@@ -477,7 +478,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
     await sql`ALTER TABLE public.stock_reservations ENABLE TRIGGER stock_reservations_guard`;
     await rpc(sql, "release_expired_reservations");
     // stock is free again; someone else takes all of it
-    const d = await mkUser(sql, "customer");
+    const d = await mkMember(sql);
     await place(d, items, await addr(d), 280);
     const late = await rpc(sql, "confirm_order_payment", "eft", key("EFT-LATE"), r.order_id, 280);
     expect(late.outcome).toBe("stock_unavailable_needs_refund");
@@ -489,7 +490,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
 
   // ---- loyalty + reorder interplay ------------------------------------------------------------
   it("loyalty: redeem applies to goods only, delivery stays payable, and points are earned on goods only", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     // give 500 points: earn via a real completed order of R5000 with the same checkout path
     const big = await basket(5000, 1, 3);
@@ -519,7 +520,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("reorder copies delivery + address, re-prices the fee, and validates the new total", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { product, items } = await basket(100, 2, 10);
     const first = await place(u, items, a, 280);
@@ -544,7 +545,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   it("reorder is blocked when the order's delivery option was retired", async () => {
-    const u = await mkUser(sql, "customer");
+    const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
     const first = await place(u, items, a, 320, { method: "discreet" });

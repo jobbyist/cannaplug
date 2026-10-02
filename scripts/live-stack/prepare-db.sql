@@ -3,16 +3,30 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-DO $$ BEGIN
-  CREATE ROLE anon NOLOGIN NOINHERIT;
-  CREATE ROLE authenticated NOLOGIN NOINHERIT;
-  CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
-  CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD 'live-pass';
+-- Roles are cluster-wide, so they survive a database re-creation: create each one only if missing.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('anon', 'NOLOGIN NOINHERIT'),
+    ('authenticated', 'NOLOGIN NOINHERIT'),
+    ('service_role', 'NOLOGIN NOINHERIT BYPASSRLS'),
+    ('authenticator', 'LOGIN NOINHERIT PASSWORD ''live-pass'''),
+    ('supabase_auth_admin', 'LOGIN NOINHERIT CREATEROLE PASSWORD ''live-pass'''),
+    ('supabase_admin', 'LOGIN SUPERUSER PASSWORD ''live-pass'''),
+    -- test-only: storage-api runs its own migrations and creates the storage schema
+    ('supabase_storage_admin', 'LOGIN SUPERUSER PASSWORD ''live-pass''')
+  ) AS t(name, opts)
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r.name) THEN
+      EXECUTE format('CREATE ROLE %I %s', r.name, r.opts);
+    END IF;
+  END LOOP;
   GRANT anon, authenticated, service_role TO authenticator;
-  CREATE ROLE supabase_auth_admin LOGIN NOINHERIT CREATEROLE PASSWORD 'live-pass';
-  CREATE ROLE supabase_admin LOGIN SUPERUSER PASSWORD 'live-pass';
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+END $$;
 
+ALTER ROLE supabase_storage_admin SET search_path = storage, public;
 CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION supabase_auth_admin;
 ALTER ROLE supabase_auth_admin SET search_path = auth;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;

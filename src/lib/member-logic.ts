@@ -157,6 +157,21 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_contact: "Please enter your name and a valid phone number",
   payment_method_unsupported: "Only EFT is available right now",
   invalid_items: "Your basket could not be read — please refresh it",
+  verification_required: "Verify your ID before placing an order",
+  verification_pending: "Your ID is being reviewed — you can order once it is approved",
+  already_verified: "Your ID is already verified",
+  underage: "You must be 18 or older to shop with CannaPlug",
+  invalid_dob: "Enter your date of birth",
+  invalid_document_type: "Choose the type of document you are uploading",
+  invalid_document_path: "We could not read your upload — please upload your ID again",
+  too_many_attempts: "Too many attempts — please contact CannaPlug support",
+  forbidden: "You do not have permission for this action",
+  self_review_forbidden: "Another manager must review your own ID",
+  not_pending: "This ID is no longer waiting for review — refresh the list",
+  rejection_reason_required: "Choose a rejection reason (and add a note for “Other”)",
+  rejection_note_too_long: "Keep the note under 500 characters",
+  invalid_decision: "Choose approve or reject",
+  verification_not_found: "No ID submission was found for that member",
 };
 
 /** Detail text after the code is user-safe for these (it carries numbers the member needs). */
