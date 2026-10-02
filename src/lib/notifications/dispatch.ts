@@ -31,6 +31,7 @@ export interface ChannelAdapters {
     html: string;
     text: string;
     replyTo?: string;
+    headers?: Record<string, string>;
   }) => Promise<SendResult>;
   sms?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
   whatsapp?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
@@ -104,6 +105,7 @@ async function sendOne(
         html: rendered.html,
         text: rendered.text,
         ...(rendered.replyTo ? { replyTo: rendered.replyTo } : {}),
+        ...(rendered.headers ? { headers: rendered.headers } : {}),
       });
     }
     const adapter = n.channel === "sms" ? adapters.sms : adapters.whatsapp;

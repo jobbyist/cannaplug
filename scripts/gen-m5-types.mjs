@@ -82,7 +82,8 @@ async function viewBlock(name) {
   return `      ${name}: {\n        Row: {\n${row}\n        }\n        Relationships: []\n      }\n`;
 }
 
-const FUNCTIONS = `      ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number }
+const FUNCTIONS = `      email_automations_run: { Args: { p_now?: string }; Returns: Json }
+      ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number }
       ai_quota_take: { Args: { p_bucket: string; p_limit: number; p_ttl_seconds: number }; Returns: boolean }
       contact_submit: { Args: { p_email: string; p_inbox: string; p_ip_hash: string; p_message: string; p_name: string; p_subject: string }; Returns: Json }
       newsletter_subscribe: { Args: { p_email: string; p_ip_hash: string; p_source?: string }; Returns: Json }

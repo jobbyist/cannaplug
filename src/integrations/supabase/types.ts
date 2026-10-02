@@ -2246,6 +2246,7 @@ export type Database = {
     };
     Functions: {
       // <m5-functions>
+      email_automations_run: { Args: { p_now?: string }; Returns: Json };
       ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number };
       ai_quota_take: {
         Args: { p_bucket: string; p_limit: number; p_ttl_seconds: number };

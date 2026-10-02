@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/16/bin}"
 PORT="${TEST_PGPORT:-54329}"
 DB="rollback_rehearsal_m6"
-M=(20261004001000_public_forms 20261004002000_ai_quota 20261004003000_least_privilege_baseline 20261004004000_audit_hardening)
+M=(20261004001000_public_forms 20261004002000_ai_quota 20261004003000_least_privilege_baseline 20261004004000_audit_hardening 20261004005000_email_automations)
 run() { if [ "$(id -u)" = 0 ]; then su postgres -s /bin/bash -c "$*"; else bash -c "$*"; fi; }
 P="$PG_BIN/psql -X -q -h 127.0.0.1 -p $PORT -U postgres"
 q() { run "$P -At -d $DB -c \"$1\""; }
