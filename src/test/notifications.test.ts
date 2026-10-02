@@ -171,8 +171,12 @@ describe("template coverage", () => {
     const used = new Set<string>();
     for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql"))) {
       const sql = readFileSync(dir + f, "utf8");
-      for (const m of sql.matchAll(/notification_enqueue\(\s*'(?:email|sms|whatsapp)',\s*'([a-z0-9_]+)'/g)) used.add(m[1]!);
-      for (const m of sql.matchAll(/notification_enqueue_staff\(\s*'([a-z0-9_]+)'/g)) used.add(m[1]!);
+      for (const m of sql.matchAll(
+        /notification_enqueue\(\s*'(?:email|sms|whatsapp)',\s*'([a-z0-9_]+)'/g,
+      ))
+        used.add(m[1]!);
+      for (const m of sql.matchAll(/notification_enqueue_staff\(\s*'([a-z0-9_]+)'/g))
+        used.add(m[1]!);
       for (const m of sql.matchAll(/v_template := CASE[\s\S]*?END;/g))
         for (const t of m[0].matchAll(/THEN '([a-z_]+)'/g)) used.add(t[1]!);
     }
