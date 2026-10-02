@@ -772,6 +772,7 @@ export type Database = {
           attempt_count: number;
           created_at: string;
           declared_dob: string | null;
+          document_expires_on: string | null;
           document_path: string | null;
           document_type: string | null;
           metadata: Json;
@@ -792,6 +793,7 @@ export type Database = {
           attempt_count?: number;
           created_at?: string;
           declared_dob?: string | null;
+          document_expires_on?: string | null;
           document_path?: string | null;
           document_type?: string | null;
           metadata?: Json;
@@ -812,6 +814,7 @@ export type Database = {
           attempt_count?: number;
           created_at?: string;
           declared_dob?: string | null;
+          document_expires_on?: string | null;
           document_path?: string | null;
           document_type?: string | null;
           metadata?: Json;
@@ -2285,6 +2288,7 @@ export type Database = {
           p_document_path: string;
           p_document_type: string;
           p_dob: string;
+          p_expires_on: string | null;
           p_idempotency_key: string;
           p_user_id: string;
         };

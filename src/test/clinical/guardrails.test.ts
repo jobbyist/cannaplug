@@ -141,7 +141,7 @@ describe("migration safety", () => {
     expect(MIGRATION).not.toMatch(/CREATE POLICY[^;]*storage\.objects/i);
   });
   it("the legacy mirror exists and is identical", () => {
-    const mirror = join(root, "drizzle/migrations/0013_clinical_documents.sql");
+    const mirror = join(root, "drizzle/migrations/0014_clinical_documents.sql");
     expect(existsSync(mirror)).toBe(true);
     expect(read(mirror)).toBe(MIGRATION);
   });
@@ -151,11 +151,13 @@ describe("follow-up migrations", () => {
   const FOLLOW_UPS = [
     "supabase/migrations/20261002002000_clinical_template_wording.sql",
     "supabase/migrations/20261002003000_clinical_document_requests.sql",
+    "supabase/migrations/20261002004000_verify_failure_slot.sql",
   ];
   it("are additive and mirrored byte-for-byte", () => {
     const mirrors = [
-      "drizzle/migrations/0014_clinical_template_wording.sql",
-      "drizzle/migrations/0015_clinical_document_requests.sql",
+      "drizzle/migrations/0015_clinical_template_wording.sql",
+      "drizzle/migrations/0016_clinical_document_requests.sql",
+      "drizzle/migrations/0017_verify_failure_slot.sql",
     ];
     FOLLOW_UPS.forEach((f, i) => {
       const sql = read(join(root, f));

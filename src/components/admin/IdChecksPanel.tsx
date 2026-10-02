@@ -27,7 +27,12 @@ import {
   viewVerificationDocumentFn,
 } from "@/lib/verification.functions";
 import type { VerificationQueueItem } from "@/lib/verification-data.server";
-import { REJECTION_REASONS, documentTypeLabel, type RejectionCode } from "@/lib/verification-logic";
+import {
+  REJECTION_REASONS,
+  documentTypeLabel,
+  isExpired,
+  type RejectionCode,
+} from "@/lib/verification-logic";
 
 const errorText = (err: unknown) =>
   err instanceof Error ? err.message : "Something went wrong. Please try again.";
@@ -129,7 +134,14 @@ export function IdChecksPanel() {
                   <p className="font-medium">{item.full_name ?? "Unnamed"}</p>
                   <p className="text-xs text-muted-foreground">{item.email ?? "—"}</p>
                 </TableCell>
-                <TableCell>{documentTypeLabel(item.document_type)}</TableCell>
+                <TableCell>
+                  {documentTypeLabel(item.document_type)}
+                  <p className="text-xs text-muted-foreground">
+                    {item.document_expires_on
+                      ? `Expires ${item.document_expires_on}`
+                      : "Does not expire"}
+                  </p>
+                </TableCell>
                 <TableCell>
                   {item.declared_dob ?? "—"}
                   {ageOf(item.declared_dob) !== null && (
@@ -236,7 +248,11 @@ function ReviewDialog({
         <DialogHeader>
           <DialogTitle>{item.full_name ?? "Member"} — ID review</DialogTitle>
           <DialogDescription>
-            {documentTypeLabel(item.document_type)} · declared date of birth{" "}
+            {documentTypeLabel(item.document_type)}
+            {item.document_expires_on
+              ? ` · expires ${item.document_expires_on}`
+              : " · does not expire"}
+            {" · declared date of birth "}
             {item.declared_dob ?? "—"}
             {ageOf(item.declared_dob) !== null && ` (age ${ageOf(item.declared_dob)})`} · submission{" "}
             {item.attempt_count}
@@ -272,6 +288,15 @@ function ReviewDialog({
           </p>
         </div>
 
+        {isExpired(item.document_expires_on) && (
+          <p
+            role="alert"
+            className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          >
+            This document expired on {item.document_expires_on}. It cannot be approved.
+          </p>
+        )}
+
         {!pending && (
           <p className="text-xs text-muted-foreground">
             Decided {when(item.reviewed_at)}
@@ -291,7 +316,8 @@ function ReviewDialog({
             />
             <span>
               I have checked that the photo is the member, the name matches their account, the
-              document is current, and the date of birth matches and is 18+.
+              document is current (SA IDs do not expire; passports and licences must be in date),
+              and the date of birth matches and is 18+.
             </span>
           </label>
         )}
@@ -343,7 +369,10 @@ function ReviewDialog({
               <Button variant="outline" onClick={() => setRejecting(true)}>
                 Reject…
               </Button>
-              <Button disabled={!checked || busy} onClick={() => void decide("approve")}>
+              <Button
+                disabled={!checked || busy || isExpired(item.document_expires_on)}
+                onClick={() => void decide("approve")}
+              >
                 <ShieldCheck size={14} className="mr-1.5" />
                 {busy ? "Approving…" : "Approve"}
               </Button>

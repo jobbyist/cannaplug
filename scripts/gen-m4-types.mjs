@@ -128,7 +128,7 @@ const FUNCTIONS = `      accrue_order_loyalty: { Args: { p_order_id: string }; R
         Returns: Json
       }
       verification_submit: {
-        Args: { p_document_path: string; p_document_type: string; p_dob: string; p_idempotency_key: string; p_user_id: string }
+        Args: { p_document_path: string; p_document_type: string; p_dob: string; p_expires_on: string | null; p_idempotency_key: string; p_user_id: string }
         Returns: Json
       }
 `;

@@ -40,7 +40,10 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 .journal-filters a:hover {
   border-color: var(--primary);
@@ -72,7 +75,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
 }
 .journal-lead:hover {
   transform: translateY(-3px);
@@ -123,7 +128,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 .journal-card:hover {
   transform: translateY(-4px);
@@ -141,7 +148,11 @@
   object-fit: cover;
 }
 .journal-cover-fallback {
-  background: linear-gradient(135deg, var(--secondary), color-mix(in oklab, var(--primary) 18%, var(--secondary)));
+  background: linear-gradient(
+    135deg,
+    var(--secondary),
+    color-mix(in oklab, var(--primary) 18%, var(--secondary))
+  );
 }
 .journal-card > .eyebrow,
 .journal-card h3,
@@ -339,7 +350,9 @@
   font: 600 0.68rem var(--font-display);
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .journal-product-buy button:hover {
   transform: translateY(-1px);

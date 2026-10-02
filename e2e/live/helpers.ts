@@ -10,10 +10,13 @@ const run = JSON.parse(readFileSync(RUN_FILE, "utf8")) as {
   member: string;
   other: string;
   manager: string;
+  budtender: string;
 };
 export const MEMBER = run.member;
 export const OTHER = run.other;
 export const MANAGER = run.manager;
+export const BUDTENDER = run.budtender;
+export const CRON_SECRET = process.env["LOVABLE_CRON_SECRET"] ?? "live-cron-secret";
 
 export const userId = (email: string) => sql(`select id from auth.users where email='${email}'`);
 export const productId = (slug: string) =>
