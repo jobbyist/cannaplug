@@ -2,6 +2,8 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import {
   ANON,
   API,
+  BUDTENDER,
+  CRON_SECRET,
   MANAGER,
   PASSWORD,
   SERVICE,
@@ -519,8 +521,8 @@ test("a budtender cannot review IDs: the queue says so and the server refuses", 
   // and directly in the database: a budtender id is refused by the review/view functions
   const me = userId(BUDTENDER);
   for (const q of [
-    `select public.verification_review('${me}', '${userId(PASS)}', 'approve', null, null, 'budtender-key-1')`,
-    `select public.verification_log_document_view('${me}', '${userId(PASS)}')`,
+    `select public.verification_review('${me}', '${userId(MANAGER)}', 'approve', null, null, 'budtender-key-1')`,
+    `select public.verification_log_document_view('${me}', '${userId(MANAGER)}')`,
   ]) {
     expect(sqlError(q), q).toMatch(/forbidden/i);
   }
