@@ -17,6 +17,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  Stethoscope,
   Store,
   Truck,
   Users,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -68,6 +70,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "inventory", icon: Boxes, label: "Inventory" },
   { id: "customers", icon: Users, label: "Customers" },
   { id: "id-checks", icon: ShieldCheck, label: "ID Checks" },
+  { id: "clinical", icon: Stethoscope, label: "Clinical Docs" },
   { id: "deliveries", icon: Truck, label: "Deliveries" },
   { id: "promotions", icon: Megaphone, label: "Promotions" },
   { id: "events", icon: Calendar, label: "Events" },
@@ -404,6 +407,7 @@ function AdminPage() {
           </div>
         )}
         {tab === "id-checks" && <IdChecksPanel />}
+        {tab === "clinical" && <ClinicalDocsPanel />}
         {tab === "customers" && (
           <div>
             <h1 className="mb-4 font-display text-xl font-extrabold uppercase">Customers</h1>

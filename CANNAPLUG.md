@@ -636,3 +636,59 @@ Same harness as Milestone 4 (`scripts/live-stack/`, README). **8/8 live specs pa
 - **Existing members' sessions**: the gate applies at the database, so a member mid-checkout when this ships gets the "verify your ID" message from the server.
 - Reviewer notifications: nothing emails managers when an ID arrives, and members are not emailed the decision (the page updates live; email belongs with the Resend work already on the roadmap).
 - Budtenders cannot review (manager+ only, matching the original write policy); change `_assert_staff(..., 'manager')` in `verification_review` / `verification_log_document_view` if counter staff should.
+
+## 2026-10-02 — Clinical Document & Prescription System
+
+Branch `feat/clinical-documents`. Migration `supabase/migrations/20261002001000_clinical_documents.sql` (+ byte-identical `drizzle/migrations/0013_clinical_documents.sql`, rollback in `supabase/rollbacks/`). Usage and set-up are in `README.md` ("Clinical documents & prescriptions"); this section records the reasoning, the evidence and what is still undecided.
+
+### Audit findings that shaped the design
+- **Roles** are `customer | budtender | manager | admin` in `user_roles` (`app_role`). A practitioner is *not* a new role: changing the enum would touch every `role_level`/RLS path. Instead `doctor_profiles` (one per auth user, verification status, prescribing authorisation, signature enrolment) identifies practitioners, and `_require_doctor` is the single gate. Being admin/manager/budtender never satisfies it.
+- **Existing pattern** (ID verification, POS, checkout): clients cannot write; `SECURITY DEFINER` functions with `search_path=''`, an explicit actor argument, service-role-only `EXECUTE`, audit rows, idempotency keys, private bucket with no storage policies, short-lived signed URLs. The clinical system follows it exactly rather than inventing another model.
+- **No existing** doctor/prescription/document/PDF/email/signature code, no practitioner or consultation tables, no email provider wired in the app (Resend is only on the roadmap), `audit_log` exists but is mutable by design — so `document_events` is a separate append-only table.
+- Server logic lives in TanStack Start server functions, not Supabase Edge Functions, so none were added. `pdf-lib` + `qrcode-generator` (both pure JS, bundle for the Workers target) are the only new dependencies.
+- `profiles` has no member number; the displayed member reference is derived (`CP-M-` + first 8 hex of the user id). `profiles.date_of_birth` is only trustworthy after ID verification, so **documents require `customer_verification.status = 'verified'`**.
+
+### Decisions
+| Decision | Why |
+|---|---|
+| Only a verified, active practitioner creates documents; admins/managers/budtenders cannot, even for letters | no clinical sentence or value may originate from CannaPlug staff. Admin "intake/assignment" of letter requests is deliberately **not** built. |
+| Administrators see operational metadata only (type, status, practitioner, member *reference*, signature level) and can revoke | "must not automatically receive unrestricted clinical access". Admins can still assign a patient to a practitioner, which gives that practitioner the patient's name and DOB — a decision for the business. |
+| Hash computed **in PostgreSQL** over the stored text; `CHECK` ties `document_hash` to `rendered_content` | the authoritative hash cannot disagree with the text, whoever writes it. Approval carries the hash shown; mismatch refuses. |
+| `prepare` → `submit` with a snapshot hash | the text the practitioner reviews is provably rendered from exactly the data on file. |
+| Two hashes at signing: unsigned-PDF hash (`document_hash_before_signature`) and signed-PDF hash (`…_after_signature`) | public verification re-hashes the stored PDF against the latter, so a swapped or edited file fails. |
+| Verification token generated at draft time | the QR must be inside the PDF *before* it is sent to an external signer; an external signature cannot be altered afterwards. |
+| Assurance is a recorded decision (`signature_providers`, `document_signature_policy`) seeded **unconfirmed/disabled** | nothing is claimed "advanced" by code; nothing signs until compliance records it. `PRESCRIPTION_ORDER` can never require SIMPLE. |
+| Prescription expiry required, repeat count required (0 allowed), quantity words must match figures | presence/format checks only. **No numeric legal limits are encoded** (max repeats, validity period) because none were confirmed. |
+| Admin cannot verify their own practitioner profile or prescribing authorisation | a lone admin could otherwise make themselves a signer. Needs a second administrator. |
+| Public page: id, type, issued, practitioner, registration status, signature label, status | revoked/expired/void/not-issued/integrity-failure/not-found/rate-limited are distinct and never say "verified". |
+
+### What was NOT provided and was therefore not invented
+The brief says the doctor-approved medical-letter template and the prescription template are "provided separately below"; **no template text was supplied**. Two seed `DRAFT` templates (neutral skeletons using the required placeholders) exist and carry `[[SEED-PLACEHOLDER]]`, which makes `template_decide` refuse to activate them. The practitioner's real wording must be entered via **Templates** and approved.
+
+### Test evidence (executed in this session)
+- `npm run lint` 0 errors (15 pre-existing warnings) · `npm run typecheck` 0 errors · `npm run build` OK (Cloudflare worker target; `pdf-lib` bundled).
+- `npm test`: **320 passed** (+263 DB tests skipped without `TEST_DATABASE_URL`; 217 of the 320 are new, in `src/test/clinical/`: template engine, prescription validation/number-words, hashing & tokens, verification outcomes and public-data minimisation, PDF render/validate/determinism/tamper, signature adapters incl. HMAC webhook, email content, response headers, orchestration with an in-memory Supabase (order of begin→store→complete→issue, hash_after = SHA-256 of stored bytes, refusal paths, storage access ordering, email, verification incl. modified PDF and rate limiting), review/editor/verify/member components, and static guardrails: no AI import, no signature image, no browser storage/analytics/log of clinical data, additive migration, RLS on every table).
+- `npm run test:db` (real PostgreSQL 16): **263 passed** = 181 prior + **82 new** in `src/test/db/clinical-documents.test.ts`: practitioner verification (incl. self-verification and suspended/pending/inactive practitioners refused), template versioning/immutability/placeholder-marker/unsafe content, full lifecycle with exact audit sequence, hash from stored text, approval bound to hash, snapshot-changed refusal, request-changes/reject, member/assignment/ID-verification preconditions, idempotency, new version supersedes; prescription (nothing defaulted, completeness, expiry/repeats, no sign without approval, SIMPLE refused, enrolment needed, row freezes); provider/policy gates; **Doctor A cannot approve/sign/void/revoke/view Doctor B's document; admin/manager/budtender cannot create/approve/sign/view; only admins run admin functions; admin revokes audited as admin**; immutability (every frozen column, hash `CHECK`, signatures, no deletes/truncates, events/verifications append-only, service role cannot write tables); **RLS** (Member A vs B, drafts invisible, no clinical columns, no writes, doctor/admin/budtender/manager/anon matrices, no client EXECUTE on any function, no client write privileges, bucket private); access audit with ip/ua; revoked loses access; admin feeds carry no clinical text; audit metadata keys are whitelisted; expiry sweep; revoked never VALID; lookup leaks nothing; tampered text flagged; rate limiter; weak tokens refused.
+- **Mutation checks** (fresh DB per run, one rule broken in the migration): `_require_doctor` verified check, approval hash binding, assurance-rank gate, member RLS policy, document guard trigger, self-verification check, member file-access check, lookup content-hash check, event-append-only trigger, internal-attestation-unattended check, prescribing-authorisation check, admin check on revoke → **all 12 caught** (the first run of the first mutation *survived* — the test was passing for the wrong reason; strengthened, now caught).
+- Rollback rehearsed on a scratch DB (drops everything; refuses if documents exist).
+- **Not verified from this session:** the hosted Supabase project (the migration is **not applied there** — applying a migration to production is yours to approve), real Supabase Storage (the local harness has no `storage` schema, so the bucket statement and signed URLs are exercised only against mocks), a real signature provider, real Resend delivery, scanning the QR from a printed PDF, and a live browser run.
+
+### Open compliance decisions (need the practitioner / pharmacist / compliance advisor / counsel)
+1. **Signature level per document type** and which provider/method actually meets it (ECTA advanced electronic signature requirements; what a prescription needs). The internal attestation is SIMPLE and the external adapter is a neutral contract, untested against a vendor.
+2. **Whether a prescription may be issued electronically at all** for the products CannaPlug dispenses, the scheduling/Schedule rules, validity period, maximum repeats, and what must appear on it (HPCSA/SAPC/Medicines Act). Only presence/format is checked.
+3. **Wording of both templates**, including how a letter may describe a condition.
+4. **Retention periods** (`clinical_retention_policy` values are proposals) and the POPIA position: erasure requests vs retention, lawful basis/consent for processing health information, operator agreements with Supabase/Resend/signature provider, cross-border transfer.
+5. **Who may be a practitioner and who may assign patients** (admins can assign; practitioners then see name/DOB). Whether an assignment needs member consent, and whether the practitioner relationship (consultation) is recorded elsewhere.
+6. **Practitioner suspension/revocation:** documents already issued stay valid unless revoked; the public page shows "Registration: Not currently verified" but does not auto-revoke. Decide the policy.
+7. **Doctor–pharmacy/dispensing hand-off:** budtenders currently have *no* way to see that an order is covered by a prescription. Linking a verified prescription to an order for fulfilment (minimum operational data only) is not built.
+8. **Email:** members receive a content-free link; confirm that is acceptable and set up the sending domain.
+
+### Known gaps (deliberate, not forgotten)
+- No admin intake of letter requests; no member-initiated request flow; no consultation record.
+- No re-issue UI beyond "Create new version" (the practitioner retypes clinical values; nothing is copied forward).
+- Webhook-driven (asynchronous) signing path is implemented and unit-tested with mocks only.
+- A SIGNED document whose issue step failed is finished by the practitioner's "Finish issuing" (no background retry).
+- Verification of the *signature itself* (provider `verifySignature`) is part of the interface but the public page checks file integrity + recorded signature, not a provider call.
+- Rate limiting covers the public verification endpoint only; other server functions rely on authentication.
+- No pagination on practitioner/admin lists (capped at 200–500 rows).
+- Practitioner portal has no search/filter; no notification to the practitioner when a document is waiting.

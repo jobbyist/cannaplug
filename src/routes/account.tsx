@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CircleUserRound,
   CreditCard,
+  FileText,
   Headphones,
   Heart,
   LayoutDashboard,
@@ -292,12 +293,20 @@ function MemberPortal() {
           </Link>
         }
         footer={
-          <button
-            onClick={() => void signOut()}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-destructive"
-          >
-            <LogOut size={17} /> Sign out
-          </button>
+          <>
+            <Link
+              to="/member/documents"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <FileText size={17} /> My documents
+            </Link>
+            <button
+              onClick={() => void signOut()}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-destructive"
+            >
+              <LogOut size={17} /> Sign out
+            </button>
+          </>
         }
       />
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">

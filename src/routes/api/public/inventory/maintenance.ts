@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
  *   - expires overdue online-order stock holds (returns their quantity to available stock)
  *   - purges idempotency keys older than 30 days
  *   - credits loyalty for committed sales whose post-commit accrual failed (idempotent retry)
+ *   - marks issued clinical documents past their expiry date as EXPIRED (verification does not depend on it)
  * Both operations are safe to run concurrently and repeatedly.
  */
 export const Route = createFileRoute("/api/public/inventory/maintenance")({
@@ -15,17 +16,19 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         const denied = await authenticateCronRequest(request);
         if (denied) return denied;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const [expired, purged, loyalty] = await Promise.all([
+        const [expired, purged, loyalty, clinical] = await Promise.all([
           supabaseAdmin.rpc("release_expired_reservations"),
           supabaseAdmin.rpc("purge_old_idempotency_keys", {}),
           supabaseAdmin.rpc("accrue_missing_pos_loyalty", {}),
+          supabaseAdmin.rpc("clinical_document_expire_due"),
         ]);
-        if (expired.error || purged.error || loyalty.error) {
+        if (expired.error || purged.error || loyalty.error || clinical.error) {
           console.error(
             "inventory maintenance failed",
             expired.error?.message,
             purged.error?.message,
             loyalty.error?.message,
+            clinical.error?.message,
           );
           return Response.json({ ok: false }, { status: 500 });
         }
@@ -34,6 +37,7 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
           expiredHolds: expired.data,
           purgedKeys: purged.data,
           loyaltyRetried: loyalty.data,
+          clinicalDocumentsExpired: clinical.data,
         });
       },
     },
