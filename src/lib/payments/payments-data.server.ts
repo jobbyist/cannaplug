@@ -230,3 +230,33 @@ export async function setManualFxRate(userId: string, rate: number, validHours: 
   });
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Audit viewer (manager+): structured, attributable events for admin, manager and POS actions
+// ---------------------------------------------------------------------------------------------
+
+export async function listAuditEvents(
+  userId: string,
+  filter: { actionPrefix?: string | undefined; limit?: number | undefined },
+) {
+  await assertRole(userId, "manager");
+  let q = supabaseAdmin
+    .from("audit_log")
+    .select("id,actor_user_id,action,entity_type,entity_id,metadata,created_at")
+    .order("id", { ascending: false })
+    .limit(Math.min(Math.max(filter.limit ?? 100, 1), 300));
+  if (filter.actionPrefix) q = q.like("action", `${filter.actionPrefix.replace(/[%_]/g, "")}%`);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  const ids = [
+    ...new Set((data ?? []).map((r) => r.actor_user_id).filter((v): v is string => !!v)),
+  ];
+  const { data: profiles } = ids.length
+    ? await supabaseAdmin.from("profiles").select("id,full_name").in("id", ids)
+    : { data: [] as { id: string; full_name: string | null }[] };
+  const names = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+  return (data ?? []).map((r) => ({
+    ...r,
+    actor_name: r.actor_user_id ? (names.get(r.actor_user_id) ?? null) : null,
+  }));
+}

@@ -49,11 +49,11 @@ export function LegalLayout({
           Questions about this policy? Contact us at{" "}
           <a
             className="font-semibold text-primary underline-offset-2 hover:underline"
-            href="mailto:hello@cannaplug.co.za"
+            href="mailto:info@cannaplug012.co.za"
           >
-            hello@cannaplug.co.za
+            info@cannaplug012.co.za
           </a>{" "}
-          or +27 10 123 4567.
+          or +27 68 291 2107.
         </div>
       </main>
       <Footer />

@@ -38,7 +38,7 @@ function supabaseNotificationDb(): NotificationDb {
 }
 
 export async function runNotificationDispatch(
-  siteUrlFallback = "https://cannaplug.co.za",
+  siteUrlFallback = "https://cannaplug012.co.za",
   limit = 25,
 ) {
   return dispatchBatch(

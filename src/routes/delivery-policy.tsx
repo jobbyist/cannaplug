@@ -109,11 +109,11 @@ function DeliveryPolicyPage() {
               For delayed, missing or damaged deliveries, contact our team at{" "}
               <a
                 className="font-semibold text-primary underline-offset-2 hover:underline"
-                href="mailto:hello@cannaplug.co.za"
+                href="mailto:info@cannaplug012.co.za"
               >
-                hello@cannaplug.co.za
+                info@cannaplug012.co.za
               </a>{" "}
-              or +27 10 123 4567 and we'll resolve it as quickly as possible — see our{" "}
+              or +27 68 291 2107 and we'll resolve it as quickly as possible — see our{" "}
               <a
                 className="font-semibold text-primary underline-offset-2 hover:underline"
                 href="/refund-policy"

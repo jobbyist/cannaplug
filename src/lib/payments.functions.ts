@@ -133,3 +133,21 @@ export const setManualFxRateFn = createServerFn({ method: "POST" })
       data.validHours,
     ),
   );
+
+export const listAuditEventsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        actionPrefix: z
+          .string()
+          .regex(/^[a-z_]{0,40}$/)
+          .optional(),
+        limit: z.number().int().min(1).max(300).optional(),
+      })
+      .default({})
+      .parse(d),
+  )
+  .handler(async ({ context, data }) =>
+    (await import("@/lib/payments/payments-data.server")).listAuditEvents(context.userId, data),
+  );

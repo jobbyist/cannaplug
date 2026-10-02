@@ -8,7 +8,7 @@ import {
 } from "@/lib/notifications/dispatch";
 import { TEMPLATES, renderTemplate } from "@/lib/notifications/templates";
 
-const ctx = { siteUrl: "https://cannaplug.co.za" };
+const ctx = { siteUrl: "https://cannaplug012.co.za" };
 const data = {
   order_number: "CP-100",
   total_rand: 1234.5,
@@ -58,7 +58,7 @@ describe("adapters", () => {
     expect(url).toBe("https://api.resend.com/emails");
     expect(init!.headers!["Idempotency-Key"]).toBe("n-1");
     expect(JSON.parse(init!.body!)).toMatchObject({
-      from: "Cannaplug Support <updates@cannaplug.co.za>",
+      from: "Cannaplug Support <update@updates.cannaplug012.co.za>",
       to: ["a@example.com"],
     });
   });
@@ -161,5 +161,30 @@ describe("dispatchBatch", () => {
     });
     expect(s.sent).toBe(0);
     expect(done.every((d) => !d.r.ok && !d.r.permanent)).toBe(true);
+  });
+});
+
+describe("template coverage", () => {
+  it("every template the database can enqueue has a renderer (no dead-lettered emails)", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const dir = new URL("../../supabase/migrations/", import.meta.url).pathname;
+    const used = new Set<string>();
+    for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql"))) {
+      const sql = readFileSync(dir + f, "utf8");
+      for (const m of sql.matchAll(
+        /notification_enqueue\(\s*'(?:email|sms|whatsapp)',\s*'([a-z0-9_]+)'/g,
+      ))
+        used.add(m[1]!);
+      for (const m of sql.matchAll(/notification_enqueue_staff\(\s*'([a-z0-9_]+)'/g))
+        used.add(m[1]!);
+      for (const m of sql.matchAll(/v_template := CASE[\s\S]*?END;/g))
+        for (const t of m[0].matchAll(/THEN '([a-z_]+)'/g)) used.add(t[1]!);
+    }
+    expect(used.size).toBeGreaterThan(10);
+    expect([...used].filter((t) => !(t in TEMPLATES))).toEqual([]);
+  });
+  it("every template has sample data (previews and test sends)", async () => {
+    const { SAMPLES } = await import("../../scripts/email-samples");
+    expect(Object.keys(TEMPLATES).filter((t) => !(t in SAMPLES))).toEqual([]);
   });
 });

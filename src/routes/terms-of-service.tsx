@@ -63,9 +63,9 @@ function TermsOfServicePage() {
               and for all activity that occurs under your account. Notify us immediately at{" "}
               <a
                 className="font-semibold text-primary underline-offset-2 hover:underline"
-                href="mailto:hello@cannaplug.co.za"
+                href="mailto:info@cannaplug012.co.za"
               >
-                hello@cannaplug.co.za
+                info@cannaplug012.co.za
               </a>{" "}
               if you suspect unauthorised use of your account.
             </p>

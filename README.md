@@ -692,7 +692,7 @@ The assurance level is **a recorded human decision** (`signature_providers`, `do
 | Variable | Purpose |
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | existing |
-| `PUBLIC_APP_URL` | base of verification links printed in PDFs and emails (e.g. `https://cannaplug.co.za`) |
+| `PUBLIC_APP_URL` | base of verification links printed in PDFs and emails (e.g. `https://cannaplug012.co.za`) |
 | `SIGNATURE_ATTESTATION_SECRET` | ≥ 32 random chars; keys the internal attestation HMAC. Required for `internal_simple`. |
 | `EXTERNAL_SIGNATURE_API_URL`, `EXTERNAL_SIGNATURE_API_KEY`, `EXTERNAL_SIGNATURE_WEBHOOK_SECRET` | external provider adapter + webhook HMAC |
 | `RESEND_API_KEY`, `DOCUMENT_EMAIL_FROM` | "document ready" email (optional; skipped and recorded if unset) |

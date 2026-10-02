@@ -21,6 +21,7 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
 import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
@@ -92,6 +93,11 @@ const ShopRoute = ShopRouteImport.update({
 const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
   id: '/terms-of-service',
   path: '/terms-of-service',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JournalIndexRoute = JournalIndexRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/unsubscribe'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/unsubscribe'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/refund-policy'
     | '/shop'
     | '/terms-of-service'
+    | '/unsubscribe'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   RefundPolicyRoute: typeof RefundPolicyRoute
   ShopRoute: typeof ShopRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   JournalSlugRoute: typeof JournalSlugRoute
   MemberDocumentsRoute: typeof MemberDocumentsRoute
   PaymentReturnRoute: typeof PaymentReturnRoute
@@ -431,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/terms-of-service'
       fullPath: '/terms-of-service'
       preLoaderRoute: typeof TermsOfServiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/journal/': {
@@ -533,6 +553,7 @@ const rootRouteChildren: RootRouteChildren = {
   RefundPolicyRoute: RefundPolicyRoute,
   ShopRoute: ShopRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   JournalSlugRoute: JournalSlugRoute,
   MemberDocumentsRoute: MemberDocumentsRoute,
   PaymentReturnRoute: PaymentReturnRoute,

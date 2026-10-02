@@ -170,15 +170,15 @@ function FaqPage() {
           <div className="flex flex-col gap-1 text-xs font-semibold">
             <a
               className="flex items-center gap-2 text-primary hover:underline"
-              href="mailto:hello@cannaplug.co.za"
+              href="mailto:info@cannaplug012.co.za"
             >
-              <Mail size={14} /> hello@cannaplug.co.za
+              <Mail size={14} /> info@cannaplug012.co.za
             </a>
             <a
               className="flex items-center gap-2 text-primary hover:underline"
-              href="tel:+27101234567"
+              href="tel:+27682912107"
             >
-              <Phone size={14} /> +27 10 123 4567
+              <Phone size={14} /> +27 68 291 2107
             </a>
           </div>
         </div>

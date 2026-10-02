@@ -45,3 +45,4 @@ playwright-report/
 e2e/live/.run.json
 test-results/
 playwright-report/
+docs/guide/guide.html

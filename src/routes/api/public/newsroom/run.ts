@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-const bodySchema = z.object({ publishedAt: z.string().datetime().optional() });
+const bodySchema = z.object({
+  publishedAt: z.string().datetime().optional(),
+  /** "daily" = the 06:00 SAST schedule (one article, idempotent); "batch" = publish `count` (max 3) now, e.g. the launch backfill. */
+  mode: z.enum(["daily", "batch", "single"]).optional(),
+  count: z.number().int().min(1).max(3).optional(),
+});
 
 async function isAdminToken(request: Request): Promise<boolean> {
   const token = /^Bearer (.+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
@@ -34,9 +39,19 @@ export const Route = createFileRoute("/api/public/newsroom/run")({
           return Response.json({ error: "Invalid body" }, { status: 400 });
         }
         try {
-          const { generateAndPublishArticle } = await import("@/lib/newsroom.server");
-          const article = await generateAndPublishArticle(body.publishedAt);
-          return Response.json({ ok: true, article });
+          const { runNewsroom } = await import("@/lib/newsroom.server");
+          const mode =
+            body.mode === "daily"
+              ? ({ kind: "daily" } as const)
+              : body.mode === "batch"
+                ? ({ kind: "batch", count: body.count ?? 3 } as const)
+                : ({
+                    kind: "single",
+                    ...(body.publishedAt ? { publishedAt: body.publishedAt } : {}),
+                  } as const);
+          const r = await runNewsroom(mode);
+          const failed = r.published.length === 0 && r.errors.length > 0;
+          return Response.json({ ok: !failed, ...r }, { status: failed ? 500 : 200 });
         } catch (error) {
           console.error("[newsroom] run failed", error);
           return Response.json(

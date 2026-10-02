@@ -42,6 +42,16 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         } catch (err) {
           console.error("ID document sweep failed", err instanceof Error ? err.message : err);
         }
+        // Best-effort email automations (back in stock, ID expiring, low stock, weekly digest).
+        let automations: unknown = null;
+        try {
+          const a = await supabaseAdmin.rpc("email_automations_run");
+          automations = a.error ? { error: a.error.message } : a.data;
+        } catch (err) {
+          console.error("email automations failed", err instanceof Error ? err.message : err);
+        }
+        // Best-effort housekeeping: drop expired AI-quota counters.
+        await supabaseAdmin.rpc("ai_quota_purge").then(undefined, () => undefined);
         // Also best-effort: expire abandoned payment attempts and flush the notification queue.
         let notifications: unknown = null;
         try {
@@ -59,6 +69,7 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         return Response.json({
           ok: true,
           notifications,
+          emailAutomations: automations,
           idDocumentSweep: idSweep,
           expiredHolds: expired.data,
           purgedKeys: purged.data,

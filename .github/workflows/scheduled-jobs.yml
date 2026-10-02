@@ -1,0 +1,59 @@
+name: Scheduled jobs
+
+# Vercel Hobby crons run once a day at most, and the app needs three schedules, so GitHub Actions is the scheduler.
+# Required repository secrets:
+#   APP_URL        e.g. https://cannaplug012.co.za   (no trailing slash)
+#   CRON_SECRET    the same value as LOVABLE_CRON_SECRET in the Vercel environment
+on:
+  schedule:
+    - cron: "*/5 * * * *" # notification dispatcher (email/SMS queue) + stale payment expiry
+    - cron: "17 * * * *" # hourly housekeeping (stock holds, loyalty retries, ID retention sweep, quota purge)
+    - cron: "0 4 * * *" # 06:00 SAST daily Journal article
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job to run now"
+        type: choice
+        options: [dispatch, maintenance, newsroom-daily, newsroom-launch-batch]
+        default: dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Decide which job this trigger is for
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then JOB="${{ inputs.job }}"
+          else
+            case "${{ github.event.schedule }}" in
+              "*/5 * * * *") JOB=dispatch ;;
+              "17 * * * *") JOB=maintenance ;;
+              "0 4 * * *") JOB=newsroom-daily ;;
+            esac
+          fi
+          echo "job=$JOB" >> "$GITHUB_OUTPUT"
+      - name: Call the app
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          JOB: ${{ steps.pick.outputs.job }}
+        run: |
+          set -euo pipefail
+          [ -n "$APP_URL" ] && [ -n "$CRON_SECRET" ] || { echo "APP_URL / CRON_SECRET secrets are not set"; exit 1; }
+          case "$JOB" in
+            dispatch)               PATH_="/api/public/notifications/dispatch"; BODY='{}' ;;
+            maintenance)            PATH_="/api/public/inventory/maintenance";  BODY='{}' ;;
+            newsroom-daily)         PATH_="/api/public/newsroom/run";           BODY='{"mode":"daily"}' ;;
+            newsroom-launch-batch)  PATH_="/api/public/newsroom/run";           BODY='{"mode":"batch","count":3}' ;;
+            *) echo "unknown job"; exit 1 ;;
+          esac
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" -X POST "$APP_URL$PATH_" \
+            -H "authorization: Bearer $CRON_SECRET" -H "content-type: application/json" -d "$BODY" --max-time 240)
+          echo "$JOB -> HTTP $code"; cat /tmp/out.json; echo
+          # newsroom-daily answers 200 with skipped:"not_due" on a duplicate trigger; anything 5xx fails the run
+          [ "$code" -lt 500 ] && [ "$code" -ne 401 ]

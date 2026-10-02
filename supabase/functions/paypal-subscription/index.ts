@@ -26,11 +26,23 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-setup-token",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+// CORS is an allowlist, never "*": the site origin (SITE_URL), the Lovable preview/published domains and local dev.
+const allowedOrigin = (origin: string | null): string | null => {
+  if (!origin) return null;
+  const site = Deno.env.get("SITE_URL")?.replace(/\/+$/, "");
+  if (site && origin === site) return origin;
+  if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.lovable\.(app|dev)$/.test(origin)) return origin;
+  if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return origin;
+  return null;
+};
+const corsFor = (req: Request): Record<string, string> => {
+  const origin = allowedOrigin(req.headers.get("origin"));
+  return {
+    ...(origin ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" } : {}),
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-setup-token",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
 };
 
 const SERVICE_NAME = "Shopify Admin API Integration - Basic";
@@ -40,7 +52,7 @@ type Interval = keyof typeof PRICES;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
   });
 
 const apiBase = () =>
@@ -137,8 +149,8 @@ async function setup() {
   };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+async function handle(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response(null);
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   let body: Record<string, unknown>;
@@ -230,4 +242,12 @@ Deno.serve(async (req) => {
     console.error("[paypal-subscription]", err);
     return json({ error: "Something went wrong. Please try again." }, 500);
   }
+}
+
+// CORS headers are attached per request on the way out (no shared mutable state between concurrent requests).
+Deno.serve(async (req) => {
+  const res = await handle(req);
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(corsFor(req))) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
 });

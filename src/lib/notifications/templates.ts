@@ -6,6 +6,10 @@
  */
 export interface Rendered {
   subject: string;
+  /** Where a reply should go (e.g. the person who filled in the contact form). */
+  replyTo?: string;
+  /** Extra message headers (e.g. List-Unsubscribe on marketing mail). */
+  headers?: Record<string, string>;
   html: string;
   text: string;
   /** Short text for SMS / WhatsApp, if this template has one. */
@@ -86,6 +90,7 @@ const strip = (html: string) =>
 
 type Ctx = { siteUrl: string };
 type Template = (d: TemplateData, c: Ctx) => Omit<Rendered, "text"> & { text?: string };
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const orderRows = (d: TemplateData): [string, string][] => [
   ["Order", esc(d["order_number"])],
@@ -212,6 +217,225 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open payments", url: adminUrl(c) },
     }),
   }),
+  contact_form_staff: (d) => ({
+    subject: `Website message: ${String(d["subject"] ?? "").slice(0, 120)}`,
+    ...(EMAIL_RE.test(String(d["email"] ?? "")) ? { replyTo: String(d["email"]) } : {}),
+    html: layout({
+      preheader: "A message from the website contact form.",
+      title: "New website message",
+      bodyHtml:
+        kv([
+          ["From", esc(d["name"])],
+          ["Email", esc(d["email"])],
+          ["Subject", esc(d["subject"])],
+        ]) +
+        `<p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(d["message"])}</p>`,
+      footerNote: "Reply to this email to answer the sender directly.",
+    }),
+  }),
+  contact_form_ack: (d, c) => ({
+    subject: "We received your message",
+    html: layout({
+      preheader: "Thanks for getting in touch.",
+      title: "Thanks for getting in touch",
+      bodyHtml:
+        p(`Hi ${esc(String(d["name"] ?? "there").split(" ")[0])},`) +
+        p(
+          "We have received your message and a member of the team will reply as soon as they can — usually within one business day.",
+        ) +
+        kv([["Subject", esc(d["subject"])]]),
+      cta: { label: "Visit Cannaplug", url: c.siteUrl },
+    }),
+  }),
+  newsletter_welcome: (d, c) => ({
+    subject: "Welcome to Cannaplug",
+    html: layout({
+      preheader: "You are on the list for stories, events and news.",
+      title: "You're on the list",
+      bodyHtml:
+        p(
+          "Thanks for subscribing. You will hear from us about new stories in the Journal, events and Cannaplug news.",
+        ) +
+        p(
+          `Changed your mind? <a href="${esc(c.siteUrl.replace(/\/+$/, ""))}/unsubscribe?token=${esc(d["unsubscribe_token"])}" style="color:${BRAND.green}">Unsubscribe in one click</a>.`,
+        ),
+      cta: { label: "Read the Journal", url: `${c.siteUrl.replace(/\/+$/, "")}/journal` },
+    }),
+  }),
+  member_welcome: (d, c) => ({
+    subject: "Welcome to Cannaplug",
+    html: layout({
+      preheader: "Your account is ready — one quick step before you can order.",
+      title: "Welcome to Cannaplug",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          "Your member account is ready. To order online we verify your ID once — upload it from your account and our team reviews it, usually within one business day.",
+        ) +
+        p(
+          "Once you are verified you can order, track every order live, earn rewards points on every purchase and save your favourites.",
+        ),
+      cta: { label: "Verify my ID", url: accountUrl(c) },
+      footerNote: "Cannaplug is for adults 18 and over.",
+    }),
+  }),
+  id_submitted: (d, c) => ({
+    subject: "We received your ID",
+    html: layout({
+      preheader: "Our team is reviewing it.",
+      title: "ID received",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          "Thanks — we have your ID and our team will review it, usually within one business day. We will email you as soon as it is decided. You do not need to do anything else.",
+        ),
+      cta: { label: "Check my status", url: accountUrl(c) },
+    }),
+  }),
+  id_approved: (d, c) => ({
+    subject: "Your ID is verified — you can order now",
+    html: layout({
+      preheader: "You are all set.",
+      title: "You're verified",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          "Your ID has been verified, so you can now order online." +
+            (d["document_expires_on"]
+              ? ` Your ID document expires on ${esc(d["document_expires_on"])} — we will remind you before then.`
+              : " South African ID documents do not need to be re-verified."),
+        ),
+      cta: { label: "Start shopping", url: `${c.siteUrl.replace(/\/+$/, "")}/shop` },
+    }),
+  }),
+  id_rejected: (d, c) => {
+    const reasons: Record<string, string> = {
+      unreadable: "the photo was too blurry or cut off to read",
+      expired: "the document has expired",
+      mismatch: "the details did not match the information on your account",
+      underage: "you must be 18 or older to order",
+      invalid_document: "that document type cannot be accepted",
+    };
+    const why = reasons[String(d["rejection_code"] ?? "")];
+    return {
+      subject: "We couldn't verify your ID",
+      html: layout({
+        preheader: "Here is how to fix it.",
+        title: "We couldn't verify your ID",
+        bodyHtml:
+          p(hi(d)) +
+          p(`We were not able to verify your ID${why ? ` because ${esc(why)}` : ""}.`) +
+          p(
+            "You can upload a new photo from your account and we will look again. If you think this is a mistake, reply to this email.",
+          ),
+        cta: { label: "Upload again", url: accountUrl(c) },
+      }),
+    };
+  },
+  id_expiring: (d, c) => ({
+    subject: "Your ID document expires soon",
+    html: layout({
+      preheader: "Upload a new one to keep ordering.",
+      title: "Your ID is expiring",
+      bodyHtml:
+        p(hi(d)) +
+        p(
+          `The ID document we verified expires on ${esc(d["document_expires_on"])}. To keep ordering without interruption, upload a current one from your account.`,
+        ),
+      cta: { label: "Update my ID", url: accountUrl(c) },
+    }),
+  }),
+  back_in_stock: (d, c) => ({
+    subject: `${String(d["product_name"] ?? "Your product")} is back in stock`,
+    html: layout({
+      preheader: "You asked us to tell you.",
+      title: "Back in stock",
+      bodyHtml:
+        p(`Good news — <b>${esc(d["product_name"])}</b> is available again.`) +
+        p("Stock moves quickly, so order soon if you want it."),
+      cta: { label: "Shop now", url: `${c.siteUrl.replace(/\/+$/, "")}/shop` },
+      footerNote: "You asked to be notified about this product; this is a one-time message.",
+    }),
+  }),
+  staff_id_review: (d, c) => ({
+    subject: "ID waiting for review",
+    html: layout({
+      preheader: "A member is waiting to order.",
+      title: "ID waiting for review",
+      bodyHtml: p(`${esc(d["member_name"] ?? "A member")} has submitted an ID for review.`),
+      cta: { label: "Open ID checks", url: adminUrl(c) },
+    }),
+  }),
+  staff_low_stock: (d, c) => ({
+    subject: "Low stock today",
+    html: layout({
+      preheader: "These products are almost out.",
+      title: "Low stock",
+      bodyHtml:
+        p("These active products have 5 or fewer units available:") +
+        kv(
+          ((d["items"] as { name?: unknown; available?: unknown }[] | undefined) ?? [])
+            .slice(0, 40)
+            .map((i): [string, string] => [String(i.name ?? ""), esc(i.available)]),
+        ),
+      cta: { label: "Open inventory", url: adminUrl(c) },
+    }),
+  }),
+  journal_digest: (d, c) => {
+    const base = c.siteUrl.replace(/\/+$/, "");
+    const articles = (
+      (d["articles"] as { title?: unknown; excerpt?: unknown; slug?: unknown }[] | undefined) ?? []
+    ).slice(0, 3);
+    const unsub = `${base}/unsubscribe?token=${esc(d["unsubscribe_token"])}`;
+    return {
+      subject: "This week in the Cannaplug Journal",
+      headers: {
+        "List-Unsubscribe": `<${unsub}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      html: layout({
+        preheader: "New stories from the Journal.",
+        title: "This week in the Journal",
+        bodyHtml:
+          articles
+            .map(
+              (a) =>
+                `<p style="margin:0 0 4px;font-size:16px;font-weight:700"><a href="${base}/journal/${esc(a.slug)}" style="color:${BRAND.green};text-decoration:none">${esc(a.title)}</a></p><p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:${BRAND.muted}">${esc(a.excerpt)}</p>`,
+            )
+            .join("") +
+          p(
+            `Not for you? <a href="${unsub}" style="color:${BRAND.green}">Unsubscribe in one click</a>.`,
+          ),
+        cta: { label: "Read the Journal", url: `${base}/journal` },
+        footerNote:
+          "You are receiving this because you subscribed on the Cannaplug website. For adults 18 and over.",
+      }),
+    };
+  },
+  promo_announcement: (d, c) => {
+    const base = c.siteUrl.replace(/\/+$/, "");
+    const unsub = `${base}/unsubscribe?token=${esc(d["unsubscribe_token"])}`;
+    return {
+      subject: String(d["headline"] ?? "News from Cannaplug").slice(0, 120),
+      headers: {
+        "List-Unsubscribe": `<${unsub}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      html: layout({
+        preheader: String(d["preheader"] ?? "").slice(0, 120),
+        title: String(d["headline"] ?? "News from Cannaplug"),
+        bodyHtml:
+          `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(d["body"])}</p>` +
+          p(`<a href="${unsub}" style="color:${BRAND.green}">Unsubscribe</a>`),
+        cta: {
+          label: String(d["cta_label"] ?? "Visit Cannaplug"),
+          url: String(d["cta_url"] ?? base),
+        },
+        footerNote:
+          "You are receiving this because you subscribed on the Cannaplug website. For adults 18 and over.",
+      }),
+    };
+  },
   staff_eft_approval: (d, c) => ({
     subject: "EFT awaiting your approval",
     html: layout({
@@ -246,6 +470,8 @@ export function renderTemplate(template: string, data: TemplateData, ctx: Ctx): 
   if (!t) return null;
   const r = t(data ?? {}, ctx);
   const out: Rendered = { subject: r.subject, html: r.html, text: r.text ?? strip(r.html) };
+  if (r.replyTo) out.replyTo = r.replyTo;
+  if (r.headers) out.headers = r.headers;
   if (r.sms) out.sms = r.sms;
   return out;
 }

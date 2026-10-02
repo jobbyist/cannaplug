@@ -32,17 +32,20 @@ describe("AI restrictions", () => {
     for (const f of CLINICAL_FILES) {
       const src = read(f);
       expect(src, f).not.toMatch(
-        /ai-gateway|cannaplug-brain|chat\.functions|cannaplug-chat|LOVABLE_API_KEY|anthropic|openai|gemini|\bllm\b|chat\/completions/i,
+        /lib\/ai\/|ai-gateway|chat\.functions|newsroom|LOVABLE_API_KEY|GEMINI_API_KEY|anthropic|openai|gemini|\bllm\b|chat\/completions/i,
       );
     }
   });
 
   it("the assistant and the chat edge function never reference clinical tables", () => {
     const sources = [
-      read(join(root, "src/lib/cannaplug-brain.server.ts")),
-      read(join(root, "src/lib/ai-gateway.server.ts")),
+      read(join(root, "src/lib/ai/chat-prompt.ts")),
+      read(join(root, "src/lib/ai/chat-service.ts")),
+      read(join(root, "src/lib/ai/chat.server.ts")),
+      read(join(root, "src/lib/ai/gemini.ts")),
       read(join(root, "src/lib/chat.functions.ts")),
-      read(join(root, "supabase/functions/cannaplug-chat/index.ts")),
+      read(join(root, "src/lib/newsroom.server.ts")),
+      read(join(root, "src/lib/newsroom/pipeline.ts")),
     ].join("\n");
     expect(sources).not.toMatch(
       /medical_documents|prescription_orders|doctor_profiles|document_templates|document_signatures|clinical_document/,
@@ -50,8 +53,8 @@ describe("AI restrictions", () => {
   });
 
   it("the assistant's own instructions still forbid dosing and medical advice", () => {
-    expect(read(join(root, "supabase/functions/cannaplug-chat/index.ts"))).toMatch(
-      /never provide dosing or medical advice/i,
+    expect(read(join(root, "src/lib/ai/chat-prompt.ts"))).toMatch(
+      /never give dosing, treatment, diagnosis or medical advice/i,
     );
   });
 });
