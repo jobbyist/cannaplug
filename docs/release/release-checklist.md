@@ -16,7 +16,7 @@ Tick in order. **[needs you]** = requires your accounts/decisions; everything el
 
 - [ ] Vercel env vars from `runbook.md` §2 (provider keys, `RESEND_API_KEY`, `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, `SITE_URL`, `LOVABLE_CRON_SECRET`)
 - [ ] GitHub secrets `APP_URL`, `CRON_SECRET`; run _Scheduled jobs → dispatch_ once; then _newsroom-launch-batch_ for the three launch articles
-- [ ] Yoco + PayPal webhooks registered (live); Resend domain `updates.cannaplug012.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
+- [ ] Yoco + PayPal webhooks registered (live); Resend domain `cannaplug012.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
 - [ ] Delete the hosted `cannaplug-chat` edge function (replaced by the server function)
 - [ ] Decide on the `admin_emails` sign-up trigger (audit finding 12)
 - [ ] Run the three DROP statements and record the two ID migrations on hosted if not done (see CANNAPLUG.md, ID verification)

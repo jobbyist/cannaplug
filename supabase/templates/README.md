@@ -4,8 +4,8 @@ Sign-up confirmation, password reset, magic link, email change and invite emails
 app's notification queue, so their look is configured in Supabase:
 
 1. Dashboard -> Authentication -> Emails -> **SMTP Settings**: enable custom SMTP with Resend
-   (host `smtp.resend.com`, port 465, user `resend`, password = the Resend API key, sender `update@updates.cannaplug012.co.za`,
-   sender name `Cannaplug Support`). The domain `updates.cannaplug012.co.za` must be verified in Resend.
+   (host `smtp.resend.com`, port 465, user `resend`, password = the Resend API key, sender `updates@cannaplug012.co.za`,
+   sender name `Cannaplug Support`). The domain `cannaplug012.co.za` must be verified in Resend.
 2. Dashboard -> Authentication -> Emails -> **Templates**: paste each file in this folder into its template
    (Confirm signup = `confirmation.html`, Reset password = `recovery.html`, Magic link = `magic_link.html`,
    Change email = `email_change.html`, Invite user = `invite.html`) and use the subject lines below.

@@ -58,7 +58,7 @@ describe("adapters", () => {
     expect(url).toBe("https://api.resend.com/emails");
     expect(init!.headers!["Idempotency-Key"]).toBe("n-1");
     expect(JSON.parse(init!.body!)).toMatchObject({
-      from: "Cannaplug Support <update@updates.cannaplug012.co.za>",
+      from: "Cannaplug Support <updates@cannaplug012.co.za>",
       to: ["a@example.com"],
     });
   });
