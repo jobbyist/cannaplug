@@ -9,6 +9,7 @@ import {
   ID_MIME_TO_EXT,
   documentNeedsExpiry,
   isOwnUploadPath,
+  uploadBlockedReason,
   sniffMime,
   type DocumentType,
 } from "@/lib/verification-logic";
@@ -63,13 +64,11 @@ export async function createIdUpload(userId: string, mime: string) {
 
   const { data: row } = await supabaseAdmin
     .from("customer_verification")
-    .select("status,attempt_count")
+    .select("status,attempt_count,document_expires_on")
     .eq("user_id", userId)
     .maybeSingle();
-  if (row?.status === "verified") throw friendlyMemberError(new Error("already_verified"));
-  if (row?.status === "pending") throw friendlyMemberError(new Error("verification_pending"));
-  if ((row?.attempt_count ?? 0) >= ID_MAX_ATTEMPTS)
-    throw friendlyMemberError(new Error("too_many_attempts"));
+  const blocked = uploadBlockedReason(row);
+  if (blocked) throw friendlyMemberError(new Error(blocked));
 
   // Bound what an account can leave in storage before it ever submits.
   const { data: existing } = await storage().list(userId, { limit: MAX_FILES_PER_MEMBER + 1 });

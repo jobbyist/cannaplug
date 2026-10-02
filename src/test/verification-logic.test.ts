@@ -10,6 +10,7 @@ import {
   latestAdultBirthDate,
   rejectionMessage,
   sniffMime,
+  uploadBlockedReason,
   verificationView,
 } from "@/lib/verification-logic";
 import { friendlyMemberError } from "@/lib/member-logic";
@@ -187,5 +188,35 @@ describe("document expiry rules", () => {
     expect(friendlyMemberError(new Error("verification_expired: x")).message).toMatch(/expired/);
     expect(friendlyMemberError(new Error("document_expired: x")).message).toMatch(/expired/);
     expect(friendlyMemberError(new Error("invalid_expiry: x")).message).toMatch(/expiry date/);
+  });
+});
+
+describe("uploadBlockedReason — who may start an upload", () => {
+  const today = new Date(2026, 9, 2);
+  it("anyone unverified or rejected may upload, until the attempt cap", () => {
+    expect(uploadBlockedReason(null, today)).toBeNull();
+    expect(uploadBlockedReason({ status: "rejected", attempt_count: 4 }, today)).toBeNull();
+    expect(uploadBlockedReason({ status: "rejected", attempt_count: 5 }, today)).toBe(
+      "too_many_attempts",
+    );
+  });
+  it("not while pending", () => {
+    expect(uploadBlockedReason({ status: "pending" }, today)).toBe("verification_pending");
+  });
+  it("a verified member with a current document, or an SA ID, may not upload again", () => {
+    expect(
+      uploadBlockedReason({ status: "verified", document_expires_on: "2030-01-01" }, today),
+    ).toBe("already_verified");
+    expect(uploadBlockedReason({ status: "verified", document_expires_on: null }, today)).toBe(
+      "already_verified",
+    );
+  });
+  it("a verified member whose passport or licence has expired may renew, even after using all attempts", () => {
+    expect(
+      uploadBlockedReason(
+        { status: "verified", document_expires_on: "2026-10-01", attempt_count: 5 },
+        today,
+      ),
+    ).toBeNull();
   });
 });

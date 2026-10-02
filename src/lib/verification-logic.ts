@@ -49,6 +49,27 @@ export const isExpired = (expiresOn: string | null | undefined, today: Date = ne
   Boolean(expiresOn) &&
   (expiresOn as string) < iso(today.getFullYear(), today.getMonth() + 1, today.getDate());
 
+/**
+ * Whether a member may start a new upload right now (mirrors the database's verification_submit rules,
+ * which remain the authority). A verified member may only upload again once their passport / licence has
+ * expired, and that renewal starts a fresh set of attempts.
+ */
+export function uploadBlockedReason(
+  row: {
+    status?: string | null;
+    attempt_count?: number | null;
+    document_expires_on?: string | null;
+  } | null,
+  today: Date = new Date(),
+): "already_verified" | "verification_pending" | "too_many_attempts" | null {
+  const status = row?.status ?? "unverified";
+  if (status === "verified")
+    return isExpired(row?.document_expires_on, today) ? null : "already_verified";
+  if (status === "pending") return "verification_pending";
+  if ((row?.attempt_count ?? 0) >= ID_MAX_ATTEMPTS) return "too_many_attempts";
+  return null;
+}
+
 /** What the reviewer picks, and what the member is told (never internal notes). */
 export const REJECTION_REASONS: { code: RejectionCode; label: string; memberMessage: string }[] = [
   {

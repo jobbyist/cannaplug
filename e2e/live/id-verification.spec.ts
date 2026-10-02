@@ -419,7 +419,8 @@ test("EXPIRY: a passport needs an expiry date; an SA ID does not ask for one", a
   await page.getByLabel(/photo or scan/i).setInputFiles(idFile);
   await expiry.fill("2020-01-01");
   await page.getByRole("button", { name: /submit for review/i }).click();
-  await expect(page.getByRole("alert")).toContainText(/expired/i);
+  // A real browser refuses a date before today's `min` itself (its own message), so nothing is sent.
+  expect(await expiry.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
   expect(verificationOf(PASS)).toBe("");
   await expiry.fill(plusYears(4));
   await page.getByRole("button", { name: /submit for review/i }).click();
