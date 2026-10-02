@@ -172,6 +172,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   rejection_note_too_long: "Keep the note under 500 characters",
   invalid_decision: "Choose approve or reject",
   verification_not_found: "No ID submission was found for that member",
+  verification_expired: "Your ID document has expired — upload a current one to keep ordering",
+  invalid_expiry: "Enter the expiry date shown on your document",
+  document_expired: "That document has expired — upload a current one",
 };
 
 /** Detail text after the code is user-safe for these (it carries numbers the member needs). */

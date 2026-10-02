@@ -75,7 +75,7 @@ export async function getMemberAccount(db: UserClient) {
     db
       .from("customer_verification")
       .select(
-        "status,document_type,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
+        "status,document_type,document_expires_on,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
       )
       .maybeSingle(),
   ]);

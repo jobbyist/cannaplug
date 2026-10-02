@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,37 @@ describe("VerificationPanel", () => {
     expect(mocks.uploadToSignedUrl.mock.invocationCallOrder[0]!).toBeLessThan(
       mocks.submitVerificationFn.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("asks for an expiry date only for a passport or licence, and refuses a lapsed one", async () => {
+    render(<VerificationPanel verification={null} defaultDob="1990-05-17" onDone={vi.fn()} />);
+    // SA ID (default): no expiry field.
+    expect(screen.queryByLabelText(/expiry date/i)).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText(/document type/i), "passport");
+    const expiry = screen.getByLabelText(/expiry date/i);
+    await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
+    fireEvent.change(expiry, { target: { value: "2020-01-01" } });
+    await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/expired/i);
+    expect(mocks.createIdUploadFn).not.toHaveBeenCalled();
+    // A current date goes through and is sent to the server.
+    const fiveYears = new Date();
+    fiveYears.setFullYear(fiveYears.getFullYear() + 5);
+    const valid = fiveYears.toISOString().slice(0, 10);
+    fireEvent.change(expiry, { target: { value: valid } });
+    await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
+    await waitFor(() => expect(mocks.submitVerificationFn).toHaveBeenCalled());
+    expect(mocks.submitVerificationFn).toHaveBeenCalledWith({
+      data: expect.objectContaining({ documentType: "passport", expiresOn: valid }),
+    });
+  });
+
+  it("an SA ID submission sends no expiry", async () => {
+    render(<VerificationPanel verification={null} defaultDob="1990-05-17" onDone={vi.fn()} />);
+    await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
+    await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
+    await waitFor(() => expect(mocks.submitVerificationFn).toHaveBeenCalled());
+    expect(mocks.submitVerificationFn.mock.calls[0]![0].data.expiresOn).toBeNull();
   });
 
   it("refuses an under-18 date of birth before anything is uploaded", async () => {

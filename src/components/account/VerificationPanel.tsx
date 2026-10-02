@@ -12,6 +12,8 @@ import {
   ID_BUCKET,
   checkIdFile,
   dobProblem,
+  documentNeedsExpiry,
+  expiryProblem,
   earliestBirthDate,
   latestAdultBirthDate,
   verificationView,
@@ -78,6 +80,7 @@ export function VerificationPanel({
   const view = verificationView(verification);
   const [documentType, setDocumentType] = useState<DocumentType>("sa_id");
   const [dob, setDob] = useState(defaultDob);
+  const [expiresOn, setExpiresOn] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +91,8 @@ export function VerificationPanel({
     setError(null);
     const dobIssue = dobProblem(dob);
     if (dobIssue) return setError(dobIssue);
+    const expiryIssue = expiryProblem(documentType, expiresOn);
+    if (expiryIssue) return setError(expiryIssue);
     if (!file) return setError("Choose a photo or scan of your ID.");
     const fileIssue = checkIdFile(file);
     if (fileIssue) return setError(fileIssue);
@@ -99,7 +104,15 @@ export function VerificationPanel({
         .from(ID_BUCKET)
         .uploadToSignedUrl(path, token, file, { contentType: file.type });
       if (uploadError) throw new Error("The upload failed. Please try again.");
-      await submitVerificationFn({ data: { documentType, path, dob, key: key.get() } });
+      await submitVerificationFn({
+        data: {
+          documentType,
+          path,
+          dob,
+          expiresOn: documentNeedsExpiry(documentType) ? expiresOn : null,
+          key: key.get(),
+        },
+      });
       key.reset();
       setFile(null);
       await onDone();
@@ -161,6 +174,27 @@ export function VerificationPanel({
               onChange={(e) => setDob(e.target.value)}
             />
           </div>
+          {documentNeedsExpiry(documentType) ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="id-expiry">Expiry date (as on your document)</Label>
+              <Input
+                id="id-expiry"
+                type="date"
+                required
+                min={new Date().toISOString().slice(0, 10)}
+                value={expiresOn}
+                onChange={(e) => setExpiresOn(e.target.value)}
+              />
+              <p className="text-[0.7rem] text-muted-foreground">
+                Passports and driver&apos;s licences expire. We&apos;ll ask for a current one when
+                this date passes.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[0.7rem] text-muted-foreground">
+              South African IDs don&apos;t expire, so there&apos;s no expiry date to enter.
+            </p>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="id-file">Photo or scan of your ID</Label>
             <Input

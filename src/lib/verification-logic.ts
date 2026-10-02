@@ -19,6 +19,36 @@ export const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
 export const documentTypeLabel = (type: string | null | undefined) =>
   DOCUMENT_TYPES.find((d) => d.value === type)?.label ?? "ID document";
 
+const pad = (n: number) => String(n).padStart(2, "0");
+const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
+
+/** South African IDs do not expire; passports and driver's licences do. */
+export const documentNeedsExpiry = (type: string | null | undefined) =>
+  type === "passport" || type === "drivers_licence";
+
+const MAX_EXPIRY_YEARS = 15;
+
+/** Early, friendly version of the database's expiry rule (the database is the authority). */
+export function expiryProblem(
+  type: string,
+  expiresOn: string,
+  today: Date = new Date(),
+): string | null {
+  if (!documentNeedsExpiry(type)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expiresOn) || Number.isNaN(Date.parse(expiresOn)))
+    return "Enter the expiry date shown on your document.";
+  const todayIso = iso(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  if (expiresOn < todayIso) return "That document has expired. Upload a current one.";
+  if (expiresOn > iso(today.getFullYear() + MAX_EXPIRY_YEARS, today.getMonth() + 1, 28))
+    return "Enter the expiry date shown on your document.";
+  return null;
+}
+
+/** True once a document's expiry date has passed (a missing date means it never expires). */
+export const isExpired = (expiresOn: string | null | undefined, today: Date = new Date()) =>
+  Boolean(expiresOn) &&
+  (expiresOn as string) < iso(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
 /** What the reviewer picks, and what the member is told (never internal notes). */
 export const REJECTION_REASONS: { code: RejectionCode; label: string; memberMessage: string }[] = [
   {
@@ -102,9 +132,6 @@ export function checkIdFile(file: { size: number; type: string }): string | null
 
 // ---- Age -----------------------------------------------------------------------------------
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
-
 /** The latest birth date (YYYY-MM-DD) that is 18+ today. Used as the date input's `max`. */
 export function latestAdultBirthDate(today: Date = new Date()): string {
   const y = today.getFullYear() - 18;
@@ -137,6 +164,7 @@ export type VerificationRow = {
   rejection_code?: string | null;
   rejection_note?: string | null;
   attempt_count?: number | null;
+  document_expires_on?: string | null;
 };
 
 export type VerificationView = {
@@ -157,6 +185,21 @@ export function verificationView(row: VerificationRow | null | undefined): Verif
   const attemptsLeft = Math.max(0, ID_MAX_ATTEMPTS - (row?.attempt_count ?? 0));
   const open = status === "unverified" || status === "rejected" || status === "expired";
   const base = { status, canOrder: status === "verified", attemptsLeft };
+  // A verified member whose passport / driver's licence has expired cannot order (the database enforces
+  // it at the gate); show them that, and let them upload a current document.
+  if (status === "verified" && isExpired(row?.document_expires_on)) {
+    return {
+      ...base,
+      status: "expired",
+      canOrder: false,
+      label: "Expired",
+      tone: "danger",
+      headline: "Your ID document has expired",
+      detail: `Your ${documentTypeLabel(row?.document_type).toLowerCase()} expired on ${row?.document_expires_on}. Upload a current one to keep ordering.`,
+      canSubmit: true,
+      attemptsLeft: ID_MAX_ATTEMPTS,
+    };
+  }
   switch (status) {
     case "verified":
       return {
@@ -164,7 +207,9 @@ export function verificationView(row: VerificationRow | null | undefined): Verif
         label: "Verified",
         tone: "success",
         headline: "Your ID is verified",
-        detail: "You can place orders.",
+        detail: row?.document_expires_on
+          ? `You can place orders. Valid until ${row.document_expires_on}.`
+          : "You can place orders.",
         canSubmit: false,
       };
     case "pending":

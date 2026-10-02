@@ -6,7 +6,7 @@ import { ANON, API, PASSWORD, RUN_FILE, SERVICE, sql } from "./db";
  * known product/stock baseline. Everything else (orders, addresses, wishlist, points) belongs to those
  * fresh users, so the suite can be re-run against the same stack without a reset.
  */
-async function createUser(email: string, name: string, role: "customer" | "manager") {
+async function createUser(email: string, name: string, role: "customer" | "budtender" | "manager") {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: {
@@ -39,10 +39,12 @@ export default async function globalSetup() {
     member: `member-${stamp}@live.test`,
     other: `other-${stamp}@live.test`,
     manager: `manager-${stamp}@live.test`,
+    budtender: `budtender-${stamp}@live.test`,
   };
   const member = await createUser(run.member, "Mia Member", "customer");
   const other = await createUser(run.other, "Omar Other", "customer");
   const manager = await createUser(run.manager, "Manny Manager", "manager");
+  await createUser(run.budtender, "Bea Budtender", "budtender");
   // The PR 19 / PR 20 specs place real orders, which now needs an approved ID. These two members are
   // approved up front; id-verification.spec.ts creates its own members and goes through the real review.
   for (const id of [member, other])

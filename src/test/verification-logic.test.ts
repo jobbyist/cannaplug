@@ -3,6 +3,9 @@ import {
   ID_MAX_BYTES,
   checkIdFile,
   dobProblem,
+  documentNeedsExpiry,
+  expiryProblem,
+  isExpired,
   isOwnUploadPath,
   latestAdultBirthDate,
   rejectionMessage,
@@ -134,5 +137,55 @@ describe("isOwnUploadPath — checked before any storage access", () => {
   it("refuses a malformed user id instead of building a pattern from it", () => {
     expect(isOwnUploadPath(".*", `${me}/${file}.jpg`)).toBe(false);
     expect(isOwnUploadPath("", `/${file}.jpg`)).toBe(false);
+  });
+});
+
+describe("document expiry rules", () => {
+  const today = new Date(2026, 9, 2); // 2 Oct 2026
+  it("only passports and driver's licences expire", () => {
+    expect(documentNeedsExpiry("sa_id")).toBe(false);
+    expect(documentNeedsExpiry("passport")).toBe(true);
+    expect(documentNeedsExpiry("drivers_licence")).toBe(true);
+    expect(documentNeedsExpiry(null)).toBe(false);
+  });
+  it("an SA ID needs no expiry; a passport or licence needs a current, plausible one", () => {
+    expect(expiryProblem("sa_id", "", today)).toBeNull();
+    expect(expiryProblem("passport", "", today)).toMatch(/expiry date/);
+    expect(expiryProblem("passport", "not-a-date", today)).toMatch(/expiry date/);
+    expect(expiryProblem("passport", "2026-10-01", today)).toMatch(/expired/);
+    expect(expiryProblem("passport", "2026-10-02", today)).toBeNull(); // expires today: still valid
+    expect(expiryProblem("drivers_licence", "2030-05-01", today)).toBeNull();
+    expect(expiryProblem("drivers_licence", "2050-01-01", today)).toMatch(/expiry date/);
+  });
+  it("isExpired: no date never expires; the day after the date does", () => {
+    expect(isExpired(null, today)).toBe(false);
+    expect(isExpired(undefined, today)).toBe(false);
+    expect(isExpired("2026-10-02", today)).toBe(false);
+    expect(isExpired("2026-10-01", today)).toBe(true);
+  });
+  it("a verified member with an expired document sees 'expired' and cannot order", () => {
+    const expired = verificationView({
+      status: "verified",
+      document_type: "passport",
+      document_expires_on: "2020-01-01",
+    });
+    expect(expired.status).toBe("expired");
+    expect(expired.canOrder).toBe(false);
+    expect(expired.canSubmit).toBe(true);
+    expect(expired.attemptsLeft).toBeGreaterThan(0);
+    const current = verificationView({
+      status: "verified",
+      document_type: "passport",
+      document_expires_on: "2999-01-01",
+    });
+    expect(current.canOrder).toBe(true);
+    expect(current.detail).toMatch(/2999-01-01/);
+    // An SA ID has no date and stays verified.
+    expect(verificationView({ status: "verified", document_type: "sa_id" }).canOrder).toBe(true);
+  });
+  it("maps the expiry error codes to member-facing text", () => {
+    expect(friendlyMemberError(new Error("verification_expired: x")).message).toMatch(/expired/);
+    expect(friendlyMemberError(new Error("document_expired: x")).message).toMatch(/expired/);
+    expect(friendlyMemberError(new Error("invalid_expiry: x")).message).toMatch(/expiry date/);
   });
 });
