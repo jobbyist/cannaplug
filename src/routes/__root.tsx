@@ -37,7 +37,9 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error: thrown, reset }: { error: unknown; reset: () => void }) {
+  // The router types the thrown value as `unknown` (anything can be thrown).
+  const error = thrown instanceof Error ? thrown : new Error(String(thrown));
   console.error(error);
   const router = useRouter();
   useEffect(() => {
