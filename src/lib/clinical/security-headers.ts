@@ -34,7 +34,7 @@ export function buildCsp(opts: HeaderOptions = {}): string {
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "img-src 'self' data: blob: https:",
+    `img-src ${["'self'", "data:", "blob:", "https:", ...supa.slice(0, 1)].join(" ")}`,
     "media-src 'self' blob: https:",
     `connect-src ${["'self'", ...supa].join(" ")}`,
     "frame-src 'none'",

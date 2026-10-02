@@ -7,6 +7,8 @@
  *   CHAT_RPD_LIMIT     of which the chatbot may use                (default 140)  -> the rest is reserved for the Journal pipeline
  * Per visitor: 12 messages/hour per hashed IP and 40/session.
  */
+import { SITE_FACTS } from "./chat-prompt";
+
 export interface QuotaDb {
   take(bucket: string, limit: number, ttlSeconds: number): Promise<boolean>;
 }
@@ -98,10 +100,10 @@ export const quotaMessage = (v: Extract<QuotaVerdict, { ok: false }>): string =>
     case "visitor":
       return `You're sending messages quickly. Please try again in about ${v.retryAfterMinutes} minute${v.retryAfterMinutes === 1 ? "" : "s"}.`;
     case "session":
-      return "You've reached the chat limit for today. For more help, call +27 10 123 4567, email info@cannaplug012.co.za or pop into the shop.";
+      return `You've reached the chat limit for today. For more help, call ${SITE_FACTS.phone}, email ${SITE_FACTS.email} or pop into the shop.`;
     case "busy":
       return "The assistant is a little busy right now. Please try again in a minute.";
     case "daily":
-      return "Our assistant has reached its limit for now and will be back shortly. For help right away, call +27 10 123 4567 or email info@cannaplug012.co.za.";
+      return `Our assistant has reached its limit for now and will be back shortly. For help right away, call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`;
   }
 };

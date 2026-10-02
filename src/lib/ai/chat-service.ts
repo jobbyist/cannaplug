@@ -1,3 +1,4 @@
+import { SITE_FACTS } from "./chat-prompt";
 import {
   generateWithRetry,
   GeminiError,
@@ -43,8 +44,7 @@ export async function answer(
   if (!deps.geminiKey)
     return {
       ok: false,
-      error:
-        "The assistant is not available right now. Please call +27 10 123 4567 or email info@cannaplug012.co.za.",
+      error: `The assistant is not available right now. Please call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`,
     };
   const verdict = await takeChatQuota(deps.quotaDb, deps.quota, who, deps.now?.());
   if (!verdict.ok) return { ok: false, limited: true, error: quotaMessage(verdict) };
@@ -68,7 +68,7 @@ export async function answer(
       ok: false,
       error: busy
         ? "The assistant is a little busy right now. Please try again in a minute."
-        : "The assistant is temporarily unavailable. Please call +27 10 123 4567 or email info@cannaplug012.co.za.",
+        : `The assistant is temporarily unavailable. Please call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`,
     };
   }
 }

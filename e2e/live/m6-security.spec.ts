@@ -68,10 +68,11 @@ test("the contact form delivers through the queue (stored, team email + acknowle
   page,
 }) => {
   const { sql } = await import("./helpers");
+  const EMAIL = `live-tester-${Date.now().toString(36)}@example.com`;
   const before = Number(sql(`select count(*) from public.contact_submissions`));
   await page.goto("/#contact");
   await page.getByPlaceholder("Your name").fill("Live Tester");
-  await page.locator('.contact form input[type="email"]').fill("live-tester@example.com");
+  await page.locator('.contact form input[type="email"]').fill(EMAIL);
   await page.getByPlaceholder("How can we help?").fill("Live contact test");
   await page.getByPlaceholder("Write your message…").fill("Hello from the live browser test.");
   await page.getByRole("button", { name: /send message/i }).click();
@@ -79,22 +80,20 @@ test("the contact form delivers through the queue (stored, team email + acknowle
   expect(Number(sql(`select count(*) from public.contact_submissions`))).toBe(before + 1);
   expect(
     sql(
-      `select count(*) from public.notification_events where template in ('contact_form_staff','contact_form_ack') and data->>'email'='live-tester@example.com' and status='queued'`,
+      `select count(*) from public.notification_events where template in ('contact_form_staff','contact_form_ack') and data->>'email'='${EMAIL}' and status='queued'`,
     ),
   ).toBe("2");
   expect(
     sql(
-      `select recipient from public.notification_events where template='contact_form_staff' and data->>'email'='live-tester@example.com'`,
+      `select recipient from public.notification_events where template='contact_form_staff' and data->>'email'='${EMAIL}'`,
     ),
   ).toBe("info@cannaplug012.co.za");
 
   // newsletter
-  await page.locator('footer input[type="email"]').fill("subscriber-live@example.com");
+  await page.locator('footer input[type="email"]').fill(`sub-${EMAIL}`);
   await page.getByRole("button", { name: /join/i }).click();
   await expect(page.getByText(/check your inbox/i)).toBeVisible({ timeout: 20_000 });
-  expect(
-    sql(
-      `select count(*) from public.newsletter_subscribers where email='subscriber-live@example.com'`,
-    ),
-  ).toBe("1");
+  expect(sql(`select count(*) from public.newsletter_subscribers where email='sub-${EMAIL}'`)).toBe(
+    "1",
+  );
 });

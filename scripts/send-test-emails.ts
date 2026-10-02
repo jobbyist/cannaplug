@@ -14,11 +14,24 @@ let failed = 0;
 for (const { name, rendered } of renderAll().filter((a) => !only.length || only.includes(a.name))) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `test-${name}-${Date.now()}` },
-    body: JSON.stringify({ from, to: [to], subject: `[TEST] ${rendered.subject}`, html: rendered.html, text: rendered.text, ...(rendered.headers ? { headers: rendered.headers } : {}) }),
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `test-${name}-${Date.now()}`,
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: `[TEST] ${rendered.subject}`,
+      html: rendered.html,
+      text: rendered.text,
+      ...(rendered.headers ? { headers: rendered.headers } : {}),
+    }),
   });
   const body = await res.text();
-  console.log(`${res.ok ? "sent  " : "FAILED"} ${name.padEnd(24)} ${res.ok ? "" : `${res.status} ${body.slice(0, 160)}`}`);
+  console.log(
+    `${res.ok ? "sent  " : "FAILED"} ${name.padEnd(24)} ${res.ok ? "" : `${res.status} ${body.slice(0, 160)}`}`,
+  );
   if (!res.ok) failed++;
   await new Promise((r) => setTimeout(r, 600)); // stay under Resend's 2 requests/second
 }

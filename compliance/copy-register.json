@@ -1,0 +1,212 @@
+{
+  "$comment": "Register of regulated / legal / identity claims in the site copy. A claim may only become `approved` after the CLIENT has approved the wording AND supplied documentary evidence. Evidence is referenced here (issuer, document id, date, sha256 of the file you keep outside the repo); it is never committed. `bun scripts/check-compliance-copy.ts --strict` fails the release while anything is not approved.",
+  "claims": [
+    {
+      "id": "C-01",
+      "claim": "SAHPRA Section 21 authorisation (\"SAHPRA Section 21 Authorised\", \"one of a select few SAHPRA-authorised dispensaries\")",
+      "needs": "SAHPRA Section 21 authorisation letter naming the legal entity, in date, covering the activity described (dispensing)",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "SAHPRA Section 21 Authorised"
+        },
+        {
+          "file": "src/routes/about.tsx",
+          "snippet": "SAHPRA Section 21 Authorised"
+        },
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "SAHPRA Section 21 authorised"
+        },
+        {
+          "file": "src/routes/terms-of-service.tsx",
+          "snippet": "SAHPRA Section 21 authorised"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-02",
+      "claim": "Company registration number 2026/047873/07 and legal name Canna Plug (Pty) Ltd",
+      "needs": "CIPC registration certificate (CoR14.3) for the exact number and name",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "2026/047873/07"
+        },
+        {
+          "file": "src/routes/about.tsx",
+          "snippet": "2026/047873/07"
+        },
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "2026/047873/07"
+        },
+        {
+          "file": "src/routes/terms-of-service.tsx",
+          "snippet": "2026/047873/07"
+        },
+        {
+          "file": "src/lib/banking.ts",
+          "snippet": "Canna Plug (Pty) Ltd"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-03",
+      "claim": "\"Licensed medical cannabis dispensary\" / \"operating in full compliance with South African law\"",
+      "needs": "Legal sign-off on the wording plus the licence/permit documents it relies on",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "Licensed Medical Cannabis Dispensary"
+        },
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "full compliance with South Afric"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-04",
+      "claim": "Lab-testing claims (\"every batch is lab tested for cannabinoid content, potency and contaminants\", \"Lab tested\" badges)",
+      "needs": "Certificates of analysis from an accredited lab for each product line, and a written testing policy",
+      "locations": [
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "lab tested for cannabinoid content"
+        },
+        {
+          "file": "src/routes/about.tsx",
+          "snippet": "every product lab tested"
+        },
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "Lab tested"
+        },
+        {
+          "file": "src/routes/account.tsx",
+          "snippet": "Lab tested"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-05",
+      "claim": "Contact telephone number +27 10 123 4567 (looks like a dummy number)",
+      "needs": "Confirmation from the client that this is the live support line",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/components/LegalLayout.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/routes/account.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/routes/refund-policy.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/routes/delivery-policy.tsx",
+          "snippet": "+27 10 123 4567"
+        },
+        {
+          "file": "src/lib/ai/chat-prompt.ts",
+          "snippet": "+27 10 123 4567"
+        }
+      ],
+      "status": "placeholder"
+    },
+    {
+      "id": "C-06",
+      "claim": "Physical address (Shop 002, One On Mutual, Pretoria Central) and trading hours",
+      "needs": "Lease / proof of premises and the client's confirmation of trading hours",
+      "locations": [
+        {
+          "file": "src/components/CannaPlugHome.tsx",
+          "snippet": "Shop 002, One On Mutual, Pretoria Central"
+        },
+        {
+          "file": "src/lib/ai/chat-prompt.ts",
+          "snippet": "Shop 002, One On Mutual, Pretoria Central"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-07",
+      "claim": "Banking details shown to customers for EFT (FNB / RMB, account 63210843975, branch 250655)",
+      "needs": "Bank-issued confirmation letter for the account (name, number, branch) — a wrong number sends customer money to the wrong place",
+      "locations": [
+        {
+          "file": "src/lib/banking.ts",
+          "snippet": "63210843975"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-08",
+      "claim": "Medical-recommendation and age statements (\"some products require a valid medical practitioner recommendation\", 18+, ID check on delivery)",
+      "needs": "Legal sign-off on wording; confirmation of which products need a recommendation",
+      "locations": [
+        {
+          "file": "src/routes/faq.tsx",
+          "snippet": "valid medical practitioner recommendation"
+        },
+        {
+          "file": "src/routes/delivery-policy.tsx",
+          "snippet": "18"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-09",
+      "claim": "Delivery coverage, fees and handover rules; refund and returns terms",
+      "needs": "Client approval of commercial terms; legal review of consumer-law compliance (CPA)",
+      "locations": [
+        {
+          "file": "src/routes/delivery-policy.tsx",
+          "snippet": "Pretoria, Johannesburg and Cape Town"
+        },
+        {
+          "file": "src/routes/refund-policy.tsx",
+          "snippet": "5–10 business days"
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "C-10",
+      "claim": "Terms of Service and Privacy Policy (POPIA information officer named and reachable)",
+      "needs": "Legal sign-off on both documents and the information officer's registration with the Information Regulator",
+      "locations": [
+        {
+          "file": "src/routes/terms-of-service.tsx",
+          "snippet": "Registration No."
+        },
+        {
+          "file": "src/routes/privacy-policy.tsx",
+          "snippet": "Information Officer"
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignoreFiles": {
+    "src/lib/newsroom/pipeline.ts": "search queries for research (not published copy)"
+  }
+}
