@@ -14,6 +14,7 @@ import {
   key,
   loyaltyOf,
   mkMember,
+  payOrder,
   mkProduct,
   mkSession,
   mkUser,
@@ -199,14 +200,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
       expect(await timeline(other)).toHaveLength(0);
 
       // A staff transition is a new row the owner's Realtime subscription would be sent.
-      await rpc(
-        sql,
-        "transition_order_status",
-        orderId,
-        "confirmed",
-        manager,
-        "internal: checked ID",
-      );
+      await payOrder(sql, orderId);
       expect((await timeline(owner)).map((r) => r["to_status"])).toEqual([
         "awaiting_payment",
         "confirmed",
@@ -219,7 +213,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
       const product = await mkProduct(sql, 100);
       await receive(sql, manager, product, 2);
       const { orderId } = await placeOrder(sql, owner, [{ product_id: product, quantity: 1 }]);
-      await rpc(sql, "transition_order_status", orderId, "confirmed", manager, "internal: flagged");
+      await payOrder(sql, orderId);
 
       for (const col of ["note", "actor_user_id"]) {
         const r = await attempt(

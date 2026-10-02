@@ -751,3 +751,97 @@ The brief says the doctor-approved medical-letter template and the prescription 
 - **Verified after applying:** 14 tables, all with RLS; **0** clinical functions executable by `anon`/`authenticated`; **0** client INSERT/UPDATE/DELETE grants on the clinical tables; bucket `clinical-documents` private, PDF-only; both templates `DRAFT` with no placeholder marker; both signature providers disabled and both policies unconfirmed (nothing can be signed yet).
 - **Left for a person:** the `http` extension that the apply used is still installed (`DROP EXTENSION http;` is held by the connector for a confirmation an agent cannot answer, like `DROP POLICY`). It is owned by `supabase_admin` and its functions are executable by PUBLIC, so please run `DROP EXTENSION http;` from the SQL editor. It is not exposed through the REST API (only `public` is), but it should not stay.
 - **Accounts:** `admin@cannaplug012.co.za` already exists with the `admin` role. **No practitioner profile was created** for it: the portal requires a verified HPCSA registration and another administrator must verify it (self-verification is blocked by design), and the real name and registration number are not known. `info@cannaplug012.co.za` does not exist yet; it must sign up at `/account`, after which the `manager` role is granted.
+
+## 2026-10-03 — Milestone 5: payments (Yoco, PayPal, controlled EFT) and notifications
+
+**Rule of the milestone: an order is paid only by a verified provider event, a server-side PayPal capture that PayPal
+itself confirmed, or a staff-verified EFT. The browser return URL proves nothing and never marks anything paid.**
+
+### What was built
+
+| Area | Where |
+| --- | --- |
+| Schema | `supabase/migrations/20261003001000_payments_notifications.sql` (+ drizzle `0018`, generated from `scripts/m5-migration.template.sql` by `scripts/build-m5-migration.py`) |
+| Rollback + rehearsal | `supabase/rollbacks/20261003001000_payments_notifications_rollback.sql`, `scripts/rollback-rehearsal-payments.sh` |
+| Provider interface + adapters | `src/lib/payments/{provider,yoco,paypal}.ts` |
+| Orchestration (DI, no framework) | `src/lib/payments/service.ts`; wiring in `service.server.ts`, `payments-data.server.ts` |
+| Live FX for PayPal | `src/lib/payments/fx.ts`, `fx.server.ts` |
+| Webhook endpoints | `POST /api/public/payments/yoco-webhook`, `POST /api/public/payments/paypal-webhook` |
+| Member UI | checkout payment choice, `/payment/return`, **Pay now** in `/account` orders |
+| Staff UI | `/admin` → **Payments** (approvals, attempts, FX), EFT form in Orders (manager+) |
+| Notifications | `src/lib/notifications/*`, cron `POST /api/public/notifications/dispatch` (also run from `/api/public/inventory/maintenance`) |
+
+### Data model
+- `payment_transactions` — one row per attempt. Snapshots the **authoritative** expectation at initiation: order total, expected amount,
+  expected currency, FX rate, expected merchant id, mode (test/live). Unique on `(provider, provider_ref)`, `(provider, provider_payment_id)`,
+  `(user, idempotency key)`, and **one succeeded transaction per order**.
+- `webhook_events` — append-only, `UNIQUE (provider, event_key)` is the replay guard. `webhook_rejections` logs refused messages **without payload**.
+- `fx_rates`, `payment_settings` (EFT dual-control threshold, FX mode/margin/refresh, SMS/WhatsApp switches).
+- `notification_events` — queue with `dedupe_key` UNIQUE, SKIP LOCKED claim + lease, exponential backoff, dead-letter, marketing needs consent.
+- All of it is RLS-locked and service-role only; a member may read only their own transaction status columns (no provider refs / URLs).
+
+### How a payment is processed
+1. **Initiate** (`payment_initiate`): verified member, owns the order, `awaiting_payment`; amount comes from `orders.total_rand`
+   (never the browser). Yoco = ZAR. PayPal = USD (see FX). Reuses a live attempt; supersedes it if the total changed.
+2. **Hosted checkout** at the provider with the stored amount; the transaction id travels in provider metadata (`custom_id`).
+3. **Verify** (before any business logic; failure → `401`, logged, nothing else runs):
+   - *Yoco* (Standard Webhooks, Yoco "Verifying events"): HMAC-SHA256 over `webhook-id.webhook-timestamp.rawBody`, base64-decoded `whsec_` key,
+     `v1,` signatures (several allowed), 3-minute timestamp tolerance, constant-time compare.
+   - *PayPal*: `verify-webhook-signature` postback (transmission headers + unmodified raw body + our webhook id, cert host must be `*.paypal.com`).
+     After verification the order is **re-fetched from PayPal's API** and the facts (amount, currency, payee merchant id, capture id) come from there.
+     A verification outage answers `503` so PayPal retries.
+4. **Apply** (`payments_apply_verified_event`): compares provider ref, mode, merchant, **amount and currency** to the stored expectation and the
+   order total (unchanged). Any mismatch → tx `review`, order untouched, managers emailed. Match → `confirm_order_payment` (idempotent per payment id).
+5. **Idempotency**: same event key = same result (8-way concurrent test); same payment under a different event key = no second stock/loyalty effect;
+   a late payment for a cancelled order → `needs_refund`; a second payment for a paid order → `needs_refund`.
+6. **PayPal return**: the return page triggers a *server-side capture*; PayPal's response is verified through the same compare path.
+
+### Manual EFT (controlled)
+Manager+ only (budtenders can no longer confirm EFTs). Amount/reference validated, each bank reference single-use, wrong amount recorded but
+not applied, **amounts ≥ the threshold (default R10,000) need a second manager** (dual control; cannot approve your own), reject needs a reason,
+every step audited (`eft_payment_settled`, `eft_amount_mismatch`, `eft_awaiting_second_approval`, `eft_rejected`).
+The plain "Confirmed" status button for unpaid orders is gone, and `transition_order_status` now **refuses** `awaiting_payment → confirmed`
+(`payment_confirmation_required`) — that was a bypass.
+
+### PayPal and the rand (decision)
+PayPal cannot charge ZAR. PayPal orders are therefore charged in **USD at a live market rate**: two reference feeds (Frankfurter/ECB and
+open.er-api.com) must agree within 3%, a **4% margin** (setting `fx_margin_percent`, max 10%) is applied in the merchant's favour to cover PayPal's
+conversion spread and intraday movement, USD is rounded **up** to the cent, and the rate is recorded for 30 minutes and copied into the transaction,
+so what the member sees, PayPal charges and the webhook is checked against is one number. Feeds down → last still-valid rate; none → PayPal is declined
+(Yoco unaffected). `fx_mode = manual` switches to manager-set rates. Managers see/adjust all of this in **Payments**.
+
+### Notifications
+Order lifecycle changes enqueue member emails (and staff alerts for new orders / payments needing review / refunds) from a DB trigger — **never from a
+request or render path**; a failing notification cannot block an order. `notification_events` rows are sent by the cron-driven dispatcher
+(Resend, `Idempotency-Key` = notification id; optional Twilio SMS/WhatsApp, off by default). Without `RESEND_API_KEY` nothing is claimed, so no
+attempts are burned. **Schedule `POST /api/public/notifications/dispatch` every minute** with the `LOVABLE_CRON_SECRET` bearer.
+
+### Secrets (set in the Vercel project env — the app cannot read Supabase Edge Secrets)
+| Variable | Purpose |
+| --- | --- |
+| `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`) | Yoco checkout + webhook verification; register `https://<site>/api/public/payments/yoco-webhook` |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV` (`sandbox`/`live`) | PayPal orders + webhook verification (merchant id is compared on every capture); webhook URL `…/api/public/payments/paypal-webhook`, events `PAYMENT.CAPTURE.COMPLETED`/`DENIED` |
+| `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL` | Email (default sender `Cannaplug Support <updates@cannaplug.co.za>`) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` / `TWILIO_WHATSAPP_FROM` | Optional SMS/WhatsApp (also set `payment_settings.sms_enabled`) |
+| `SITE_URL` | Return-URL origin (defaults to the request origin) |
+| `LOVABLE_CRON_SECRET` | Cron bearer for the dispatcher/maintenance |
+A provider is offered at checkout only when its variables are present. Test vs live is taken from the key / `PAYPAL_ENV` and stored per transaction;
+a live event never settles a test transaction.
+
+### POS
+Verified: till sales accept **cash, card and manual EFT** (and split tenders); non-cash needs a 4–100 char reference, each reference once. New tests cover it.
+
+### Tests / evidence
+- Real-PostgreSQL: `bun run test:db` → **366 passed** (new: `payments.test.ts` — FX, initiation, success once, replay/concurrent, wrong amount/currency/mode/merchant/
+  order reference, late/duplicate payment, EFT + dual control, notification queue, privileges, POS tenders; `payments-service.suite.ts` — the real adapters + service
+  against in-process Yoco/PayPal sandboxes).
+- Fixture tests (`bunx vitest run`): invalid/tampered/stale/missing-header/multi-signature Yoco signatures, PayPal verify SUCCESS/FAILURE/outage/foreign cert host,
+  capture + already-captured, FX feeds (down, disagree, out of range), templates (escaping), adapters (idempotency key, retry classification), dispatcher.
+- Live browser (`scripts/live-stack`, with `mock-providers.mjs` standing in for Yoco/PayPal): `m5-payments.spec.ts` — card paid only on the signed webhook (+replay),
+  success-URL-without-paying pays nothing, signed-but-wrong-amount held for review, forged webhooks refused, PayPal USD at stored rate + server-side capture, wrong
+  capture amount held, admin Payments tab, dispatcher cron-only. Full live suite **38 passed** (PR 19/20/ID specs updated for the payment guard).
+- Rollback rehearsal: `scripts/rollback-rehearsal-payments.sh` (apply → rollback restores the two functions byte-for-byte → re-apply).
+
+### Not verified here (needs your credentials)
+Real Yoco/PayPal **sandbox** round-trips and real Resend sends were not run (no keys in this environment); the adapters follow the providers' current docs and are
+exercised against faithful local fakes. Run a sandbox payment per provider after adding the env vars, before going live.

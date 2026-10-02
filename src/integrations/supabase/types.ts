@@ -682,6 +682,278 @@ export type Database = {
         Relationships: [];
       };
       // </m3-tables>
+      // <m5-tables>
+      fx_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          id: string
+          quote_currency: string
+          rate: number
+          set_by: string | null
+          source: string
+          valid_until: string
+        }
+        Insert: {
+          base_currency: string
+          created_at?: string
+          id?: string
+          quote_currency: string
+          rate: number
+          set_by?: string | null
+          source: string
+          valid_until: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          id?: string
+          quote_currency?: string
+          rate?: number
+          set_by?: string | null
+          source?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
+      notification_events: {
+        Row: {
+          attempts: number
+          category: string
+          channel: string
+          created_at: string
+          data: Json
+          dedupe_key: string
+          id: string
+          last_error: string | null
+          locked_until: string | null
+          max_attempts: number
+          next_attempt_at: string
+          priority: number
+          provider_message_id: string | null
+          recipient: string
+          recipient_user_id: string | null
+          sent_at: string | null
+          status: string
+          template: string
+        }
+        Insert: {
+          attempts?: number
+          category?: string
+          channel: string
+          created_at?: string
+          data?: Json
+          dedupe_key: string
+          id?: string
+          last_error?: string | null
+          locked_until?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          priority?: number
+          provider_message_id?: string | null
+          recipient: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          template: string
+        }
+        Update: {
+          attempts?: number
+          category?: string
+          channel?: string
+          created_at?: string
+          data?: Json
+          dedupe_key?: string
+          id?: string
+          last_error?: string | null
+          locked_until?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          priority?: number
+          provider_message_id?: string | null
+          recipient?: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          template?: string
+        }
+        Relationships: []
+      }
+      payment_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      payment_transactions: {
+        Row: {
+          approved_by: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          expected_amount: number
+          expected_currency: string
+          expected_merchant_id: string | null
+          expires_at: string
+          failure_reason: string | null
+          fx_rate: number | null
+          id: string
+          idempotency_key: string | null
+          meta: Json
+          mode: string
+          order_id: string
+          order_total_rand: number
+          provider: string
+          provider_payment_id: string | null
+          provider_ref: string | null
+          received_amount: number | null
+          received_currency: string | null
+          redirect_url: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expected_amount: number
+          expected_currency: string
+          expected_merchant_id?: string | null
+          expires_at?: string
+          failure_reason?: string | null
+          fx_rate?: number | null
+          id?: string
+          idempotency_key?: string | null
+          meta?: Json
+          mode?: string
+          order_id: string
+          order_total_rand: number
+          provider: string
+          provider_payment_id?: string | null
+          provider_ref?: string | null
+          received_amount?: number | null
+          received_currency?: string | null
+          redirect_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expected_amount?: number
+          expected_currency?: string
+          expected_merchant_id?: string | null
+          expires_at?: string
+          failure_reason?: string | null
+          fx_rate?: number | null
+          id?: string
+          idempotency_key?: string | null
+          meta?: Json
+          mode?: string
+          order_id?: string
+          order_total_rand?: number
+          provider?: string
+          provider_payment_id?: string | null
+          provider_ref?: string | null
+          received_amount?: number | null
+          received_currency?: string | null
+          redirect_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          event_key: string
+          event_type: string
+          id: string
+          mode: string | null
+          outcome: string | null
+          payload: Json
+          processed_at: string | null
+          provider: string
+          received_at: string
+          status: string
+          transaction_id: string | null
+        }
+        Insert: {
+          event_key: string
+          event_type: string
+          id?: string
+          mode?: string | null
+          outcome?: string | null
+          payload: Json
+          processed_at?: string | null
+          provider: string
+          received_at?: string
+          status?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          event_key?: string
+          event_type?: string
+          id?: string
+          mode?: string | null
+          outcome?: string | null
+          payload?: Json
+          processed_at?: string | null
+          provider?: string
+          received_at?: string
+          status?: string
+          transaction_id?: string | null
+        }
+        Relationships: []
+      }
+      webhook_rejections: {
+        Row: {
+          event_key_hint: string | null
+          id: number
+          provider: string
+          reason: string
+          received_at: string
+          source_ip_hash: string | null
+        }
+        Insert: {
+          event_key_hint?: string | null
+          id?: number
+          provider: string
+          reason: string
+          received_at?: string
+          source_ip_hash?: string | null
+        }
+        Update: {
+          event_key_hint?: string | null
+          id?: number
+          provider?: string
+          reason?: string
+          received_at?: string
+          source_ip_hash?: string | null
+        }
+        Relationships: []
+      }
+      // </m5-tables>
       // <m4-tables>
       addresses: {
         Row: {
@@ -1886,6 +2158,35 @@ export type Database = {
       // </m3-views>
     };
     Functions: {
+      // <m5-functions>
+      eft_approve: { Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string }; Returns: Json }
+      eft_reject: { Args: { p_actor: string; p_reason: string; p_transaction_id: string }; Returns: Json }
+      eft_submit: {
+        Args: { p_actor: string; p_amount: number; p_bank_reference: string; p_idempotency_key: string; p_note: string | null; p_order_id: string; p_received_on: string }
+        Returns: Json
+      }
+      fx_record_live_rate: { Args: { p_base: string; p_quote: string; p_rate: number; p_source: string; p_valid_minutes: number }; Returns: Json }
+      fx_set_rate: { Args: { p_actor: string; p_base: string; p_quote: string; p_rate: number; p_source: string; p_valid_hours: number }; Returns: Json }
+      notification_claim: { Args: { p_lease_seconds?: number; p_limit: number }; Returns: Database["public"]["Tables"]["notification_events"]["Row"][] }
+      notification_complete: {
+        Args: { p_error: string | null; p_id: string; p_ok: boolean; p_permanent?: boolean; p_provider_message_id: string | null }
+        Returns: string
+      }
+      notification_enqueue: {
+        Args: { p_category: string; p_channel: string; p_data: Json; p_dedupe_key: string; p_delay_seconds?: number; p_recipient: string; p_template: string; p_user_id: string | null }
+        Returns: string
+      }
+      notification_enqueue_staff: { Args: { p_data: Json; p_dedupe_key: string; p_min_role?: string; p_template: string }; Returns: number }
+      payment_attach_session: { Args: { p_provider_ref: string; p_redirect_url: string; p_transaction_id: string }; Returns: Json }
+      payment_initiate: {
+        Args: { p_idempotency_key: string; p_merchant_id: string | null; p_mode: string; p_order_id: string; p_provider: string; p_user_id: string }
+        Returns: Json
+      }
+      payment_mark_failed: { Args: { p_reason: string; p_transaction_id: string }; Returns: undefined }
+      payments_apply_verified_event: { Args: { p_event_key: string; p_event_type: string; p_facts: Json; p_payload: Json; p_provider: string }; Returns: Json }
+      payments_expire_stale: { Args: Record<PropertyKey, never>; Returns: number }
+      webhook_reject: { Args: { p_event_key_hint: string | null; p_ip_hash: string | null; p_provider: string; p_reason: string }; Returns: undefined }
+      // </m5-functions>
       // <clinical-functions>
       clinical_document_access: {
         Args: {

@@ -221,8 +221,17 @@ export async function advanceOrder(
 ): Promise<void> {
   const path =
     to === "completed" ? ["confirmed", "packing", "ready", "out_for_delivery", "completed"] : [to];
-  for (const status of path)
-    await rpc(sql, "transition_order_status", orderId, status, staff, null);
+  for (const status of path) {
+    // An unpaid order can only be confirmed by a verified payment, never by a status change.
+    if (status === "confirmed") await payOrder(sql, orderId);
+    else await rpc(sql, "transition_order_status", orderId, status, staff, null);
+  }
+}
+
+/** Confirms payment of an awaiting-payment order the way a payment webhook does (idempotent per reference). */
+export async function payOrder(sql: Sql, orderId: string, reference = key("pay")): Promise<void> {
+  const total = await val<string>(sql`SELECT total_rand FROM public.orders WHERE id = ${orderId}`);
+  await rpc(sql, "confirm_order_payment", "manual", reference, orderId, Number(total));
 }
 
 /** Gives `customer` exactly `points` loyalty points by completing a real order (1 point per R10). */

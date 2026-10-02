@@ -223,7 +223,7 @@ test("ADMIN: staff see the order with address + contact, and confirm the EFT (am
   ).toBe("confirmed|320.00");
   expect(
     sql(
-      `select count(*) from public.audit_log where action='order_payment_confirmed' and entity_id='${id}'`,
+      `select count(*) from public.audit_log where action in ('eft_payment_settled','eft_amount_mismatch') and entity_id in (select id from public.payment_transactions where order_id='${id}')`,
     ),
   ).toBe("2"); // the refused attempt is audited too
 

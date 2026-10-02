@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronRight,
+  CreditCard,
   Landmark,
   Lock,
   MapPin,
@@ -27,6 +28,7 @@ import {
   placeOrderFn,
   quoteCheckoutFn,
 } from "@/lib/checkout.functions";
+import { getOnlineMethodsFn, startPaymentFn } from "@/lib/payments.functions";
 import { saveAddressFn } from "@/lib/member.functions";
 import { getMyVerificationFn } from "@/lib/verification.functions";
 import { verificationView, type VerificationView } from "@/lib/verification-logic";
@@ -183,6 +185,41 @@ function CheckoutPage() {
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  const [methods, setMethods] = useState<{ card: boolean; paypal: boolean }>({
+    card: false,
+    paypal: false,
+  });
+  const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal">("eft");
+  const [payError, setPayError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getOnlineMethodsFn()
+      .then((m) => live && setMethods(m))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /** Sends the member to the provider's hosted page. The order is only marked paid after a verified webhook. */
+  const startOnlinePayment = async (orderId: string, method: "card" | "paypal") => {
+    setPaying(true);
+    setPayError(null);
+    try {
+      const started = await startPaymentFn({
+        data: {
+          orderId,
+          provider: method === "card" ? "yoco" : "paypal",
+          key: crypto.randomUUID(),
+        },
+      });
+      window.location.assign(started.redirectUrl);
+    } catch (err) {
+      setPayError(errorText(err));
+      setPaying(false);
+    }
+  };
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const orderKey = useIdempotencyKey();
@@ -300,7 +337,7 @@ function CheckoutPage() {
           contactPhone: contactPhone.trim(),
           deliveryMethod: delivery,
           addressId,
-          paymentMethod: "eft",
+          paymentMethod: payMethod,
           expectedTotal: quote.total,
           notes: notes.trim() === "" ? null : notes.trim(),
           key: orderKey.get(),
@@ -308,9 +345,11 @@ function CheckoutPage() {
       });
       // The cart is only emptied once the server has confirmed the order exists.
       orderKey.reset();
-      setPlaced(result as PlacedOrder);
+      const order = result as PlacedOrder;
+      setPlaced(order);
       clear();
       setStep("Confirmation");
+      if (payMethod !== "eft") void startOnlinePayment(order.order_id, payMethod);
     } catch (err) {
       setError(errorText(err));
       // Price or stock moved while the member was reviewing: show the fresh numbers and a fresh intent.
@@ -675,18 +714,54 @@ function CheckoutPage() {
 
             {step === "Payment" && (
               <div className="flex flex-col gap-4">
-                <label className="flex items-start gap-3 rounded-lg border border-primary bg-primary/5 p-4">
-                  <input type="radio" checked readOnly className="mt-1 accent-primary" />
-                  <Landmark size={18} className="mt-0.5 text-primary" />
-                  <span>
-                    <span className="text-sm font-semibold">EFT / Bank transfer</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      Place your order now and we hold your items for 2 hours. Pay by EFT using your
-                      order number as the reference — we confirm and dispatch as soon as the payment
-                      clears.
-                    </span>
-                  </span>
-                </label>
+                {(
+                  [
+                    {
+                      id: "eft" as const,
+                      icon: Landmark,
+                      title: "EFT / Bank transfer",
+                      body: "Place your order now and we hold your items for 2 hours. Pay by EFT using your order number as the reference — we confirm and dispatch as soon as the payment clears.",
+                      show: true,
+                    },
+                    {
+                      id: "card" as const,
+                      icon: CreditCard,
+                      title: "Card or Instant EFT (Yoco)",
+                      body: "Pay securely on Yoco's hosted page. Your order is confirmed automatically once Yoco verifies the payment.",
+                      show: methods.card,
+                    },
+                    {
+                      id: "paypal" as const,
+                      icon: Lock,
+                      title: "PayPal",
+                      body: "PayPal charges in US dollars. We convert your rand total at today's rate plus a small conversion margin and show the exact amount on PayPal before you pay.",
+                      show: methods.paypal,
+                    },
+                  ] as const
+                )
+                  .filter((o) => o.show)
+                  .map((o) => (
+                    <label
+                      key={o.id}
+                      className={
+                        "flex cursor-pointer items-start gap-3 rounded-lg border p-4 " +
+                        (payMethod === o.id ? "border-primary bg-primary/5" : "border-border")
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="payment-method"
+                        checked={payMethod === o.id}
+                        onChange={() => setPayMethod(o.id)}
+                        className="mt-1 accent-primary"
+                      />
+                      <o.icon size={18} className="mt-0.5 text-primary" />
+                      <span>
+                        <span className="text-sm font-semibold">{o.title}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{o.body}</span>
+                      </span>
+                    </label>
+                  ))}
                 {quote && !quote.orderable && (
                   <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     Some items are no longer available in the quantity in your basket. Please update
@@ -713,7 +788,7 @@ function CheckoutPage() {
                         ? "Placing order…"
                         : quoting
                           ? "Checking prices…"
-                          : `Place order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`}{" "}
+                          : `${payMethod === "eft" ? "Place order" : "Place order & pay"}${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`}{" "}
                       <ChevronRight size={15} />
                     </Button>
                   </div>
@@ -727,28 +802,67 @@ function CheckoutPage() {
                   <Check size={26} />
                 </span>
                 <h2 className="font-display text-xl font-extrabold uppercase">Order placed</h2>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  Thanks{user?.email ? `, ${user.email}` : ""} — order <b>{placed.order_number}</b>{" "}
-                  is reserved for you for {placed.hold_minutes / 60} hours. Please pay{" "}
-                  <b>{rand(Number(placed.total))}</b> by EFT using <b>{placed.order_number}</b> as
-                  the payment reference.
-                </p>
-                <dl className="w-full max-w-sm rounded-lg border border-border p-4 text-left text-xs">
-                  {BANKING_DETAILS.map(([label, value]) => (
-                    <div key={label} className="flex justify-between gap-3 py-1">
-                      <dt className="text-muted-foreground">{label}</dt>
-                      <dd className="font-semibold">{value}</dd>
-                    </div>
-                  ))}
-                  <div className="flex justify-between gap-3 border-t border-border py-1 pt-2">
-                    <dt className="text-muted-foreground">Reference</dt>
-                    <dd className="font-semibold">{placed.order_number}</dd>
-                  </div>
-                </dl>
-                <p className="max-w-sm text-xs text-muted-foreground">
-                  Your order is not dispatched until the payment has cleared. You can follow its
-                  progress live in your account.
-                </p>
+                {placed.payment_method === "eft" ? (
+                  <>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Thanks{user?.email ? `, ${user.email}` : ""} — order{" "}
+                      <b>{placed.order_number}</b> is reserved for you for{" "}
+                      {placed.hold_minutes / 60} hours. Please pay{" "}
+                      <b>{rand(Number(placed.total))}</b> by EFT using <b>{placed.order_number}</b>{" "}
+                      as the payment reference.
+                    </p>
+                    <dl className="w-full max-w-sm rounded-lg border border-border p-4 text-left text-xs">
+                      {BANKING_DETAILS.map(([label, value]) => (
+                        <div key={label} className="flex justify-between gap-3 py-1">
+                          <dt className="text-muted-foreground">{label}</dt>
+                          <dd className="font-semibold">{value}</dd>
+                        </div>
+                      ))}
+                      <div className="flex justify-between gap-3 border-t border-border py-1 pt-2">
+                        <dt className="text-muted-foreground">Reference</dt>
+                        <dd className="font-semibold">{placed.order_number}</dd>
+                      </div>
+                    </dl>
+                    <p className="max-w-sm text-xs text-muted-foreground">
+                      Your order is not dispatched until the payment has cleared. You can follow its
+                      progress live in your account.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Order <b>{placed.order_number}</b> is reserved for you.{" "}
+                      {paying
+                        ? "Taking you to the secure payment page…"
+                        : "Complete your payment to confirm it."}
+                    </p>
+                    {payError && (
+                      <p
+                        role="alert"
+                        className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                      >
+                        {payError}
+                      </p>
+                    )}
+                    {!paying && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void startOnlinePayment(
+                            placed.order_id,
+                            payMethod === "paypal" ? "paypal" : "card",
+                          )
+                        }
+                      >
+                        Pay now
+                      </Button>
+                    )}
+                    <p className="max-w-sm text-xs text-muted-foreground">
+                      Your order is confirmed only after the payment provider verifies your payment
+                      — not when you return to this page.
+                    </p>
+                  </>
+                )}
                 <Link to="/account">
                   <Button size="sm">View your orders</Button>
                 </Link>

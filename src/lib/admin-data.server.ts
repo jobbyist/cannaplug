@@ -423,17 +423,18 @@ export async function listCustomers(userId: string) {
 
 export type EftConfirmOutcome =
   | "confirmed"
+  | "pending_approval"
   | "amount_mismatch"
+  | "order_total_changed"
   | "already_processed"
   | "paid_after_cancel_needs_refund"
   | "stock_unavailable_needs_refund"
   | "order_not_found";
 
 /**
- * Staff confirm an EFT that has cleared. Goes through confirm_order_payment (the same path a payment
- * webhook uses), so the bank reference is idempotent and cannot be reused on another order, the amount
- * received must equal the order's payable total, stock is consumed atomically, and a payment_events
- * row is the receipt. The plain status button is no longer offered for unpaid orders.
+ * Manual EFT is a CONTROLLED workflow: manager+ only, amount and bank reference are validated and compared
+ * to the order's payable total by the database, each bank reference is single-use, large amounts need a
+ * second manager (dual control), and every step is audited. Budtenders can no longer confirm EFTs.
  */
 export async function confirmOrderPayment(
   userId: string,
@@ -441,23 +442,13 @@ export async function confirmOrderPayment(
   bankReference: string,
   amountReceived: number,
 ) {
-  await assertRole(userId, "budtender");
-  const { data, error } = await supabaseAdmin.rpc("confirm_order_payment", {
-    p_provider: "eft",
-    p_provider_event_id: bankReference,
-    p_order_id: orderId,
-    p_amount: amountReceived,
-  });
-  if (error) throw error;
-  const result = data as { duplicate: boolean; outcome: EftConfirmOutcome; order_id: string };
-  await supabaseAdmin.from("audit_log").insert({
-    actor_user_id: userId,
-    action: "order_payment_confirmed",
-    entity_type: "order",
-    entity_id: orderId,
-    metadata: { outcome: result.outcome, duplicate: result.duplicate, amount: amountReceived },
-  });
-  return result;
+  const { submitEft } = await import("@/lib/payments/payments-data.server");
+  const r = await submitEft(userId, orderId, bankReference, amountReceived);
+  return {
+    outcome: r.outcome as EftConfirmOutcome,
+    duplicate: r.replayed === true,
+    order_id: orderId,
+  };
 }
 
 export async function listFulfilmentQueue(userId: string) {

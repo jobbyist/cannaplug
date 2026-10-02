@@ -11,11 +11,13 @@ const run = JSON.parse(readFileSync(RUN_FILE, "utf8")) as {
   other: string;
   manager: string;
   budtender: string;
+  payer: string;
 };
 export const MEMBER = run.member;
 export const OTHER = run.other;
 export const MANAGER = run.manager;
 export const BUDTENDER = run.budtender;
+export const PAYER = run.payer;
 export const CRON_SECRET = process.env["LOVABLE_CRON_SECRET"] ?? "live-cron-secret";
 
 export const userId = (email: string) => sql(`select id from auth.users where email='${email}'`);
@@ -32,6 +34,14 @@ export function createOrder(email: string, slug: string, qty: number): string {
 }
 
 export function transition(orderId: string, to: string, note = "internal staff note") {
+  if (to === "confirmed") {
+    // An unpaid order is confirmed by a verified payment, never by a status change (Milestone 5).
+    const total = sql(`select total_rand from public.orders where id='${orderId}'`);
+    sql(
+      `select public.confirm_order_payment('manual','${uniq("pay")}','${orderId}'::uuid, ${total})`,
+    );
+    return;
+  }
   sql(
     `select public.transition_order_status('${orderId}'::uuid, '${to}', '${userId(MANAGER)}'::uuid, '${note}');`,
   );

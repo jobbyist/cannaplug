@@ -262,13 +262,14 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
     );
   });
 
-  it("validates contact details and only offers EFT", async () => {
+  it("validates contact details and only offers eft / card / paypal", async () => {
     const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
+    // cash is a counter method (POS), never an online one
     expect(
       failedWith(
-        await attempt(place(u, items, a, 280, { pay: "card" })),
+        await attempt(place(u, items, a, 280, { pay: "cash" })),
         "payment_method_unsupported",
       ),
     ).toBe(true);

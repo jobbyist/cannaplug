@@ -40,14 +40,16 @@ export default async function globalSetup() {
     other: `other-${stamp}@live.test`,
     manager: `manager-${stamp}@live.test`,
     budtender: `budtender-${stamp}@live.test`,
+    payer: `payer-${stamp}@live.test`,
   };
   const member = await createUser(run.member, "Mia Member", "customer");
   const other = await createUser(run.other, "Omar Other", "customer");
   const manager = await createUser(run.manager, "Manny Manager", "manager");
   await createUser(run.budtender, "Bea Budtender", "budtender");
+  const payer = await createUser(run.payer, "Pia Payer", "customer");
   // The PR 19 / PR 20 specs place real orders, which now needs an approved ID. These two members are
   // approved up front; id-verification.spec.ts creates its own members and goes through the real review.
-  for (const id of [member, other])
+  for (const id of [member, other, payer])
     sql(
       `insert into public.customer_verification (user_id, status, method, verified_at, verified_by, reviewed_at, reviewed_by)
        values ('${id}', 'verified', 'manual_id_review', now(), '${manager}', now(), '${manager}')
