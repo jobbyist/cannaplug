@@ -212,6 +212,18 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open payments", url: adminUrl(c) },
     }),
   }),
+  staff_eft_approval: (d, c) => ({
+    subject: "EFT awaiting your approval",
+    html: layout({
+      preheader: "A large EFT needs a second manager.",
+      title: "EFT awaiting approval",
+      bodyHtml:
+        p(
+          "A large EFT payment was recorded and needs a second manager to approve it before the order is confirmed.",
+        ) + kv([["Amount", esc(rand(d["amount"]))]]),
+      cta: { label: "Open payments", url: adminUrl(c) },
+    }),
+  }),
   staff_refund_needed: (d, c) => ({
     subject: "Refund needed — payment received for an unfulfillable order",
     html: layout({
