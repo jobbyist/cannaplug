@@ -3,13 +3,16 @@
 // replaces the region between the M4 markers (ID verification, Milestone 4.2, rides in the same region), and adds/updates columns on existing tables.
 //   node scripts/gen-m3-types.mjs
 import postgres from "postgres";
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const url = process.env.TEST_DATABASE_URL ?? "postgres://postgres@127.0.0.1:54329/cannaplug_test";
 const sql = postgres(url, { onnotice: () => {} });
 const TYPES = new URL("../src/integrations/supabase/types.ts", import.meta.url);
 
 const NEW_TABLES = [
+  "ai_usage_counters",
   "contact_submissions",
   "newsletter_subscribers",
   "fx_rates",
@@ -79,7 +82,9 @@ async function viewBlock(name) {
   return `      ${name}: {\n        Row: {\n${row}\n        }\n        Relationships: []\n      }\n`;
 }
 
-const FUNCTIONS = `      contact_submit: { Args: { p_email: string; p_inbox: string; p_ip_hash: string; p_message: string; p_name: string; p_subject: string }; Returns: Json }
+const FUNCTIONS = `      ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number }
+      ai_quota_take: { Args: { p_bucket: string; p_limit: number; p_ttl_seconds: number }; Returns: boolean }
+      contact_submit: { Args: { p_email: string; p_inbox: string; p_ip_hash: string; p_message: string; p_name: string; p_subject: string }; Returns: Json }
       newsletter_subscribe: { Args: { p_email: string; p_ip_hash: string; p_source?: string }; Returns: Json }
       newsletter_unsubscribe: { Args: { p_token: string }; Returns: Json }
       eft_approve: { Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string }; Returns: Json }
@@ -134,5 +139,7 @@ src = src.replace(
 );
 
 writeFileSync(TYPES, src);
+// keep the generated file prettier-clean so `bun run lint` stays green
+execFileSync("bunx", ["prettier", "--write", fileURLToPath(TYPES)], { stdio: "ignore" });
 await sql.end();
 console.log("types.ts updated for Milestone 5");

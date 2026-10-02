@@ -45,11 +45,24 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+function supabaseOrigin(): string | null {
+  try {
+    const raw = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+    return raw ? new URL(raw).origin : null;
+  } catch {
+    return null;
+  }
+}
+
 function withSecurityHeaders(request: Request, response: Response): Response {
   try {
     // Responses from some runtimes have immutable headers, so work on a copy when needed.
     const headers = new Headers(response.headers);
-    applySecurityHeaders(new URL(request.url).pathname, headers);
+    const url = new URL(request.url);
+    applySecurityHeaders(url.pathname, headers, {
+      https: url.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
+      supabaseOrigin: supabaseOrigin(),
+    });
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

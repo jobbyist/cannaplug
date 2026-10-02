@@ -1,121 +1,21 @@
-// Editorial pipeline: Firecrawl research -> Gemini draft -> Gemini editor review -> Unsplash cover -> publish.
-import { EDITORIAL_MODEL, geminiStream, GatewayError } from "./ai-gateway.server";
+// Journal pipeline wiring: lease + circuit breaker + Gemini quota + Firecrawl research + Unsplash cover + publish.
+import { quotaConfig, takeJobQuota } from "@/lib/ai/quota";
+import { GeminiError } from "@/lib/ai/gemini";
+import {
+  JOURNAL_CATEGORIES,
+  TOPIC_SEEDS,
+  batchTimestamps,
+  dailyRunAllowed,
+  research,
+  slugify,
+  writeArticle,
+  type Source,
+} from "@/lib/newsroom/pipeline";
 
-export const JOURNAL_CATEGORIES = [
-  "Culture",
-  "Industry",
-  "Law & Policy",
-  "Wellness",
-  "Lifestyle",
-] as const;
+export { JOURNAL_CATEGORIES };
 
-const TOPIC_SEEDS = [
-  "South African cannabis culture news",
-  "Cannabis for Private Purposes Act South Africa update",
-  "South African hemp industry farmers",
-  "Rastafari cannabis heritage South Africa",
-  "Cape Town Johannesburg Pretoria cannabis clubs",
-  "dagga history South Africa indigenous",
-  "South Africa cannabis tourism",
-  "SAHPRA medical cannabis South Africa",
-  "Eastern Cape cannabis growers smallholder",
-  "African cannabis industry investment 2026",
-  "cannabis events festival South Africa",
-  "South African cannabis entrepreneurs women",
-];
-
-type Source = { url: string; title: string; content: string };
-type Draft = {
-  title: string;
-  excerpt: string;
-  category: string;
-  keywords: string[];
-  unsplash_query: string;
-  body_md: string;
-};
-
-async function research(query: string): Promise<Source[]> {
-  const key = process.env["FIRECRAWL_API_KEY"];
-  if (!key) throw new Error("Firecrawl is not connected.");
-  const res = await fetch("https://api.firecrawl.dev/v2/search", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      limit: 9,
-      scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
-    }),
-  });
-  if (!res.ok) throw new Error(`Firecrawl search failed (${res.status})`);
-  const json = (await res.json()) as {
-    data?:
-      | { web?: { url: string; title?: string; description?: string; markdown?: string }[] }
-      | { url: string; title?: string; description?: string; markdown?: string }[];
-  };
-  const items = Array.isArray(json.data) ? json.data : (json.data?.web ?? []);
-  return items
-    .filter((i) => i.url)
-    .map((i) => ({
-      url: i.url,
-      title: i.title ?? i.url,
-      content: (i.markdown || i.description || "").slice(0, 3000),
-    }))
-    .filter((s) => s.content.length > 120);
-}
-
-function parseJson(text: string): Draft {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end < 0) throw new Error("Model did not return JSON");
-  const d = JSON.parse(text.slice(start, end + 1)) as Draft;
-  if (!d.title || !d.body_md || d.body_md.length < 3000) throw new Error("Draft too short");
-  return d;
-}
-
-const STYLE = `You write for The CannaPlug Journal, the editorial arm of CannaPlug, a licensed premium cannabis dispensary in Pretoria, South Africa.
-Voice: casual, warm and intelligent, with a proudly African perspective. Accurate, balanced, no hype, no medical or dosing claims, never encourage illegal activity.
-Structure rules for body_md (Markdown):
-- Do NOT include an H1 (the title is rendered separately).
-- 5 to 7 sections, each starting with "## " followed by a strong, short section title.
-- Inside sections use "### " subheadings where useful.
-- Short readable paragraphs (2 to 4 sentences), occasional bullet lists, one blockquote.
-- 1200 to 1600 words total. End with a "## The Takeaway" section.
-- Do not include a sources list or links inside the body.
-SEO: natural use of keywords, descriptive title under 70 characters, excerpt 140 to 160 characters.`;
-
-const SHAPE = `Respond with json only, exactly this shape:
-{"title": string, "excerpt": string, "category": one of ${JOURNAL_CATEGORIES.map((c) => `"${c}"`).join(", ")}, "keywords": string[5], "unsplash_query": short 2-4 word photo search, "body_md": string}`;
-
-async function writeArticle(sources: Source[], recentTitles: string[]): Promise<Draft> {
-  const brief = sources
-    .map((s, i) => `SOURCE ${i + 1}: ${s.title}\nURL: ${s.url}\n${s.content}`)
-    .join("\n\n---\n\n");
-  const draftText = await geminiStream(EDITORIAL_MODEL, [
-    { role: "system", content: `${STYLE}\n\n${SHAPE}` },
-    {
-      role: "user",
-      content: `Using the research below, write one original, well-structured feature article about South African cannabis culture. Synthesize multiple sources; do not copy sentences.\nAvoid repeating these recent headlines: ${recentTitles.join(" | ") || "none"}.\n\nRESEARCH:\n${brief}`,
-    },
-  ]);
-  const draft = parseJson(draftText);
-
-  // Editorial review pass
-  const reviewedText = await geminiStream(EDITORIAL_MODEL, [
-    {
-      role: "system",
-      content: `You are the senior editor of The CannaPlug Journal.\n${STYLE}\n\n${SHAPE}`,
-    },
-    {
-      role: "user",
-      content: `Review and improve this draft. Fix factual overreach against the research, remove medical claims, tighten prose, strengthen headings and SEO, and keep the required structure and length. Return the final article as json.\n\nDRAFT:\n${JSON.stringify(draft)}\n\nRESEARCH TITLES:\n${sources.map((s) => `${s.title} (${s.url})`).join("\n")}`,
-    },
-  ]);
-  try {
-    return parseJson(reviewedText);
-  } catch {
-    return draft;
-  }
-}
+const JOB = "daily-article";
+const LEASE_MINUTES = 12;
 
 async function findCover(query: string) {
   const key = process.env["UNSPLASH_ACCESS_KEY"];
@@ -133,7 +33,6 @@ async function findCover(query: string) {
     }[];
   };
   const pool = json.results ?? [];
-  if (!pool.length) return null;
   const photo = pool[Math.floor(Math.random() * Math.min(pool.length, 6))];
   if (!photo) return null;
   // Required by Unsplash API guidelines
@@ -147,82 +46,168 @@ async function findCover(query: string) {
   };
 }
 
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 70);
+const httpFetch = async (
+  url: string,
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
+) => {
+  const r = await fetch(url, init);
+  return {
+    ok: r.ok,
+    status: r.status,
+    text: () => r.text(),
+    json: () => r.json() as Promise<unknown>,
+  };
+};
+
+export type RunMode =
+  { kind: "daily" } | { kind: "batch"; count: number } | { kind: "single"; publishedAt?: string };
+
+export interface RunResult {
+  published: { slug: string; title: string }[];
+  skipped?: "not_due" | "paused" | "busy" | "quota";
+  errors: string[];
 }
 
-export async function generateAndPublishArticle(publishedAt?: string) {
+/** Takes the single-flight lease; false when another run holds it. */
+async function acquireLease(
+  supabaseAdmin: typeof import("@/integrations/supabase/client.server").supabaseAdmin,
+): Promise<boolean> {
+  const now = new Date();
+  await supabaseAdmin
+    .from("newsroom_job_state")
+    .upsert({ id: JOB }, { onConflict: "id", ignoreDuplicates: true });
+  const { data } = await supabaseAdmin
+    .from("newsroom_job_state")
+    .update({ lease_until: new Date(now.getTime() + LEASE_MINUTES * 60_000).toISOString() })
+    .eq("id", JOB)
+    .or(`lease_until.is.null,lease_until.lt.${now.toISOString()}`)
+    .select("id");
+  return (data ?? []).length === 1;
+}
+
+export async function runNewsroom(mode: RunMode): Promise<RunResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const geminiKey = process.env["GEMINI_API_KEY"]?.trim();
+  const firecrawlKey = process.env["FIRECRAWL_API_KEY"]?.trim();
+  if (!geminiKey) throw new Error("GEMINI_API_KEY is not configured.");
+  if (!firecrawlKey) throw new Error("FIRECRAWL_API_KEY is not configured.");
 
   const { data: state } = await supabaseAdmin
     .from("newsroom_job_state")
     .select("*")
-    .eq("id", "default")
+    .eq("id", JOB)
     .maybeSingle();
-  if (state?.paused_at) throw new Error(`Pipeline paused: ${state.paused_reason ?? "unknown"}`);
+  if (state?.paused_at)
+    return { published: [], skipped: "paused", errors: [state.paused_reason ?? "paused"] };
 
   const { data: recent } = await supabaseAdmin
     .from("articles")
-    .select("title")
+    .select("title, published_at")
     .order("published_at", { ascending: false })
     .limit(15);
   const recentTitles = (recent ?? []).map((r) => r.title);
+  const last = recent?.[0]?.published_at ? Date.parse(recent[0].published_at) : null;
+  const now = Date.now();
+  if (mode.kind === "daily" && !dailyRunAllowed(last, now))
+    return { published: [], skipped: "not_due", errors: [] };
 
+  if (!(await acquireLease(supabaseAdmin))) return { published: [], skipped: "busy", errors: [] };
+
+  const count = mode.kind === "batch" ? Math.min(Math.max(mode.count, 1), 3) : 1;
+  const stamps =
+    mode.kind === "batch"
+      ? batchTimestamps(count, now)
+      : [
+          mode.kind === "single" && mode.publishedAt
+            ? mode.publishedAt
+            : new Date(now).toISOString(),
+        ];
+  const cfg = quotaConfig(process.env);
+  const quotaDb = {
+    async take(bucket: string, limit: number, ttl: number) {
+      const { data, error } = await supabaseAdmin.rpc("ai_quota_take", {
+        p_bucket: bucket,
+        p_limit: limit,
+        p_ttl_seconds: ttl,
+      });
+      if (error) throw new Error(error.message);
+      return data === true;
+    },
+  };
+
+  const result: RunResult = { published: [], errors: [] };
   try {
-    let sources: Source[] = [];
-    const seeds = [...TOPIC_SEEDS].sort(() => Math.random() - 0.5);
-    for (const seed of seeds.slice(0, 3)) {
-      const found = await research(seed);
-      sources = [...sources, ...found.filter((f) => !sources.some((s) => s.url === f.url))];
-      if (sources.length >= 8) break;
+    for (let i = 0; i < count; i++) {
+      // an article is two Gemini requests (draft + edit): reserve both before starting
+      if (!(await takeJobQuota(quotaDb, cfg)) || !(await takeJobQuota(quotaDb, cfg))) {
+        result.skipped = "quota";
+        break;
+      }
+      try {
+        let sources: Source[] = [];
+        const seeds = [...TOPIC_SEEDS].sort(() => Math.random() - 0.5);
+        for (const seed of seeds.slice(0, 3)) {
+          const found = await research(httpFetch, firecrawlKey, seed);
+          sources = [...sources, ...found.filter((f) => !sources.some((s) => s.url === f.url))];
+          if (sources.length >= 8) break;
+        }
+        sources = sources.slice(0, 10);
+        if (sources.length < 4) throw new Error("Not enough research sources found");
+
+        const article = await writeArticle(httpFetch, geminiKey, sources, [
+          ...recentTitles,
+          ...result.published.map((p) => p.title),
+        ]);
+        const cover = await findCover(article.unsplash_query);
+        const words = article.body_md.split(/\s+/).length;
+        const { data: inserted, error } = await supabaseAdmin
+          .from("articles")
+          .insert({
+            slug: `${slugify(article.title)}-${Math.random().toString(36).slice(2, 6)}`,
+            title: article.title,
+            excerpt: article.excerpt,
+            category: article.category,
+            body_md: article.body_md,
+            reading_minutes: Math.max(3, Math.round(words / 220)),
+            cover_image_url: cover?.url ?? null,
+            cover_credit_name: cover?.name ?? null,
+            cover_credit_url: cover?.profile ?? null,
+            sources: sources.map((s) => ({ url: s.url, title: s.title })),
+            published_at: stamps[i] ?? new Date().toISOString(),
+          })
+          .select("slug, title")
+          .single();
+        if (error) throw error;
+        result.published.push(inserted);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        result.errors.push(message);
+        // a rejected key / exhausted billing is not worth retrying on the next tick: trip the breaker
+        if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
+          await supabaseAdmin.from("newsroom_job_state").upsert({
+            id: JOB,
+            paused_at: new Date().toISOString(),
+            paused_reason: `Gemini rejected the key (${err.status})`,
+          });
+          break;
+        }
+      }
     }
-    sources = sources.slice(0, 10);
-    if (sources.length < 4) throw new Error("Not enough research sources found");
-
-    const article = await writeArticle(sources, recentTitles);
-    const cover = await findCover(article.unsplash_query || "cannabis South Africa");
-    const words = article.body_md.split(/\s+/).length;
-    const category = (JOURNAL_CATEGORIES as readonly string[]).includes(article.category)
-      ? article.category
-      : "Culture";
-    const slug = `${slugify(article.title)}-${Math.random().toString(36).slice(2, 6)}`;
-
-    const { data: inserted, error } = await supabaseAdmin
-      .from("articles")
-      .insert({
-        slug,
-        title: article.title,
-        excerpt: article.excerpt,
-        category,
-        body_md: article.body_md,
-        reading_minutes: Math.max(3, Math.round(words / 220)),
-        cover_image_url: cover?.url ?? null,
-        cover_credit_name: cover?.name ?? null,
-        cover_credit_url: cover?.profile ?? null,
-        sources: sources.map((s) => ({ url: s.url, title: s.title })),
-        ...(publishedAt ? { published_at: publishedAt } : {}),
-      })
-      .select("slug, title")
-      .single();
-    if (error) throw error;
-
-    await supabaseAdmin
-      .from("newsroom_job_state")
-      .upsert({ id: "default", last_run_at: new Date().toISOString(), last_error: null });
-    return inserted;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const pause = error instanceof GatewayError && (error.status === 402 || error.status === 403);
+  } finally {
     await supabaseAdmin.from("newsroom_job_state").upsert({
-      id: "default",
+      id: JOB,
+      lease_until: null,
       last_run_at: new Date().toISOString(),
-      last_error: message,
-      ...(pause ? { paused_at: new Date().toISOString(), paused_reason: message } : {}),
+      last_error: result.errors[0] ?? null,
     });
-    throw error;
   }
+  return result;
+}
+
+/** Back-compat for the admin "run now" button. */
+export async function generateAndPublishArticle(publishedAt?: string) {
+  const r = await runNewsroom({ kind: "single", ...(publishedAt ? { publishedAt } : {}) });
+  if (!r.published[0])
+    throw new Error(r.errors[0] ?? `No article published (${r.skipped ?? "unknown"})`);
+  return r.published[0];
 }

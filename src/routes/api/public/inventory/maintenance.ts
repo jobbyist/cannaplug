@@ -42,6 +42,8 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         } catch (err) {
           console.error("ID document sweep failed", err instanceof Error ? err.message : err);
         }
+        // Best-effort housekeeping: drop expired AI-quota counters.
+        await supabaseAdmin.rpc("ai_quota_purge").then(undefined, () => undefined);
         // Also best-effort: expire abandoned payment attempts and flush the notification queue.
         let notifications: unknown = null;
         try {

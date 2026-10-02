@@ -16,7 +16,11 @@
     "test:db": "bash -c 'URL=$(scripts/test-db.sh reset 2>/dev/null | tail -1) && TEST_DATABASE_URL=$URL vitest run src/test/db'"
   },
   "overrides": {
-    "rolldown": "1.2.1"
+    "rolldown": "1.2.1",
+    "nanoid": "^3.3.19",
+    "js-yaml": "^4.3.2",
+    "brace-expansion@1": "1.1.21",
+    "esbuild": "^0.28.2"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
