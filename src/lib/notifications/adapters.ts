@@ -5,7 +5,9 @@ export type Fetch = (
   init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
-export const DEFAULT_FROM = "Cannaplug Support <update@updates.cannaplug012.co.za>";
+/** Replies go to a monitored mailbox; a no-reply style sender is one of the signals spam filters penalise. */
+export const DEFAULT_REPLY_TO = "info@cannaplug012.co.za";
+export const DEFAULT_FROM = "Cannaplug Support <updates@cannaplug012.co.za>";
 
 /** HTTP status → verdict. 4xx other than 408/429 means the message itself is bad, so retrying is pointless. */
 function verdict(status: number, body: string): SendResult | null {
@@ -32,7 +34,7 @@ export function resendAdapter(
         subject: m.subject,
         html: m.html,
         text: m.text,
-        ...(m.replyTo ? { reply_to: m.replyTo } : {}),
+        reply_to: m.replyTo ?? DEFAULT_REPLY_TO,
         ...(m.headers ? { headers: m.headers } : {}),
       }),
     });
