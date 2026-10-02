@@ -146,3 +146,34 @@ describe("migration safety", () => {
     expect(read(mirror)).toBe(MIGRATION);
   });
 });
+
+describe("follow-up migrations", () => {
+  const FOLLOW_UPS = [
+    "supabase/migrations/20261002002000_clinical_template_wording.sql",
+    "supabase/migrations/20261002003000_clinical_document_requests.sql",
+  ];
+  it("are additive and mirrored byte-for-byte", () => {
+    const mirrors = [
+      "drizzle/migrations/0014_clinical_template_wording.sql",
+      "drizzle/migrations/0015_clinical_document_requests.sql",
+    ];
+    FOLLOW_UPS.forEach((f, i) => {
+      const sql = read(join(root, f));
+      expect(sql, f).not.toMatch(/DROP\s+(TABLE|COLUMN|TYPE|SCHEMA|POLICY)/i);
+      expect(read(join(root, mirrors[i]!)), f).toBe(sql);
+    });
+  });
+  it("the request table has RLS, no client write privilege and service-only functions", () => {
+    const sql = read(join(root, FOLLOW_UPS[1]!));
+    expect(sql).toMatch(/ALTER TABLE public\.document_requests ENABLE ROW LEVEL SECURITY/);
+    expect(sql).not.toMatch(
+      /GRANT\s+(INSERT|UPDATE|DELETE|ALL|TRUNCATE)[^;]*TO\s+(authenticated|anon|PUBLIC)/i,
+    );
+    expect(sql).not.toMatch(/GRANT\s+EXECUTE[^;]*TO\s+(authenticated|anon)/i);
+  });
+  it("the request code never imports an AI gateway and never stores a request note in the browser", () => {
+    for (const f of [join(root, "src/components/clinical/MemberRequests.tsx")]) {
+      expect(read(f)).not.toMatch(/ai-gateway|cannaplug-brain|localStorage|sessionStorage/);
+    }
+  });
+});

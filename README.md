@@ -658,17 +658,21 @@ Reject → VOID · Request changes → DRAFT · Revoke → REVOKED · past expir
 | Route | Who | Purpose |
 |---|---|---|
 | `/doctor` | verified practitioner | Overview, Patients, Pending Reviews, Documents, Prescriptions, Profile, Templates, Signature, Audit |
-| `/member/documents` | the member | their own issued documents: View, Download, Verification link (never regenerate/edit) |
+| `/member/documents` | the member | **My documents** (own issued documents: View, Download, Verification link; never regenerate/edit) and **Requests** (ask for a letter or a prescription/order, follow progress, cancel while waiting) |
 | `/verify/$token` | anyone (QR target) | document ID, type, issue date, practitioner, "Registration: Verified", status — nothing else |
-| `/admin` → **Clinical Docs** | administrator | Doctors, Templates, Documents, Signatures (providers + policy), Audit, Retention |
+| `/admin` → **Clinical Docs** | administrator | **Requests** (intake), Doctors, Templates, Documents, Signatures (providers + policy), Audit, Retention |
 | `POST /api/public/signatures/webhook` | signature provider | HMAC-authenticated completion callback |
 | `POST /api/public/inventory/maintenance` | cron | now also marks overdue issued documents `EXPIRED` |
 
 Server logic is TanStack Start server functions (`src/lib/clinical/*.functions.ts`) over `SECURITY DEFINER` database functions; **no Supabase Edge Function was added** (the existing app keeps server logic in the app's server runtime, and the PDF library runs there).
 
-### Data model (migration `20261002001000_clinical_documents.sql`)
+### Requests (intake)
 
-`doctor_profiles`, `doctor_patient_assignments`, `document_templates`, `medical_documents`, `prescription_orders`, `document_signatures`, `document_events` (append-only), `document_verifications` (append-only), `signature_providers`, `document_signature_policy`, `document_counters`, `document_verify_attempts`, `clinical_retention_policy` · private storage bucket `clinical-documents` (PDF only, 10 MB, no client policy).
+A **request is not a document.** A member (ID-verified, max 3 open) asks for a letter or a prescription/order; an administrator can also open one on a member's behalf. The administrator assigns it to a verified practitioner (a prescription request only to one authorised to prescribe) — which also records the practitioner-patient assignment — or declines it with a reason. The practitioner starts a draft *from* the request (it links) or declines it; issuing the linked document marks the request FULFILLED, voiding the draft returns it to the practitioner's queue. The member's optional note is visible to the member and assigned practitioner only; administrators never see it. Nothing in this flow writes or suggests a clinical value.
+
+### Data model (migrations `20261002001000_clinical_documents.sql`, `…002000_clinical_template_wording.sql`, `…003000_clinical_document_requests.sql`)
+
+`doctor_profiles`, `doctor_patient_assignments`, `document_templates`, `medical_documents`, `prescription_orders`, `document_signatures`, `document_events` (append-only), `document_verifications` (append-only), `signature_providers`, `document_signature_policy`, `document_counters`, `document_verify_attempts`, `clinical_retention_policy`, `document_requests` · private storage bucket `clinical-documents` (PDF only, 10 MB, no client policy).
 
 Document references: `CP-MED-2026-000184` / `CP-RX-2026-000012`. Verification tokens: 256-bit random (43 URL-safe characters), generated server-side, never sequential.
 

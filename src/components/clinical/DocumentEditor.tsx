@@ -15,6 +15,7 @@ import { useIdempotencyKey } from "@/hooks/useIdempotencyKey";
 import {
   createDocumentFn,
   getDoctorViewFn,
+  linkRequestDocumentFn,
   submitForReviewFn,
   updateDraftFn,
 } from "@/lib/clinical/clinical.functions";
@@ -41,7 +42,14 @@ import {
  */
 
 export type EditorTarget =
-  | { mode: "new"; type: DocumentType; memberId?: string; supersedes?: string }
+  | {
+      mode: "new";
+      type: DocumentType;
+      memberId?: string;
+      supersedes?: string;
+      /** The member's request this draft answers; linked once the draft exists. */
+      requestId?: string;
+    }
   | { mode: "edit"; documentId: string };
 
 type Props = {
@@ -207,6 +215,10 @@ export function DocumentEditor({
       },
     });
     setDocumentId(created.id);
+    if (target?.mode === "new" && target.requestId)
+      await linkRequestDocumentFn({
+        data: { requestId: target.requestId, documentId: created.id },
+      });
     return created.id;
   };
 

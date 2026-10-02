@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useIdempotencyKey } from "@/hooks/useIdempotencyKey";
 import {
   Table,
   TableBody,
@@ -32,6 +33,10 @@ import {
 } from "@/components/clinical/shared";
 import {
   adminAssignPatientFn,
+  adminAssignRequestFn,
+  adminCreateRequestFn,
+  adminListRequestsFn,
+  declineRequestFn,
   adminListDocumentsFn,
   adminListEventsFn,
   adminOverviewFn,
@@ -44,6 +49,7 @@ import {
 } from "@/lib/clinical/clinical.functions";
 import type {
   AdminDocumentRow,
+  AdminRequestRow,
   DoctorProfileRow,
   EventRow,
 } from "@/lib/clinical/documents-data.server";
@@ -61,25 +67,36 @@ import {
  */
 
 type Overview = Awaited<ReturnType<typeof adminOverviewFn>>;
-const SECTIONS = ["Doctors", "Templates", "Documents", "Signatures", "Audit", "Retention"] as const;
+const SECTIONS = [
+  "Requests",
+  "Doctors",
+  "Templates",
+  "Documents",
+  "Signatures",
+  "Audit",
+  "Retention",
+] as const;
 type Section = (typeof SECTIONS)[number];
 
 export function ClinicalDocsPanel() {
-  const [section, setSection] = useState<Section>("Doctors");
+  const [section, setSection] = useState<Section>("Requests");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [docs, setDocs] = useState<AdminDocumentRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [requests, setRequests] = useState<AdminRequestRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [o, d, e] = await Promise.all([
+      const [o, d, e, rq] = await Promise.all([
         adminOverviewFn(),
         adminListDocumentsFn({ data: {} }),
         adminListEventsFn(),
+        adminListRequestsFn({ data: {} }),
       ]);
+      setRequests(rq);
       setOverview(o);
       setDocs(d);
       setEvents(e);
@@ -127,6 +144,9 @@ export function ClinicalDocsPanel() {
       {error && <Notice tone="error">{error}</Notice>}
       {notice && <Notice tone="ok">{notice}</Notice>}
 
+      {section === "Requests" && overview && (
+        <RequestsSection rows={requests} doctors={overview.doctors} act={act} />
+      )}
       {section === "Doctors" && overview && <DoctorsSection overview={overview} act={act} />}
       {section === "Templates" && <TemplatesPanel role="admin" />}
       {section === "Documents" && <DocumentsSection rows={docs} act={act} />}
@@ -140,6 +160,397 @@ export function ClinicalDocsPanel() {
 }
 
 type Act = (fn: () => Promise<unknown>, done: string) => Promise<boolean>;
+
+// ------------------------------------------------------------------ requests
+
+const REQUEST_LABELS: Record<string, string> = {
+  REQUESTED: "Needs assigning",
+  ASSIGNED: "With practitioner",
+  IN_PROGRESS: "Draft started",
+  FULFILLED: "Completed",
+  DECLINED: "Declined",
+  CANCELLED: "Cancelled",
+};
+
+function RequestsSection({
+  rows,
+  doctors,
+  act,
+}: {
+  rows: AdminRequestRow[];
+  doctors: DoctorProfileRow[];
+  act: Act;
+}) {
+  const [assigning, setAssigning] = useState<AdminRequestRow | null>(null);
+  const [declining, setDeclining] = useState<AdminRequestRow | null>(null);
+  const [creating, setCreating] = useState(false);
+  const eligible = (r: AdminRequestRow | null) =>
+    doctors.filter(
+      (d) =>
+        d.is_active &&
+        d.verification_status === "verified" &&
+        (r?.document_type !== "PRESCRIPTION_ORDER" || d.prescribing_authorised),
+    );
+  return (
+    <section className="grid gap-4">
+      <Notice tone="warn">
+        This is intake only. Assigning a request asks a practitioner to assess the member; it does
+        not create a document, and administrators never write or choose any clinical content. A
+        member&apos;s own note is visible to them and their practitioner only.
+      </Notice>
+      <div>
+        <Button onClick={() => setCreating(true)}>New request (intake)</Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Member</TableHead>
+            <TableHead>Requested</TableHead>
+            <TableHead>Received</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Practitioner</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-medium">
+                {r.member_name ?? "—"}
+                <span className="block text-[0.7rem] font-normal text-muted-foreground">
+                  {r.member_ref}
+                </span>
+              </TableCell>
+              <TableCell>
+                {documentTypeLabel(r.document_type)}
+                {r.source === "admin" && (
+                  <span className="block text-[0.7rem] text-muted-foreground">
+                    intake{r.admin_reference ? `: ${r.admin_reference}` : ""}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>{when(r.created_at)}</TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    r.status === "DECLINED"
+                      ? "destructive"
+                      : r.status === "FULFILLED"
+                        ? "default"
+                        : "secondary"
+                  }
+                >
+                  {REQUEST_LABELS[r.status] ?? r.status}
+                </Badge>
+                {r.decision_reason && (
+                  <span className="block text-[0.7rem] text-muted-foreground">
+                    {r.decision_reason}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>{r.practitioner ?? "—"}</TableCell>
+              <TableCell className="flex justify-end gap-1">
+                {(r.status === "REQUESTED" || r.status === "ASSIGNED") && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setAssigning(r)}>
+                      {r.status === "ASSIGNED" ? "Reassign" : "Assign"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setDeclining(r)}>
+                      Decline
+                    </Button>
+                  </>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                No requests yet.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+      <AssignRequestDialog
+        request={assigning}
+        doctors={eligible(assigning)}
+        onClose={() => setAssigning(null)}
+        act={act}
+      />
+      <DeclineRequestDialog request={declining} onClose={() => setDeclining(null)} act={act} />
+      <IntakeDialog
+        open={creating}
+        doctors={doctors}
+        onClose={() => setCreating(false)}
+        act={act}
+      />
+    </section>
+  );
+}
+
+function AssignRequestDialog({
+  request,
+  doctors,
+  onClose,
+  act,
+}: {
+  request: AdminRequestRow | null;
+  doctors: DoctorProfileRow[];
+  onClose: () => void;
+  act: Act;
+}) {
+  const [doctorId, setDoctorId] = useState("");
+  useEffect(() => setDoctorId(request?.doctor_id ?? ""), [request]);
+  return (
+    <Dialog open={request !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Assign to a practitioner</DialogTitle>
+          <DialogDescription>
+            {request && documentTypeLabel(request.document_type)} for {request?.member_name}.
+            Assigning also lets the practitioner see the member&apos;s name and date of birth. Only
+            verified practitioners are listed
+            {request?.document_type === "PRESCRIPTION_ORDER"
+              ? ", and only those authorised to prescribe"
+              : ""}
+            .
+          </DialogDescription>
+        </DialogHeader>
+        <Label htmlFor="as-doc">Practitioner</Label>
+        <select
+          id="as-doc"
+          className={selectClass}
+          value={doctorId}
+          onChange={(e) => setDoctorId(e.target.value)}
+        >
+          <option value="">Select…</option>
+          {doctors.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.title} {d.first_name} {d.last_name}
+            </option>
+          ))}
+        </select>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!doctorId}
+            onClick={async () =>
+              request &&
+              (await act(
+                () => adminAssignRequestFn({ data: { requestId: request.id, doctorId } }),
+                "Request assigned.",
+              )) &&
+              onClose()
+            }
+          >
+            Assign
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeclineRequestDialog({
+  request,
+  onClose,
+  act,
+}: {
+  request: AdminRequestRow | null;
+  onClose: () => void;
+  act: Act;
+}) {
+  const [reason, setReason] = useState("");
+  useEffect(() => setReason(""), [request]);
+  return (
+    <Dialog open={request !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Decline this request</DialogTitle>
+          <DialogDescription>
+            The member is shown this reason. Do not include any clinical information.
+          </DialogDescription>
+        </DialogHeader>
+        <Label htmlFor="dc-reason">Reason</Label>
+        <Textarea
+          id="dc-reason"
+          rows={3}
+          maxLength={500}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={reason.trim().length < 3}
+            onClick={async () =>
+              request &&
+              (await act(
+                () => declineRequestFn({ data: { requestId: request.id, reason } }),
+                "Request declined.",
+              )) &&
+              onClose()
+            }
+          >
+            Decline
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IntakeDialog({
+  open,
+  doctors,
+  onClose,
+  act,
+}: {
+  open: boolean;
+  doctors: DoctorProfileRow[];
+  onClose: () => void;
+  act: Act;
+}) {
+  const key = useIdempotencyKey();
+  const [query, setQuery] = useState("");
+  const [members, setMembers] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [memberId, setMemberId] = useState("");
+  const [type, setType] = useState<DocumentType>("MEDICAL_LETTER");
+  const [doctorId, setDoctorId] = useState("");
+  const [reference, setReference] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    key.reset();
+    setQuery("");
+    setMembers([]);
+    setMemberId("");
+    setType("MEDICAL_LETTER");
+    setDoctorId("");
+    setReference("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const usable = doctors.filter(
+    (d) =>
+      d.is_active &&
+      d.verification_status === "verified" &&
+      (type !== "PRESCRIPTION_ORDER" || d.prescribing_authorised),
+  );
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New request on a member&apos;s behalf</DialogTitle>
+          <DialogDescription>
+            For a member who asked by phone or in store. The member must have a verified ID. This
+            only records the request; the practitioner decides everything clinical.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-2">
+          <Input
+            aria-label="Member name"
+            placeholder="Member name"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <Button
+            variant="outline"
+            onClick={async () =>
+              setMembers(await adminSearchMembersFn({ data: { query } }).catch(() => []))
+            }
+          >
+            Search
+          </Button>
+        </div>
+        <select
+          className={selectClass}
+          aria-label="Member"
+          value={memberId}
+          onChange={(e) => setMemberId(e.target.value)}
+        >
+          <option value="">Select member…</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.full_name ?? m.id}
+            </option>
+          ))}
+        </select>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="in-type">Requested</Label>
+            <select
+              id="in-type"
+              className={selectClass}
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value as DocumentType);
+                setDoctorId("");
+              }}
+            >
+              <option value="MEDICAL_LETTER">Medical letter</option>
+              <option value="PRESCRIPTION_ORDER">Prescription / order</option>
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="in-doc">Assign now (optional)</Label>
+            <select
+              id="in-doc"
+              className={selectClass}
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+            >
+              <option value="">Assign later</option>
+              {usable.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title} {d.first_name} {d.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="in-ref">Administrative reference (optional, no clinical details)</Label>
+          <Input
+            id="in-ref"
+            maxLength={200}
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!memberId}
+            onClick={async () =>
+              (await act(
+                () =>
+                  adminCreateRequestFn({
+                    data: {
+                      memberId,
+                      type,
+                      doctorId: doctorId || null,
+                      reference: reference.trim() || null,
+                      key: key.get(),
+                    },
+                  }),
+                "Request recorded.",
+              )) && onClose()
+            }
+          >
+            Create request
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // ------------------------------------------------------------------ doctors
 

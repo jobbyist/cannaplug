@@ -16,6 +16,10 @@ const mocks = vi.hoisted(() => ({
   updateDraftFn: vi.fn(),
   submitForReviewFn: vi.fn(),
   listMemberDocumentsFn: vi.fn(),
+  listMyRequestsFn: vi.fn(),
+  createMyRequestFn: vi.fn(),
+  cancelMyRequestFn: vi.fn(),
+  linkRequestDocumentFn: vi.fn(),
   auth: {
     user: { id: "u1", email: "m@example.com" } as { id: string; email: string } | null,
     loading: false,
@@ -35,6 +39,10 @@ vi.mock("@/lib/clinical/clinical.functions", () => ({
   updateDraftFn: mocks.updateDraftFn,
   submitForReviewFn: mocks.submitForReviewFn,
   listMemberDocumentsFn: mocks.listMemberDocumentsFn,
+  listMyRequestsFn: mocks.listMyRequestsFn,
+  createMyRequestFn: mocks.createMyRequestFn,
+  cancelMyRequestFn: mocks.cancelMyRequestFn,
+  linkRequestDocumentFn: mocks.linkRequestDocumentFn,
 }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => mocks.auth }));
 vi.mock("@tanstack/react-router", async (orig) => ({
@@ -527,5 +535,103 @@ describe("member documents page", () => {
     expect(mocks.openDocumentFn).toHaveBeenCalledWith({
       data: { documentId: "d1", kind: "DOWNLOADED" },
     });
+  });
+});
+
+describe("member requests tab", () => {
+  const Page = MemberRoute.options.component as () => React.ReactElement;
+  const reqs = [
+    {
+      id: "r1",
+      document_type: "MEDICAL_LETTER",
+      status: "REQUESTED",
+      source: "member",
+      created_at: "2026-10-02T08:00:00Z",
+      decision_reason: null,
+      member_note: null,
+      practitioner: null,
+    },
+    {
+      id: "r2",
+      document_type: "PRESCRIPTION_ORDER",
+      status: "DECLINED",
+      source: "member",
+      created_at: "2026-10-01T08:00:00Z",
+      decision_reason: "Please book a consultation first",
+      member_note: null,
+      practitioner: "Dr Jane Smith",
+    },
+    {
+      id: "r3",
+      document_type: "MEDICAL_LETTER",
+      status: "FULFILLED",
+      source: "admin",
+      created_at: "2026-09-01T08:00:00Z",
+      decision_reason: null,
+      member_note: null,
+      practitioner: "Dr Jane Smith",
+    },
+  ];
+  beforeEach(() => {
+    mocks.listMemberDocumentsFn.mockResolvedValue([]);
+    mocks.listMyRequestsFn.mockResolvedValue(reqs);
+    mocks.createMyRequestFn.mockResolvedValue({ id: "new" });
+    mocks.cancelMyRequestFn.mockResolvedValue({});
+  });
+  const open = async () => {
+    render(<Page />);
+    await userEvent.click(await screen.findByRole("tab", { name: "Requests" }));
+  };
+
+  it("has a Requests tab beside My documents", async () => {
+    render(<Page />);
+    expect(await screen.findByRole("tab", { name: "My documents" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Requests" })).toBeTruthy();
+  });
+
+  it("lists requests with plain-language status, the decline reason, and cancel only while waiting", async () => {
+    await open();
+    expect(await screen.findByText("Waiting to be assigned")).toBeTruthy();
+    expect(screen.getByText("Not going ahead")).toBeTruthy();
+    expect(screen.getByText(/Please book a consultation first/)).toBeTruthy();
+    expect(screen.getByText(/opened for you by CannaPlug/)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Cancel request" })).toHaveLength(1);
+  });
+
+  it("sends a request with a note, and says a request is not a prescription", async () => {
+    await open();
+    expect(await screen.findByText(/not a prescription and does not guarantee/)).toBeTruthy();
+    await userEvent.selectOptions(screen.getByLabelText("What do you need?"), "PRESCRIPTION_ORDER");
+    await userEvent.type(screen.getByLabelText(/Note for your practitioner/), "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(mocks.createMyRequestFn).toHaveBeenCalled());
+    const arg = mocks.createMyRequestFn.mock.calls[0]![0].data;
+    expect(arg).toMatchObject({ type: "PRESCRIPTION_ORDER", note: "hello" });
+    expect(arg.key.length).toBeGreaterThanOrEqual(8);
+    expect(await screen.findByText(/Request sent/)).toBeTruthy();
+  });
+
+  it("promises the note is hidden from administrators and starts with nothing selected or filled in", async () => {
+    await open();
+    expect(await screen.findByText(/CannaPlug administrators cannot/)).toBeTruthy();
+    expect((screen.getByLabelText(/Note for your practitioner/) as HTMLTextAreaElement).value).toBe(
+      "",
+    );
+  });
+
+  it("shows a refusal (for example an unverified ID) without pretending the request was sent", async () => {
+    mocks.createMyRequestFn.mockRejectedValue(
+      new Error("The member's identity must be verified first"),
+    );
+    await open();
+    await userEvent.click(await screen.findByRole("button", { name: "Send request" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/identity must be verified/);
+    expect(screen.queryByText(/Request sent/)).toBeNull();
+  });
+
+  it("cancels a waiting request", async () => {
+    await open();
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel request" }));
+    expect(mocks.cancelMyRequestFn).toHaveBeenCalledWith({ data: { requestId: "r1" } });
   });
 });

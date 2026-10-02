@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ClipboardCheck,
+  Inbox,
   FileText,
   History,
   LayoutDashboard,
@@ -14,7 +15,16 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -38,7 +48,9 @@ import {
 } from "@/components/clinical/shared";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  declineRequestFn,
   getDoctorHomeFn,
+  listDoctorRequestsFn,
   listDoctorAuditFn,
   listDoctorDocumentsFn,
   listPatientsFn,
@@ -49,6 +61,7 @@ import {
 import type {
   DoctorDocumentRow,
   DoctorProfileRow,
+  DoctorRequestRow,
   DoctorView,
   EventRow,
   PatientRow,
@@ -67,6 +80,7 @@ export const Route = createFileRoute("/doctor")({
 const NAV: SidebarItem[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
   { id: "patients", icon: Users, label: "Patients" },
+  { id: "requests", icon: Inbox, label: "Requests" },
   { id: "reviews", icon: ClipboardCheck, label: "Pending Reviews" },
   { id: "documents", icon: FileText, label: "Documents" },
   { id: "prescriptions", icon: Pill, label: "Prescriptions" },
@@ -83,6 +97,7 @@ function DoctorPage() {
   const [documents, setDocuments] = useState<DoctorDocumentRow[]>([]);
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [requests, setRequests] = useState<DoctorRequestRow[]>([]);
   const [tab, setTab] = useState("overview");
   const [error, setError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -94,12 +109,14 @@ function DoctorPage() {
       const p = await getDoctorHomeFn();
       setProfile(p);
       if (!p || !p.is_active || p.verification_status !== "verified") return;
-      const [pa, d, t, e] = await Promise.all([
+      const [pa, d, t, e, rq] = await Promise.all([
         listPatientsFn(),
         listDoctorDocumentsFn(),
         listTemplatesFn(),
         listDoctorAuditFn(),
+        listDoctorRequestsFn(),
       ]);
+      setRequests(rq);
       setPatients(pa);
       setDocuments(d);
       setTemplates(t);
@@ -177,6 +194,11 @@ function DoctorPage() {
         {verified && tab === "overview" && (
           <div className="grid gap-6">
             <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+              <Stat
+                label="New requests"
+                value={requests.filter((r) => r.status === "ASSIGNED").length}
+                onClick={() => setTab("requests")}
+              />
               <Stat
                 label="Awaiting your review"
                 value={pending.length}
@@ -288,6 +310,22 @@ function DoctorPage() {
           </section>
         )}
 
+        {verified && tab === "requests" && (
+          <RequestsPanel
+            rows={requests}
+            canPrescribe={profile.prescribing_authorised}
+            onStart={(r) =>
+              setEditor({
+                mode: "new",
+                type: r.document_type,
+                memberId: r.member_id,
+                requestId: r.id,
+              })
+            }
+            onOpenDraft={setReviewing}
+            onChanged={() => void refresh()}
+          />
+        )}
         {verified && tab === "reviews" && (
           <DocumentTable
             rows={pending}
@@ -614,5 +652,137 @@ function SignaturePanel({ profile }: { profile: DoctorProfileRow }) {
         </div>
       )}
     </div>
+  );
+}
+
+function RequestsPanel({
+  rows,
+  canPrescribe,
+  onStart,
+  onOpenDraft,
+  onChanged,
+}: {
+  rows: DoctorRequestRow[];
+  canPrescribe: boolean;
+  onStart: (r: DoctorRequestRow) => void;
+  onOpenDraft: (documentId: string) => void;
+  onChanged: () => void;
+}) {
+  const [declining, setDeclining] = useState<DoctorRequestRow | null>(null);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const decline = async () => {
+    if (!declining) return;
+    try {
+      await declineRequestFn({ data: { requestId: declining.id, reason } });
+      setDeclining(null);
+      setReason("");
+      onChanged();
+    } catch (err) {
+      setError(errorText(err));
+    }
+  };
+  return (
+    <section className="grid gap-3">
+      {error && <Notice tone="error">{error}</Notice>}
+      <p className="text-xs text-muted-foreground">
+        Requests are not documents. Starting a draft opens the normal workflow, where you write and
+        approve everything yourself. The member&apos;s note is shown as they wrote it and is not a
+        clinical record.
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Patient</TableHead>
+            <TableHead>Requested</TableHead>
+            <TableHead>Received</TableHead>
+            <TableHead>Note from the member</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-medium">
+                {r.patient ?? "—"}
+                <span className="block text-[0.7rem] font-normal text-muted-foreground">
+                  {r.member_ref}
+                </span>
+              </TableCell>
+              <TableCell>
+                {documentTypeLabel(r.document_type)}
+                {r.status === "IN_PROGRESS" && (
+                  <Badge className="ml-2" variant="secondary">
+                    draft started
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell>{when(r.created_at)}</TableCell>
+              <TableCell className="max-w-xs whitespace-pre-wrap text-xs">
+                {r.member_note ?? r.admin_reference ?? "—"}
+              </TableCell>
+              <TableCell className="flex justify-end gap-2">
+                {r.status === "ASSIGNED" && (
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={r.document_type === "PRESCRIPTION_ORDER" && !canPrescribe}
+                      onClick={() => onStart(r)}
+                    >
+                      Start draft
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setDeclining(r)}>
+                      Decline
+                    </Button>
+                  </>
+                )}
+                {r.status === "IN_PROGRESS" && r.document_id && (
+                  <Button size="sm" variant="outline" onClick={() => onOpenDraft(r.document_id!)}>
+                    Open draft
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                No open requests.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+      <Dialog open={declining !== null} onOpenChange={(o) => !o && setDeclining(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Decline this request</DialogTitle>
+            <DialogDescription>
+              The member sees your reason. Keep it free of clinical detail.
+            </DialogDescription>
+          </DialogHeader>
+          <Label htmlFor="decline-reason">Reason</Label>
+          <Textarea
+            id="decline-reason"
+            rows={3}
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeclining(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={reason.trim().length < 3}
+              onClick={() => void decline()}
+            >
+              Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }

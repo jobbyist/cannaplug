@@ -471,3 +471,84 @@ export const adminSetPolicyFn = createServerFn({ method: "POST" })
   .middleware([...auth])
   .validator((d) => z.object({ type: docType, required: assurance, note: text(1000) }).parse(d))
   .handler(({ context, data }) => run(() => docs.adminSetPolicy(context.userId, data)));
+
+// ------------------------------------------------------------------ document requests
+
+export const listMyRequestsFn = createServerFn({ method: "GET" })
+  .middleware([...auth])
+  .handler(({ context }) => run(() => docs.listMyRequests(context.userId)));
+
+export const createMyRequestFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) => z.object({ type: docType, note: text(500).nullish(), key }).parse(d))
+  .handler(({ context, data }) =>
+    run(() =>
+      docs.createMyRequest(context.userId, {
+        type: data.type,
+        note: data.note || null,
+        key: data.key,
+      }),
+    ),
+  );
+
+export const cancelMyRequestFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) => z.object({ requestId: uuid }).parse(d))
+  .handler(({ context, data }) => run(() => docs.cancelMyRequest(context.userId, data.requestId)));
+
+export const adminListRequestsFn = createServerFn({ method: "GET" })
+  .middleware([...auth])
+  .validator((d) => z.object({ status: z.string().max(20).nullish() }).parse(d ?? {}))
+  .handler(({ context, data }) =>
+    run(() => docs.adminListRequests(context.userId, data.status ?? null)),
+  );
+
+export const adminCreateRequestFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) =>
+    z
+      .object({
+        memberId: uuid,
+        type: docType,
+        doctorId: uuid.nullish(),
+        reference: text(200).nullish(),
+        key,
+      })
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    run(() =>
+      docs.adminCreateRequest(context.userId, {
+        memberId: data.memberId,
+        type: data.type,
+        doctorId: data.doctorId ?? null,
+        reference: data.reference || null,
+        key: data.key,
+      }),
+    ),
+  );
+
+export const adminAssignRequestFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) => z.object({ requestId: uuid, doctorId: uuid }).parse(d))
+  .handler(({ context, data }) =>
+    run(() => docs.adminAssignRequest(context.userId, data.requestId, data.doctorId)),
+  );
+
+export const declineRequestFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) => z.object({ requestId: uuid, reason: text(500).min(3) }).parse(d))
+  .handler(({ context, data }) =>
+    run(() => docs.declineRequest(context.userId, data.requestId, data.reason)),
+  );
+
+export const listDoctorRequestsFn = createServerFn({ method: "GET" })
+  .middleware([...auth])
+  .handler(({ context }) => run(() => docs.listDoctorRequests(context.userId)));
+
+export const linkRequestDocumentFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) => z.object({ requestId: uuid, documentId: uuid }).parse(d))
+  .handler(({ context, data }) =>
+    run(() => docs.linkRequestDocument(context.userId, data.requestId, data.documentId)),
+  );

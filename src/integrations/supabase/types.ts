@@ -1192,6 +1192,69 @@ export type Database = {
         };
         Relationships: [];
       };
+      document_requests: {
+        Row: {
+          admin_reference: string | null;
+          assigned_at: string | null;
+          assigned_by: string | null;
+          created_at: string;
+          created_by: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          doctor_id: string | null;
+          document_id: string | null;
+          document_type: string;
+          fulfilled_at: string | null;
+          id: string;
+          member_id: string;
+          member_note: string | null;
+          source: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          admin_reference?: string | null;
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          doctor_id?: string | null;
+          document_id?: string | null;
+          document_type: string;
+          fulfilled_at?: string | null;
+          id?: string;
+          member_id: string;
+          member_note?: string | null;
+          source?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          admin_reference?: string | null;
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          doctor_id?: string | null;
+          document_id?: string | null;
+          document_type?: string;
+          fulfilled_at?: string | null;
+          id?: string;
+          member_id?: string;
+          member_note?: string | null;
+          source?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       document_signature_policy: {
         Row: {
           confirmation_note: string | null;
@@ -2031,6 +2094,45 @@ export type Database = {
         Returns: undefined;
       };
       member_list_documents: { Args: { p_user: string | null }; Returns: Json };
+      request_admin_create: {
+        Args: {
+          p_actor: string | null;
+          p_doctor: string | null;
+          p_idempotency_key: string | null;
+          p_member: string | null;
+          p_reference: string | null;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      request_assign: {
+        Args: { p_actor: string | null; p_doctor: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_cancel: { Args: { p_actor: string | null; p_request: string | null }; Returns: Json };
+      request_create: {
+        Args: {
+          p_actor: string | null;
+          p_idempotency_key: string | null;
+          p_note: string | null;
+          p_type: string | null;
+        };
+        Returns: Json;
+      };
+      request_decline: {
+        Args: { p_actor: string | null; p_reason: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_link_document: {
+        Args: { p_actor: string | null; p_doc: string | null; p_request: string | null };
+        Returns: Json;
+      };
+      request_list_admin: {
+        Args: { p_actor: string | null; p_status?: string | null };
+        Returns: Json;
+      };
+      request_list_doctor: { Args: { p_actor: string | null }; Returns: Json };
+      request_list_member: { Args: { p_user: string | null }; Returns: Json };
       signature_policy_set: {
         Args: {
           p_actor: string | null;

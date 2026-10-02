@@ -15,6 +15,7 @@ const TABLES = [
   "doctor_profiles",
   "document_counters",
   "document_events",
+  "document_requests",
   "document_signature_policy",
   "document_signatures",
   "document_templates",
@@ -26,7 +27,7 @@ const TABLES = [
 ];
 
 const FUNCTION_PATTERN =
-  "^(clinical_document_|doctor_|template_|signature_|document_verify_|member_list_documents$)";
+  "^(clinical_document_|doctor_|template_|signature_|document_verify_|request_|member_list_documents$)";
 
 const tsType = (udt) => {
   switch (udt) {

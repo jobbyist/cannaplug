@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { Download, Eye, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MemberRequests } from "@/components/clinical/MemberRequests";
 import { Notice, StatusBadge, errorText, when } from "@/components/clinical/shared";
 import { useAuth } from "@/hooks/useAuth";
 import { listMemberDocumentsFn, openDocumentFn } from "@/lib/clinical/clinical.functions";
@@ -29,6 +30,7 @@ function MemberDocumentsPage() {
   const [docs, setDocs] = useState<MemberDocumentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<"documents" | "requests">("documents");
 
   const load = useCallback(async () => {
     try {
@@ -89,19 +91,36 @@ function MemberDocumentsPage() {
           </Link>
         </header>
         <h1 className="font-display text-3xl font-extrabold uppercase">My documents</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Documents issued to you by your practitioner. Only you can open them.
+        <p className="mb-4 text-sm text-muted-foreground">
+          Documents issued to you by your practitioner, and requests for new ones. Only you can open
+          them.
         </p>
-        {error && <Notice tone="error">{error}</Notice>}
-        {docs === null && !error && (
+        <div role="tablist" aria-label="Documents and requests" className="mb-6 flex gap-2">
+          {(["documents", "requests"] as const).map((t) => (
+            <Button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              size="sm"
+              variant={tab === t ? "default" : "outline"}
+              onClick={() => setTab(t)}
+            >
+              {t === "documents" ? "My documents" : "Requests"}
+            </Button>
+          ))}
+        </div>
+        {tab === "requests" && <MemberRequests onFulfilled={() => void load()} />}
+        {tab === "documents" && error && <Notice tone="error">{error}</Notice>}
+        {tab === "documents" && docs === null && !error && (
           <p className="text-sm text-muted-foreground">Loading your documents…</p>
         )}
-        {docs?.length === 0 && (
+        {tab === "documents" && docs?.length === 0 && (
           <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             You don&apos;t have any documents yet.
           </p>
         )}
-        {docs &&
+        {tab === "documents" &&
+          docs &&
           docs.length > 0 &&
           SECTIONS.map((s) => {
             const rows = docs.filter(s.match);

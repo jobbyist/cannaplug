@@ -1044,3 +1044,91 @@ export async function adminSearchMembers(userId: string, query: string) {
 
 /** Moves overdue documents to EXPIRED (cron). */
 export const expireDueDocuments = () => rpc<number>("clinical_document_expire_due", {});
+
+// ---------------------------------------------------------------------------
+// Document requests (member → administrator intake → practitioner)
+// ---------------------------------------------------------------------------
+
+export type RequestStatus =
+  "REQUESTED" | "ASSIGNED" | "IN_PROGRESS" | "FULFILLED" | "DECLINED" | "CANCELLED";
+
+export type MemberRequestRow = {
+  id: string;
+  document_type: DocumentType;
+  status: RequestStatus;
+  source: "member" | "admin";
+  created_at: string;
+  decision_reason: string | null;
+  member_note: string | null;
+  practitioner: string | null;
+};
+export type AdminRequestRow = {
+  id: string;
+  document_type: DocumentType;
+  status: RequestStatus;
+  source: "member" | "admin";
+  member_id: string;
+  member_name: string | null;
+  member_ref: string;
+  doctor_id: string | null;
+  practitioner: string | null;
+  admin_reference: string | null;
+  decision_reason: string | null;
+  created_at: string;
+};
+export type DoctorRequestRow = {
+  id: string;
+  document_type: DocumentType;
+  status: RequestStatus;
+  member_id: string;
+  member_ref: string;
+  patient: string | null;
+  member_note: string | null;
+  admin_reference: string | null;
+  created_at: string;
+  document_id: string | null;
+};
+
+export const listMyRequests = (userId: string) =>
+  rpc<MemberRequestRow[]>("request_list_member", { p_user: userId });
+export const createMyRequest = (
+  userId: string,
+  i: { type: DocumentType; note: string | null; key: string },
+) =>
+  rpc("request_create", {
+    p_actor: userId,
+    p_type: i.type,
+    p_note: i.note,
+    p_idempotency_key: i.key,
+  });
+export const cancelMyRequest = (userId: string, requestId: string) =>
+  rpc("request_cancel", { p_actor: userId, p_request: requestId });
+
+export const adminListRequests = (userId: string, status: string | null) =>
+  rpc<AdminRequestRow[]>("request_list_admin", { p_actor: userId, p_status: status });
+export const adminCreateRequest = (
+  userId: string,
+  i: {
+    memberId: string;
+    type: DocumentType;
+    doctorId: string | null;
+    reference: string | null;
+    key: string;
+  },
+) =>
+  rpc("request_admin_create", {
+    p_actor: userId,
+    p_member: i.memberId,
+    p_type: i.type,
+    p_doctor: i.doctorId,
+    p_reference: i.reference,
+    p_idempotency_key: i.key,
+  });
+export const adminAssignRequest = (userId: string, requestId: string, doctorId: string) =>
+  rpc("request_assign", { p_actor: userId, p_request: requestId, p_doctor: doctorId });
+export const declineRequest = (userId: string, requestId: string, reason: string) =>
+  rpc("request_decline", { p_actor: userId, p_request: requestId, p_reason: reason });
+export const listDoctorRequests = (userId: string) =>
+  rpc<DoctorRequestRow[]>("request_list_doctor", { p_actor: userId });
+export const linkRequestDocument = (userId: string, requestId: string, documentId: string) =>
+  rpc("request_link_document", { p_actor: userId, p_request: requestId, p_doc: documentId });
