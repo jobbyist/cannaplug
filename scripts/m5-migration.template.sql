@@ -26,6 +26,9 @@ CREATE TABLE public.payment_settings (
 );
 INSERT INTO public.payment_settings (key, value) VALUES
   ('eft_dual_control_threshold_rand', '10000'::jsonb),
+  ('fx_mode', '"live"'::jsonb),
+  ('fx_margin_percent', '2'::jsonb),
+  ('fx_refresh_seconds', '600'::jsonb),
   ('sms_enabled', 'false'::jsonb),
   ('whatsapp_enabled', 'false'::jsonb);
 
@@ -68,6 +71,34 @@ BEGIN
   RETURNING id INTO v_id;
   PERFORM public._audit(p_actor, 'fx_rate_set', 'fx_rate', v_id,
     jsonb_build_object('pair', p_base || '/' || p_quote, 'rate', p_rate, 'valid_hours', p_valid_hours, 'source', p_source));
+  RETURN jsonb_build_object('id', v_id, 'rate', round(p_rate, 6));
+END;
+$$;
+
+-- Live rates are fetched by the app from a market-data source and recorded here by the service role.
+-- The stored rate already includes the safety margin (applied app-side); the market rate and margin
+-- are kept in `source` for the audit trail. Short validity: a stale live rate must not price an order.
+CREATE OR REPLACE FUNCTION public.fx_record_live_rate(
+  p_base text, p_quote text, p_rate numeric, p_valid_minutes integer, p_source text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF p_base <> 'ZAR' OR p_quote <> 'USD' THEN RAISE EXCEPTION 'invalid_currency_pair'; END IF;
+  IF p_rate IS NULL OR p_rate NOT BETWEEN 5 AND 60 THEN
+    RAISE EXCEPTION 'invalid_rate: ZAR per USD must be between 5 and 60';
+  END IF;
+  IF p_valid_minutes IS NULL OR p_valid_minutes NOT BETWEEN 5 AND 240 THEN
+    RAISE EXCEPTION 'invalid_validity: 5 to 240 minutes';
+  END IF;
+  IF p_source IS NULL OR length(btrim(p_source)) NOT BETWEEN 2 AND 200 THEN
+    RAISE EXCEPTION 'invalid_source';
+  END IF;
+  INSERT INTO public.fx_rates (base_currency, quote_currency, rate, source, set_by, valid_until)
+  VALUES (p_base, p_quote, round(p_rate, 6), btrim(p_source), NULL, now() + make_interval(mins => p_valid_minutes))
+  RETURNING id INTO v_id;
   RETURN jsonb_build_object('id', v_id, 'rate', round(p_rate, 6));
 END;
 $$;
@@ -901,7 +932,7 @@ BEGIN
     SELECT p.oid::regprocedure AS sig
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
-      AND p.proname = ANY (ARRAY['fx_set_rate', 'fx_current_rate', 'webhook_reject', 'notification_enqueue',
+      AND p.proname = ANY (ARRAY['fx_set_rate', 'fx_record_live_rate', 'fx_current_rate', 'webhook_reject', 'notification_enqueue',
         'notification_enqueue_staff', 'notification_claim', 'notification_complete', 'payment_initiate',
         'payment_attach_session', 'payment_mark_failed', 'payments_expire_stale', 'payments_apply_verified_event',
         '_eft_threshold', '_eft_settle', 'eft_submit', 'eft_approve', 'eft_reject', '_notify_order_status',

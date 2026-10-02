@@ -94,6 +94,19 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       ).toBe(true);
     });
 
+    it("live rates are service-only, bounded, short-lived, and priced into PayPal initiation", async () => {
+      for (const [rate, mins] of [[1.6, 30], [1600, 30], [16.4, 1], [16.4, 9999]] as const)
+        expect((await attempt(rpc(sql, "fx_record_live_rate", "ZAR", "USD", rate, mins, "live: test"))).ok).toBe(false);
+      expect((await attempt(rpc(sql, "fx_record_live_rate", "ZAR", "EUR", 16.4, 30, "live: test"))).ok).toBe(false);
+      const denied = await attempt(asUser(sql, manager, (tx) => tx`SELECT public.fx_record_live_rate('ZAR', 'USD', 16.4, 30, 'live: test')`));
+      expect(denied.ok).toBe(false);
+      await rpc(sql, "fx_record_live_rate", "ZAR", "USD", 16.4, 30, "live: test market 16.7 less 2% margin");
+      const o = await newOrder(275);
+      // R275 / 16.4 = 16.7683 -> 16.77, rounded up
+      expect(await init(o.member, o.orderId, "paypal")).toMatchObject({ expected_amount: 16.77, expected_currency: "USD", fx_rate: 16.4 });
+      await sql`DELETE FROM public.fx_rates WHERE source LIKE 'live: test%'`.catch(() => undefined);
+    });
+
     it("PayPal initiation is refused without a current rate; Yoco is unaffected", async () => {
       const o = await newOrder();
       const saved = await sql`SELECT id, valid_until FROM public.fx_rates`;
@@ -245,7 +258,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       await apply("yoco", "evt-L-1", f);
       await apply("yoco", "evt-L-2", f);
       const l = await loyaltyOf(sql, o.member);
-      expect(Number(l.points_balance)).toBe(50); // R500 at 1 point per R10, once
+      expect(Number(l!.points_balance)).toBe(50); // R500 at 1 point per R10, once
     });
 
     it("cancels sibling attempts once an order is paid", async () => {

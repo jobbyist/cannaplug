@@ -224,7 +224,7 @@ describe.skipIf(!DB_URL)("document requests (real PostgreSQL)", () => {
 
     it("an administrator creating a request does NOT create a document or any clinical value", async () => {
       const m = await mkMember(sql);
-      const [{ before }] = await sql`SELECT count(*)::int before FROM public.medical_documents`;
+      const [{ before }] = await sql`SELECT count(*)::int before FROM public.medical_documents WHERE member_id = ${m}`;
       await rpc(
         sql,
         "request_admin_create",
@@ -235,7 +235,7 @@ describe.skipIf(!DB_URL)("document requests (real PostgreSQL)", () => {
         null,
         key("a"),
       );
-      const [{ after }] = await sql`SELECT count(*)::int after FROM public.medical_documents`;
+      const [{ after }] = await sql`SELECT count(*)::int after FROM public.medical_documents WHERE member_id = ${m}`;
       expect(after).toBe(before);
       const doc = await attempt(
         rpc(
