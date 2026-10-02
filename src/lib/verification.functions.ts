@@ -50,11 +50,18 @@ export const submitVerificationFn = createServerFn({ method: "POST" })
         documentType: z.enum(["sa_id", "passport", "drivers_licence"]),
         path: z.string().min(40).max(120),
         dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        expiresOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
         key: idempotencyKey,
       })
       .parse(d),
   )
-  .handler(({ context, data }) => run(() => submitVerification(context.userId, data)));
+  .handler(({ context, data }) =>
+    run(() => submitVerification(context.userId, { ...data, expiresOn: data.expiresOn ?? null })),
+  );
 
 export const listVerificationsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

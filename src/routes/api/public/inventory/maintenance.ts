@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
  *   - expires overdue online-order stock holds (returns their quantity to available stock)
  *   - purges idempotency keys older than 30 days
  *   - credits loyalty for committed sales whose post-commit accrual failed (idempotent retry)
+ *   - removes ID images whose member account no longer exists (ID images live as long as the account)
  * Both operations are safe to run concurrently and repeatedly.
  */
 export const Route = createFileRoute("/api/public/inventory/maintenance")({
@@ -29,8 +30,18 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
           );
           return Response.json({ ok: false }, { status: 500 });
         }
+        // Best-effort and separate: a storage hiccup must not fail the inventory jobs above.
+        let idSweep: { scanned: number; removedFolders: number; removedFiles: number } | null =
+          null;
+        try {
+          const { sweepOrphanedIdDocuments } = await import("@/lib/verification-data.server");
+          idSweep = await sweepOrphanedIdDocuments();
+        } catch (err) {
+          console.error("ID document sweep failed", err instanceof Error ? err.message : err);
+        }
         return Response.json({
           ok: true,
+          idDocumentSweep: idSweep,
           expiredHolds: expired.data,
           purgedKeys: purged.data,
           loyaltyRetried: loyalty.data,

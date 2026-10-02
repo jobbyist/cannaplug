@@ -43,6 +43,7 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
       over["type"] ?? "sa_id",
       over["path"] ?? pathFor(user),
       over["dob"] ?? adult,
+      over["expires"] ?? null,
       over["key"] ?? key("sub"),
     );
   const review = (
@@ -289,6 +290,134 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
     });
   });
 
+  describe("document expiry (SA IDs never expire; passports and licences do)", () => {
+    const inYears = (n: number, dayOffset = 0) => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + n);
+      d.setDate(d.getDate() + dayOffset);
+      return d.toISOString().slice(0, 10);
+    };
+    const yesterday = () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().slice(0, 10);
+    };
+
+    it("an SA ID stores no expiry, even if one is sent", async () => {
+      const u = await customer();
+      await submit(u, { type: "sa_id", expires: inYears(3) });
+      expect((await row(u))!["document_expires_on"]).toBeNull();
+    });
+
+    it("a passport or driver's licence needs a valid, current, plausible expiry", async () => {
+      for (const type of ["passport", "drivers_licence"]) {
+        const u = await customer();
+        expect(failedWith(await attempt(submit(u, { type })), "invalid_expiry")).toBe(true);
+        expect(
+          failedWith(await attempt(submit(u, { type, expires: yesterday() })), "document_expired"),
+        ).toBe(true);
+        expect(
+          failedWith(await attempt(submit(u, { type, expires: inYears(16) })), "invalid_expiry"),
+        ).toBe(true);
+        expect(await row(u)).toBeUndefined();
+        const ok = inYears(4);
+        expect(await submit(u, { type, expires: ok })).toMatchObject({ status: "pending" });
+        expect(String((await row(u))!["document_expires_on"])).toContain(ok.slice(0, 4));
+      }
+    });
+
+    it("the table refuses a pending or verified passport without an expiry, and an SA ID with one", async () => {
+      const u = await customer();
+      const m = await mkUser(sql, "manager");
+      const noExpiry = await attempt(
+        Promise.resolve(
+          sql`INSERT INTO public.customer_verification (user_id, status, document_type, document_path, declared_dob, submitted_at)
+              VALUES (${u}, 'pending', 'passport', ${pathFor(u)}, '1990-01-01', now())`,
+        ),
+      );
+      expect(noExpiry.ok).toBe(false);
+      const saWithExpiry = await attempt(
+        Promise.resolve(
+          sql`INSERT INTO public.customer_verification (user_id, status, document_type, document_path, declared_dob, submitted_at, document_expires_on)
+              VALUES (${u}, 'pending', 'sa_id', ${pathFor(u)}, '1990-01-01', now(), ${inYears(2)})`,
+        ),
+      );
+      expect(saWithExpiry.ok).toBe(false);
+      void m;
+    });
+
+    it("approval is refused if the document has expired by decision time", async () => {
+      const u = await customer();
+      await submit(u, { type: "passport", expires: inYears(2) });
+      await sql`UPDATE public.customer_verification SET document_expires_on = ${yesterday()} WHERE user_id = ${u}`;
+      expect(failedWith(await attempt(review(manager, u, "approve")), "document_expired")).toBe(
+        true,
+      );
+      expect((await row(u))!["status"]).toBe("pending");
+      // ...but it can be rejected for being expired.
+      await review(manager, u, "reject", "expired_document");
+      expect((await row(u))!["rejection_code"]).toBe("expired_document");
+    });
+
+    it("an expired passport blocks ordering, an SA ID never does", async () => {
+      const passport = await customer();
+      await submit(passport, { type: "passport", expires: inYears(2) });
+      await review(manager, passport, "approve");
+      await rpc(sql, "_require_verified_member", passport); // in date: open
+      await sql`UPDATE public.customer_verification SET document_expires_on = ${yesterday()} WHERE user_id = ${passport}`;
+      expect(
+        failedWith(
+          await attempt(rpc(sql, "_require_verified_member", passport)),
+          "verification_expired",
+        ),
+      ).toBe(true);
+
+      const sa = await customer();
+      await submit(sa, { type: "sa_id" });
+      await review(manager, sa, "approve");
+      await sql`UPDATE public.customer_verification SET declared_dob = '1950-01-01' WHERE user_id = ${sa}`;
+      await rpc(sql, "_require_verified_member", sa); // no expiry: always open
+    });
+
+    it("an expired member can resubmit with a fresh set of attempts; a current one cannot", async () => {
+      const u = await customer();
+      await submit(u, { type: "drivers_licence", expires: inYears(2) });
+      await review(manager, u, "approve");
+      expect(failedWith(await attempt(submit(u)), "already_verified")).toBe(true);
+
+      await sql`UPDATE public.customer_verification SET document_expires_on = ${yesterday()}, attempt_count = 5 WHERE user_id = ${u}`;
+      expect(await submit(u, { type: "drivers_licence", expires: inYears(5) })).toMatchObject({
+        status: "pending",
+        attempt: 1,
+      });
+      // pending: the order gate says "in review", and approval makes it current again.
+      expect(
+        failedWith(await attempt(rpc(sql, "_require_verified_member", u)), "verification_pending"),
+      ).toBe(true);
+      await review(manager, u, "approve");
+      await rpc(sql, "_require_verified_member", u);
+    });
+
+    it("members can read their own expiry (and still not the document path)", async () => {
+      const u = await customer();
+      await submit(u, { type: "passport", expires: inYears(3) });
+      const own = await asUser(
+        sql,
+        u,
+        (tx) => tx`SELECT status, document_expires_on FROM public.customer_verification`,
+      );
+      expect(own).toHaveLength(1);
+      expect(own[0]!["document_expires_on"]).toBeTruthy();
+      expect(
+        (
+          await attempt(
+            asUser(sql, u, (tx) => tx`SELECT document_path FROM public.customer_verification`),
+          )
+        ).ok,
+      ).toBe(false);
+    });
+  });
+
   describe("the order gate", () => {
     async function basket() {
       const product = await mkProduct(sql, 100);
@@ -425,7 +554,7 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
       const u = await customer();
       const calls: ((tx: Sql) => PromiseLike<unknown>)[] = [
         (tx) =>
-          tx`SELECT public.verification_submit(${u}, 'sa_id', ${pathFor(u)}, '1990-01-01', 'abcdefgh1')`,
+          tx`SELECT public.verification_submit(${u}, 'sa_id', ${pathFor(u)}, '1990-01-01', NULL, 'abcdefgh1')`,
         (tx) =>
           tx`SELECT public.verification_review(${manager}, ${u}, 'approve', NULL, NULL, 'abcdefgh1')`,
         (tx) => tx`SELECT public.verification_log_document_view(${manager}, ${u})`,

@@ -550,7 +550,8 @@ Also fixed: the address form's labels were not associated with their inputs (acc
   2. decide failure handling (the claim has no un-claim: either make the sender retry within the same job run, or add a `notify_failed_at`/retry column and a re-queue RPC in that PR);
   3. include the product link, an unsubscribe path (deleting the subscription row is already allowed by RLS), and respect marketing-consent rules;
   4. cover it with tests like the rest of the member milestone (idempotent per subscription, no duplicate emails under concurrent job runs).
-- **Compliance gate on online orders** — *partly done (Milestone 4.2, below):* online orders now require an **approved ID** (18+ checked, manual review). Still open: purchase/quantity limits, document expiry/re-verification cadence, and a document **retention/purge** policy (needs a business + POPIA decision — see *ID verification → Open decisions*). POS (in-store) sales are unaffected: staff check ID in person.
+- **ID-verification emails — configure with the Resend work (note recorded 2026-10-02; not built).** Nothing is emailed today: managers only see the *ID Checks* queue when they open `/admin`, and members only see their decision on `/account`. To configure, via Resend: (a) **managers** — a notice when an ID is submitted (the `id_verification_submitted` audit row is the natural trigger; include the queue link, never the document or the DOB); (b) **members** — a decision email (approved / rejected with the reason shown in `rejectionMessage`), and an **expiry reminder** (e.g. 30 and 7 days before `document_expires_on` for passports / driver's licences, so ordering is not interrupted). Keep the same rules as the back-in-stock job: send and mark as sent in one place so a failure cannot silently lose a notification, respect marketing-consent rules (these are transactional, so a separate topic), and never put identity data in an email body.
+- **Compliance gate on online orders** — *partly done (Milestone 4.2, below):* online orders now require an **approved ID** (18+ checked, manual review). Document expiry and retention are now decided and built (Milestone 4.3, below). Still open: purchase/quantity limits. POS (in-store) sales are unaffected: staff check ID in person.
 
 ## 2026-10-01 — Checkout end to end (`/checkout` → `/admin` and `/account`)
 
@@ -636,3 +637,47 @@ Same harness as Milestone 4 (`scripts/live-stack/`, README). **8/8 live specs pa
 - **Existing members' sessions**: the gate applies at the database, so a member mid-checkout when this ships gets the "verify your ID" message from the server.
 - Reviewer notifications: nothing emails managers when an ID arrives, and members are not emailed the decision (the page updates live; email belongs with the Resend work already on the roadmap).
 - Budtenders cannot review (manager+ only, matching the original write policy); change `_assert_staff(..., 'manager')` in `verification_review` / `verification_log_document_view` if counter staff should.
+
+## 2026-10-02 — Milestone 4.3: ID verification decisions (expiry, retention, who may review)
+
+**Decisions (from the business owner):**
+1. **Retention:** ID images are kept **for as long as the member's account is active**.
+2. **Who reviews:** **budtenders may not review IDs.** Review (approve / reject / view the image) is manager and above. (Unchanged from Milestone 4.2, now a decision rather than a default.)
+3. **Expiry:** **South African IDs do not expire.** Only **passports and driver's licences** used as ID have an expiry date.
+
+**Migration:** `supabase/migrations/20260930004000_id_verification_expiry.sql` (mirror `drizzle/migrations/0013_…`), rollback `supabase/rollbacks/20260930004000_id_verification_expiry_rollback.sql` (rehearsed: `scripts/rollback-rehearsal-m5b.sh` — the three changed functions come back byte-for-byte and the old overload is gone, not duplicated).
+
+### Expiry
+| Piece | Behaviour |
+|---|---|
+| `customer_verification.document_expires_on` | `NULL` for an SA ID (a CHECK forbids an SA ID having one); required once a passport / licence is `pending` or `verified` (CHECK). The member can read it (not sensitive); the storage path and declared DOB remain unreadable by clients. |
+| `verification_submit(…, p_expires_on, key)` | SA ID: any expiry sent is ignored. Passport / licence: expiry required, not in the past (`document_expired`), at most 15 years out (`invalid_expiry`). New signature; the old 5-argument overload is dropped. |
+| `verification_review` | approval re-checks the document is not expired at decision time; rejection reason `expired_document` already existed. |
+| `_require_verified_member` | a verified member whose document has expired gets `verification_expired` — checkout and reorder refuse. **No status is rewritten and no job is needed:** expiry is evaluated against today's date wherever it matters, so nothing can be forgotten. |
+| Renewal | a verified member may resubmit **only after** their document has expired; the renewal starts a fresh 5 attempts. A current document cannot be resubmitted (`already_verified`). |
+| UI | the upload form shows an expiry date field only for passports / licences (SA ID: a note that it does not expire); the dashboard banner and tab show *Expired* / *Valid until*; the reviewer sees the expiry in the queue and dialog, is warned if it has lapsed, and **Approve is disabled** for an expired document. |
+
+### Retention (ID images live as long as the account)
+Deleting an account cascades the verification row away (`ON DELETE CASCADE`) but cannot reach object storage, so **the existing scheduled maintenance job** (`POST /api/public/inventory/maintenance`, cron-authenticated) now also sweeps the bucket: any top-level folder named like a member id whose auth user **no longer exists** is removed. Safety rules, all tested: only folders shaped like a UUID are ever touched; only a definite "user not found" counts as orphaned (any other lookup failure aborts the sweep instead of deleting); the sweep is paged and bounded per run; it is best-effort and cannot fail the inventory jobs. Consequence: images are deleted at the **next maintenance run** after the account is deleted, not instantly — make sure the cron is scheduled. Earlier uploads are also deleted when a member resubmits (data minimisation), unchanged from 4.2.
+
+### Test evidence (executed in this session)
+- **Real PostgreSQL:** `bun run test:db` **188/188** (181 + 7 expiry tests: SA ID stores no expiry; passport/licence expiry required, not past, ≤15 y; CHECK invariants; approval refused if lapsed by decision time; expired passport blocks ordering but an SA ID never does; renewal after expiry with fresh attempts, and a current document cannot resubmit; member reads own expiry but not the path).
+- **Mutation checks** (clean DB each run): gate ignores expiry → fails; SA ID demanded an expiry → 20 fail; passport expiry optional → fails; past expiry accepted → fails; approve ignores expiry → fails; verified members can never resubmit → fails; renewal keeps old attempts → fails. **All seven caught.**
+- **Unit / component:** expiry rules incl. "expires today is still valid" and the 15-year cap, `isExpired`, the *expired* view, error wording (`verification-logic.test.ts`); the retention sweep — keeps live members, removes only deleted members' files, ignores non-UUID folders, aborts on a lookup failure, pages large buckets (`id-retention-sweep.test.ts`); the form shows an expiry field only for a passport/licence and refuses a lapsed date (`verification-panel.test.tsx`). Unit suite **114/114**, `tsc` and ESLint clean.
+- **Live browser run** (real Chromium + GoTrue + PostgREST + Realtime + Storage + Postgres): **29/29** (24 earlier + 5 new). New: a passport asks for an expiry (the browser itself refuses a past date) while an SA ID shows a note that it does not expire; the reviewer sees the expiry in the queue and dialog, approves, and the member's open page shows *Valid until*; when the date passes the member sees *Your ID document has expired*, checkout is gated with the expired reason, the database refuses the gate, and the member can **renew** (this run found and fixed a real bug: the upload-URL step refused every verified member, so renewal failed before reaching the database — now one tested function, `uploadBlockedReason`); a **budtender** sees "ID checks are for managers only" and the review/view functions refuse them; and **retention** — an active member's image is untouched while a deleted account's image is removed by the authenticated maintenance job (an unauthenticated call is refused with 401).
+- **Hosted (2026-10-02):** the expiry migration was applied except its `DROP FUNCTION` (see below), then smoke-tested with the real functions in a transaction that always rolls back (passport without expiry → `invalid_expiry`; past expiry → `document_expired`; >15 years → `invalid_expiry`; submit → approve → gate open; date passes → `verification_expired`; renewal → pending with a fresh attempt; an SA ID stores no expiry and its gate stays open; clients can read `document_expires_on` but not `document_path`). Afterwards: 0 rows, 0 audit rows, 1 user.
+
+### Still to run on hosted by a person (the connector holds `DROP` statements for a confirmation an agent session cannot answer)
+```sql
+-- 1. from Milestone 4.2 (inert today: `authenticated` has no INSERT/UPDATE privilege on the table)
+DROP POLICY "verification management insert" ON public.customer_verification;
+DROP POLICY "verification management update" ON public.customer_verification;
+-- 2. only AFTER this PR is deployed (the previously deployed app still calls the 5-argument form)
+DROP FUNCTION public.verification_submit(uuid, text, text, date, text);
+```
+Then record `20260930003000_id_verification` and `20260930004000_id_verification_expiry` in `supabase_migrations.schema_migrations`. Until step 2, both `verification_submit` overloads exist (service-role only); the app calls the 6-argument one by named parameters, so there is no ambiguity.
+
+### Open decisions that remain
+- Reviewer **notifications and decision / expiry-reminder emails** — recorded under *Roadmap commitments*.
+- A reset path for members locked out after 5 rejected attempts (no admin UI yet).
+- Purchase / quantity limits.

@@ -7,7 +7,9 @@ import {
   ID_MAX_ATTEMPTS,
   ID_MAX_BYTES,
   ID_MIME_TO_EXT,
+  documentNeedsExpiry,
   isOwnUploadPath,
+  uploadBlockedReason,
   sniffMime,
   type DocumentType,
 } from "@/lib/verification-logic";
@@ -28,6 +30,15 @@ const MAX_FILES_PER_MEMBER = 10;
 
 const storage = () => supabaseAdmin.storage.from(ID_BUCKET);
 
+/** Reviewing IDs is manager-and-above only; budtenders get a clear message, not a generic failure. */
+async function assertManager(actor: string) {
+  try {
+    await assertRole(actor, "manager");
+  } catch {
+    throw new MemberError("ID checks are for managers only.");
+  }
+}
+
 function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw friendlyMemberError(res.error);
   return res.data as T;
@@ -41,7 +52,7 @@ export async function getMyVerification(db: UserClient) {
     await db
       .from("customer_verification")
       .select(
-        "status,document_type,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
+        "status,document_type,document_expires_on,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
       )
       .maybeSingle(),
   );
@@ -53,13 +64,11 @@ export async function createIdUpload(userId: string, mime: string) {
 
   const { data: row } = await supabaseAdmin
     .from("customer_verification")
-    .select("status,attempt_count")
+    .select("status,attempt_count,document_expires_on")
     .eq("user_id", userId)
     .maybeSingle();
-  if (row?.status === "verified") throw friendlyMemberError(new Error("already_verified"));
-  if (row?.status === "pending") throw friendlyMemberError(new Error("verification_pending"));
-  if ((row?.attempt_count ?? 0) >= ID_MAX_ATTEMPTS)
-    throw friendlyMemberError(new Error("too_many_attempts"));
+  const blocked = uploadBlockedReason(row);
+  if (blocked) throw friendlyMemberError(new Error(blocked));
 
   // Bound what an account can leave in storage before it ever submits.
   const { data: existing } = await storage().list(userId, { limit: MAX_FILES_PER_MEMBER + 1 });
@@ -87,7 +96,13 @@ async function inspectUpload(path: string): Promise<string | null> {
 
 export async function submitVerification(
   userId: string,
-  input: { documentType: DocumentType; path: string; dob: string; key: string },
+  input: {
+    documentType: DocumentType;
+    path: string;
+    dob: string;
+    expiresOn: string | null;
+    key: string;
+  },
 ) {
   if (!isOwnUploadPath(userId, input.path))
     throw friendlyMemberError(new Error("invalid_document_path"));
@@ -102,6 +117,7 @@ export async function submitVerification(
       p_document_type: input.documentType,
       p_document_path: input.path,
       p_dob: input.dob,
+      p_expires_on: documentNeedsExpiry(input.documentType) ? input.expiresOn : null,
       p_idempotency_key: input.key,
     }),
   );
@@ -122,6 +138,7 @@ export type VerificationQueueItem = {
   status: string;
   document_type: string | null;
   declared_dob: string | null;
+  document_expires_on: string | null;
   submitted_at: string | null;
   reviewed_at: string | null;
   rejection_code: string | null;
@@ -133,11 +150,11 @@ export async function listVerifications(
   actor: string,
   scope: "pending" | "decided",
 ): Promise<VerificationQueueItem[]> {
-  await assertRole(actor, "manager");
+  await assertManager(actor);
   const base = supabaseAdmin
     .from("customer_verification")
     .select(
-      "user_id,status,document_type,declared_dob,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
+      "user_id,status,document_type,declared_dob,document_expires_on,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
     );
   const { data, error } =
     scope === "pending"
@@ -171,7 +188,7 @@ export async function listVerifications(
 }
 
 export async function pendingVerificationCount(actor: string): Promise<number> {
-  await assertRole(actor, "manager");
+  await assertManager(actor);
   const { count, error } = await supabaseAdmin
     .from("customer_verification")
     .select("user_id", { count: "exact", head: true })
@@ -219,4 +236,73 @@ export async function reviewVerification(
       p_idempotency_key: input.key,
     }),
   );
+}
+
+// ---- Retention ------------------------------------------------------------------------------
+
+/**
+ * ID images are kept for as long as the member's account exists. Deleting an account removes the
+ * verification row (ON DELETE CASCADE) but cannot reach into object storage, so a scheduled sweep
+ * removes any folder whose owner no longer exists. Pure over its dependencies so it can be tested.
+ */
+export type IdSweepDeps = {
+  /** Top-level folder names (one per member id). */
+  listFolders: (offset: number, limit: number) => Promise<string[]>;
+  listFiles: (folder: string) => Promise<string[]>;
+  userExists: (id: string) => Promise<boolean>;
+  remove: (paths: string[]) => Promise<void>;
+};
+
+const FOLDER_PAGE = 100;
+const MAX_FOLDERS_PER_RUN = 1000;
+
+export async function sweepOrphanedIdFolders(deps: IdSweepDeps) {
+  let scanned = 0;
+  let removedFolders = 0;
+  let removedFiles = 0;
+  for (let offset = 0; offset < MAX_FOLDERS_PER_RUN; offset += FOLDER_PAGE) {
+    const folders = await deps.listFolders(offset, FOLDER_PAGE);
+    if (folders.length === 0) break;
+    for (const folder of folders) {
+      // Only ever touch folders named like a member id; anything else is not ours to delete.
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(folder)) continue;
+      scanned += 1;
+      if (await deps.userExists(folder)) continue;
+      const files = await deps.listFiles(folder);
+      if (files.length > 0) {
+        await deps.remove(files.map((name) => `${folder}/${name}`));
+        removedFiles += files.length;
+      }
+      removedFolders += 1;
+    }
+    if (folders.length < FOLDER_PAGE) break;
+  }
+  return { scanned, removedFolders, removedFiles };
+}
+
+export function sweepOrphanedIdDocuments() {
+  return sweepOrphanedIdFolders({
+    listFolders: async (offset, limit) => {
+      const { data, error } = await storage().list("", { limit, offset });
+      if (error) throw error;
+      return (data ?? []).map((entry) => entry.name);
+    },
+    listFiles: async (folder) => {
+      const { data, error } = await storage().list(folder, { limit: 100 });
+      if (error) throw error;
+      return (data ?? []).map((entry) => entry.name);
+    },
+    userExists: async (id) => {
+      const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+      if (data?.user) return true;
+      // Only a definite "no such user" counts as orphaned; any other failure keeps the files.
+      if (error && (error.status === 404 || /not.?found/i.test(error.code ?? ""))) return false;
+      if (error) throw error;
+      return true;
+    },
+    remove: async (paths) => {
+      const { error } = await storage().remove(paths);
+      if (error) throw error;
+    },
+  });
 }

@@ -2,6 +2,8 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import {
   ANON,
   API,
+  BUDTENDER,
+  CRON_SECRET,
   MANAGER,
   PASSWORD,
   SERVICE,
@@ -34,6 +36,16 @@ const REJECTED = `rejected-${stamp}@live.test`;
 // Names carry the run stamp so the reviewer's queue (which keeps earlier runs' members) stays unambiguous.
 const NINA = `Nina Newbie ${stamp}`;
 const REX = `Rex Rejected ${stamp}`;
+
+/** Runs SQL that is expected to fail and returns the database's error text ("" if it succeeded). */
+function sqlError(query: string): string {
+  try {
+    sql(query);
+    return "";
+  } catch (err) {
+    return String((err as { stderr?: Buffer }).stderr ?? err);
+  }
+}
 
 const verificationOf = (email: string) =>
   sql(
@@ -382,5 +394,192 @@ test("REJECTION: the member sees the reason live, can resubmit, and the old file
   ).toBe("0");
   // and they still cannot order while pending
   expect(sql(`select count(*) from public.orders where user_id='${userId(REJECTED)}'`)).toBe("0");
+  void uniq;
+});
+
+// ---------------------------------------------------------------------------------------------
+// Expiry: SA IDs never expire; passports and driver's licences do.
+// ---------------------------------------------------------------------------------------------
+const PASS = `passport-${stamp}@live.test`;
+const PASSNAME = `Pat Passport ${stamp}`;
+const plusYears = (n: number) => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+test("EXPIRY: a passport needs an expiry date; an SA ID does not ask for one", async ({ page }) => {
+  await signUpUi(page, PASS, PASSNAME, "1985-06-01");
+  await expect(page.getByRole("heading", { name: "ID verification" })).toBeVisible();
+  // SA ID (default): no expiry field, and a note says why.
+  await expect(page.getByLabel(/expiry date/i)).toHaveCount(0);
+  await expect(page.getByText(/South African IDs don.t expire/i)).toBeVisible();
+  await page.getByLabel("Document type").selectOption("passport");
+  const expiry = page.getByLabel(/expiry date/i);
+  await expect(expiry).toBeVisible();
+  // a lapsed date is refused by the page, nothing is uploaded or recorded
+  await page.getByLabel(/photo or scan/i).setInputFiles(idFile);
+  await expiry.fill("2020-01-01");
+  await page.getByRole("button", { name: /submit for review/i }).click();
+  // A real browser refuses a date before today's `min` itself (its own message), so nothing is sent.
+  expect(await expiry.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
+  expect(verificationOf(PASS)).toBe("");
+  await expiry.fill(plusYears(4));
+  await page.getByRole("button", { name: /submit for review/i }).click();
+  await expect(page.getByTestId("verification-status")).toContainText("being reviewed", {
+    timeout: 30_000,
+  });
+  expect(
+    sql(
+      `select document_expires_on from public.customer_verification where user_id='${userId(PASS)}'`,
+    ),
+  ).toBe(plusYears(4));
+});
+
+test("EXPIRY: the reviewer sees the expiry, approves, and the member sees 'valid until'", async ({
+  browser,
+}) => {
+  const memberCtx = await browser.newContext();
+  const member = await memberCtx.newPage();
+  await signInUi(member, PASS);
+  await member.getByRole("button", { name: "ID Verification" }).first().click();
+  await member.waitForTimeout(2500);
+
+  const staff = await staffPage(browser);
+  const row = staff.getByRole("row", { name: new RegExp(PASSNAME) });
+  await expect(row).toContainText(`Expires ${plusYears(4)}`);
+  await row.getByRole("button", { name: "Review" }).click();
+  const dialog = staff.getByRole("dialog");
+  await expect(dialog).toContainText(`expires ${plusYears(4)}`);
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Approve" }).click();
+  await expect(staff.getByRole("status")).toContainText(`${PASSNAME} is verified`);
+  await expect(member.getByTestId("verification-status")).toContainText(
+    `Valid until ${plusYears(4)}`,
+    { timeout: 30_000 },
+  );
+});
+
+test("EXPIRY: when the passport expires the member can no longer order and can renew", async ({
+  page,
+}) => {
+  // Time passes: the document's date is now in the past (no status is rewritten by anything).
+  sql(
+    `update public.customer_verification set document_expires_on = current_date - 1 where user_id='${userId(PASS)}';`,
+  );
+  await signInUi(page, PASS);
+  await page.getByRole("button", { name: "ID Verification" }).first().click();
+  await expect(page.getByTestId("verification-status")).toContainText(
+    "Your ID document has expired",
+  );
+  await expect(page.getByRole("button", { name: /submit for review/i })).toBeVisible();
+
+  // checkout is gated, with the specific reason
+  await page.goto("/");
+  await page.evaluate((line) => localStorage.setItem("cannaplug.cart.v1", JSON.stringify([line])), {
+    productId: productId("live-blue-gelato"),
+    name: "Live Blue Gelato",
+    price: 100,
+    unit: "per gram",
+    quantity: 1,
+  });
+  await page.goto("/checkout");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await expect(page.getByTestId("checkout-id-gate")).toContainText(/expired/i);
+
+  // the database refuses the order even if the UI is bypassed
+  expect(sqlError(`select public._require_verified_member('${userId(PASS)}')`)).toMatch(
+    /verification_expired/,
+  );
+
+  // renew: a current passport goes back to review with a fresh set of attempts
+  await page.goto("/account");
+  await page.getByRole("button", { name: "ID Verification" }).first().click();
+  await page.getByLabel("Document type").selectOption("passport");
+  await page.getByLabel(/expiry date/i).fill(plusYears(6));
+  await page.getByLabel(/photo or scan/i).setInputFiles(idFile);
+  await page.getByRole("button", { name: /submit for review/i }).click();
+  await expect(page.getByTestId("verification-status")).toContainText("being reviewed", {
+    timeout: 30_000,
+  });
+  expect(verificationOf(PASS)).toBe("pending|1|");
+});
+
+// ---------------------------------------------------------------------------------------------
+// Roles and retention
+// ---------------------------------------------------------------------------------------------
+test("a budtender cannot review IDs: the queue says so and the server refuses", async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await signInUi(page, BUDTENDER);
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "ID Checks", exact: true }).first().click();
+  await expect(page.getByRole("alert")).toContainText("ID checks are for managers only");
+  await expect(page.getByTestId("id-checks-table")).toHaveCount(0);
+  // and directly in the database: a budtender id is refused by the review/view functions
+  const me = userId(BUDTENDER);
+  for (const q of [
+    `select public.verification_review('${me}', '${userId(MANAGER)}', 'approve', null, null, 'budtender-key-1')`,
+    `select public.verification_log_document_view('${me}', '${userId(MANAGER)}')`,
+  ]) {
+    expect(sqlError(q), q).toMatch(/forbidden/i);
+  }
+});
+
+test("RETENTION: ID images stay while the account exists and are removed when it is deleted", async () => {
+  const svc = { apikey: SERVICE, authorization: `Bearer ${SERVICE}` };
+  const mk = async (email: string) => {
+    const r = await fetch(`${API}/auth/v1/admin/users`, {
+      method: "POST",
+      headers: { ...svc, "content-type": "application/json" },
+      body: JSON.stringify({ email, password: PASSWORD, email_confirm: true }),
+    });
+    const id = ((await r.json()) as { id: string }).id;
+    const up = await fetch(
+      `${API}/storage/v1/object/id-documents/${id}/${crypto.randomUUID()}.png`,
+      {
+        method: "POST",
+        headers: { ...svc, "content-type": "image/png" },
+        body: PNG,
+      },
+    );
+    expect(up.ok).toBe(true);
+    return id;
+  };
+  const keep = await mk(`keep-${stamp}@live.test`);
+  const gone = await mk(`gone-${stamp}@live.test`);
+  const filesOf = (id: string) =>
+    Number(
+      sql(
+        `select count(*) from storage.objects where bucket_id='id-documents' and name like '${id}/%'`,
+      ),
+    );
+  expect([filesOf(keep), filesOf(gone)]).toEqual([1, 1]);
+
+  // the account is deleted (as an admin would): GoTrue removes the user
+  const del = await fetch(`${API}/auth/v1/admin/users/${gone}`, { method: "DELETE", headers: svc });
+  expect(del.ok).toBe(true);
+
+  // the scheduled job: unauthenticated callers are refused, the real one sweeps
+  const denied = await fetch("http://127.0.0.1:4173/api/public/inventory/maintenance", {
+    method: "POST",
+  });
+  expect(denied.status).toBe(401);
+  const res = await fetch("http://127.0.0.1:4173/api/public/inventory/maintenance", {
+    method: "POST",
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+  });
+  expect(res.ok).toBe(true);
+  const body = (await res.json()) as {
+    ok: boolean;
+    idDocumentSweep: { removedFolders: number } | null;
+  };
+  expect(body.ok).toBe(true);
+  expect(body.idDocumentSweep?.removedFolders).toBeGreaterThanOrEqual(1);
+
+  expect(filesOf(gone)).toBe(0); // deleted with the account
+  expect(filesOf(keep)).toBe(1); // an active member's image is untouched
   void uniq;
 });
