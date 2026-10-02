@@ -15,6 +15,7 @@ scripts/live-stack/down.sh
 ```
 
 Notes
+
 - `realtime-runtime.ipv4.exs` is the image's `runtime.exs` with `:inet6` → `:inet` (kernels without IPv6 cannot bind it).
 - `global-setup.ts` creates unique users each run, so the suite is re-runnable without resetting the DB.
 - Staff/server-side actions in the specs (e.g. a manager moving an order) call the real SQL RPCs as the DB superuser.

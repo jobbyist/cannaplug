@@ -13,6 +13,7 @@ const TYPES = new URL("../src/integrations/supabase/types.ts", import.meta.url);
 const NEW_TABLES = [
   "addresses",
   "back_in_stock_subscriptions",
+  "delivery_options",
   "loyalty_accounts",
   "loyalty_rules",
   "loyalty_tiers",
@@ -80,6 +81,22 @@ async function viewBlock(name) {
 }
 
 const FUNCTIONS = `      accrue_order_loyalty: { Args: { p_order_id: string }; Returns: Json }
+      checkout_place_order: {
+        Args: {
+          p_address_id: string
+          p_contact_name: string
+          p_contact_phone: string
+          p_delivery_method: string
+          p_expected_total: number
+          p_idempotency_key: string
+          p_items: Json
+          p_notes: string | null
+          p_payment_method: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      checkout_quote: { Args: { p_delivery_method: string; p_items: Json }; Returns: Json }
       claim_back_in_stock_notifications: { Args: { p_limit?: number }; Returns: Json }
       create_reorder: {
         Args: { p_expected_total: number; p_idempotency_key: string; p_source_order_id: string; p_user_id: string }
@@ -125,8 +142,12 @@ src = src.replace(
 // orders gained the redemption columns (idempotent).
 const ADDED = {
   orders: [
+    ["delivery_address", "Json | null", false],
+    ["delivery_fee_rand", "number", false],
+    ["delivery_method", "string | null", false],
     ["loyalty_discount_rand", "number", false],
     ["loyalty_points_redeemed", "number", false],
+    ["payment_method", "string | null", false],
   ],
 };
 for (const [t, cols] of Object.entries(ADDED)) {

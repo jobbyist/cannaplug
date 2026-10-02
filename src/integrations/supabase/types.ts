@@ -767,6 +767,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      delivery_options: {
+        Row: {
+          code: string;
+          description: string | null;
+          fee_rand: number;
+          is_active: boolean;
+          label: string;
+          sort_order: number;
+        };
+        Insert: {
+          code: string;
+          description?: string | null;
+          fee_rand: number;
+          is_active?: boolean;
+          label: string;
+          sort_order?: number;
+        };
+        Update: {
+          code?: string;
+          description?: string | null;
+          fee_rand?: number;
+          is_active?: boolean;
+          label?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       loyalty_accounts: {
         Row: {
           created_at: string;
@@ -947,6 +974,10 @@ export type Database = {
       };
       orders: {
         Row: {
+          payment_method: string | null;
+          delivery_method: string | null;
+          delivery_fee_rand: number;
+          delivery_address: Json | null;
           loyalty_points_redeemed: number;
           loyalty_discount_rand: number;
           contact_name: string | null;
@@ -960,6 +991,10 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          payment_method?: string | null;
+          delivery_method?: string | null;
+          delivery_fee_rand?: number;
+          delivery_address?: Json | null;
           loyalty_points_redeemed?: number;
           loyalty_discount_rand?: number;
           contact_name?: string | null;
@@ -973,6 +1008,10 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          payment_method?: string | null;
+          delivery_method?: string | null;
+          delivery_fee_rand?: number;
+          delivery_address?: Json | null;
           loyalty_points_redeemed?: number;
           loyalty_discount_rand?: number;
           contact_name?: string | null;
@@ -1121,6 +1160,22 @@ export type Database = {
     Functions: {
       // <m4-functions>
       accrue_order_loyalty: { Args: { p_order_id: string }; Returns: Json };
+      checkout_place_order: {
+        Args: {
+          p_address_id: string;
+          p_contact_name: string;
+          p_contact_phone: string;
+          p_delivery_method: string;
+          p_expected_total: number;
+          p_idempotency_key: string;
+          p_items: Json;
+          p_notes: string | null;
+          p_payment_method: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      checkout_quote: { Args: { p_delivery_method: string; p_items: Json }; Returns: Json };
       claim_back_in_stock_notifications: { Args: { p_limit?: number }; Returns: Json };
       create_reorder: {
         Args: {

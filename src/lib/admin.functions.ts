@@ -5,6 +5,7 @@ import {
   getAdminDashboard,
   getAdminOrder,
   listAdminOrders,
+  confirmOrderPayment,
   listAdminProducts,
   listCustomers,
   listFulfilmentQueue,
@@ -119,3 +120,25 @@ export const listStoreProductsFn = createServerFn({ method: "GET" }).handler(() 
 export const listMemberOrdersFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(({ context }) => listMemberOrders(context.userId));
+
+export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        bankReference: z.string().trim().min(4).max(100),
+        amountReceived: z
+          .string()
+          .regex(/^[0-9]{1,8}(\.[0-9]{1,2})?$/, "Amount must be a positive number, max 2 decimals"),
+      })
+      .parse(data),
+  )
+  .handler(({ context, data }) =>
+    confirmOrderPayment(
+      context.userId,
+      data.orderId,
+      data.bankReference,
+      Number(data.amountReceived),
+    ),
+  );

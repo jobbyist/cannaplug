@@ -53,4 +53,23 @@ describe("/account is wired to live state", () => {
       expect(v).not.toMatch(/\b(userId|user_id|price|total_rand|points_balance|balance)\b/);
     }
   });
+
+  it("checkout is wired to the server: no random order numbers, client promo or unsupported payment methods", () => {
+    const src = readFileSync(join(root, "src/routes/checkout.tsx"), "utf8");
+    expect(src).not.toMatch(/Math\.random|PLUGBACK|presentation prototype|SnapScan|promoDiscount/i);
+    expect(src).toMatch(/placeOrderFn/);
+    expect(src).toMatch(/quoteCheckoutFn/);
+    // The order is created only through the server function, and the cart is cleared after it succeeds.
+    expect(src.indexOf("await placeOrderFn")).toBeLessThan(src.indexOf("clear();"));
+  });
+
+  it("checkout server functions never accept a price, fee, total-to-charge or user id as authority", () => {
+    const src = readFileSync(join(root, "src/lib/checkout.functions.ts"), "utf8");
+    const validators = [...src.matchAll(/\.validator\(([\s\S]*?)\)\s*\.handler/g)].map(
+      (m) => m[1]!,
+    );
+    expect(validators.length).toBe(2);
+    for (const v of validators)
+      expect(v).not.toMatch(/\b(userId|user_id|price|fee|unitPrice|subtotal)\b/);
+  });
 });

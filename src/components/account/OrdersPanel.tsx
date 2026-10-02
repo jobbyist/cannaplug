@@ -248,6 +248,11 @@ function ReorderDialog({
             ))}
           </ul>
         )}
+        {check && Number(check.delivery_fee ?? 0) > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Includes delivery {rand(Number(check.delivery_fee))}
+          </p>
+        )}
         {summary?.message && <p className="text-xs text-muted-foreground">{summary.message}</p>}
         {error && (
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
@@ -323,6 +328,11 @@ export function OrdersPanel({
                 </li>
               ))}
             </ul>
+            {Number(order.delivery_fee_rand) > 0 && (
+              <p className="text-right text-xs text-muted-foreground">
+                Delivery {rand(Number(order.delivery_fee_rand))}
+              </p>
+            )}
             {Number(order.loyalty_discount_rand) > 0 && (
               <p className="text-right text-xs text-muted-foreground">
                 Points discount −{rand(Number(order.loyalty_discount_rand))}
