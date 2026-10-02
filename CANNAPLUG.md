@@ -664,7 +664,18 @@ Deleting an account cascades the verification row away (`ON DELETE CASCADE`) but
 - **Real PostgreSQL:** `bun run test:db` **188/188** (181 + 7 expiry tests: SA ID stores no expiry; passport/licence expiry required, not past, ≤15 y; CHECK invariants; approval refused if lapsed by decision time; expired passport blocks ordering but an SA ID never does; renewal after expiry with fresh attempts, and a current document cannot resubmit; member reads own expiry but not the path).
 - **Mutation checks** (clean DB each run): gate ignores expiry → fails; SA ID demanded an expiry → 20 fail; passport expiry optional → fails; past expiry accepted → fails; approve ignores expiry → fails; verified members can never resubmit → fails; renewal keeps old attempts → fails. **All seven caught.**
 - **Unit / component:** expiry rules incl. "expires today is still valid" and the 15-year cap, `isExpired`, the *expired* view, error wording (`verification-logic.test.ts`); the retention sweep — keeps live members, removes only deleted members' files, ignores non-UUID folders, aborts on a lookup failure, pages large buckets (`id-retention-sweep.test.ts`); the form shows an expiry field only for a passport/licence and refuses a lapsed date (`verification-panel.test.tsx`). Unit suite **114/114**, `tsc` and ESLint clean.
-- **Live browser run:** see the section below once recorded in the PR.
+- **Live browser run** (real Chromium + GoTrue + PostgREST + Realtime + Storage + Postgres): **29/29** (24 earlier + 5 new). New: a passport asks for an expiry (the browser itself refuses a past date) while an SA ID shows a note that it does not expire; the reviewer sees the expiry in the queue and dialog, approves, and the member's open page shows *Valid until*; when the date passes the member sees *Your ID document has expired*, checkout is gated with the expired reason, the database refuses the gate, and the member can **renew** (this run found and fixed a real bug: the upload-URL step refused every verified member, so renewal failed before reaching the database — now one tested function, `uploadBlockedReason`); a **budtender** sees "ID checks are for managers only" and the review/view functions refuse them; and **retention** — an active member's image is untouched while a deleted account's image is removed by the authenticated maintenance job (an unauthenticated call is refused with 401).
+- **Hosted (2026-10-02):** the expiry migration was applied except its `DROP FUNCTION` (see below), then smoke-tested with the real functions in a transaction that always rolls back (passport without expiry → `invalid_expiry`; past expiry → `document_expired`; >15 years → `invalid_expiry`; submit → approve → gate open; date passes → `verification_expired`; renewal → pending with a fresh attempt; an SA ID stores no expiry and its gate stays open; clients can read `document_expires_on` but not `document_path`). Afterwards: 0 rows, 0 audit rows, 1 user.
+
+### Still to run on hosted by a person (the connector holds `DROP` statements for a confirmation an agent session cannot answer)
+```sql
+-- 1. from Milestone 4.2 (inert today: `authenticated` has no INSERT/UPDATE privilege on the table)
+DROP POLICY "verification management insert" ON public.customer_verification;
+DROP POLICY "verification management update" ON public.customer_verification;
+-- 2. only AFTER this PR is deployed (the previously deployed app still calls the 5-argument form)
+DROP FUNCTION public.verification_submit(uuid, text, text, date, text);
+```
+Then record `20260930003000_id_verification` and `20260930004000_id_verification_expiry` in `supabase_migrations.schema_migrations`. Until step 2, both `verification_submit` overloads exist (service-role only); the app calls the 6-argument one by named parameters, so there is no ambiguity.
 
 ### Open decisions that remain
 - Reviewer **notifications and decision / expiry-reminder emails** — recorded under *Roadmap commitments*.
