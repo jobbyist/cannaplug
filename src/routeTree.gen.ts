@@ -28,6 +28,8 @@ import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
+import { Route as ApiPublicPaymentsPaypalWebhookRouteImport } from './routes/api/public/payments/paypal-webhook'
+import { Route as ApiPublicPaymentsYocoWebhookRouteImport } from './routes/api/public/payments/yoco-webhook'
 import { Route as ApiPublicSignaturesWebhookRouteImport } from './routes/api/public/signatures/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -126,6 +128,18 @@ const ApiPublicNewsroomRunRoute = ApiPublicNewsroomRunRouteImport.update({
   path: '/api/public/newsroom/run',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPaymentsPaypalWebhookRoute =
+  ApiPublicPaymentsPaypalWebhookRouteImport.update({
+    id: '/api/public/payments/paypal-webhook',
+    path: '/api/public/payments/paypal-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPaymentsYocoWebhookRoute =
+  ApiPublicPaymentsYocoWebhookRouteImport.update({
+    id: '/api/public/payments/yoco-webhook',
+    path: '/api/public/payments/yoco-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicSignaturesWebhookRoute =
   ApiPublicSignaturesWebhookRouteImport.update({
     id: '/api/public/signatures/webhook',
@@ -153,6 +167,8 @@ export interface FileRoutesByFullPath {
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
+  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -175,6 +191,8 @@ export interface FileRoutesByTo {
   '/journal': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
+  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesById {
@@ -198,6 +216,8 @@ export interface FileRoutesById {
   '/journal/': typeof JournalIndexRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
+  '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
+  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRouteTypes {
@@ -222,6 +242,8 @@ export interface FileRouteTypes {
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/payments/paypal-webhook'
+    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -244,6 +266,8 @@ export interface FileRouteTypes {
     | '/journal'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/payments/paypal-webhook'
+    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   id:
     | '__root__'
@@ -266,6 +290,8 @@ export interface FileRouteTypes {
     | '/journal/'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
+    | '/api/public/payments/paypal-webhook'
+    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -289,6 +315,8 @@ export interface RootRouteChildren {
   JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
+  ApiPublicPaymentsPaypalWebhookRoute: typeof ApiPublicPaymentsPaypalWebhookRoute
+  ApiPublicPaymentsYocoWebhookRoute: typeof ApiPublicPaymentsYocoWebhookRoute
   ApiPublicSignaturesWebhookRoute: typeof ApiPublicSignaturesWebhookRoute
 }
 
@@ -427,6 +455,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicNewsroomRunRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/paypal-webhook': {
+      id: '/api/public/payments/paypal-webhook'
+      path: '/api/public/payments/paypal-webhook'
+      fullPath: '/api/public/payments/paypal-webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsPaypalWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/payments/yoco-webhook': {
+      id: '/api/public/payments/yoco-webhook'
+      path: '/api/public/payments/yoco-webhook'
+      fullPath: '/api/public/payments/yoco-webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsYocoWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/signatures/webhook': {
       id: '/api/public/signatures/webhook'
       path: '/api/public/signatures/webhook'
@@ -457,6 +499,8 @@ const rootRouteChildren: RootRouteChildren = {
   JournalIndexRoute: JournalIndexRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
+  ApiPublicPaymentsPaypalWebhookRoute: ApiPublicPaymentsPaypalWebhookRoute,
+  ApiPublicPaymentsYocoWebhookRoute: ApiPublicPaymentsYocoWebhookRoute,
   ApiPublicSignaturesWebhookRoute: ApiPublicSignaturesWebhookRoute,
 }
 export const routeTree = rootRouteImport

@@ -86,7 +86,7 @@ export async function fetchMarketRate(fetchFn: FetchLike, timeoutMs = 4000): Pro
 
 /** Margin in the merchant's favour: fewer rand per dollar means the member is charged slightly more USD. */
 export function applyMargin(zarPerUsd: number, marginPercent: number): number {
-  const m = Math.min(Math.max(Number.isFinite(marginPercent) ? marginPercent : 2, 0), 10);
+  const m = Math.min(Math.max(Number.isFinite(marginPercent) ? marginPercent : 4, 0), 10);
   return Math.round(zarPerUsd * (1 - m / 100) * 1e6) / 1e6;
 }
 

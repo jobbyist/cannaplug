@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { servicePaymentsTests } from "./payments-service.suite";
 import {
   DB_URL,
   asAnon,
@@ -696,6 +697,15 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
         await sql`UPDATE public.payment_settings SET value = 'false'::jsonb WHERE key = 'sms_enabled'`;
       }
     });
+  });
+
+  servicePaymentsTests({
+    get sql() {
+      return sql;
+    },
+    newOrder,
+    orderStatus,
+    payEvents,
   });
 
   async function payOrder(orderId: string) {

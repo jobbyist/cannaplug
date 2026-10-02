@@ -32,7 +32,7 @@ describe("applyMargin", () => {
     expect(applyMargin(16.7336, 2)).toBeCloseTo(16.3989, 3);
     expect(applyMargin(18, 0)).toBe(18);
     expect(applyMargin(18, 99)).toBe(16.2); // capped at 10%
-    expect(applyMargin(18, NaN)).toBeCloseTo(17.64, 6);
+    expect(applyMargin(18, NaN)).toBeCloseTo(17.28, 6);
   });
 });
 

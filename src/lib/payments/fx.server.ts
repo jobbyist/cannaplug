@@ -17,7 +17,7 @@ function deps(): FxDeps {
       const m = new Map((data ?? []).map((r) => [r.key, r.value]));
       return {
         mode: m.get("fx_mode") === "manual" ? "manual" : "live",
-        marginPercent: num(m.get("fx_margin_percent"), 2),
+        marginPercent: num(m.get("fx_margin_percent"), 4),
         refreshSeconds: num(m.get("fx_refresh_seconds"), 600),
       };
     },

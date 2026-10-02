@@ -27,7 +27,7 @@ CREATE TABLE public.payment_settings (
 INSERT INTO public.payment_settings (key, value) VALUES
   ('eft_dual_control_threshold_rand', '10000'::jsonb),
   ('fx_mode', '"live"'::jsonb),
-  ('fx_margin_percent', '2'::jsonb),
+  ('fx_margin_percent', '4'::jsonb),
   ('fx_refresh_seconds', '600'::jsonb),
   ('sms_enabled', 'false'::jsonb),
   ('whatsapp_enabled', 'false'::jsonb);
