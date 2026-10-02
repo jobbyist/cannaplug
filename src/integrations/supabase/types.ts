@@ -2093,6 +2093,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      document_verify_refund: {
+        Args: { p_bucket: string | null; p_window_seconds: number };
+        Returns: undefined;
+      };
       member_list_documents: { Args: { p_user: string | null }; Returns: Json };
       request_admin_create: {
         Args: {

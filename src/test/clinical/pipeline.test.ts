@@ -753,7 +753,6 @@ describe("public verification", () => {
   });
   const allow = () => {
     h.state.rpcResults["document_verify_rate_check"] = true;
-    h.state.rpcResults["document_verify_blocked"] = false;
   };
   const pdf = new TextEncoder().encode("%PDF-1.7 original bytes of the issued document");
 
@@ -809,6 +808,7 @@ describe("public verification", () => {
     expect(
       called("document_verify_rate_check").some((c) => String(c.args["p_bucket"]).startsWith("f:")),
     ).toBe(true);
+    expect(called("document_verify_refund")).toHaveLength(0);
     expect(called("document_verify_record")).toHaveLength(0);
   });
 
@@ -818,14 +818,37 @@ describe("public verification", () => {
     expect(called("document_verify_lookup")).toHaveLength(0);
   });
 
-  it("is rate limited per requester and when a requester keeps guessing", async () => {
-    h.state.rpcResults["document_verify_rate_check"] = false;
-    h.state.rpcResults["document_verify_blocked"] = false;
+  it("is rate limited per requester, and separately once a requester has used its failure slots", async () => {
+    const byBucket = (v: boolean, f: boolean) => (a: { p_bucket: string }) =>
+      a.p_bucket.startsWith("f:") ? f : v;
+    h.state.rpcResults["document_verify_rate_check"] = byBucket(false, true);
     expect(await verify.verifyToken(TOKEN, null)).toEqual({ status: "RATE_LIMITED" });
-    h.state.rpcResults["document_verify_rate_check"] = true;
-    h.state.rpcResults["document_verify_blocked"] = true;
+    h.state.rpcResults["document_verify_rate_check"] = byBucket(true, false);
     expect(await verify.verifyToken(TOKEN, null)).toEqual({ status: "RATE_LIMITED" });
     expect(called("document_verify_lookup")).toHaveLength(0);
+  });
+
+  it("reserves the failure slot BEFORE the lookup, and refunds it only for a real document", async () => {
+    allow();
+    h.state.objects.set(`${MEMBER}/${DOC}/f.pdf`, pdf);
+    h.state.rpcResults["document_verify_lookup"] = await lookupFor(pdf);
+    await verify.verifyToken(TOKEN, null);
+    const order = h.state.order.filter((o) => /rate_check|lookup|refund/.test(o));
+    expect(order).toEqual([
+      "rpc:document_verify_rate_check",
+      "rpc:document_verify_rate_check",
+      "rpc:document_verify_lookup",
+      "rpc:document_verify_refund",
+    ]);
+    expect(called("document_verify_refund")[0]!.args["p_bucket"]).toMatch(/^f:/);
+    // an unknown token keeps its slot: no refund
+    h.state.calls.length = 0;
+    h.state.rpcResults["document_verify_lookup"] = { found: false };
+    await verify.verifyToken(TOKEN, null);
+    expect(called("document_verify_refund")).toHaveLength(0);
+    // and so does a malformed one, without ever reaching the lookup
+    expect(await verify.verifyToken("nope", null)).toEqual({ status: "NOT_FOUND" });
+    expect(called("document_verify_refund")).toHaveLength(0);
   });
 
   it("fails closed when the limiter is unavailable", async () => {

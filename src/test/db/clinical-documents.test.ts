@@ -437,7 +437,8 @@ describe.skipIf(!DB_URL)("clinical documents (real PostgreSQL)", () => {
       const a = await mkDraft(sql, w, letterTpl, "MEDICAL_LETTER");
       const b = await mkDraft(sql, w, letterTpl, "MEDICAL_LETTER");
       expect(a.documentId).toMatch(/^CP-MED-\d{4}-\d{6}$/);
-      expect(Number(b.documentId.slice(-6))).toBe(Number(a.documentId.slice(-6)) + 1);
+      // other test files create documents concurrently, so assert strictly increasing rather than contiguous
+      expect(Number(b.documentId.slice(-6))).toBeGreaterThan(Number(a.documentId.slice(-6)));
     });
 
     it("the hash is computed by the database from the exact stored text", async () => {
@@ -1720,6 +1721,35 @@ describe.skipIf(!DB_URL)("clinical documents (real PostgreSQL)", () => {
         results.push(await rpc(sql, "document_verify_rate_check", bucket, 5, 60));
       expect(results).toEqual([true, true, true, true, true, false]);
       expect(await rpc(sql, "document_verify_rate_check", `other-${bucket}`, 5, 60)).toBe(true);
+    });
+
+    it("the limiter is atomic: a parallel burst gets exactly the allowed number of passes", async () => {
+      const bucket = `burst-${key("rl")}`;
+      const results = await Promise.all(
+        Array.from({ length: 60 }, () => rpc(sql, "document_verify_rate_check", bucket, 10, 900)),
+      );
+      expect(results.filter(Boolean)).toHaveLength(10);
+    });
+
+    it("a reserved slot can be refunded, but never below zero", async () => {
+      const bucket = `refund-${key("rl")}`;
+      for (let i = 0; i < 3; i++) await rpc(sql, "document_verify_rate_check", bucket, 3, 900);
+      expect(await rpc(sql, "document_verify_rate_check", bucket, 3, 900)).toBe(false);
+      await rpc(sql, "document_verify_refund", bucket, 900);
+      await rpc(sql, "document_verify_refund", bucket, 900);
+      expect(await rpc(sql, "document_verify_rate_check", bucket, 3, 900)).toBe(true);
+      const empty = `empty-${key("rl")}`;
+      await rpc(sql, "document_verify_refund", empty, 900);
+      const [r] =
+        await sql`SELECT count(*)::int n FROM public.document_verify_attempts WHERE bucket = ${empty}`;
+      expect(r.n).toBe(0);
+    });
+
+    it("the refund function is not callable by clients", async () => {
+      const r = await attempt(
+        asAnon(sql, (tx: any) => tx`SELECT public.document_verify_refund('x', 900)`),
+      );
+      expect(!r.ok && r.message).toMatch(/permission denied/);
     });
 
     it("tokens must be 43 URL-safe characters", async () => {

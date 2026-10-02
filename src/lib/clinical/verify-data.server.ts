@@ -36,16 +36,12 @@ async function rateCheck(
   return !error && data === true;
 }
 
-async function blocked(
-  bucket: string,
-  { limit, windowSeconds }: { limit: number; windowSeconds: number },
-): Promise<boolean> {
-  const { data, error } = await supabaseAdmin.rpc("document_verify_blocked", {
+/** Gives a reserved failure slot back (the token turned out to be a real document). */
+async function refund(bucket: string, { windowSeconds }: { windowSeconds: number }): Promise<void> {
+  await supabaseAdmin.rpc("document_verify_refund", {
     p_bucket: bucket,
-    p_limit: limit,
     p_window_seconds: windowSeconds,
   });
-  return error ? true : data === true;
 }
 
 async function observedPdfHash(path: string | null | undefined): Promise<string | null> {
@@ -61,20 +57,18 @@ async function observedPdfHash(path: string | null | undefined): Promise<string 
 
 export async function verifyToken(token: string, ip: string | null): Promise<PublicVerification> {
   const who = await requesterHash(ip);
-  const allowed = await rateCheck(`v:${who}`, GENERAL_LIMIT);
-  if (!allowed || (await blocked(`f:${who}`, FAILURE_LIMIT))) return { status: "RATE_LIMITED" };
+  const failureBucket = `f:${who}`;
+  // Both limits are atomic increments, so parallel requests cannot all slip through before one is counted.
+  // The failure slot is RESERVED up front and refunded only if the token proves to be a real document.
+  if (!(await rateCheck(`v:${who}`, GENERAL_LIMIT))) return { status: "RATE_LIMITED" };
+  if (!(await rateCheck(failureBucket, FAILURE_LIMIT))) return { status: "RATE_LIMITED" };
 
-  if (!isValidVerificationToken(token)) {
-    await rateCheck(`f:${who}`, FAILURE_LIMIT);
-    return { status: "NOT_FOUND" };
-  }
+  if (!isValidVerificationToken(token)) return { status: "NOT_FOUND" };
   const { data, error } = await supabaseAdmin.rpc("document_verify_lookup", { p_token: token });
   if (error) return { status: "NOT_FOUND" };
   const lookup = data as unknown as VerifyLookup;
-  if (!lookup.found || !lookup.id) {
-    await rateCheck(`f:${who}`, FAILURE_LIMIT);
-    return { status: "NOT_FOUND" };
-  }
+  if (!lookup.found || !lookup.id) return { status: "NOT_FOUND" };
+  await refund(failureBucket, FAILURE_LIMIT);
 
   const observed = needsPdfCheck(lookup) ? await observedPdfHash(lookup.pdf_path) : null;
   const status = evaluateVerification(lookup, observed);
