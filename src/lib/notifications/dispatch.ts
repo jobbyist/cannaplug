@@ -1,3 +1,4 @@
+import { pushMessage, type PushMessage } from "./push-messages";
 import { renderTemplate, type TemplateData } from "./templates";
 
 /**
@@ -8,7 +9,7 @@ import { renderTemplate, type TemplateData } from "./templates";
  */
 export interface QueuedNotification {
   id: string;
-  channel: "email" | "sms" | "whatsapp";
+  channel: "email" | "sms" | "whatsapp" | "push";
   template: string;
   recipient: string;
   data: TemplateData;
@@ -19,7 +20,12 @@ export type SendResult =
   { ok: true; messageId: string } | { ok: false; error: string; permanent: boolean };
 
 export interface NotificationDb {
-  claim(limit: number, leaseSeconds: number): Promise<QueuedNotification[]>;
+  /** Claims due rows of the given channels only. */
+  claim(
+    limit: number,
+    leaseSeconds: number,
+    channels: QueuedNotification["channel"][],
+  ): Promise<QueuedNotification[]>;
   complete(id: string, r: SendResult): Promise<void>;
 }
 
@@ -35,6 +41,13 @@ export interface ChannelAdapters {
   }) => Promise<SendResult>;
   sms?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
   whatsapp?: (m: { id: string; to: string; body: string }) => Promise<SendResult>;
+  /** `to` is the member's user id; the adapter looks up their devices. */
+  push?: (m: {
+    id: string;
+    userId: string;
+    topic: string;
+    message: PushMessage;
+  }) => Promise<SendResult>;
 }
 
 export interface DispatchSummary {
@@ -65,12 +78,13 @@ export async function dispatchBatch(
     dead: 0,
     skippedNotConfigured: false,
   };
-  // Without an email adapter nothing is claimed, so no attempt counters burn down while unconfigured.
-  if (!deps.adapters.email) {
-    summary.skippedNotConfigured = true;
-    return summary;
-  }
-  const batch = await deps.db.claim(limit, 120);
+  // Only channels with a configured adapter are claimed, so no attempt counters burn down while one is unset.
+  const channels = (["email", "sms", "whatsapp", "push"] as const).filter(
+    (c) => !!deps.adapters[c],
+  );
+  if (channels.length === 0 || !deps.adapters.email) summary.skippedNotConfigured = true;
+  if (channels.length === 0) return summary;
+  const batch = await deps.db.claim(limit, 120, [...channels]);
   summary.claimed = batch.length;
   for (const n of batch) {
     let result: SendResult;
@@ -93,6 +107,21 @@ async function sendOne(
   adapters: ChannelAdapters,
   siteUrl: string,
 ): Promise<SendResult> {
+  if (n.channel === "push") {
+    if (!adapters.push) return { ok: false, error: "push_not_configured", permanent: false };
+    const message = pushMessage(n.template, n.data, n.id);
+    if (!message) return { ok: false, error: `no_push_form:${n.template}`, permanent: true };
+    const topic = typeof n.data["push_topic"] === "string" ? n.data["push_topic"] : "";
+    try {
+      return await adapters.push({ id: n.id, userId: n.recipient, topic, message });
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message.slice(0, 200) : "push_failed",
+        permanent: false,
+      };
+    }
+  }
   const rendered = renderTemplate(n.template, n.data, { siteUrl });
   if (!rendered) return { ok: false, error: `unknown_template:${n.template}`, permanent: true };
   try {

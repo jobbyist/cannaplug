@@ -61,6 +61,11 @@ function strategyFor(method, rawUrl, origin, accept) {
   return "network";
 }
 
+/** Deep links from a push are same-site paths only; anything else opens the home page. */
+function safePath(url) {
+  return typeof url === "string" && /^\/(?!\/)[\w\-./?=&%#]*$/.test(url) ? url : "/";
+}
+
 /** A response may be stored only if it is a complete, successful, cacheable answer. */
 function storable(response) {
   if (!response || !response.ok || response.status !== 200 || response.type === "opaqueredirect")
@@ -151,6 +156,44 @@ if (typeof self !== "undefined" && typeof self.addEventListener === "function") 
     if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
   });
 
+  // Web push: the payload is { title, body, url, tag } and nothing else (see src/lib/notifications/push-messages.ts).
+  self.addEventListener("push", (event) => {
+    let m = {};
+    try {
+      m = event.data ? event.data.json() : {};
+    } catch {
+      m = {};
+    }
+    const url = safePath(m.url);
+    event.waitUntil(
+      self.registration.showNotification(String(m.title || "CannaPlug").slice(0, 60), {
+        body: String(m.body || "").slice(0, 160),
+        tag: String(m.tag || "cannaplug").slice(0, 80),
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { url },
+      }),
+    );
+  });
+
+  self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    const url = safePath(event.notification.data && event.notification.data.url);
+    event.waitUntil(
+      (async () => {
+        const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const w of wins) {
+          if (new URL(w.url).origin === self.location.origin && "focus" in w) {
+            await w.focus();
+            if ("navigate" in w) return w.navigate(url);
+            return undefined;
+          }
+        }
+        return self.clients.openWindow(url);
+      })(),
+    );
+  });
+
   self.addEventListener("fetch", (event) => {
     const r = event.request;
     const kind = strategyFor(r.method, r.url, self.location.origin, r.headers.get("accept"));
@@ -162,4 +205,12 @@ if (typeof self !== "undefined" && typeof self.addEventListener === "function") 
 
 // For unit tests (Node): expose the pure helpers without affecting the browser.
 if (typeof module !== "undefined")
-  module.exports = { strategyFor, storable, assetUrlsIn, isPrivatePath, PRIVATE_PREFIXES, VERSION };
+  module.exports = {
+    strategyFor,
+    storable,
+    assetUrlsIn,
+    isPrivatePath,
+    safePath,
+    PRIVATE_PREFIXES,
+    VERSION,
+  };

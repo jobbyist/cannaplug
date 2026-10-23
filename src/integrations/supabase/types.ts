@@ -194,6 +194,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          failure_count: number;
+          id: string;
+          last_success_at: string | null;
+          p256dh: string;
+          topics: string[];
+          user_agent: string | null;
+          user_id: string;
+        };
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          failure_count?: number;
+          id?: string;
+          last_success_at?: string | null;
+          p256dh: string;
+          topics?: string[];
+          user_agent?: string | null;
+          user_id: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          failure_count?: number;
+          id?: string;
+          last_success_at?: string | null;
+          p256dh?: string;
+          topics?: string[];
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: { push_enabled: boolean; topic: string; updated_at: string; user_id: string };
+        Insert: { push_enabled: boolean; topic: string; updated_at?: string; user_id: string };
+        Update: { push_enabled?: boolean; topic?: string; updated_at?: string; user_id?: string };
+        Relationships: [];
+      };
       pos_receipt_sends: {
         Row: {
           actor_user_id: string;
@@ -2493,6 +2538,37 @@ export type Database = {
         };
         Returns: Json;
       };
+      notification_claim_channels: {
+        Args: { p_channels: string[]; p_lease_seconds: number; p_limit: number };
+        Returns: Database["public"]["Tables"]["notification_events"]["Row"][];
+      };
+      notification_enqueue_push: {
+        Args: {
+          p_category: string;
+          p_data: Json;
+          p_dedupe_key: string;
+          p_template: string;
+          p_user: string;
+        };
+        Returns: string | null;
+      };
+      notification_set_preference: {
+        Args: { p_actor: string; p_enabled: boolean; p_idempotency_key: string; p_topic: string };
+        Returns: Json;
+      };
+      push_record_delivery: { Args: { p_endpoint: string; p_outcome: string }; Returns: undefined };
+      push_subscribe: {
+        Args: {
+          p_actor: string;
+          p_auth: string;
+          p_endpoint: string;
+          p_idempotency_key: string;
+          p_p256dh: string;
+          p_user_agent: string | null;
+        };
+        Returns: Json;
+      };
+      push_unsubscribe: { Args: { p_actor: string; p_endpoint: string }; Returns: number };
       notification_claim: {
         Args: { p_lease_seconds?: number; p_limit: number };
         Returns: Database["public"]["Tables"]["notification_events"]["Row"][];

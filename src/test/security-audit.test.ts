@@ -139,6 +139,15 @@ const DATA_LAYERS: Record<string, string[]> = {
     "confirmMemberPayPalReturn",
     "memberPaymentStatus",
   ],
+  // member-scoped: userId is always the signed-in member; the database functions check it again
+  "src/lib/push-data.server.ts": [
+    "getPushSettings",
+    "subscribePush",
+    "unsubscribePush",
+    "removePushDevice",
+    "setPushTopic",
+    "sendTestPush",
+  ],
   "src/lib/verification-data.server.ts": [
     "getMyVerification",
     "createIdUpload",

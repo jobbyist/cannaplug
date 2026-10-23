@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { adaptersFromEnv, type Fetch } from "./adapters";
 import { dispatchBatch, type NotificationDb, type QueuedNotification } from "./dispatch";
+import { pushAdapter, vapidFromEnv, type PushFetch, type PushStore } from "./push";
 
 const nodeFetch: Fetch = async (u, i) => {
   const r = await fetch(u, i as RequestInit);
@@ -9,10 +10,11 @@ const nodeFetch: Fetch = async (u, i) => {
 
 function supabaseNotificationDb(): NotificationDb {
   return {
-    async claim(limit, lease) {
-      const { data, error } = await supabaseAdmin.rpc("notification_claim", {
+    async claim(limit, lease, channels) {
+      const { data, error } = await supabaseAdmin.rpc("notification_claim_channels", {
         p_limit: limit,
         p_lease_seconds: lease,
+        p_channels: channels,
       });
       if (error) throw new Error(error.message);
       return (data ?? []).map((r) => ({
@@ -37,6 +39,31 @@ function supabaseNotificationDb(): NotificationDb {
   };
 }
 
+const pushFetch: PushFetch = async (u, i) => {
+  const r = await fetch(u, { method: i.method, headers: i.headers, body: i.body as BodyInit });
+  return { status: r.status, text: () => r.text() };
+};
+
+function supabasePushStore(): PushStore {
+  return {
+    async devices(userId) {
+      const { data, error } = await supabaseAdmin
+        .from("push_subscriptions")
+        .select("endpoint,p256dh,auth,topics")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((d) => ({ ...d, topics: d.topics ?? [] }));
+    },
+    async record(endpoint, outcome) {
+      const { error } = await supabaseAdmin.rpc("push_record_delivery", {
+        p_endpoint: endpoint,
+        p_outcome: outcome,
+      });
+      if (error) throw new Error(error.message);
+    },
+  };
+}
+
 export async function runNotificationDispatch(
   siteUrlFallback = "https://cannaplug012.co.za",
   limit = 25,
@@ -44,7 +71,12 @@ export async function runNotificationDispatch(
   return dispatchBatch(
     {
       db: supabaseNotificationDb(),
-      adapters: adaptersFromEnv(process.env, nodeFetch),
+      adapters: (() => {
+        const a = adaptersFromEnv(process.env, nodeFetch);
+        const vapid = vapidFromEnv(process.env);
+        if (vapid) a.push = pushAdapter({ store: supabasePushStore(), vapid, fetch: pushFetch });
+        return a;
+      })(),
       siteUrl: (process.env["SITE_URL"] ?? siteUrlFallback).trim(),
     },
     limit,

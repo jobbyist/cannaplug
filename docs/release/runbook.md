@@ -48,9 +48,10 @@ Add repository secrets `APP_URL` and `CRON_SECRET`. Then:
 1. **PayFast**: dashboard → Settings → Developer settings: copy Merchant ID and Merchant Key, set a **passphrase** (same value in `PAYFAST_PASSPHRASE`). No webhook to register: each payment carries its own notify URL (`https://<site>/api/public/payments/payfast-itn`). Ask PayFast to confirm the product range is acceptable on the account before going live.
 2. **PayPal**: developer dashboard → app → Webhooks: URL `https://<site>/api/public/payments/paypal-webhook`, events
    `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`; copy the Webhook ID. Merchant ID is under Account settings.
-3. **Resend**: verify `updates.cannaplug012.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
-4. **Supabase Auth emails**: custom SMTP + templates, see `supabase/templates/README.md`.
-5. Run **one sandbox payment per provider** end to end before going live (the code is tested against faithful fakes, not the real sandboxes).
+3. **Web push**: run `bun scripts/gen-vapid.ts` once and put `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (secret) and `VAPID_SUBJECT` in Vercel (Production). Never rotate casually: new keys invalidate every saved device. Push uses the same dispatcher cron as email.
+4. **Resend**: verify `updates.cannaplug012.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
+5. **Supabase Auth emails**: custom SMTP + templates, see `supabase/templates/README.md`.
+6. Run **one sandbox payment per provider** end to end before going live (the code is tested against faithful fakes, not the real sandboxes).
 
 ## 4b. Dashboard actions still open (23 Oct 2026) **[needs you]**
 

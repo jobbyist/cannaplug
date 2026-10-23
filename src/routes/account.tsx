@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { NotificationsPanel } from "@/components/account/NotificationsPanel";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   BadgeCheck,
@@ -243,6 +244,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "rewards", icon: Sparkles, label: "Rewards & Loyalty" },
   { id: "addresses", icon: MapPin, label: "Delivery Addresses" },
   { id: "payment", icon: CreditCard, label: "Payment Methods" },
+  { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "settings", icon: Settings, label: "Account Settings" },
   { id: "help", icon: Headphones, label: "Help & Support" },
 ];
@@ -431,6 +433,7 @@ function MemberPortal() {
             </p>
           </div>
         )}
+        {tab === "notifications" && <NotificationsPanel />}
         {tab === "settings" && (
           <div className="max-w-lg rounded-xl border border-border bg-card p-6">
             <h2 className="mb-4 font-display text-lg font-bold uppercase">Account settings</h2>
