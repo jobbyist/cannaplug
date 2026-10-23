@@ -47,7 +47,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
-import { useCart } from "@/lib/cart";
+import { rand, useCart } from "@/lib/cart";
+import { getHomeCatalogueFn } from "@/lib/admin.functions";
 import { useAuth } from "@/hooks/useAuth";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import categoryImage from "@/assets/cannaplug-categories.jpg";
@@ -126,22 +127,6 @@ const stories = [
     image: storeAsset.url,
     cta: "Contact us",
   },
-];
-
-const categories = [
-  ["Flower", "Premium Strains", "category-pos-1"],
-  ["Edibles", "Gourmet Infusions", "category-pos-2"],
-  ["Vapes", "Discreet & Smooth", "category-pos-3"],
-  ["Concentrates", "Pure Potency", "category-pos-4"],
-  ["Accessories", "Tools & Essentials", "category-pos-5"],
-];
-
-const products = [
-  ["Gelato 33", "Premium Flower", "R350", "Premium", "product-pos-1"],
-  ["Blue Mix", "Premium Flower", "R420", "Best seller", "product-pos-2"],
-  ["Mixed Flavour Gummies", "Edibles · 10 pack", "R300", "Popular", "product-pos-3"],
-  ["Raw Distillate Cart", "Vape · 1g", "R420", "Lab tested", "product-pos-4"],
-  ["CannaPlug Grinder", "Accessories", "R250", "New", "product-pos-5"],
 ];
 
 const news = [
@@ -605,19 +590,49 @@ function Hero() {
   );
 }
 
-function Categories() {
+type HomeCatalogue = Awaited<ReturnType<typeof getHomeCatalogueFn>>;
+
+/** Live catalogue for the homepage (featured products + categories), fetched once on the client. */
+function useHomeCatalogue() {
+  const [data, setData] = useState<HomeCatalogue | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getHomeCatalogueFn()
+      .then((d) => live && setData(d))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return { data, failed };
+}
+
+const POS_CLASSES = ["pos-1", "pos-2", "pos-3", "pos-4", "pos-5"];
+
+function Categories({ catalogue }: { catalogue: HomeCatalogue | null }) {
+  const cats = catalogue?.categories ?? [];
   return (
     <section className="page-section" id="categories">
       <Reveal>
         <SectionHeading title="SHOP BY CATEGORY" action="View all" />
         <div className="category-grid">
-          {categories.map(([name, desc, pos]) => (
-            <a href="/#shop" className="category-card" key={name}>
+          {cats.length === 0 && (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              Loading the menu…
+            </p>
+          )}
+          {cats.map(({ name, tagline }, i) => (
+            <a
+              href={`/shop?category=${encodeURIComponent(name)}`}
+              className="category-card"
+              key={name}
+            >
               <div className="category-image">
                 <img
                   src={categoryImage}
                   alt={`${name} category`}
-                  className={pos}
+                  className={`category-${POS_CLASSES[i % POS_CLASSES.length]}`}
                   loading="lazy"
                   width={1920}
                   height={768}
@@ -625,7 +640,7 @@ function Categories() {
               </div>
               <div>
                 <h3>{name}</h3>
-                <p>{desc}</p>
+                <p>{tagline}</p>
               </div>
               <span>
                 <ArrowRight size={16} />
@@ -638,46 +653,63 @@ function Categories() {
   );
 }
 
-function Products() {
+function Products({ catalogue, failed }: { catalogue: HomeCatalogue | null; failed: boolean }) {
   const [added, setAdded] = useState<string | null>(null);
   const { add } = useCart();
+  const items = catalogue?.featured ?? [];
   return (
     <section className="page-section product-section" id="shop">
       <Reveal>
         <SectionHeading eyebrow="Curated selection" title="FEATURED PRODUCTS" action="Shop all" />
         <div className="product-grid">
-          {products.map(([name, cat, price, badge, pos]) => (
-            <article className="product-card" key={name}>
+          {items.length === 0 && (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {failed
+                ? "The menu is unavailable right now. Please try again shortly."
+                : "Loading featured products…"}
+            </p>
+          )}
+          {items.map((p, i) => (
+            <article className="product-card" key={p.id}>
               <div className="product-visual">
-                <span className="badge">{badge}</span>
+                {(p.badge || p.regular_price_rand != null) && (
+                  <span className="badge">{p.regular_price_rand != null ? "Sale" : p.badge}</span>
+                )}
                 <img
-                  src={productImage}
-                  alt={name}
-                  className={pos}
+                  src={p.image_url ?? (p.category === "Accessories" ? categoryImage : productImage)}
+                  alt={p.name}
+                  className={
+                    p.image_url ? undefined : `product-${POS_CLASSES[i % POS_CLASSES.length]}`
+                  }
                   loading="lazy"
                   width={1920}
                   height={768}
                 />
               </div>
               <div className="product-info">
-                <p>{cat}</p>
-                <h3>{name}</h3>
+                <p>{p.subcategory ?? p.category}</p>
+                <h3>
+                  <a href={`/shop?category=${encodeURIComponent(p.category)}`}>{p.name}</a>
+                </h3>
                 <div>
-                  <b>{price}</b>
+                  <b>
+                    {p.regular_price_rand != null && (
+                      <s className="mr-1 text-xs font-normal opacity-60">
+                        {rand(p.regular_price_rand)}
+                      </s>
+                    )}
+                    {rand(p.price_rand)}
+                    {p.sold_by_weight ? " / g" : ""}
+                  </b>
                   <Button
-                    aria-label={`Add ${name} to cart`}
+                    aria-label={`Add ${p.name} to cart`}
                     onClick={() => {
-                      add({
-                        productId: `featured-${String(name)}`,
-                        name: String(name),
-                        price: Number(String(price).replace(/[^0-9.]/g, "")) || 0,
-                        unit: null,
-                      });
-                      setAdded(name ?? null);
+                      add({ productId: p.id, name: p.name, price: p.price_rand, unit: p.unit });
+                      setAdded(p.id);
                       window.setTimeout(() => setAdded(null), 1600);
                     }}
                   >
-                    {added === name ? (
+                    {added === p.id ? (
                       <>
                         <Check size={15} /> Added
                       </>
@@ -1286,14 +1318,15 @@ function FloatingBottomNav() {
 }
 
 export function CannaPlugHome() {
+  const { data: catalogue, failed } = useHomeCatalogue();
   return (
     <div className="site">
       <StoryNavigation />
       <Header />
       <main>
         <Hero />
-        <Categories />
-        <Products />
+        <Categories catalogue={catalogue} />
+        <Products catalogue={catalogue} failed={failed} />
         <CampaignBanner />
         <ExperienceSection />
         <Newsroom />

@@ -60,6 +60,7 @@ function serverFns(): Fn[] {
 /** Deliberately unauthenticated server functions. Everything else MUST carry auth middleware. */
 const PUBLIC_FNS: Record<string, string> = {
   listStoreProductsFn: "public catalogue",
+  getHomeCatalogueFn: "public homepage catalogue (same columns as the shop; never cost)",
   listDeliveryOptionsFn: "public checkout info",
   getOnlineMethodsFn: "which payment buttons to show (no data)",
   askCannaPlug: "public chatbot; layered rate limits (IP, session, shared Gemini budget)",
@@ -122,6 +123,7 @@ const DATA_LAYERS: Record<string, string[]> = {
   "src/lib/admin-data.server.ts": [
     "assertRole",
     "listStoreProducts",
+    "getHomeCatalogue",
     "listMemberOrders",
     "confirmOrderPayment",
   ],

@@ -2257,6 +2257,7 @@ export type Database = {
           id: string;
           image_path: string | null;
           is_active: boolean;
+          is_featured: boolean;
           name: string;
           price_rand: number;
           regular_price_rand: number | null;
@@ -2283,6 +2284,7 @@ export type Database = {
           id?: string;
           image_path?: string | null;
           is_active?: boolean;
+          is_featured?: boolean;
           name: string;
           price_rand: number;
           regular_price_rand?: number | null;
@@ -2309,6 +2311,7 @@ export type Database = {
           id?: string;
           image_path?: string | null;
           is_active?: boolean;
+          is_featured?: boolean;
           name?: string;
           price_rand?: number;
           regular_price_rand?: number | null;
