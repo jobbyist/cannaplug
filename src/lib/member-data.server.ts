@@ -1,3 +1,4 @@
+import { productImageUrl } from "@/lib/product-image-url.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -64,7 +65,7 @@ export async function getMemberAccount(db: UserClient) {
     db
       .from("products")
       .select(
-        "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,sort_order",
+        "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,sort_order,image_path",
       )
       .eq("is_active", true)
       .order("sort_order")
@@ -127,7 +128,11 @@ export async function getMemberAccount(db: UserClient) {
     },
     wishlist: (unwrap(wishlist) ?? []).map((w) => w.product_id),
     alerts: unwrap(alerts) ?? [],
-    products: (unwrap(products) ?? []).map((p) => ({ ...p, in_stock: inStock.has(p.id) })),
+    products: (unwrap(products) ?? []).map((p) => ({
+      ...p,
+      in_stock: inStock.has(p.id),
+      image_url: productImageUrl(p.image_path),
+    })),
     verification: unwrap(verification),
   };
 }

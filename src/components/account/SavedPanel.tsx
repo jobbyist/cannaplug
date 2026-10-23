@@ -45,7 +45,13 @@ export function SavedPanel({
 
   const card = (p: Product) => (
     <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
-      <img src={getCatalogImage(p.category)} alt="" className="h-14 w-14 rounded-lg object-cover" />
+      <img
+        src={p.image_url ?? getCatalogImage(p.category)}
+        alt={p.name}
+        width={56}
+        height={56}
+        className="h-14 w-14 rounded-lg object-cover"
+      />
       <div className="flex-1">
         <p className="text-sm font-semibold">{p.name}</p>
         <p className="text-xs text-muted-foreground">{p.subcategory ?? p.category}</p>

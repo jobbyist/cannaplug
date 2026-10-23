@@ -1,4 +1,5 @@
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { productImageUrl } from "@/lib/product-image-url.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type AdminOrderStatus =
@@ -34,6 +35,9 @@ export type AdminProductInput = Pick<
   | "badge"
   | "sort_order"
   | "is_active"
+  | "sku"
+  | "barcode"
+  | "cost_rand"
 >;
 
 export type AdminOrder = Tables<"orders"> & {
@@ -332,14 +336,32 @@ export async function transitionAdminOrder(
 }
 
 export async function listAdminProducts(userId: string) {
-  await assertRole(userId, "budtender");
+  const role = await assertRole(userId, "budtender");
   const { data, error } = await supabaseAdmin
     .from("products")
     .select("*")
     .order("sort_order")
     .order("name");
   if (error) throw error;
-  return data ?? [];
+  // Cost price is manager+ information: budtenders get the list without it.
+  const seesCost = role === "manager" || role === "admin";
+  return (data ?? []).map((p) => ({
+    ...p,
+    cost_rand: seesCost ? p.cost_rand : null,
+    image_url: productImageUrl(p.image_path),
+  }));
+}
+
+/** Maps unique-index violations to a message a manager can act on. */
+function productSaveError(error: { code?: string; message?: string }): Error {
+  if (error.code === "23505" && /sku/i.test(error.message ?? ""))
+    return new Error("That SKU is already used by another product.");
+  if (error.code === "23505" && /barcode/i.test(error.message ?? ""))
+    return new Error("That barcode is already used by another product.");
+  if (error.code === "23505" && /slug/i.test(error.message ?? ""))
+    return new Error("That slug is already used by another product.");
+  if (error.code === "23514") return new Error("Check the SKU, barcode and cost price format.");
+  return error instanceof Error ? error : new Error(error.message ?? "Could not save the product.");
 }
 
 export async function saveAdminProduct(
@@ -355,18 +377,22 @@ export async function saveAdminProduct(
       .eq("id", productId)
       .select()
       .single();
-    if (error) throw error;
+    if (error) throw productSaveError(error);
     await supabaseAdmin.from("audit_log").insert({
       actor_user_id: userId,
       action: "product_updated",
       entity_type: "product",
       entity_id: productId,
-      metadata: { price_rand: input.price_rand },
+      metadata: {
+        price_rand: input.price_rand,
+        sku: input.sku ?? null,
+        cost_changed: input.cost_rand !== undefined,
+      },
     });
     return data;
   }
   const { data, error } = await supabaseAdmin.from("products").insert(input).select().single();
-  if (error) throw error;
+  if (error) throw productSaveError(error);
   await supabaseAdmin.from("audit_log").insert({
     actor_user_id: userId,
     action: "product_created",
@@ -463,13 +489,13 @@ export async function listStoreProducts() {
   const { data, error } = await supabaseAdmin
     .from("products")
     .select(
-      "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,is_active,sort_order",
+      "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,is_active,sort_order,image_path",
     )
     .eq("is_active", true)
     .order("sort_order")
     .order("name");
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((p) => ({ ...p, image_url: productImageUrl(p.image_path) }));
 }
 
 export async function listMemberOrders(userId: string) {

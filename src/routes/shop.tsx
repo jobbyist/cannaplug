@@ -35,7 +35,7 @@ type StoreProduct = Awaited<ReturnType<typeof listStoreProductsFn>>[number];
 function ProductCard({ product }: { product: StoreProduct }) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
-  const image = getCatalogImage(product.category);
+  const image = product.image_url ?? getCatalogImage(product.category);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-lg">
@@ -48,6 +48,8 @@ function ProductCard({ product }: { product: StoreProduct }) {
         <img
           src={image}
           alt={product.name}
+          width={400}
+          height={300}
           loading="lazy"
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />

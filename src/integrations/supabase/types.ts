@@ -2116,13 +2116,17 @@ export type Database = {
       products: {
         Row: {
           badge: string | null;
+          barcode: string | null;
           category: string;
           created_at: string;
+          cost_rand: number | null;
           description: string | null;
           id: string;
+          image_path: string | null;
           is_active: boolean;
           name: string;
           price_rand: number;
+          sku: string | null;
           slug: string;
           sort_order: number;
           strain_type: string | null;
@@ -2131,13 +2135,17 @@ export type Database = {
         };
         Insert: {
           badge?: string | null;
+          barcode?: string | null;
           category: string;
           created_at?: string;
+          cost_rand?: number | null;
           description?: string | null;
           id?: string;
+          image_path?: string | null;
           is_active?: boolean;
           name: string;
           price_rand: number;
+          sku?: string | null;
           slug: string;
           sort_order?: number;
           strain_type?: string | null;
@@ -2146,13 +2154,17 @@ export type Database = {
         };
         Update: {
           badge?: string | null;
+          barcode?: string | null;
           category?: string;
           created_at?: string;
+          cost_rand?: number | null;
           description?: string | null;
           id?: string;
+          image_path?: string | null;
           is_active?: boolean;
           name?: string;
           price_rand?: number;
+          sku?: string | null;
           slug?: string;
           sort_order?: number;
           strain_type?: string | null;

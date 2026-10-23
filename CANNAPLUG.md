@@ -967,3 +967,13 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - `scripts/env-registry.ts`, `scripts/check-env.ts`, `docs/release/env-matrix.md`; a unit test fails if server code reads an unlisted variable. Yoco variables marked _retiring_.
 - `docs/release/runbook.md` §4b lists the remaining dashboard actions.
 - Rollback: revert the commit (the hosted inserts are harmless bookkeeping).
+
+## 2026-10-23 — Product SKU, barcode, cost and photos (Prompt 2)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-product-media`
+- Migration `supabase/migrations/20261023001000_product_media.sql` (mirror `drizzle/migrations/0025_product_media.sql`, rollback in `supabase/rollbacks/`, rehearsal `scripts/rollback-rehearsal-product-media.sh`, added to `verify-release.sh`): `sku` (unique, case-insensitive), `barcode` (unique), `cost_rand`, `image_path` with format CHECKs; browser roles now hold **column-level** SELECT on `products` that excludes `cost_rand`; public-read bucket `product-images` (2 MB, JPG/PNG/WebP).
+- Server: `src/lib/product-media.ts` (rules), `product-media.server.ts` (manager+ signed upload → magic-byte check → attach/replace/remove, audited), `product-image-url.server.ts`; `listAdminProducts` hides cost from budtenders; duplicate SKU/barcode errors are friendly.
+- UI: `/admin → Products` rebuilt as `src/components/admin/ProductsPanel.tsx` (labelled fields, SKU column, cost, photo upload with client-side resize to 1200 px WebP). Shop, saved items and account use the photo when present.
+- Tests: `src/test/db/product-media.test.ts` (uniqueness, formats, cost privacy for anon/customer/manager browsers), updated `security-audit` DB test, `src/test/product-media.test.ts`, `src/test/products-panel.test.tsx`. Mutation check: removing the `REVOKE SELECT` makes 2 tests fail.
+- Hosted: applied 23 Oct 2026 via `apply_migration` (`20261023001000_product_media`); verified anon cannot read `cost_rand`, bucket `product-images` exists (public, 2 MB).
+- Rollback: `supabase/rollbacks/20261023001000_product_media_rollback.sql` (bucket left in place).
