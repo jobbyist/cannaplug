@@ -63,11 +63,32 @@ function toProductColumns(input: AdminProductInput) {
   };
 }
 
+/** What staff may see about a linked prescription: number, validity and a public verify token. Never clinical text. */
+export type OrderPrescription = {
+  document_number: string;
+  valid_until: string | null;
+  verify_token: string;
+  link_status: "active" | "flagged";
+  valid: boolean;
+};
+
 export type AdminOrder = Tables<"orders"> & {
   customer_name: string | null;
   customer_email: string | null;
   items: Tables<"order_items">[];
+  prescription?: OrderPrescription | null;
 };
+
+async function withPrescriptions(userId: string, orders: AdminOrder[]): Promise<AdminOrder[]> {
+  if (!orders.length) return orders;
+  const { data, error } = await supabaseAdmin.rpc("order_prescription_summaries", {
+    p_actor: userId,
+    p_order_ids: orders.map((o) => o.id),
+  });
+  if (error) return orders; // the order list must still load
+  const map = (data ?? {}) as Record<string, OrderPrescription>;
+  return orders.map((o) => ({ ...o, prescription: map[o.id] ?? null }));
+}
 
 export type InventorySummary = {
   product_id: string;
@@ -318,7 +339,7 @@ export async function listAdminOrders(
   page: Pick<OrderPage, "limit" | "before"> = {},
 ) {
   await assertRole(userId, "budtender");
-  return loadOrders({ limit: MAX_PAGE_SIZE, ...page });
+  return withPrescriptions(userId, await loadOrders({ limit: MAX_PAGE_SIZE, ...page }));
 }
 
 export async function getAdminOrder(userId: string, orderId: string) {
@@ -330,7 +351,7 @@ export async function getAdminOrder(userId: string, orderId: string) {
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const [order] = await hydrateOrders([data]);
+  const [order] = await withPrescriptions(userId, await hydrateOrders([data]));
   return order ?? null;
 }
 

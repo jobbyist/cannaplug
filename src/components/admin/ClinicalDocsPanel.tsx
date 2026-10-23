@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ReadinessChecklist } from "@/components/admin/ClinicalReadiness";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -129,6 +130,7 @@ export function ClinicalDocsPanel() {
           never shown here.
         </p>
       </div>
+      <ReadinessChecklist />
       <nav className="flex flex-wrap gap-2" aria-label="Clinical documents sections">
         {SECTIONS.map((s) => (
           <Button

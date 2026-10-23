@@ -57,7 +57,7 @@ import {
   confirmOrderPaymentFn,
   transitionAdminOrderFn,
 } from "@/lib/admin.functions";
-import type { AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
+import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
@@ -669,7 +669,30 @@ function OrderDelivery({
           : "No delivery method"}
         {order.payment_method ? ` · Pay by ${order.payment_method.toUpperCase()}` : ""}
       </p>
+      {order.prescription && <PrescriptionLine rx={order.prescription} />}
     </div>
+  );
+}
+
+/** Only the number, validity and a verify link — never clinical text, quantities or practitioner notes. */
+function PrescriptionLine({ rx }: { rx: NonNullable<AdminOrder["prescription"]> }) {
+  const until = rx.valid_until
+    ? new Date(rx.valid_until).toLocaleDateString("en-ZA", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+  return (
+    <p className={rx.valid ? "text-primary" : "font-semibold text-destructive"}>
+      {rx.valid
+        ? `Covered by prescription ${rx.document_number}, valid until ${until}`
+        : `Check before packing: prescription ${rx.document_number} is no longer valid${rx.link_status === "flagged" ? " (revoked)" : ""}`}{" "}
+      ·{" "}
+      <a href={`/verify/${rx.verify_token}`} target="_blank" rel="noreferrer" className="underline">
+        Verify
+      </a>
+    </p>
   );
 }
 
