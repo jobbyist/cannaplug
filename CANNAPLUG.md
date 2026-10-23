@@ -1031,3 +1031,15 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Tests: `src/test/pwa.test.ts` (runs the real `sw.js` policy; manifest, head and CSP; install rules). Mutations caught: `/checkout` removed from the never-cache list; `no-store` responses stored. `e2e/pwa.spec.ts` via `bash scripts/pwa-e2e.sh` (production node-server build): manifest and icons, Chrome installability errors (the check Lighthouse's retired PWA audit used) = none, private routes never in any cache, worker controls the page and `/offline` renders styled with the server stopped — 4 passed. Added to the CI e2e job.
 - Migrations: none. Owner actions: none (after deploy, Android/desktop Chrome offers install; iPhone users see the steps).
 - Rollback: revert the PR. Already-installed workers retire themselves when `sw.js` is removed only after a new deploy serves a 404 for it; to force it, ship a `sw.js` that calls `self.registration.unregister()`.
+
+## 2026-10-23 — Ask CannaPlug for signed-in members (Prompt 8)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-member-chat`
+- `askCannaPlug` now sits behind the same `requireSupabaseAuth` middleware as other member functions, so anonymous calls are refused before the handler and never reach the quota or Gemini (the service also returns a typed `sign_in_required` if ever called without a member). Removed from the security audit's public list. The widget shows "Sign in to chat" instead of the input when signed out.
+- Quota (`src/lib/ai/quota.ts`): per-member daily bucket `CHAT_MEMBER_RPD` (default 20) checked first, then IP, session and the shared RPM/RPD budgets (unchanged). Resets at midnight Pacific like Google; the panel shows "n of 20 messages left today · resets HH:MM" in SAST (`getChatAllowanceFn`).
+- Model: `GEMINI_CHAT_MODEL` (default `gemini-2.5-flash`); `gemini-2.5-flash-lite` when more than 80% of the site's daily budget is used or the primary returns 429. The log records only which model answered.
+- Prompt: the member's first name, latest order (number, date, status, delivery and payment method) and points balance, read server-side from an explicit column allow-list and re-filtered by `memberContextLines`; never ID, date of birth, address, phone or clinical data. Existing compliance rules kept; the "cannot see orders" rule now allows only this member's own summary.
+- History in `sessionStorage` per member (`cannaplug.chat.v2:<user>`); every chat key is cleared on sign-out.
+- Tests: `src/test/member-chat.test.ts` (12: anonymous never reaches Gemini, middleware in place, member quota trips at 20 without spending shared budget, reset time, 429 fallback + model-only log, >80% budget fallback, both models limited, model env validation, member context content, forbidden fields never present, odd values dropped, storage cleared) + updated `ai-chat.test.ts`. Mutations caught: member gate removed; member bucket removed.
+- Migrations: none. Owner actions: `GEMINI_API_KEY` in Vercel; check the current free-tier limits in Google AI Studio and set `GEMINI_RPM_LIMIT` / `GEMINI_RPD_LIMIT` just below them.
+- Rollback: revert the PR.

@@ -1,23 +1,37 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
-import { askCannaPlug } from "@/lib/chat.functions";
+import { Bot, Loader2, LogIn, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { askCannaPlug, getChatAllowanceFn } from "@/lib/chat.functions";
+import { clearChatStorage } from "@/lib/chat-storage";
 import { cn } from "@/lib/utils";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const STORAGE_KEY = "cannaplug.chat.v1";
-const SESSION_KEY = "cannaplug.chat.session";
+type Allowance = { limit: number; remaining: number; resetsAt: string };
+// History and the chat session are kept per member in sessionStorage and cleared on sign-out.
+const STORAGE_PREFIX = "cannaplug.chat.v2:";
+const SESSION_PREFIX = "cannaplug.chat.session:";
+const historyKey = (userId: string) => STORAGE_PREFIX + userId;
+const sessionKey = (userId: string) => SESSION_PREFIX + userId;
+
+const resetTime = (iso: string) =>
+  new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
 const GREETING: ChatMessage = {
   role: "assistant",
   content:
     "Hey, I'm CannaPlug AI \u{1F33F} Ask me about our products, store policies, delivery or hours — I'm happy to help.",
 };
 
-function loadHistory(): ChatMessage[] {
+function loadHistory(userId: string): ChatMessage[] {
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(historyKey(userId));
     if (raw) return JSON.parse(raw) as ChatMessage[];
   } catch {
     /* ignore malformed history */
@@ -27,6 +41,9 @@ function loadHistory(): ChatMessage[] {
 
 export function ChatWidget() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
+  const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
@@ -35,19 +52,41 @@ export function ChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => setMounted(true), []);
+
+  // Load this member's history; on sign-out wipe every chat trace from the tab.
+  const lastUser = useRef<string | null>(null);
   useEffect(() => {
-    setMounted(true);
-    setMessages(loadHistory());
-  }, []);
+    if (!mounted || authLoading) return;
+    if (userId) setMessages(loadHistory(userId));
+    else {
+      if (lastUser.current) clearChatStorage();
+      setMessages([GREETING]);
+      setAllowance(null);
+    }
+    setError(null);
+    lastUser.current = userId;
+  }, [mounted, authLoading, userId]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !userId) return;
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      window.sessionStorage.setItem(historyKey(userId), JSON.stringify(messages));
     } catch {
       /* ignore quota errors */
     }
-  }, [messages, mounted]);
+  }, [messages, mounted, userId]);
+
+  useEffect(() => {
+    if (!open || !userId) return;
+    let live = true;
+    getChatAllowanceFn()
+      .then((a) => live && setAllowance(a))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [open, userId]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +106,7 @@ export function ChatWidget() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || !userId) return;
 
     const nextMessages = [...messages, { role: "user", content: text } satisfies ChatMessage];
     setMessages(nextMessages);
@@ -76,10 +115,10 @@ export function ChatWidget() {
     setLoading(true);
 
     try {
-      let sessionId = window.sessionStorage.getItem(SESSION_KEY);
+      let sessionId = window.sessionStorage.getItem(sessionKey(userId));
       if (!sessionId) {
         sessionId = crypto.randomUUID();
-        window.sessionStorage.setItem(SESSION_KEY, sessionId);
+        window.sessionStorage.setItem(sessionKey(userId), sessionId);
       }
       const history = nextMessages
         .filter((m, i) => !(i === 0 && m === GREETING) && m.content.trim())
@@ -87,12 +126,17 @@ export function ChatWidget() {
       const result = await askCannaPlug({
         data: { sessionId, messages: history.length ? history : nextMessages.slice(-1) },
       });
+      if (result.allowance) setAllowance(result.allowance);
       if (!result.ok) {
-        setError(result.error);
+        setError(result.signInRequired ? "Please sign in to chat." : result.error);
       } else {
         setMessages((current) => [...current, { role: "assistant", content: result.reply }]);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && /unauthorized/i.test(err.message)) {
+        setError("Please sign in again to keep chatting.");
+        return;
+      }
       setError(
         "Our assistant couldn't respond just now. Please try again, or contact the team directly.",
       );
@@ -133,7 +177,9 @@ export function ChatWidget() {
                 </span>
                 <div>
                   <strong>CannaPlug AI</strong>
-                  <small>Ask about products &amp; policies</small>
+                  <small>
+                    {userId ? "Ask about products, policies & your order" : "For signed-in members"}
+                  </small>
                 </div>
               </div>
               <button
@@ -164,21 +210,45 @@ export function ChatWidget() {
                   <Loader2 size={14} className="chat-spinner" /> Thinking…
                 </div>
               )}
+              {!userId && (
+                <div className="chat-bubble chat-bubble-bot">
+                  Ask CannaPlug AI is for members. Sign in (or create a free account) and I can help
+                  with products, delivery and your latest order.
+                </div>
+              )}
               {error && <div className="chat-error">{error}</div>}
             </div>
 
-            <form className="chat-input-row" onSubmit={submit}>
-              <input
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask about products, delivery, hours…"
-                aria-label="Message CannaPlug AI"
-                disabled={loading}
-              />
-              <button type="submit" aria-label="Send message" disabled={loading || !input.trim()}>
-                {loading ? <Loader2 size={16} className="chat-spinner" /> : <Send size={16} />}
-              </button>
-            </form>
+            {!userId ? (
+              <div className="chat-input-row" style={{ justifyContent: "center" }}>
+                <Link
+                  to="/account"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  <LogIn size={15} /> Sign in to chat
+                </Link>
+              </div>
+            ) : (
+              <form className="chat-input-row" onSubmit={submit}>
+                <input
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder="Ask about products, delivery, hours…"
+                  aria-label="Message CannaPlug AI"
+                  disabled={loading}
+                />
+                <button type="submit" aria-label="Send message" disabled={loading || !input.trim()}>
+                  {loading ? <Loader2 size={16} className="chat-spinner" /> : <Send size={16} />}
+                </button>
+              </form>
+            )}
+            {userId && allowance && (
+              <p className="chat-disclaimer" aria-live="polite">
+                {allowance.remaining} of {allowance.limit} messages left today · resets{" "}
+                {resetTime(allowance.resetsAt)}
+              </p>
+            )}
             <p className="chat-disclaimer">
               <MessageCircle size={11} /> AI answers are general guidance, not medical advice. 18+
               only.

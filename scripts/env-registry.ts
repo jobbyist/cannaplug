@@ -133,6 +133,18 @@ export const ENV_VARS: EnvVar[] = [
     note: "Tests only (localhost mock)",
   },
   { name: "GEMINI_API_KEY", group: "AI", status: "feature", note: "Chatbot and Journal" },
+  {
+    name: "GEMINI_CHAT_MODEL",
+    group: "AI",
+    status: "optional",
+    note: "Default gemini-2.5-flash; falls back to -lite",
+  },
+  {
+    name: "CHAT_MEMBER_RPD",
+    group: "AI",
+    status: "optional",
+    note: "Messages per member per day, default 20",
+  },
   { name: "GEMINI_RPM_LIMIT", group: "AI", status: "optional", note: "Default 8" },
   { name: "GEMINI_RPD_LIMIT", group: "AI", status: "optional", note: "Default 180" },
   {
