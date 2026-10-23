@@ -27,6 +27,8 @@ import {
   voidPosSaleFn,
 } from "@/lib/pos.functions";
 import { StockControl } from "./StockControl";
+import { ReceiptActions } from "@/components/admin/receipts/ReceiptActions";
+import { recordCashReceivedFn } from "@/lib/receipts.functions";
 import {
   TENDER_METHODS,
   addToCart,
@@ -376,7 +378,13 @@ function SaleScreen({
       const res = await completePosSaleFn({
         data: { sessionId: session.id, items, tenders: sendTenders, customerId: cid, key },
       });
-      setReceipt({ ...res, cashReceivedCents: parseCents(cashReceived) } as Receipt);
+      const received = parseCents(cashReceived);
+      setReceipt({ ...res, cashReceivedCents: received } as Receipt);
+      // Best-effort: lets the printed/emailed receipt show cash received and change.
+      if (received && res.sale?.sale_id)
+        void recordCashReceivedFn({
+          data: { saleId: res.sale.sale_id, cashReceived: received / 100 },
+        }).catch(() => undefined);
       keys.current.reset();
       setLines([]);
       setTenders([]);
@@ -790,6 +798,7 @@ function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }
           Sale saved. Loyalty points will be credited on retry.
         </p>
       )}
+      <ReceiptActions saleId={sale.sale_id} />
       <Button type="button" className="mt-3" size="sm" onClick={onNew}>
         New sale (N)
       </Button>
@@ -892,7 +901,7 @@ function SaleCard({
   isManager: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [mode, setMode] = useState<null | "void" | "refund">(null);
+  const [mode, setMode] = useState<null | "void" | "refund" | "receipt">(null);
   const canVoid = isManager && sale.status === "completed";
   const canRefund =
     isManager && (sale.status === "completed" || sale.status === "partially_refunded");
@@ -914,6 +923,13 @@ function SaleCard({
         <div className="flex items-center gap-2">
           <Badge variant={statusVariant(sale.status)}>{sale.status.replace("_", " ")}</Badge>
           <span className="text-sm font-bold">{rand(sale.total)}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMode(mode === "receipt" ? null : "receipt")}
+          >
+            Receipt
+          </Button>
           {canVoid && (
             <Button
               size="sm"
@@ -942,6 +958,7 @@ function SaleCard({
           </li>
         ))}
       </ul>
+      {mode === "receipt" && <ReceiptActions saleId={sale.id} />}
       {mode === "void" && (
         <VoidForm
           sale={sale}

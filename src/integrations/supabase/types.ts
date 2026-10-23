@@ -116,6 +116,111 @@ export type Database = {
         };
         Relationships: [];
       };
+      receipt_settings: {
+        Row: {
+          address: string;
+          default_paper: string;
+          email: string | null;
+          footer_message: string | null;
+          id: boolean;
+          legal_name: string;
+          licence_lines: string[];
+          phone: string | null;
+          registration_number: string | null;
+          returns_policy: string | null;
+          trading_name: string;
+          updated_at: string;
+          updated_by: string | null;
+          vat_number: string | null;
+          vat_rate: number;
+          vat_registered: boolean;
+        };
+        Insert: {
+          address: string;
+          default_paper?: string;
+          email?: string | null;
+          footer_message?: string | null;
+          id?: boolean;
+          legal_name: string;
+          licence_lines?: string[];
+          phone?: string | null;
+          registration_number?: string | null;
+          returns_policy?: string | null;
+          trading_name: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_number?: string | null;
+          vat_rate?: number;
+          vat_registered?: boolean;
+        };
+        Update: {
+          address?: string;
+          default_paper?: string;
+          email?: string | null;
+          footer_message?: string | null;
+          id?: boolean;
+          legal_name?: string;
+          licence_lines?: string[];
+          phone?: string | null;
+          registration_number?: string | null;
+          returns_policy?: string | null;
+          trading_name?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_number?: string | null;
+          vat_rate?: number;
+          vat_registered?: boolean;
+        };
+        Relationships: [];
+      };
+      pos_receipt_meta: {
+        Row: {
+          cash_received: number | null;
+          created_at: string;
+          created_by: string;
+          sale_id: string;
+        };
+        Insert: {
+          cash_received?: number | null;
+          created_at?: string;
+          created_by: string;
+          sale_id: string;
+        };
+        Update: {
+          cash_received?: number | null;
+          created_at?: string;
+          created_by?: string;
+          sale_id?: string;
+        };
+        Relationships: [];
+      };
+      pos_receipt_sends: {
+        Row: {
+          actor_user_id: string;
+          created_at: string;
+          email: string;
+          id: string;
+          provider_message_id: string | null;
+          sale_id: string;
+        };
+        Insert: {
+          actor_user_id: string;
+          created_at?: string;
+          email: string;
+          id?: string;
+          provider_message_id?: string | null;
+          sale_id: string;
+        };
+        Update: {
+          actor_user_id?: string;
+          created_at?: string;
+          email?: string;
+          id?: string;
+          provider_message_id?: string | null;
+          sale_id?: string;
+        };
+        Relationships: [];
+      };
       chat_rate_limits: {
         Row: {
           request_count: number;
