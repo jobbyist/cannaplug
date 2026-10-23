@@ -65,6 +65,11 @@ function ProductCard({ product }: { product: StoreProduct }) {
         </p>
         <div className="mt-2 flex items-center justify-between gap-2">
           <div>
+            {product.regular_price_rand != null && (
+              <s className="mr-1 text-[0.7rem] text-muted-foreground">
+                {rand(product.regular_price_rand)}
+              </s>
+            )}
             <b className="text-sm">{rand(product.price_rand)}</b>
             {product.unit && (
               <span className="ml-1 text-[0.65rem] text-muted-foreground">/ {product.unit}</span>

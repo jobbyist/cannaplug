@@ -50,8 +50,9 @@ export const Route = createFileRoute("/api/public/inventory/maintenance")({
         } catch (err) {
           console.error("email automations failed", err instanceof Error ? err.message : err);
         }
-        // Best-effort housekeeping: drop expired AI-quota counters.
+        // Best-effort housekeeping: drop expired AI-quota counters, and end sales whose end time has passed.
         await supabaseAdmin.rpc("ai_quota_purge").then(undefined, () => undefined);
+        await supabaseAdmin.rpc("end_expired_sales").then(undefined, () => undefined);
         // Also best-effort: expire abandoned payment attempts and flush the notification queue.
         let notifications: unknown = null;
         try {

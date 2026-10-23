@@ -38,7 +38,29 @@ export type AdminProductInput = Pick<
   | "sku"
   | "barcode"
   | "cost_rand"
->;
+  | "brand"
+  | "sell_online"
+  | "sold_by_weight"
+  | "weight_step_g"
+  | "sale_ends_at"
+> & {
+  /** Discounted selling price; empty = not on sale. price_rand is the regular price as typed by staff. */
+  sale_price_rand?: number | null;
+};
+
+/** Staff type a regular price and an optional sale price; the database stores the selling price in price_rand
+ *  and the regular price in regular_price_rand while a sale runs, so checkout and the till need no changes. */
+function toProductColumns(input: AdminProductInput) {
+  const { sale_price_rand, ...rest } = input;
+  const onSale =
+    sale_price_rand != null && sale_price_rand >= 0 && sale_price_rand < input.price_rand;
+  return {
+    ...rest,
+    price_rand: onSale ? sale_price_rand : input.price_rand,
+    regular_price_rand: onSale ? input.price_rand : null,
+    sale_ends_at: onSale ? (input.sale_ends_at ?? null) : null,
+  };
+}
 
 export type AdminOrder = Tables<"orders"> & {
   customer_name: string | null;
@@ -373,7 +395,7 @@ export async function saveAdminProduct(
   if (productId) {
     const { data, error } = await supabaseAdmin
       .from("products")
-      .update(input as TablesUpdate<"products">)
+      .update(toProductColumns(input) as TablesUpdate<"products">)
       .eq("id", productId)
       .select()
       .single();
@@ -391,7 +413,11 @@ export async function saveAdminProduct(
     });
     return data;
   }
-  const { data, error } = await supabaseAdmin.from("products").insert(input).select().single();
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .insert(toProductColumns(input) as TablesInsert<"products">)
+    .select()
+    .single();
   if (error) throw productSaveError(error);
   await supabaseAdmin.from("audit_log").insert({
     actor_user_id: userId,
@@ -489,9 +515,10 @@ export async function listStoreProducts() {
   const { data, error } = await supabaseAdmin
     .from("products")
     .select(
-      "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,is_active,sort_order,image_path",
+      "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,is_active,sort_order,image_path,sold_by_weight",
     )
     .eq("is_active", true)
+    .eq("sell_online", true)
     .order("sort_order")
     .order("name");
   if (error) throw error;
