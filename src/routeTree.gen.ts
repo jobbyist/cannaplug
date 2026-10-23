@@ -28,6 +28,7 @@ import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
 import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
+import { Route as AdminPosReceiptSaleIdRouteImport } from './routes/admin_.pos.receipt.$saleId'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
@@ -130,6 +131,11 @@ const VerifyTokenRoute = VerifyTokenRouteImport.update({
   path: '/verify/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPosReceiptSaleIdRoute = AdminPosReceiptSaleIdRouteImport.update({
+  id: '/admin_/pos/receipt/$saleId',
+  path: '/admin/pos/receipt/$saleId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicInventoryMaintenanceRoute =
   ApiPublicInventoryMaintenanceRouteImport.update({
     id: '/api/public/inventory/maintenance',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
+  '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin_/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal'
+    | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin_/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
@@ -352,6 +364,7 @@ export interface RootRouteChildren {
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
+  AdminPosReceiptSaleIdRoute: typeof AdminPosReceiptSaleIdRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
   ApiPublicNotificationsDispatchRoute: typeof ApiPublicNotificationsDispatchRoute
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/pos/receipt/$saleId': {
+      id: '/admin_/pos/receipt/$saleId'
+      path: '/admin/pos/receipt/$saleId'
+      fullPath: '/admin/pos/receipt/$saleId'
+      preLoaderRoute: typeof AdminPosReceiptSaleIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/inventory/maintenance': {
       id: '/api/public/inventory/maintenance'
       path: '/api/public/inventory/maintenance'
@@ -560,6 +580,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
+  AdminPosReceiptSaleIdRoute: AdminPosReceiptSaleIdRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
   ApiPublicNotificationsDispatchRoute: ApiPublicNotificationsDispatchRoute,

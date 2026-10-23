@@ -988,3 +988,12 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - App: `src/lib/catalogue-import.ts` (CSV + Yoco mapping), `catalogue-import.server.ts`, `catalogue.functions.ts`, `/admin → Products → Import from Yoco` (dry run → confirm), editor fields for brand, sale price/end, sold by weight + step, sold online; shop hides in-store-only items, shows sale prices, filter lists all nine categories.
 - Tests: `src/test/catalogue-import.test.ts` (anonymised fixture), `src/test/db/catalogue-import.test.ts` (8). Mutations caught: manager check → budtender; file-hash idempotency removed.
 - **Hosted (23 Oct 14:50 SAST):** migration applied; the real Yoco export (`products-08-10-2026.csv`, sha256 `335f898f…`) imported as admin: 185 created, 105 with opening stock (2,019 units), 4 Lounge items in-store only, 48 placeholders switched off. The file itself is not committed (public repo).
+
+## 2026-10-23 — POS receipts: print (80 mm, 58 mm, A4) and email (Prompt 3b)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-pos-receipts`
+- Migration `20261023003000_pos_receipts.sql` (mirror `drizzle/0027`, rollback, `scripts/rollback-rehearsal-pos-receipts.sh`): `receipt_settings` (one row, seeded with CANNAPLUG PTY LTD, Reg 2026/047873/07, licence lines, Shop 002 One On Mutual Pretoria Central, +27 68 291 2107, info@cannaplug012.co.za; VAT off, SA VAT-number check when on), `pos_receipt_meta` (cash received → change on the receipt), `pos_receipt_sends` (email log, max 5 per sale). All service-role only.
+- Receipts are built server-side from the stored sale only (`src/lib/receipts/*`): first names only, card/EFT references masked to the last 4, VAT line and "TAX INVOICE" only when VAT is switched on, no ID/health data. Branded PDF via pdf-lib in all three paper sizes; print page `/admin/pos/receipt/$saleId?paper=…` with matching `@page` sizes.
+- Till: after every sale and from sale history — paper choice (remembered per device), Print, PDF download, Email (Resend, PDF attached, audited). `/admin → Settings` now edits receipt details with a live preview and the VAT switch.
+- Receipt numbers keep the existing gap-free `POS-YYMMDD-nnnnnn` sequence from Milestone 3.
+- Tests: `src/test/receipts.test.ts` (8), `src/test/db/pos-receipts.test.ts` (3).

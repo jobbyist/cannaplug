@@ -60,6 +60,7 @@ import {
 import type { AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
+import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 
 export const Route = createFileRoute("/admin")({
@@ -442,7 +443,8 @@ function AdminPage() {
             </Table>
           </div>
         )}
-        {["promotions", "events", "newsroom", "reports", "settings"].includes(tab) && (
+        {tab === "settings" && <ReceiptSettingsPanel />}
+        {["promotions", "events", "newsroom", "reports"].includes(tab) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
               <p className="font-display text-sm font-bold uppercase">{tab}</p>
