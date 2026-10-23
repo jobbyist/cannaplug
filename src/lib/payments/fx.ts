@@ -116,7 +116,7 @@ export interface FxDeps {
 /**
  * Called before PayPal initiation. Guarantees a current rate exists, refreshing from the market when the
  * newest live one is older than the refresh window. A failed refresh falls back to any still-valid rate;
- * with none at all it throws `fx_rate_unavailable` and the PayPal option is declined (Yoco is unaffected).
+ * with none at all it throws `fx_rate_unavailable` and the PayPal option is declined (PayFast is unaffected).
  */
 export async function ensureFreshRate(deps: FxDeps): Promise<{ refreshed: boolean }> {
   const cfg = await deps.settings();

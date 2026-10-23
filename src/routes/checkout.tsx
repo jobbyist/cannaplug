@@ -21,14 +21,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIdempotencyKey } from "@/hooks/useIdempotencyKey";
 import { useCart } from "@/lib/cart";
 import { rand } from "@/lib/cart";
-import { BANKING_DETAILS } from "@/lib/banking";
+import { eftRows, type EftDetails } from "@/lib/payments/eft";
+import { goToCheckout } from "@/lib/payments/redirect";
 import {
   listCheckoutAddressesFn,
   listDeliveryOptionsFn,
   placeOrderFn,
   quoteCheckoutFn,
 } from "@/lib/checkout.functions";
-import { getOnlineMethodsFn, startPaymentFn } from "@/lib/payments.functions";
+import { getOnlineMethodsFn, getPaypalRateFn, startPaymentFn } from "@/lib/payments.functions";
 import { saveAddressFn } from "@/lib/member.functions";
 import { getMyVerificationFn } from "@/lib/verification.functions";
 import { verificationView, type VerificationView } from "@/lib/verification-logic";
@@ -185,18 +186,31 @@ function CheckoutPage() {
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
-  const [methods, setMethods] = useState<{ card: boolean; paypal: boolean }>({
-    card: false,
-    paypal: false,
-  });
-  const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal">("eft");
+  const [methods, setMethods] = useState<{
+    card: boolean;
+    paypal: boolean;
+    eft: EftDetails | null;
+  } | null>(null);
+  const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal" | null>(null);
+  const [usdRate, setUsdRate] = useState<number | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   useEffect(() => {
     let live = true;
     getOnlineMethodsFn()
-      .then((m) => live && setMethods(m))
-      .catch(() => undefined);
+      .then((m) => {
+        if (!live) return;
+        setMethods(m);
+        // Card first (confirmed automatically), then bank transfer, then PayPal.
+        setPayMethod(
+          (cur) => cur ?? (m.card ? "card" : m.eft ? "eft" : m.paypal ? "paypal" : null),
+        );
+        if (m.paypal)
+          void getPaypalRateFn()
+            .then((r) => live && setUsdRate(r?.zarPerUsd ?? null))
+            .catch(() => undefined);
+      })
+      .catch(() => live && setMethods({ card: false, paypal: false, eft: null }));
     return () => {
       live = false;
     };
@@ -210,11 +224,11 @@ function CheckoutPage() {
       const started = await startPaymentFn({
         data: {
           orderId,
-          provider: method === "card" ? "yoco" : "paypal",
+          provider: method === "card" ? "payfast" : "paypal",
           key: crypto.randomUUID(),
         },
       });
-      window.location.assign(started.redirectUrl);
+      goToCheckout(started.redirectUrl);
     } catch (err) {
       setPayError(errorText(err));
       setPaying(false);
@@ -326,7 +340,7 @@ function CheckoutPage() {
   };
 
   const placeOrder = async () => {
-    if (!quote || quote.total === null || !delivery || !addressId) return;
+    if (!quote || quote.total === null || !delivery || !addressId || !payMethod) return;
     setPlacing(true);
     setError(null);
     try {
@@ -717,25 +731,29 @@ function CheckoutPage() {
                 {(
                   [
                     {
-                      id: "eft" as const,
-                      icon: Landmark,
-                      title: "EFT / Bank transfer",
-                      body: "Place your order now and we hold your items for 2 hours. Pay by EFT using your order number as the reference — we confirm and dispatch as soon as the payment clears.",
-                      show: true,
-                    },
-                    {
                       id: "card" as const,
                       icon: CreditCard,
-                      title: "Card or Instant EFT (Yoco)",
-                      body: "Pay securely on Yoco's hosted page. Your order is confirmed automatically once Yoco verifies the payment.",
-                      show: methods.card,
+                      title: "Card or Instant EFT (PayFast)",
+                      body: "Pay in rand on PayFast's secure page — card, Instant EFT and the other options PayFast offers. Your order is confirmed automatically once PayFast verifies the payment.",
+                      show: !!methods?.card,
+                    },
+                    {
+                      id: "eft" as const,
+                      icon: Landmark,
+                      title: "Bank transfer (EFT)",
+                      body: "Place your order now and we hold your items for 2 hours. Pay by EFT using your order number as the reference — we confirm and dispatch as soon as the payment clears.",
+                      show: !!methods?.eft,
                     },
                     {
                       id: "paypal" as const,
                       icon: Lock,
-                      title: "PayPal",
-                      body: "PayPal charges in US dollars. We convert your rand total at today's rate plus a small conversion margin and show the exact amount on PayPal before you pay.",
-                      show: methods.paypal,
+                      title: "PayPal (US dollars)",
+                      body:
+                        "PayPal charges in US dollars. We convert your rand total at today's rate plus a small conversion margin; PayPal shows the exact amount before you pay." +
+                        (usdRate && quote?.total != null
+                          ? ` About US$${(Math.ceil((quote.total / usdRate) * 100) / 100).toFixed(2)} today (R${usdRate.toFixed(2)} = US$1).`
+                          : ""),
+                      show: !!methods?.paypal,
                     },
                   ] as const
                 )
@@ -762,6 +780,12 @@ function CheckoutPage() {
                       </span>
                     </label>
                   ))}
+                {methods && !methods.card && !methods.eft && !methods.paypal && (
+                  <p className="rounded-md bg-muted px-3 py-2 text-xs">
+                    Online payment is being set up. Please contact the shop on +27 68 291 2107 to
+                    place your order.
+                  </p>
+                )}
                 {quote && !quote.orderable && (
                   <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     Some items are no longer available in the quantity in your basket. Please update
@@ -780,7 +804,12 @@ function CheckoutPage() {
                     )}
                     <Button
                       disabled={
-                        placing || quoting || !quote || !quote.orderable || quote.total === null
+                        placing ||
+                        quoting ||
+                        !payMethod ||
+                        !quote ||
+                        !quote.orderable ||
+                        quote.total === null
                       }
                       onClick={() => void placeOrder()}
                     >
@@ -812,7 +841,7 @@ function CheckoutPage() {
                       as the payment reference.
                     </p>
                     <dl className="w-full max-w-sm rounded-lg border border-border p-4 text-left text-xs">
-                      {BANKING_DETAILS.map(([label, value]) => (
+                      {(methods?.eft ? eftRows(methods.eft) : []).map(([label, value]) => (
                         <div key={label} className="flex justify-between gap-3 py-1">
                           <dt className="text-muted-foreground">{label}</dt>
                           <dd className="font-semibold">{value}</dd>

@@ -17,13 +17,19 @@ export const getOnlineMethodsFn = createServerFn({ method: "GET" }).handler(asyn
   return availableOnlineMethods();
 });
 
+/** Today's ZAR→USD rate, so checkout can show roughly what PayPal will charge. No input, no member data. */
+export const getPaypalRateFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getPaypalRate } = await import("@/lib/payments/payments-data.server");
+  return getPaypalRate();
+});
+
 export const startPaymentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
         orderId: uuid,
-        provider: z.enum(["yoco", "paypal"]),
+        provider: z.enum(["payfast", "paypal"]),
         key: z.string().min(8).max(120),
       })
       .parse(d),
@@ -105,6 +111,39 @@ export const rejectEftFn = createServerFn({ method: "POST" })
       context.userId,
       data.transactionId,
       data.reason,
+    ),
+  );
+
+export const setEftDetailsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        details: z
+          .object({
+            bank: z.string().trim().min(2).max(60),
+            account_holder: z.string().trim().min(2).max(100),
+            account_type: z.string().trim().max(60).nullable(),
+            account_number: z
+              .string()
+              .transform((s) => s.replace(/\s/g, ""))
+              .pipe(z.string().regex(/^[0-9]{6,16}$/, "Account number: 6-16 digits")),
+            branch_code: z
+              .string()
+              .transform((s) => s.replace(/\s/g, ""))
+              .pipe(z.string().regex(/^[0-9]{6}$/, "Branch code: 6 digits")),
+            confirmed: z.literal(true),
+          })
+          .nullable(),
+        key: z.string().min(8).max(120),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) =>
+    (await import("@/lib/payments/payments-data.server")).setEftDetails(
+      context.userId,
+      data.details,
+      data.key,
     ),
   );
 

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { rand } from "@/lib/cart";
+import { EftDetailsCard } from "./EftDetailsCard";
 import {
   approveEftFn,
   getPaymentsOverviewFn,
@@ -87,11 +88,14 @@ export function PaymentsPanel() {
         <div className="rounded-xl border border-border bg-card p-4 text-xs">
           <p className="mb-1 font-bold uppercase text-muted-foreground">Providers</p>
           <p>
-            Card / Instant EFT (Yoco):{" "}
+            Card / Instant EFT (PayFast):{" "}
             <b>{data.configured.card ? "configured" : "not configured"}</b>
           </p>
           <p>
             PayPal: <b>{data.configured.paypal ? "configured" : "not configured"}</b>
+          </p>
+          <p>
+            Bank transfer (EFT): <b>{data.eft ? "shown at checkout" : "hidden"}</b>
           </p>
           <p>
             Refused webhooks (24h): <b>{data.rejectionsLast24h}</b>
@@ -195,8 +199,28 @@ export function PaymentsPanel() {
             The member is charged slightly more US$ than the market rate suggests (the margin) to
             cover PayPal&apos;s conversion spread.
           </p>
+          {fx && fxLive && (
+            <p className="mt-2">
+              Rate card:{" "}
+              {[250, 500, 1000, 2500].map((zar, i) => (
+                <span key={zar}>
+                  {i > 0 && " · "}
+                  {rand(zar)} →{" "}
+                  <b>US${(Math.ceil((zar / Number(fx.rate)) * 100) / 100).toFixed(2)}</b>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </section>
+
+      <EftDetailsCard
+        current={data.eft}
+        onSaved={(m) => {
+          setNote(m);
+          void load();
+        }}
+      />
 
       {pending.length > 0 && (
         <section>

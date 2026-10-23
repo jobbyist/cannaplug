@@ -45,10 +45,6 @@
         {
           "file": "src/routes/terms-of-service.tsx",
           "snippet": "2026/047873/07"
-        },
-        {
-          "file": "src/lib/banking.ts",
-          "snippet": "Canna Plug (Pty) Ltd"
         }
       ],
       "status": "pending"
@@ -147,12 +143,12 @@
     },
     {
       "id": "C-07",
-      "claim": "Banking details shown to customers for EFT (FNB / RMB, account 63210843975, branch 250655)",
+      "claim": "Banking details shown to customers for EFT — no longer in code (src/lib/banking.ts removed 23 Oct 2026): a manager enters them in Admin → Payments and must tick that the owner confirmed them; EFT is hidden until then",
       "needs": "Bank-issued confirmation letter for the account (name, number, branch) — a wrong number sends customer money to the wrong place",
       "locations": [
         {
-          "file": "src/lib/banking.ts",
-          "snippet": "63210843975"
+          "file": "src/components/admin/EftDetailsCard.tsx",
+          "snippet": "The owner has confirmed these are the shop&apos;s correct bank details"
         }
       ],
       "status": "pending"

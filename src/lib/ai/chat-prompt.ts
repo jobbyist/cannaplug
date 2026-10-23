@@ -19,7 +19,7 @@ export const SITE_FACTS = {
   ],
   payments: [
     "Pay by EFT (bank transfer): the order is held for 2 hours and confirmed once the payment has been verified by the team.",
-    "Pay by card or Instant EFT on Yoco's secure page, when available at checkout.",
+    "Pay by card or Instant EFT on PayFast's secure page, by PayPal (charged in US dollars), or by bank transfer (EFT), as offered at checkout.",
     "Pay with PayPal, when available: PayPal charges in US dollars at a live exchange rate with a small conversion margin, shown on PayPal before paying.",
     "An order is only confirmed after the payment has been verified; returning from a payment page is not confirmation.",
   ],

@@ -279,7 +279,7 @@ describe("system prompt", () => {
       "info@cannaplug012.co.za",
       "R80",
       "R120",
-      "Yoco",
+      "PayFast",
       "PayPal",
       "5 to 10 business days",
       "Plug Back",

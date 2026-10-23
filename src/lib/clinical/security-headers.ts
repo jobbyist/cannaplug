@@ -20,8 +20,8 @@ export interface HeaderOptions {
  * Content-Security-Policy compatible with TanStack Start SSR and the providers we use.
  *  - script-src needs 'unsafe-inline' because TanStack Start streams inline hydration scripts and the root
  *    layout carries a tiny inline theme script; everything else is first-party only (no eval, no remote scripts).
- *  - Payment pages are reached by top-level navigation (Yoco / PayPal hosted checkout), which CSP does not
- *    restrict, so no provider origin is needed here; `form-action 'self'` keeps forms on our origin.
+ *  - PayPal is reached by top-level navigation, which CSP does not restrict. PayFast takes a signed form POST, so
+ *    `form-action` allows our origin plus PayFast's live and sandbox hosts — and nothing else.
  *  - Browsers talk directly to Supabase (auth, REST, Realtime): connect-src allows exactly that origin.
  *  - frame-ancestors allows the Lovable editor preview and ourselves; clinical pages tighten it to 'none'.
  */
@@ -40,7 +40,7 @@ export function buildCsp(opts: HeaderOptions = {}): string {
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    "form-action 'self' https://www.payfast.co.za https://sandbox.payfast.co.za",
     "frame-ancestors 'self' https://*.lovable.app https://*.lovable.dev https://lovable.dev",
   ].join("; ");
 }

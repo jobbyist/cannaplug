@@ -2414,6 +2414,10 @@ export type Database = {
     };
     Functions: {
       end_expired_sales: { Args: Record<PropertyKey, never>; Returns: number };
+      payment_set_eft_details: {
+        Args: { p_actor: string; p_details: Json; p_idempotency_key: string };
+        Returns: Json;
+      };
       import_catalogue: {
         Args: {
           p_actor: string;

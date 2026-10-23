@@ -99,13 +99,12 @@ export type PlaceOrderInput = {
 };
 
 export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput) {
-  if (input.paymentMethod !== "eft") {
-    // Only offer online payment when the provider is actually configured (never place an unpayable order).
-    const { availableOnlineMethods } = await import("@/lib/payments/payments-data.server");
-    if (!availableOnlineMethods()[input.paymentMethod]) {
-      throw friendlyMemberError(new Error("payment_method_unsupported"));
-    }
-  }
+  // Only accept a method that is actually available: a configured provider, or EFT once the owner has
+  // confirmed the bank details (never place an order the member cannot pay).
+  const { availableOnlineMethods } = await import("@/lib/payments/payments-data.server");
+  const methods = await availableOnlineMethods();
+  const ok = input.paymentMethod === "eft" ? methods.eft !== null : methods[input.paymentMethod];
+  if (!ok) throw friendlyMemberError(new Error("payment_method_unsupported"));
   return unwrap(
     await supabaseAdmin.rpc("checkout_place_order", {
       p_user_id: userId,

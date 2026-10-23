@@ -15,7 +15,18 @@ const mocks = vi.hoisted(() => ({
   quoteCheckoutFn: vi.fn(),
   placeOrderFn: vi.fn(),
   saveAddressFn: vi.fn(),
+  getOnlineMethodsFn: vi.fn(),
+  getPaypalRateFn: vi.fn(),
+  startPaymentFn: vi.fn(),
+  goToCheckout: vi.fn(),
 }));
+const EFT = {
+  bank: "Test Bank",
+  account_holder: "Cannaplug (Pty) Ltd",
+  account_type: null,
+  account_number: "1234567890",
+  branch_code: "250655",
+};
 
 vi.mock("@/lib/checkout.functions", () => ({
   listDeliveryOptionsFn: mocks.listDeliveryOptionsFn,
@@ -24,6 +35,12 @@ vi.mock("@/lib/checkout.functions", () => ({
   placeOrderFn: mocks.placeOrderFn,
 }));
 vi.mock("@/lib/member.functions", () => ({ saveAddressFn: mocks.saveAddressFn }));
+vi.mock("@/lib/payments.functions", () => ({
+  getOnlineMethodsFn: mocks.getOnlineMethodsFn,
+  getPaypalRateFn: mocks.getPaypalRateFn,
+  startPaymentFn: mocks.startPaymentFn,
+}));
+vi.mock("@/lib/payments/redirect", () => ({ goToCheckout: mocks.goToCheckout }));
 vi.mock("@/components/CannaPlugHome", () => ({ Header: () => <header /> }));
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
@@ -100,6 +117,8 @@ describe("checkout end to end (server mocked)", () => {
   beforeEach(() => {
     window.localStorage.clear();
     Object.values(mocks).forEach((m) => m.mockReset());
+    mocks.getOnlineMethodsFn.mockResolvedValue({ card: false, paypal: false, eft: EFT });
+    mocks.getPaypalRateFn.mockResolvedValue(null);
     mocks.listDeliveryOptionsFn.mockResolvedValue([
       {
         code: "standard",
@@ -177,7 +196,7 @@ describe("checkout end to end (server mocked)", () => {
     // Real order number + EFT instructions with the order number as the reference.
     expect(screen.getAllByText("CP-2609-0042").length).toBeGreaterThan(1);
     expect(screen.getByText("Reference")).toBeTruthy();
-    expect(screen.getByText("63210843975")).toBeTruthy();
+    expect(screen.getByText("1234567890")).toBeTruthy(); // the owner-confirmed account from settings
     expect(screen.getByText(/R320/)).toBeTruthy();
     // The cart is emptied only after the server confirmed the order.
     expect(JSON.parse(window.localStorage.getItem("cannaplug.cart.v1") ?? "[]")).toEqual([]);
@@ -248,16 +267,67 @@ describe("checkout end to end (server mocked)", () => {
     expect(screen.getByRole("button", { name: /edit cart/i })).toBeTruthy();
   });
 
-  it("only offers EFT and has no client-side promo or fake order number", async () => {
+  it("offers only the configured methods and has no client-side promo or fake order number", async () => {
     const user = userEvent.setup();
     mocks.quoteCheckoutFn.mockResolvedValue(quote({ delivery_fee: 120, total: 320 }));
     renderPage();
     await toPayment(user);
-    expect(screen.getByText("EFT / Bank transfer")).toBeTruthy();
+    expect(await screen.findByText("Bank transfer (EFT)")).toBeTruthy();
+    expect(screen.queryByText(/PayFast/)).toBeNull();
+    expect(screen.queryByText(/PayPal/)).toBeNull();
+    expect(screen.queryByText(/Yoco/i)).toBeNull();
     expect(screen.queryByText(/SnapScan/i)).toBeNull();
     expect(screen.queryByText(/Credit \/ Debit/i)).toBeNull();
     expect(screen.queryByPlaceholderText(/promo/i)).toBeNull();
     expect(within(document.body).queryByText(/presentation prototype/i)).toBeNull();
+  });
+
+  it("hides EFT until bank details are confirmed, and says so when nothing can be paid", async () => {
+    const user = userEvent.setup();
+    mocks.getOnlineMethodsFn.mockResolvedValue({ card: false, paypal: false, eft: null });
+    mocks.quoteCheckoutFn.mockResolvedValue(quote({ delivery_fee: 120, total: 320 }));
+    renderPage();
+    await toPayment(user);
+    expect(await screen.findByText(/Online payment is being set up/)).toBeTruthy();
+    expect(screen.queryByText("Bank transfer (EFT)")).toBeNull();
+    const place = (await screen.findByRole("button", {
+      name: /place order/i,
+    })) as HTMLButtonElement;
+    expect(place.disabled).toBe(true);
+  });
+
+  it("defaults to PayFast when configured, shows a PayPal estimate, and starts PayFast with ids only", async () => {
+    const user = userEvent.setup();
+    mocks.getOnlineMethodsFn.mockResolvedValue({ card: true, paypal: true, eft: EFT });
+    mocks.getPaypalRateFn.mockResolvedValue({ zarPerUsd: 16, validUntil: "2026-10-23T12:00:00Z" });
+    mocks.quoteCheckoutFn.mockResolvedValue(quote({ delivery_fee: 120, total: 320 }));
+    mocks.placeOrderFn.mockResolvedValue({
+      order_id: "o9",
+      order_number: "CP-2609-0049",
+      status: "awaiting_payment",
+      subtotal: 200,
+      delivery_fee: 120,
+      total: 320,
+      payment_method: "card",
+      hold_minutes: 120,
+    });
+    mocks.startPaymentFn.mockResolvedValue({
+      redirectUrl: "https://sandbox.payfast.co.za/eng/process?x=1",
+    });
+    renderPage();
+    await toPayment(user);
+    expect(await screen.findByText("Card or Instant EFT (PayFast)")).toBeTruthy();
+    expect(screen.getByText("PayPal (US dollars)")).toBeTruthy();
+    expect(screen.getByText(/About US\$20\.00 today/)).toBeTruthy(); // R320 / 16
+    await user.click(await screen.findByRole("button", { name: /place order & pay · R320/i }));
+    await waitFor(() => expect(mocks.goToCheckout).toHaveBeenCalled());
+    expect(mocks.placeOrderFn.mock.calls[0]![0].data.paymentMethod).toBe("card");
+    const start = mocks.startPaymentFn.mock.calls[0]![0].data;
+    expect(start).toMatchObject({ orderId: "o9", provider: "payfast" });
+    expect(Object.keys(start).sort()).toEqual(["key", "orderId", "provider"]);
+    expect(mocks.goToCheckout).toHaveBeenCalledWith(
+      "https://sandbox.payfast.co.za/eng/process?x=1",
+    );
   });
 
   it("requires contact details and a delivery address before continuing", async () => {

@@ -16,7 +16,7 @@ Tick in order. **[needs you]** = requires your accounts/decisions; everything el
 
 - [ ] Vercel env vars from `runbook.md` §2 (provider keys, `RESEND_API_KEY`, `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, `SITE_URL`, `LOVABLE_CRON_SECRET`)
 - [ ] GitHub secrets `APP_URL`, `CRON_SECRET`; run _Scheduled jobs → dispatch_ once; then _newsroom-launch-batch_ for the three launch articles
-- [ ] Yoco + PayPal webhooks registered (live); Resend domain `updates.cannaplug012.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
+- [ ] PayFast live keys + passphrase set and PayPal webhook registered (live); EFT bank details saved and confirmed in Admin → Payments; Resend domain `updates.cannaplug012.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
 - [ ] Delete the hosted `cannaplug-chat` edge function (replaced by the server function)
 - [ ] Decide on the `admin_emails` sign-up trigger (audit finding 12)
 - [ ] Run the three DROP statements and record the two ID migrations on hosted if not done (see CANNAPLUG.md, ID verification)
@@ -29,7 +29,7 @@ Tick in order. **[needs you]** = requires your accounts/decisions; everything el
 
 ## Remaining non-blocking work (post-launch)
 
-1. Real sandbox/e2e round-trips against Yoco/PayPal/Resend in CI (needs sandbox secrets in GitHub).
+1. Real sandbox/e2e round-trips against PayFast/PayPal/Resend in CI (needs sandbox secrets in GitHub).
 2. Admin UI for composing marketing campaigns (`promo_announcement` template and consent-aware queue exist; sending is by SQL/service for now).
 3. Map admin/staff panel errors to friendly messages (they currently show server text).
 4. Move the legacy `paypal-subscription` edge function (Shopify Admin API subscription page) into the app or retire it.

@@ -62,7 +62,9 @@ const PUBLIC_FNS: Record<string, string> = {
   listStoreProductsFn: "public catalogue",
   getHomeCatalogueFn: "public homepage catalogue (same columns as the shop; never cost)",
   listDeliveryOptionsFn: "public checkout info",
-  getOnlineMethodsFn: "which payment buttons to show (no data)",
+  getOnlineMethodsFn:
+    "which payment buttons to show, plus the shop's owner-confirmed bank details for EFT (business info only)",
+  getPaypalRateFn: "today's public ZAR/USD rate for the PayPal estimate (no input, no member data)",
   askCannaPlug: "public chatbot; layered rate limits (IP, session, shared Gemini budget)",
   submitContactFn: "public contact form; honeypot + per-IP rate limit",
   subscribeNewsletterFn: "public newsletter; honeypot + per-IP rate limit",
@@ -130,6 +132,9 @@ const DATA_LAYERS: Record<string, string[]> = {
   "src/lib/pos-data.server.ts": ["friendlyPosError"],
   "src/lib/payments/payments-data.server.ts": [
     "availableOnlineMethods",
+    "configuredOnlineProviders",
+    "getEftDetails",
+    "getPaypalRate",
     "startMemberPayment",
     "confirmMemberPayPalReturn",
     "memberPaymentStatus",
@@ -256,8 +261,8 @@ describe("committed secrets", () => {
       !f.startsWith("scripts/live-stack/"),
   );
   const PATTERNS: [string, RegExp][] = [
-    ["Stripe/Yoco live key", /\bsk_live_[A-Za-z0-9]{8,}/],
-    ["Yoco/Stripe test key", /\bsk_test_[A-Za-z0-9]{16,}/],
+    ["Stripe-style live key", /\bsk_live_[A-Za-z0-9]{8,}/],
+    ["Stripe-style test key", /\bsk_test_[A-Za-z0-9]{16,}/],
     ["webhook signing secret", /\bwhsec_[A-Za-z0-9+/=]{20,}/],
     ["Google API key", /\bAIza[0-9A-Za-z_-]{30,}/],
     ["Resend key", /\bre_[A-Za-z0-9]{20,}/],

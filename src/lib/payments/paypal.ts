@@ -1,4 +1,3 @@
-import { isSafeRedirect } from "./yoco";
 import {
   ProviderError,
   toMinor,
@@ -9,6 +8,7 @@ import {
   type PaymentProvider,
   type VerifyOutcome,
   type VerifiedFacts,
+  isSafeRedirect,
 } from "./provider";
 
 /**

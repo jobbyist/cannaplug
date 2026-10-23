@@ -40,7 +40,6 @@ describe("environment registry", () => {
     const gaps = missing(env).map((g) => g.name);
     expect(gaps).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(gaps).not.toContain("SUPABASE_URL");
-    expect(gaps).not.toContain("YOCO_SECRET_KEY");
     expect(gaps).not.toContain("TEST_DATABASE_URL");
   });
   it("matches the committed env matrix", () => {

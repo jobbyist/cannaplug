@@ -16,7 +16,8 @@ FUNCS="select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespac
 
 run "$P -d postgres -c 'DROP DATABASE IF EXISTS $DB WITH (FORCE)' -c 'CREATE DATABASE $DB'"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/tests/local/bootstrap.sql" >/dev/null 2>&1
-for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | grep -v "$MIG"); do
+# Only the migrations that precede it: later ones (e.g. 20261023005000_payfast_eft) build on its tables.
+for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | awk -v m="$ROOT/supabase/migrations/$MIG.sql" '$0 < m'); do
   run "$P -d $DB -v ON_ERROR_STOP=1 -f $f" >/dev/null 2>&1 || { echo "FAIL applying $f"; exit 1; }
 done
 fn0=$(run "$P -At -d $DB -c \"$FN\"")

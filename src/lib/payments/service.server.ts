@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { ensureLiveFxRate } from "./fx.server";
+import { createPayFastProvider, payfastFromEnv } from "./payfast";
 import { createPayPalProvider, paypalFromEnv } from "./paypal";
 import type { FetchLike, PaymentProvider, ProviderId } from "./provider";
 import type { PaymentsDb, PaymentsDeps, TxView } from "./service";
-import { createYocoProvider, yocoFromEnv } from "./yoco";
 
 const TX_COLS =
   "id,order_id,provider,status,expected_amount,expected_currency,fx_rate,provider_ref,redirect_url";
@@ -104,8 +104,8 @@ export function configuredProviders(
   env: Record<string, string | undefined> = process.env,
 ): Partial<Record<ProviderId, PaymentProvider>> {
   const out: Partial<Record<ProviderId, PaymentProvider>> = {};
-  const y = yocoFromEnv(env);
-  if (y) out.yoco = createYocoProvider(y, nodeFetch);
+  const pf = payfastFromEnv(env);
+  if (pf) out.payfast = createPayFastProvider(pf, nodeFetch);
   const p = paypalFromEnv(env);
   if (p) out.paypal = createPayPalProvider(p, nodeFetch);
   return out;

@@ -1,27 +1,25 @@
-// Local stand-ins for the Yoco and PayPal sandboxes, for the live browser tests ONLY (never used in production).
+// Local stand-ins for the PayFast and PayPal sandboxes, for the live browser tests ONLY (never used in production).
 // They implement just the endpoints the app calls, with the same shapes/semantics as the real APIs:
-//   Yoco   POST /api/checkouts                 -> { id, redirectUrl, amount, currency, merchantId, processingMode }
-//          hosted page  GET /yoco/pay/:id      -> "Pay" button; POST completes: sends a SIGNED Standard-Webhooks event
-//                                                to the app, then redirects the browser to successUrl
+//   PayFast GET  /eng/process?<signed fields>   -> "Pay" button (the app navigates here because the mock is http)
+//           POST /payfast/pay/:m_payment_id     -> sends a SIGNED ITN to notify_url, then redirects to return_url
+//           POST /eng/query/validate             -> "VALID" (PayFast's server-side confirmation, check 4)
 //   PayPal POST /v1/oauth2/token, POST /v2/checkout/orders, POST .../capture, GET .../orders/:id,
 //          POST /v1/notifications/verify-webhook-signature (SUCCESS only if the body is our own)
 //          hosted page  GET /paypal/approve/:id -> "Approve" button; redirects to return_url?token=:id
-//   Control  GET /_state, POST /_config {yocoAmountOverride, paypalCaptureValue, replayWebhook}  for fixture scenarios
-// Usage: node scripts/live-stack/mock-providers.mjs   (env: MOCK_PORT=4599, APP_URL=http://127.0.0.1:4173, YOCO_WEBHOOK_SECRET)
-import { createHmac, randomUUID } from "node:crypto";
+//   Control  GET /_state, POST /_config {payfastAmountOverride, paypalCaptureValue, replayWebhook}  for fixture scenarios
+// Usage: node scripts/live-stack/mock-providers.mjs   (env: MOCK_PORT=4599, PAYFAST_MERCHANT_ID, PAYFAST_PASSPHRASE)
+import { createHash, randomUUID } from "node:crypto";
 import http from "node:http";
 
 const PORT = Number(process.env.MOCK_PORT ?? 4599);
-const APP = process.env.APP_URL ?? "http://127.0.0.1:4173";
-const WH_SECRET =
-  process.env.YOCO_WEBHOOK_SECRET ??
-  `whsec_${Buffer.from("live-mock-yoco-secret-0123456789").toString("base64")}`;
+const PF_MERCHANT = process.env.PAYFAST_MERCHANT_ID ?? "10000100";
+const PF_PASSPHRASE = process.env.PAYFAST_PASSPHRASE ?? "";
 const MERCHANT = process.env.PAYPAL_MERCHANT_ID ?? "MOCK-MERCHANT";
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const yoco = new Map();
+const payfast = new Map();
 const paypal = new Map();
-const cfg = { yocoAmountOverride: null, paypalCaptureValue: null, replayWebhook: false };
+const cfg = { payfastAmountOverride: null, paypalCaptureValue: null, replayWebhook: false };
 const log = [];
 
 const send = (res, status, body, type = "application/json") => {
@@ -37,39 +35,40 @@ const readBody = (req) =>
 const page = (title, action, label) =>
   `<!doctype html><html><body style="font-family:sans-serif;padding:40px"><h1>${title}</h1><form method="POST" action="${action}"><button id="go" type="submit">${label}</button></form></body></html>`;
 
-async function yocoWebhook(co) {
-  const raw = JSON.stringify({
-    id: `evt_${randomUUID().slice(0, 12)}`,
-    type: "payment.succeeded",
-    createdDate: new Date().toISOString(),
-    payload: {
-      id: `p_${randomUUID().slice(0, 10)}`,
-      amount: cfg.yocoAmountOverride ?? co.amount,
-      currency: co.currency,
-      mode: "test",
-      status: "succeeded",
-      type: "payment",
-      metadata: { checkoutId: co.id, ...co.metadata },
-    },
-  });
-  const id = `msg_${randomUUID().slice(0, 8)}`;
-  const ts = String(Math.floor(Date.now() / 1000));
-  const key = Buffer.from(WH_SECRET.replace(/^whsec_/, ""), "base64");
-  const sig = createHmac("sha256", key).update(`${id}.${ts}.${raw}`).digest("base64");
+// PHP urlencode, as PayFast signs.
+const pfEncode = (v) =>
+  encodeURIComponent(v)
+    .replace(/[!'()*~]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/%20/g, "+");
+const pfParams = (pairs) => pairs.map(([k, v]) => `${k}=${pfEncode(v)}`).join("&");
+
+async function payfastItn(co) {
+  const gross = cfg.payfastAmountOverride ?? co.amount;
+  const pairs = [
+    ["m_payment_id", co.m_payment_id],
+    ["pf_payment_id", String(Math.floor(1e6 + Math.random() * 8e6))],
+    ["payment_status", "COMPLETE"],
+    ["item_name", co.item_name ?? ""],
+    ["item_description", ""],
+    ["amount_gross", gross],
+    ["amount_fee", "-2.30"],
+    ["amount_net", (Number(gross) - 2.3).toFixed(2)],
+    ["custom_str1", co.custom_str1 ?? ""],
+    ["merchant_id", PF_MERCHANT],
+  ];
+  const base = pfParams(pairs);
+  const sig = createHash("md5")
+    .update(PF_PASSPHRASE ? `${base}&passphrase=${pfEncode(PF_PASSPHRASE)}` : base)
+    .digest("hex");
   const send1 = () =>
-    fetch(`${APP}/api/public/payments/yoco-webhook`, {
+    fetch(co.notify_url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "webhook-id": id,
-        "webhook-timestamp": ts,
-        "webhook-signature": `v1,${sig}`,
-      },
-      body: raw,
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: `${base}&signature=${sig}`,
     });
   const r = await send1();
-  log.push({ kind: "yoco-webhook", status: r.status });
-  if (cfg.replayWebhook) log.push({ kind: "yoco-webhook-replay", status: (await send1()).status });
+  log.push({ kind: "payfast-itn", status: r.status });
+  if (cfg.replayWebhook) log.push({ kind: "payfast-itn-replay", status: (await send1()).status });
 }
 
 http
@@ -78,39 +77,44 @@ http
     const p = url.pathname;
     try {
       if (p === "/_state")
-        return send(res, 200, { yoco: [...yoco.values()], paypal: [...paypal.values()], cfg, log });
+        return send(res, 200, {
+          payfast: [...payfast.values()],
+          paypal: [...paypal.values()],
+          cfg,
+          log,
+        });
       if (p === "/_config" && req.method === "POST") {
         Object.assign(cfg, JSON.parse((await readBody(req)) || "{}"));
         return send(res, 200, cfg);
       }
 
-      // ---- Yoco API
-      if (p === "/api/checkouts" && req.method === "POST") {
-        const b = JSON.parse(await readBody(req));
-        const id = `ch_${randomUUID().slice(0, 10)}`;
-        const co = { id, ...b, status: "created", merchantId: "mock-yoco-merchant" };
-        yoco.set(id, co);
-        return send(res, 200, {
-          id,
-          status: "created",
-          amount: b.amount,
-          currency: b.currency,
-          redirectUrl: `${BASE}/yoco/pay/${id}`,
-          merchantId: co.merchantId,
-          processingMode: "test",
-          metadata: b.metadata,
-        });
+      // ---- PayFast
+      if (p === "/eng/process") {
+        const fields = Object.fromEntries(
+          req.method === "POST"
+            ? new URLSearchParams(await readBody(req)).entries()
+            : url.searchParams.entries(),
+        );
+        if (!fields.m_payment_id || !fields.signature)
+          return send(res, 400, "bad request", "text/plain");
+        payfast.set(fields.m_payment_id, fields);
+        return send(
+          res,
+          200,
+          page("Mock PayFast checkout", `/payfast/pay/${fields.m_payment_id}`, "Pay"),
+          "text/html",
+        );
       }
-      let m = /^\/yoco\/pay\/(ch_[\w-]+)$/.exec(p);
-      if (m && req.method === "GET")
-        return send(res, 200, page("Mock Yoco checkout", `/yoco/pay/${m[1]}`, "Pay"), "text/html");
+      let m = /^\/payfast\/pay\/([\w-]+)$/.exec(p);
       if (m && req.method === "POST") {
-        const co = yoco.get(m[1]);
+        const co = payfast.get(m[1]);
         if (!co) return send(res, 404, {});
-        await yocoWebhook(co);
-        res.writeHead(303, { location: co.successUrl });
+        await payfastItn(co);
+        res.writeHead(303, { location: co.return_url });
         return res.end();
       }
+      if (p === "/eng/query/validate" && req.method === "POST")
+        return send(res, 200, "VALID", "text/plain");
 
       // ---- PayPal API
       if (p === "/v1/oauth2/token")
