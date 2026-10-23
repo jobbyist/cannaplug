@@ -5,12 +5,15 @@
  *   GEMINI_RPM_LIMIT   requests/minute across the whole site      (default 8)
  *   GEMINI_RPD_LIMIT   requests/day across the whole site         (default 180)
  *   CHAT_RPD_LIMIT     of which the chatbot may use                (default 140)  -> the rest is reserved for the Journal pipeline
+ *   CHAT_MEMBER_RPD    messages/day per signed-in member         (default 20; same Pacific-midnight reset)
  * Per visitor: 12 messages/hour per hashed IP and 40/session.
  */
 import { SITE_FACTS } from "./chat-prompt";
 
 export interface QuotaDb {
   take(bucket: string, limit: number, ttlSeconds: number): Promise<boolean>;
+  /** Current count of a bucket (0 when absent). Used only for display and the model fallback. */
+  count?(bucket: string): Promise<number>;
 }
 
 export interface QuotaConfig {
@@ -19,6 +22,7 @@ export interface QuotaConfig {
   chatRpd: number;
   ipPerHour: number;
   sessionTotal: number;
+  memberPerDay: number;
 }
 
 export const quotaConfig = (env: Record<string, string | undefined>): QuotaConfig => {
@@ -31,6 +35,7 @@ export const quotaConfig = (env: Record<string, string | undefined>): QuotaConfi
     chatRpd: Math.min(n(env["CHAT_RPD_LIMIT"], 140), rpd),
     ipPerHour: 12,
     sessionTotal: 40,
+    memberPerDay: n(env["CHAT_MEMBER_RPD"], 20),
   };
 };
 
@@ -43,20 +48,45 @@ export const pacificDate = (now: number): string =>
     day: "2-digit",
   }).format(new Date(now));
 
+/** The next midnight in America/Los_Angeles (always on a whole UTC hour), when every daily bucket resets. */
+export function nextPacificMidnight(now: number): number {
+  const today = pacificDate(now);
+  let t = Math.ceil(now / 3_600_000) * 3_600_000;
+  while (pacificDate(t) === today) t += 3_600_000;
+  return t;
+}
+
+export const memberBucket = (userId: string, now: number) =>
+  `chat:member:${userId}:${pacificDate(now)}`;
+
 export type QuotaVerdict =
   | { ok: true }
-  | { ok: false; reason: "visitor" | "session" | "busy" | "daily"; retryAfterMinutes: number };
+  | {
+      ok: false;
+      reason: "member" | "visitor" | "session" | "busy" | "daily";
+      retryAfterMinutes: number;
+      resetsAt?: number;
+    };
 
 /**
- * Checks, in order: visitor (IP), session, then the shared Gemini budget. A denial counts nothing further, so a
- * flood from one visitor cannot spend the site's quota.
+ * Checks, in order: the member's own daily allowance, visitor (IP), session, then the shared Gemini budget. A denial
+ * counts nothing further, so a flood from one member or visitor cannot spend the site's quota.
  */
 export async function takeChatQuota(
   db: QuotaDb,
   cfg: QuotaConfig,
-  who: { sessionId: string; ipHash: string | null },
+  who: { sessionId: string; ipHash: string | null; userId?: string | null },
   now = Date.now(),
 ): Promise<QuotaVerdict> {
+  if (who.userId && !(await db.take(memberBucket(who.userId, now), cfg.memberPerDay, 2 * 86400))) {
+    const resetsAt = nextPacificMidnight(now);
+    return {
+      ok: false,
+      reason: "member",
+      retryAfterMinutes: Math.max(1, Math.ceil((resetsAt - now) / 60_000)),
+      resetsAt,
+    };
+  }
   const hour = Math.floor(now / 3_600_000);
   const minute = Math.floor(now / 60_000);
   const minsToHour = Math.max(1, Math.ceil(((hour + 1) * 3_600_000 - now) / 60_000));
@@ -95,8 +125,43 @@ export async function takeJobQuota(
   return db.take(`gemini:rpd:${day}`, cfg.rpd, 2 * 86400);
 }
 
+/** What a member has left today, for the chat panel. */
+export async function memberAllowance(
+  db: QuotaDb,
+  cfg: QuotaConfig,
+  userId: string,
+  now = Date.now(),
+) {
+  const used = (await db.count?.(memberBucket(userId, now))) ?? 0;
+  return {
+    limit: cfg.memberPerDay,
+    remaining: Math.max(0, cfg.memberPerDay - used),
+    resetsAt: new Date(nextPacificMidnight(now)).toISOString(),
+  };
+}
+
+/** Share of today's site-wide Gemini budget already used (0..1); drives the switch to the lighter model. */
+export async function siteBudgetUsed(
+  db: QuotaDb,
+  cfg: QuotaConfig,
+  now = Date.now(),
+): Promise<number> {
+  const used = (await db.count?.(`gemini:rpd:${pacificDate(now)}`)) ?? 0;
+  return cfg.rpd > 0 ? used / cfg.rpd : 1;
+}
+
+export const sastTime = (ms: number) =>
+  new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(ms));
+
 export const quotaMessage = (v: Extract<QuotaVerdict, { ok: false }>): string => {
   switch (v.reason) {
+    case "member":
+      return `You've used today's chat messages. They reset at ${sastTime(v.resetsAt ?? Date.now() + v.retryAfterMinutes * 60_000)} (South African time). For help right away, call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`;
     case "visitor":
       return `You're sending messages quickly. Please try again in about ${v.retryAfterMinutes} minute${v.retryAfterMinutes === 1 ? "" : "s"}.`;
     case "session":

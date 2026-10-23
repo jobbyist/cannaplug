@@ -4,6 +4,13 @@
  * Docs: https://ai.google.dev/gemini-api/docs/text-generation
  */
 export const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
+/** Lighter model used when the site budget is above 80% used or the primary model is rate-limited. */
+export const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
+const MODEL_RE = /^gemini-[a-z0-9.-]{3,40}$/;
+export const chatModelFromEnv = (env: Record<string, string | undefined>) => {
+  const m = env["GEMINI_CHAT_MODEL"]?.trim();
+  return m && MODEL_RE.test(m) ? m : GEMINI_CHAT_MODEL;
+};
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export type Turn = { role: "user" | "assistant"; content: string };

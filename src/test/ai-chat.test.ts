@@ -38,6 +38,9 @@ function memQuota() {
       counts.set(bucket, n + 1);
       return true;
     },
+    async count(bucket) {
+      return counts.get(bucket) ?? 0;
+    },
   };
   return { db, counts };
 }
@@ -213,24 +216,26 @@ describe("chat service", () => {
       fetch,
       geminiKey: "k",
       buildPrompt: async () => "SYSTEM",
+      info: vi.fn(),
       now: () => Date.UTC(2026, 9, 2, 10, 0),
       ...over,
     };
     return { deps, fetch };
   };
-  const who = { sessionId: "s", ipHash: "ip" };
+  const who = { sessionId: "s", ipHash: "ip", userId: "member-1" };
   it("answers once, strips markdown, and sends the prompt + history to gemini-2.5-flash", async () => {
     const { deps, fetch } = mk();
     expect(await answer(deps, who, [{ role: "user", content: "hi" }])).toEqual({
       ok: true,
       reply: "Hello there!",
+      allowance: { limit: 20, remaining: 19, resetsAt: "2026-10-03T07:00:00.000Z" },
     });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0]![0]).toContain("gemini-2.5-flash");
   });
   it("a limited visitor never reaches Gemini", async () => {
     const { deps, fetch } = mk({ quota: { ...quotaConfig({}), ipPerHour: 1 } });
-    await answer(deps, who, [{ role: "user", content: "a" }]);
+    await answer(deps, { ...who, userId: "other" }, [{ role: "user", content: "a" }]);
     const r = await answer(deps, who, [{ role: "user", content: "b" }]);
     expect(r).toMatchObject({ ok: false, limited: true });
     expect(fetch).toHaveBeenCalledTimes(1);
