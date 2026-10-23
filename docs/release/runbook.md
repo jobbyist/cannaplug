@@ -16,17 +16,17 @@ need your accounts or credentials are marked **[needs you]**.
 
 ## 2. Environment variables (Vercel → Project → Settings → Environment Variables)
 
-| Group                   | Variables                                                                                                                                                 | Notes                                                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Supabase                | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Service role key is server-only.                                                                 |
-| Cron                    | `LOVABLE_CRON_SECRET` (+ optional `_PREVIOUS` during rotation)                                                                                            | Same value goes in GitHub secret `CRON_SECRET`.                                                  |
-| Site                    | `SITE_URL`, `CONTACT_INBOX` (default `info@cannaplug012.co.za`), `VERIFICATION_IP_SALT`                                                                   |                                                                                                  |
-| Yoco                    | `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`)                                                                            | Test vs live is read from the key prefix.                                                        |
-| PayPal                  | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV`                                                       | `PAYPAL_MERCHANT_ID` is compared on every capture.                                               |
+| Group                   | Variables                                                                                                                                                 | Notes                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Supabase                | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Service role key is server-only.                                                                           |
+| Cron                    | `LOVABLE_CRON_SECRET` (+ optional `_PREVIOUS` during rotation)                                                                                            | Same value goes in GitHub secret `CRON_SECRET`.                                                            |
+| Site                    | `SITE_URL`, `CONTACT_INBOX` (default `info@cannaplug012.co.za`), `VERIFICATION_IP_SALT`                                                                   |                                                                                                            |
+| Yoco                    | `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`)                                                                            | Test vs live is read from the key prefix.                                                                  |
+| PayPal                  | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV`                                                       | `PAYPAL_MERCHANT_ID` is compared on every capture.                                                         |
 | Email                   | `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL`                                                                                                            | Default sender `Cannaplug Support <update@updates.cannaplug012.co.za>`; domain must be verified in Resend. |
-| SMS/WhatsApp (optional) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`                                                                      | Also switch on `payment_settings.sms_enabled`.                                                   |
-| AI                      | `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, optional `UNSPLASH_ACCESS_KEY`, `GEMINI_RPM_LIMIT` (8), `GEMINI_RPD_LIMIT` (180), `CHAT_RPD_LIMIT` (140)           | The free-tier numbers are shown in Google AI Studio; set the limits just below them.             |
-| Clinical                | `SIGNATURE_ATTESTATION_SECRET`, `EXTERNAL_SIGNATURE_API_URL/KEY/WEBHOOK_SECRET`, `DOCUMENT_EMAIL_FROM`, `PUBLIC_APP_URL`                                  | See the clinical section of CANNAPLUG.md.                                                        |
+| SMS/WhatsApp (optional) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`                                                                      | Also switch on `payment_settings.sms_enabled`.                                                             |
+| AI                      | `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, optional `UNSPLASH_ACCESS_KEY`, `GEMINI_RPM_LIMIT` (8), `GEMINI_RPD_LIMIT` (180), `CHAT_RPD_LIMIT` (140)           | The free-tier numbers are shown in Google AI Studio; set the limits just below them.                       |
+| Clinical                | `SIGNATURE_ATTESTATION_SECRET`, `EXTERNAL_SIGNATURE_API_URL/KEY/WEBHOOK_SECRET`, `DOCUMENT_EMAIL_FROM`, `PUBLIC_APP_URL`                                  | See the clinical section of CANNAPLUG.md.                                                                  |
 
 **Supabase Edge Function secrets are NOT readable by the app.** The Resend/Gemini/Firecrawl keys must be added to Vercel; Edge Function secrets
 only serve the legacy `paypal-subscription` function.
@@ -51,6 +51,17 @@ Add repository secrets `APP_URL` and `CRON_SECRET`. Then:
 3. **Resend**: verify `updates.cannaplug012.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
 4. **Supabase Auth emails**: custom SMTP + templates, see `supabase/templates/README.md`.
 5. Run **one sandbox payment per provider** end to end before going live (the code is tested against faithful fakes, not the real sandboxes).
+
+## 4b. Dashboard actions still open (23 Oct 2026) **[needs you]**
+
+Database clean-up is done: `supabase/owner-actions/2026-10-hosted-cleanup.sql` is applied and `supabase/tests/verify-cleanup.sql` returns all true.
+These need a person in a dashboard:
+
+1. **Supabase → Edge Functions → `cannaplug-chat` → Delete.** It now only answers `410 Gone` behind JWT verification (replaced 23 Oct), so it is harmless until deleted.
+2. **Supabase → Authentication → Passwords → enable leaked-password protection.**
+3. **Supabase → Authentication → Email templates:** paste `supabase/templates/*.html` (see `supabase/templates/README.md`).
+4. **GitHub → Settings → Actions → General:** allow Actions to run, then add repository secrets `APP_URL` (`https://cannaplug012.co.za`) and `CRON_SECRET` (same value as `LOVABLE_CRON_SECRET`). Run _Scheduled jobs → dispatch_ once.
+5. **Vercel env vars:** run `bun scripts/check-env.ts .env.production` against a pulled copy, or compare with `docs/release/env-matrix.md`. Yoco variables are marked _retiring_.
 
 ## 5. Deploy
 
