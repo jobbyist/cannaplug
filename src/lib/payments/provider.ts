@@ -1,12 +1,12 @@
 /**
- * Payment provider interface.
+ * Payment provider interface (PayFast for ZAR, PayPal for USD).
  *
  * A provider does exactly three things: create a hosted checkout for a transaction whose amount was
  * already fixed by the database, verify an inbound webhook, and (PayPal only) capture/look up an order
  * server-side. It never decides that an order is paid — it only produces `VerifiedFacts`, which the
  * database compares against the stored expectation (`payments_apply_verified_event`).
  */
-export type ProviderId = "yoco" | "paypal";
+export type ProviderId = "payfast" | "paypal";
 export type Mode = "test" | "live";
 
 export type FetchLike = (
@@ -58,6 +58,13 @@ export interface CheckoutRequest {
   successUrl: string;
   cancelUrl: string;
   failureUrl: string;
+  /** Server-to-server notification URL (PayFast ITN). Providers that configure webhooks elsewhere ignore it. */
+  notifyUrl?: string;
+}
+
+export interface WebhookContext {
+  /** Client IP as seen by our edge (Vercel sets x-forwarded-for); PayFast checks it came from PayFast. */
+  sourceIp: string | null;
 }
 
 export interface CheckoutSession {
@@ -71,8 +78,13 @@ export interface PaymentProvider {
   /** Merchant identifier stored on the transaction and compared with the verified event. */
   merchantId: string | null;
   createCheckout(req: CheckoutRequest): Promise<CheckoutSession>;
-  verifyWebhook(raw: string, headers: Headers): Promise<VerifyOutcome>;
+  verifyWebhook(raw: string, headers: Headers, ctx?: WebhookContext): Promise<VerifyOutcome>;
 }
+
+/** Hosted pages must be https; plain http is accepted only for a local mock when the API base is overridden. */
+export const isSafeRedirect = (url: string, apiBaseOverride?: string | undefined): boolean =>
+  /^https:\/\//.test(url) ||
+  (!!apiBaseOverride && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url));
 
 export const toMinor = (value: number | string): number => Math.round(Number(value) * 100);
 

@@ -72,13 +72,13 @@ ok(
 );
 
 // 3. webhooks refuse unsigned traffic BEFORE business logic
-for (const p of ["/api/public/payments/yoco-webhook", "/api/public/payments/paypal-webhook"]) {
+for (const p of ["/api/public/payments/payfast-itn", "/api/public/payments/paypal-webhook"]) {
   const r = await get(p, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id: "evt_smoke_test", type: "payment.succeeded" }),
   });
-  ok(`${p} rejects an unsigned message`, r.status === 401 || r.status === 503, String(r.status));
+  ok(`${p} rejects an unsigned message`, [400, 401, 503].includes(r.status), String(r.status));
 }
 const sigHook = await get("/api/public/signatures/webhook", { method: "POST", body: "{}" });
 ok("signature webhook rejects unsigned", sigHook.status === 401, String(sigHook.status));

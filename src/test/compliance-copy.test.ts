@@ -34,7 +34,6 @@ describe("compliance copy register", () => {
       "src/routes/privacy-policy.tsx",
       "src/routes/refund-policy.tsx",
       "src/routes/delivery-policy.tsx",
-      "src/lib/banking.ts",
       "src/lib/ai/chat-prompt.ts",
     ];
     expect(unregisteredFiles(claims, files, read, Object.keys(register.ignoreFiles ?? {}))).toEqual(

@@ -64,7 +64,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
   const init = (
     member: string,
     orderId: string,
-    provider = "yoco",
+    provider = "payfast",
     merchant: string | null = null,
     k = key("init"),
   ) => rpc(sql, "payment_initiate", member, orderId, provider, "test", merchant, k);
@@ -158,14 +158,14 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       await sql`DELETE FROM public.fx_rates WHERE source LIKE 'live: test%'`.catch(() => undefined);
     });
 
-    it("PayPal initiation is refused without a current rate; Yoco is unaffected", async () => {
+    it("PayPal initiation is refused without a current rate; PayFast is unaffected", async () => {
       const o = await newOrder();
       const saved = await sql`SELECT id, valid_until FROM public.fx_rates`;
       await sql`UPDATE public.fx_rates SET valid_until = now() - interval '1 hour'`;
       try {
         const pp = await attempt(init(o.member, o.orderId, "paypal"));
         expect(failedWith(pp, "fx_rate_unavailable")).toBe(true);
-        expect((await attempt(init(o.member, o.orderId, "yoco"))).ok).toBe(true);
+        expect((await attempt(init(o.member, o.orderId, "payfast"))).ok).toBe(true);
       } finally {
         for (const r of saved)
           await sql`UPDATE public.fx_rates SET valid_until = ${r["valid_until"]} WHERE id = ${r["id"]}`;
@@ -175,9 +175,9 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
   // -------------------------------------------------------------------------------------------
   describe("initiation from the authoritative order total", () => {
-    it("Yoco collects the rand total; PayPal collects USD rounded UP at the stored rate", async () => {
+    it("PayFast collects the rand total; PayPal collects USD rounded UP at the stored rate", async () => {
       const o = await newOrder(275);
-      const y = await init(o.member, o.orderId, "yoco");
+      const y = await init(o.member, o.orderId, "payfast");
       expect(y).toMatchObject({
         expected_amount: 275,
         expected_currency: "ZAR",
@@ -195,12 +195,12 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     it("is idempotent per key, and reuses the live transaction for the same order and provider", async () => {
       const o = await newOrder();
       const k = key("i");
-      const a = await init(o.member, o.orderId, "yoco", null, k);
-      expect(await init(o.member, o.orderId, "yoco", null, k)).toMatchObject({
+      const a = await init(o.member, o.orderId, "payfast", null, k);
+      expect(await init(o.member, o.orderId, "payfast", null, k)).toMatchObject({
         replayed: true,
         transaction_id: a.transaction_id,
       });
-      const again = await init(o.member, o.orderId, "yoco");
+      const again = await init(o.member, o.orderId, "payfast");
       expect(again).toMatchObject({ transaction_id: a.transaction_id, reused: true });
       expect(
         await val(
@@ -230,7 +230,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       expect(
         failedWith(
           await attempt(
-            rpc(sql, "payment_initiate", o2.member, o2.orderId, "yoco", "prod", null, key("m")),
+            rpc(sql, "payment_initiate", o2.member, o2.orderId, "payfast", "prod", null, key("m")),
           ),
           "invalid_mode",
         ),
@@ -240,9 +240,9 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     it("supersedes a pending transaction when the order total changes (points redeemed)", async () => {
       const o = await newOrder(400);
       await rpc(sql, "_loyalty_test_noop").catch(() => undefined);
-      const first = await init(o.member, o.orderId, "yoco");
+      const first = await init(o.member, o.orderId, "payfast");
       await sql`UPDATE public.orders SET total_rand = total_rand - 20 WHERE id = ${o.orderId}`;
-      const second = await init(o.member, o.orderId, "yoco");
+      const second = await init(o.member, o.orderId, "payfast");
       expect(second.transaction_id).not.toBe(first.transaction_id);
       expect(second.expected_amount).toBe(380);
       expect((await txRow(first.transaction_id))["status"]).toBe("cancelled");
@@ -250,7 +250,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("attaching the provider session moves it to pending, and provider refs are unique", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const ref = `ch_${uid()}`;
       await rpc(
         sql,
@@ -273,7 +273,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
         (await attempt(rpc(sql, "payment_attach_session", t.transaction_id, "other-ref", "u"))).ok,
       ).toBe(false);
       const o2 = await newOrder();
-      const t2 = await init(o2.member, o2.orderId, "yoco");
+      const t2 = await init(o2.member, o2.orderId, "payfast");
       expect(
         (await attempt(rpc(sql, "payment_attach_session", t2.transaction_id, ref, "u"))).ok,
       ).toBe(false);
@@ -282,11 +282,11 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
   // -------------------------------------------------------------------------------------------
   describe("a verified success marks the order paid — once", () => {
-    it("Yoco: confirms the order, consumes stock once, records the event", async () => {
+    it("PayFast: confirms the order, consumes stock once, records the event", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const ek = `evt_${uid()}`;
-      const r = await apply("yoco", ek, facts(t));
+      const r = await apply("payfast", ek, facts(t));
       expect(r).toMatchObject({ replayed: false, status: "processed", outcome: "confirmed" });
       expect(await orderStatus(o.orderId)).toBe("confirmed");
       const row = await txRow(t.transaction_id);
@@ -294,7 +294,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       expect(Number(row["received_amount"])).toBe(275);
       expect(await payEvents(o.orderId)).toBe(1);
       const [ev] =
-        await sql`SELECT status, outcome FROM public.webhook_events WHERE provider = 'yoco' AND event_key = ${ek}`;
+        await sql`SELECT status, outcome FROM public.webhook_events WHERE provider = 'payfast' AND event_key = ${ek}`;
       expect(ev).toMatchObject({ status: "processed", outcome: "confirmed" });
     });
 
@@ -308,10 +308,10 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("replaying the SAME event (8 concurrent deliveries) yields one effect and the same final state", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const ek = `evt_${uid()}`;
       const f = facts(t);
-      const results = await Promise.all(Array.from({ length: 8 }, () => apply("yoco", ek, f)));
+      const results = await Promise.all(Array.from({ length: 8 }, () => apply("payfast", ek, f)));
       expect(results.filter((r) => !r.replayed)).toHaveLength(1);
       expect(results.filter((r) => r.replayed)).toHaveLength(7);
       for (const r of results.filter((r) => r.replayed)) expect(r.outcome).toBe("confirmed");
@@ -321,7 +321,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       ).toBe(1);
       expect(await orderStatus(o.orderId)).toBe("confirmed");
       // and a later sequential replay is the same
-      expect(await apply("yoco", ek, f)).toMatchObject({ replayed: true, outcome: "confirmed" });
+      expect(await apply("payfast", ek, f)).toMatchObject({ replayed: true, outcome: "confirmed" });
     });
 
     it("DIFFERENT events reporting the SAME payment cause no second stock or order effect", async () => {
@@ -341,22 +341,22 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("loyalty is earned exactly once even if the paid event is replayed before and after completion", async () => {
       const o = await newOrder(500);
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const f = facts(t);
-      await apply("yoco", "evt-L-1", f);
-      await apply("yoco", "evt-L-1", f);
+      await apply("payfast", "evt-L-1", f);
+      await apply("payfast", "evt-L-1", f);
       await advanceOrder(sql, manager, o.orderId, "completed");
-      await apply("yoco", "evt-L-1", f);
-      await apply("yoco", "evt-L-2", f);
+      await apply("payfast", "evt-L-1", f);
+      await apply("payfast", "evt-L-2", f);
       const l = await loyaltyOf(sql, o.member);
       expect(Number(l!.points_balance)).toBe(50); // R500 at 1 point per R10, once
     });
 
     it("cancels sibling attempts once an order is paid", async () => {
       const o = await newOrder();
-      const y = await init(o.member, o.orderId, "yoco");
+      const y = await init(o.member, o.orderId, "payfast");
       const p = await init(o.member, o.orderId, "paypal", MERCHANT);
-      await apply("yoco", `evt_${uid()}`, facts(y));
+      await apply("payfast", `evt_${uid()}`, facts(y));
       expect((await txRow(p.transaction_id))["status"]).toBe("cancelled");
     });
   });
@@ -385,10 +385,10 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     ];
     it.each(cases)("%s", async (_name, over, reason) => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       await rpc(sql, "payment_attach_session", t.transaction_id, `ch_${uid()}`, "https://x");
       const ek = `evt_${uid()}`;
-      const r = await apply("yoco", ek, facts(t, over(t)));
+      const r = await apply("payfast", ek, facts(t, over(t)));
       expect(r).toMatchObject({ status: "rejected", outcome: `rejected_${reason}` });
       expect(await orderStatus(o.orderId)).toBe("awaiting_payment");
       expect(await payEvents(o.orderId)).toBe(0);
@@ -398,7 +398,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       });
       expect(await staffAlerts("staff_payment_review", t.transaction_id)).toBeGreaterThan(0);
       // the rejection is itself idempotent
-      expect(await apply("yoco", ek, facts(t, over(t)))).toMatchObject({
+      expect(await apply("payfast", ek, facts(t, over(t)))).toMatchObject({
         replayed: true,
         status: "rejected",
       });
@@ -419,16 +419,16 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("a wrong ORDER reference: an unknown transaction, or one belonging to another provider, pays nothing", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
-      const unknown = await apply("yoco", `evt_${uid()}`, facts(t, { transaction_id: uid() }));
+      const t = await init(o.member, o.orderId, "payfast");
+      const unknown = await apply("payfast", `evt_${uid()}`, facts(t, { transaction_id: uid() }));
       expect(unknown).toMatchObject({ status: "rejected", outcome: "unknown_transaction" });
       const garbage = await apply(
-        "yoco",
+        "payfast",
         `evt_${uid()}`,
         facts(t, { transaction_id: "not-a-uuid" }),
       );
       expect(garbage.outcome).toBe("unknown_transaction");
-      // a PayPal event cannot settle a Yoco transaction, even with the right id and amount
+      // a PayPal event cannot settle a PayFast transaction, even with the right id and amount
       const cross = await apply("paypal", `WH-${uid()}`, facts(t));
       expect(cross.outcome).toBe("unknown_transaction");
       expect(await orderStatus(o.orderId)).toBe("awaiting_payment");
@@ -436,19 +436,19 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("an order total that changed after initiation is not settled at the old price", async () => {
       const o = await newOrder(400);
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       await sql`UPDATE public.orders SET total_rand = 380 WHERE id = ${o.orderId}`;
-      const r = await apply("yoco", `evt_${uid()}`, facts(t));
+      const r = await apply("payfast", `evt_${uid()}`, facts(t));
       expect(r.outcome).toBe("rejected_order_total_changed");
       expect(await orderStatus(o.orderId)).toBe("awaiting_payment");
     });
 
     it("a rejected event does not poison the transaction: the correct event can still pay", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
-      await apply("yoco", `evt_${uid()}`, facts(t, { amount_minor: 1 }));
+      const t = await init(o.member, o.orderId, "payfast");
+      await apply("payfast", `evt_${uid()}`, facts(t, { amount_minor: 1 }));
       expect(await orderStatus(o.orderId)).toBe("awaiting_payment");
-      const ok = await apply("yoco", `evt_${uid()}`, facts(t));
+      const ok = await apply("payfast", `evt_${uid()}`, facts(t));
       expect(ok.outcome).toBe("confirmed");
       expect(await orderStatus(o.orderId)).toBe("confirmed");
     });
@@ -458,9 +458,9 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
   describe("failures, refunds and money that arrives at the wrong time", () => {
     it("a failed-payment event records the failure and leaves the order payable", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const r = await apply(
-        "yoco",
+        "payfast",
         `evt_${uid()}`,
         { ...facts(t), kind: "payment_failed", reason: "card declined" },
         "payment.failed",
@@ -469,16 +469,16 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       expect(await txRow(t.transaction_id)).toMatchObject({ status: "failed" });
       expect(await orderStatus(o.orderId)).toBe("awaiting_payment");
       // the member can try again, and a later success on a retried attempt still pays
-      const retry = await init(o.member, o.orderId, "yoco");
+      const retry = await init(o.member, o.orderId, "payfast");
       expect(retry.transaction_id).not.toBe(t.transaction_id);
-      expect((await apply("yoco", `evt_${uid()}`, facts(retry))).outcome).toBe("confirmed");
+      expect((await apply("payfast", `evt_${uid()}`, facts(retry))).outcome).toBe("confirmed");
     });
 
     it("money arriving for a CANCELLED order is flagged for refund, not confirmed", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       await advanceOrder(sql, manager, o.orderId, "cancelled");
-      const r = await apply("yoco", `evt_${uid()}`, facts(t));
+      const r = await apply("payfast", `evt_${uid()}`, facts(t));
       expect(r.outcome).toBe("paid_after_cancel_needs_refund");
       expect(await orderStatus(o.orderId)).toBe("cancelled");
       expect((await txRow(t.transaction_id))["status"]).toBe("needs_refund");
@@ -487,10 +487,10 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("a SECOND payment for an already-paid order is flagged for refund, not applied twice", async () => {
       const o = await newOrder();
-      const y = await init(o.member, o.orderId, "yoco");
-      await apply("yoco", `evt_${uid()}`, facts(y));
+      const y = await init(o.member, o.orderId, "payfast");
+      await apply("payfast", `evt_${uid()}`, facts(y));
       // a PayPal attempt that was started earlier and completes now
-      await sql`UPDATE public.payment_transactions SET status = 'initiated' WHERE order_id = ${o.orderId} AND provider = 'yoco' AND false`;
+      await sql`UPDATE public.payment_transactions SET status = 'initiated' WHERE order_id = ${o.orderId} AND provider = 'payfast' AND false`;
       const p =
         await sql`INSERT INTO public.payment_transactions (order_id, user_id, provider, mode, status, order_total_rand, expected_amount, expected_currency, fx_rate, expected_merchant_id)
         VALUES (${o.orderId}, ${o.member}, 'paypal', 'test', 'pending', 275, 14.87, 'USD', 18.5, ${MERCHANT}) RETURNING id`;
@@ -510,10 +510,10 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
 
     it("a refund event is recorded and alerts a manager; it never changes the order by itself", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
-      await apply("yoco", `evt_${uid()}`, facts(t));
+      const t = await init(o.member, o.orderId, "payfast");
+      await apply("payfast", `evt_${uid()}`, facts(t));
       const r = await apply(
-        "yoco",
+        "payfast",
         `evt_${uid()}`,
         { ...facts(t), kind: "payment_refunded" },
         "refund.succeeded",
@@ -524,7 +524,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     });
 
     it("unhandled event types are stored and ignored", async () => {
-      const r = await apply("yoco", `evt_${uid()}`, { kind: "ignored" }, "something.else");
+      const r = await apply("payfast", `evt_${uid()}`, { kind: "ignored" }, "something.else");
       expect(r).toMatchObject({ status: "ignored", outcome: "ignored_event_type" });
     });
   });
@@ -535,10 +535,10 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       const before = await val(sql`SELECT count(*)::int FROM public.webhook_events`);
       for (const args of [
         ["stripe", "evt_12345", "payment.succeeded", {}, { kind: "payment_succeeded" }],
-        ["yoco", "x", "payment.succeeded", {}, { kind: "payment_succeeded" }],
-        ["yoco", "evt_12345", "x", {}, { kind: "payment_succeeded" }],
-        ["yoco", "evt_12345", "payment.succeeded", {}, { kind: "payment_hacked" }],
-        ["yoco", "evt_12345", "payment.succeeded", {}, {}],
+        ["payfast", "x", "payment.succeeded", {}, { kind: "payment_succeeded" }],
+        ["payfast", "evt_12345", "x", {}, { kind: "payment_succeeded" }],
+        ["payfast", "evt_12345", "payment.succeeded", {}, { kind: "payment_hacked" }],
+        ["payfast", "evt_12345", "payment.succeeded", {}, {}],
       ] as const) {
         const o = await attempt(rpc(sql, "payments_apply_verified_event", ...args));
         expect(failedWith(o, "invalid_webhook_event")).toBe(true);
@@ -547,9 +547,9 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     });
 
     it("webhook events are append-only", async () => {
-      const t = await newOrder().then((o) => init(o.member, o.orderId, "yoco"));
+      const t = await newOrder().then((o) => init(o.member, o.orderId, "payfast"));
       const ek = `evt_${uid()}`;
-      await apply("yoco", ek, facts(t));
+      await apply("payfast", ek, facts(t));
       expect(
         (
           await attempt(
@@ -578,20 +578,20 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     });
 
     it("rejected (unsigned) messages are logged without any payload", async () => {
-      await rpc(sql, "webhook_reject", "yoco", "invalid_signature", "iphash", "evt_hint");
+      await rpc(sql, "webhook_reject", "payfast", "invalid_signature", "iphash", "evt_hint");
       const [row] =
         await sql`SELECT provider, reason FROM public.webhook_rejections ORDER BY id DESC LIMIT 1`;
-      expect(row).toMatchObject({ provider: "yoco", reason: "invalid_signature" });
+      expect(row).toMatchObject({ provider: "payfast", reason: "invalid_signature" });
     });
 
     it("clients cannot call any payment function or write any payment table", async () => {
       const o = await newOrder();
-      const t = await init(o.member, o.orderId, "yoco");
+      const t = await init(o.member, o.orderId, "payfast");
       const calls: ((tx: Sql) => PromiseLike<unknown>)[] = [
         (tx) =>
-          tx`SELECT public.payment_initiate(${o.member}, ${o.orderId}, 'yoco', 'test', NULL, 'abcdefgh1')`,
+          tx`SELECT public.payment_initiate(${o.member}, ${o.orderId}, 'payfast', 'test', NULL, 'abcdefgh1')`,
         (tx) =>
-          tx`SELECT public.payments_apply_verified_event('yoco', 'evt_12345', 'payment.succeeded', '{}'::jsonb, '{"kind":"ignored"}'::jsonb)`,
+          tx`SELECT public.payments_apply_verified_event('payfast', 'evt_12345', 'payment.succeeded', '{}'::jsonb, '{"kind":"ignored"}'::jsonb)`,
         (tx) =>
           tx`SELECT public.eft_submit(${manager}, ${o.orderId}, 'REF12345', 275, current_date, NULL, 'abcdefgh1')`,
         (tx) => tx`SELECT public.fx_set_rate(${manager}, 'ZAR', 'USD', 18, 24, 'x')`,
@@ -599,7 +599,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
         (tx) =>
           tx`UPDATE public.payment_transactions SET status = 'succeeded' WHERE id = ${t.transaction_id}`,
         (tx) =>
-          tx`INSERT INTO public.webhook_events (provider, event_key, event_type, payload) VALUES ('yoco', 'evt_forged', 'x', '{}')`,
+          tx`INSERT INTO public.webhook_events (provider, event_key, event_type, payload) VALUES ('payfast', 'evt_forged', 'x', '{}')`,
         (tx) => tx`UPDATE public.fx_rates SET rate = 1`,
       ];
       for (const actor of [o.member, manager]) {
@@ -614,8 +614,8 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
     it("a member reads only their own payment status, never provider refs or redirect URLs", async () => {
       const a = await newOrder();
       const b = await newOrder();
-      const ta = await init(a.member, a.orderId, "yoco");
-      await init(b.member, b.orderId, "yoco");
+      const ta = await init(a.member, a.orderId, "payfast");
+      await init(b.member, b.orderId, "payfast");
       await rpc(
         sql,
         "payment_attach_session",
@@ -1083,6 +1083,101 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       } finally {
         await sql`UPDATE public.payment_settings SET value = 'false'::jsonb WHERE key = 'sms_enabled'`;
       }
+    });
+  });
+
+  describe("Yoco is gone; EFT details are owner-confirmed", () => {
+    it("Yoco can no longer be initiated, recorded or stored", async () => {
+      const o = await newOrder();
+      expect((await attempt(init(o.member, o.orderId, "yoco"))).ok).toBe(false);
+      expect((await attempt(apply("yoco", `evt_${uid()}`, { kind: "ignored" }))).ok).toBe(false);
+      expect(
+        (
+          await attempt(
+            sql`INSERT INTO public.webhook_events (provider, event_key, event_type, payload) VALUES ('yoco', ${`evt_${uid()}`}, 'x', '{}')`,
+          )
+        ).ok,
+      ).toBe(false);
+    });
+
+    const DETAILS = {
+      bank: "Test Bank",
+      account_holder: "Cannaplug (Pty) Ltd",
+      account_type: "Business cheque",
+      account_number: "1234 5678 90",
+      branch_code: "250 655",
+      confirmed_by_owner: true,
+    };
+    const setEft = (actor: string, d: unknown, k = key("eft")) =>
+      rpc(sql, "payment_set_eft_details", actor, d, k);
+    const stored = async () =>
+      (await sql`SELECT value FROM public.payment_settings WHERE key = 'eft_bank_details'`)[0]?.[
+        "value"
+      ];
+
+    it("a manager saves confirmed details (cleaned, audited by last 4 digits only) and can switch EFT off", async () => {
+      expect(await setEft(manager, DETAILS)).toMatchObject({ enabled: true });
+      expect(await stored()).toMatchObject({
+        bank: "Test Bank",
+        account_number: "1234567890",
+        branch_code: "250655",
+        confirmed_by_owner: true,
+      });
+      const [audit] =
+        await sql`SELECT metadata FROM public.audit_log WHERE action = 'eft_details_set' ORDER BY id DESC LIMIT 1`;
+      expect(audit!["metadata"]).toEqual({ bank: "Test Bank", account_last4: "7890" });
+      expect(JSON.stringify(audit!["metadata"])).not.toContain("1234567890");
+      expect(await setEft(manager, null)).toMatchObject({ enabled: false });
+      expect(await stored()).toBeNull();
+    });
+
+    it("refuses unconfirmed or malformed details, and anyone below manager", async () => {
+      const bad: Record<string, unknown>[] = [
+        { ...DETAILS, confirmed_by_owner: false },
+        { ...DETAILS, account_number: "12ab" },
+        { ...DETAILS, branch_code: "12345" },
+        { ...DETAILS, bank: "" },
+        { ...DETAILS, account_holder: "x" },
+      ];
+      for (const d of bad)
+        expect((await attempt(setEft(manager, d))).ok, JSON.stringify(d)).toBe(false);
+      const member = await mkMember(sql);
+      for (const actor of [budtender, member])
+        expect((await attempt(setEft(actor, DETAILS))).ok).toBe(false);
+      // browsers cannot call it at all, nor write the setting directly
+      for (const actor of [member, manager]) {
+        expect(
+          (
+            await attempt(
+              asUser(
+                sql,
+                actor,
+                (tx) =>
+                  tx`SELECT public.payment_set_eft_details(${manager}, ${sql.json(DETAILS)}, 'abcdefgh9')`,
+              ),
+            )
+          ).ok,
+        ).toBe(false);
+        expect(
+          (
+            await attempt(
+              asUser(
+                sql,
+                actor,
+                (tx) =>
+                  tx`INSERT INTO public.payment_settings (key, value) VALUES ('eft_bank_details', '{}') ON CONFLICT (key) DO UPDATE SET value = '{}'`,
+              ),
+            )
+          ).ok,
+        ).toBe(false);
+      }
+    });
+
+    it("replays with the same key return the first answer", async () => {
+      const k = key("eft-replay");
+      await setEft(manager, DETAILS, k);
+      expect(await setEft(manager, DETAILS, k)).toMatchObject({ enabled: true, replayed: true });
+      await setEft(manager, null);
     });
   });
 

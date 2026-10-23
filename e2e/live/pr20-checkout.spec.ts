@@ -75,6 +75,13 @@ async function toPaymentStep(page: Page, opts: { newAddress?: boolean } = {}) {
   await page.getByRole("button", { name: /continue/i }).click(); // -> Payment
 }
 
+test.beforeAll(() => {
+  // EFT is only offered once a manager has saved owner-confirmed bank details (fixture account).
+  sql(
+    `select public.payment_set_eft_details('${userId(MANAGER)}'::uuid, '{"bank":"Test Bank","account_holder":"Cannaplug (Pty) Ltd","account_number":"1234567890","branch_code":"250655","confirmed_by_owner":true}'::jsonb, 'live-eft-${Date.now()}')`,
+  );
+});
+
 test("shop: the Add button puts a real product in the cart and checkout shows it", async ({
   page,
 }) => {
@@ -117,7 +124,7 @@ test("CHECKOUT E2E: place an order from the UI; the order is server-priced, held
   // Server quote: 2 x R100 + R120 discreet = R320 (never the browser's R1).
   const place = page.getByRole("button", { name: /place order · R320/i });
   await expect(place).toBeEnabled({ timeout: 20_000 });
-  await expect(page.getByText("EFT / Bank transfer")).toBeVisible();
+  await page.getByLabel(/Bank transfer \(EFT\)/).check(); // card (PayFast) is the default when configured
   await place.click();
 
   await expect(page.getByText("Order placed")).toBeVisible({ timeout: 20_000 });
@@ -127,7 +134,7 @@ test("CHECKOUT E2E: place an order from the UI; the order is server-priced, held
     .first()
     .textContent())!;
   expect(number).toMatch(/^CP-\d{4}-\d{4}$/); // real sequence, not Math.random()
-  await expect(page.getByText("63210843975")).toBeVisible(); // bank details for the EFT
+  await expect(page.getByText("1234567890")).toBeVisible(); // the owner-confirmed bank details for the EFT
   expect(await page.evaluate(() => localStorage.getItem("cannaplug.cart.v1"))).toBe("[]");
 
   // Database truth

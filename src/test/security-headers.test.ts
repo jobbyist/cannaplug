@@ -12,7 +12,9 @@ describe("security headers", () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("connect-src 'self' https://abc.supabase.co wss://abc.supabase.co");
     expect(csp).toContain("object-src 'none'");
-    expect(csp).toContain("form-action 'self'");
+    expect(csp).toContain(
+      "form-action 'self' https://www.payfast.co.za https://sandbox.payfast.co.za",
+    );
     expect(csp).not.toMatch(/unsafe-eval/);
     expect(csp).not.toMatch(/script-src[^;]*https:/); // no remote scripts
   });

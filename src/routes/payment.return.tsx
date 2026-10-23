@@ -14,7 +14,7 @@ import { confirmPayPalReturnFn, paymentStatusFn } from "@/lib/payments.functions
 export const Route = createFileRoute("/payment/return")({
   validateSearch: (s: Record<string, unknown>) => ({
     order: typeof s["order"] === "string" ? s["order"] : "",
-    provider: s["provider"] === "paypal" ? ("paypal" as const) : ("yoco" as const),
+    provider: s["provider"] === "paypal" ? ("paypal" as const) : ("payfast" as const),
     result: typeof s["result"] === "string" ? s["result"] : "",
     // PayPal appends its order id as `token`
     token: typeof s["token"] === "string" ? s["token"] : "",

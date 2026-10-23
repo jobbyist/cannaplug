@@ -10,19 +10,93 @@ import {
   type StartedPayment,
 } from "./service";
 import { paymentsDeps } from "./service.server";
+import { ensureLiveFxRate } from "./fx.server";
+import { payfastFromEnv } from "./payfast";
+import { parseEftDetails, type EftDetails } from "./eft";
+import type { Json } from "@/integrations/supabase/types";
 import type { ProviderId } from "./provider";
 
-/** Which payment methods the storefront may offer: only providers with credentials configured. */
-export function availableOnlineMethods(): { card: boolean; paypal: boolean } {
-  const env = process.env;
+export type OnlineMethods = {
+  /** PayFast: card, Instant EFT and the other methods on PayFast's hosted page (ZAR). */
+  card: boolean;
+  paypal: boolean;
+  /** Bank transfer details, once the owner has confirmed them; null hides the EFT option. */
+  eft: EftDetails | null;
+};
+
+/** Providers whose credentials are configured (no database read). */
+export function configuredOnlineProviders(env: Record<string, string | undefined> = process.env) {
   return {
-    card: !!env["YOCO_SECRET_KEY"] && !!env["YOCO_WEBHOOK_SECRET"],
+    card: !!payfastFromEnv(env),
     paypal:
       !!env["PAYPAL_CLIENT_ID"] &&
       !!env["PAYPAL_CLIENT_SECRET"] &&
       !!env["PAYPAL_WEBHOOK_ID"] &&
       !!env["PAYPAL_MERCHANT_ID"],
   };
+}
+
+export async function getEftDetails(): Promise<EftDetails | null> {
+  const { data, error } = await supabaseAdmin
+    .from("payment_settings")
+    .select("value")
+    .eq("key", "eft_bank_details")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return parseEftDetails(data?.value ?? null);
+}
+
+/** Which payment methods the storefront may offer. */
+export async function availableOnlineMethods(): Promise<OnlineMethods> {
+  return { ...configuredOnlineProviders(), eft: await getEftDetails() };
+}
+
+/**
+ * Today's PayPal rate for showing a member roughly what PayPal will charge before they leave. Indicative:
+ * the exact USD amount is fixed by `payment_initiate` from the rate current at that moment.
+ */
+export async function getPaypalRate(): Promise<{ zarPerUsd: number; validUntil: string } | null> {
+  if (!configuredOnlineProviders().paypal) return null;
+  try {
+    await ensureLiveFxRate();
+  } catch {
+    return null;
+  }
+  const { data } = await supabaseAdmin
+    .from("fx_rates")
+    .select("rate,valid_until")
+    .eq("base_currency", "ZAR")
+    .eq("quote_currency", "USD")
+    .gt("valid_until", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? { zarPerUsd: Number(data.rate), validUntil: data.valid_until } : null;
+}
+
+export async function setEftDetails(
+  userId: string,
+  details: (EftDetails & { confirmed: true }) | null,
+  key: string,
+) {
+  await assertRole(userId, "manager");
+  const payload = details
+    ? {
+        bank: details.bank,
+        account_holder: details.account_holder,
+        account_type: details.account_type,
+        account_number: details.account_number,
+        branch_code: details.branch_code,
+        confirmed_by_owner: details.confirmed,
+      }
+    : null;
+  const { data, error } = await supabaseAdmin.rpc("payment_set_eft_details", {
+    p_actor: userId,
+    p_details: payload as unknown as Json,
+    p_idempotency_key: key,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as { enabled: boolean };
 }
 
 const memberError = (err: unknown): Error =>
@@ -184,8 +258,9 @@ export async function getPaymentsOverview(userId: string) {
       fxMarginPercent: Number(cfg.get("fx_margin_percent") ?? 4),
       eftThreshold: Number(cfg.get("eft_dual_control_threshold_rand") ?? 10000),
     },
+    eft: parseEftDetails(cfg.get("eft_bank_details") ?? null),
     rejectionsLast24h: rejections.count ?? 0,
-    configured: { ...availableOnlineMethods() },
+    configured: { ...configuredOnlineProviders() },
   };
 }
 

@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { CreditCard, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getOnlineMethodsFn, startPaymentFn } from "@/lib/payments.functions";
+import { goToCheckout } from "@/lib/payments/redirect";
 
 /** Lets a member pay an unpaid order online. Paid status only ever comes back from the server after verification. */
 export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
   const [methods, setMethods] = useState<{ card: boolean; paypal: boolean } | null>(null);
-  const [busy, setBusy] = useState<"yoco" | "paypal" | null>(null);
+  const [busy, setBusy] = useState<"payfast" | "paypal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -19,12 +20,12 @@ export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
   }, []);
   if (!methods || (!methods.card && !methods.paypal)) return null;
 
-  const pay = async (provider: "yoco" | "paypal") => {
+  const pay = async (provider: "payfast" | "paypal") => {
     setBusy(provider);
     setError(null);
     try {
       const s = await startPaymentFn({ data: { orderId, provider, key: crypto.randomUUID() } });
-      window.location.assign(s.redirectUrl);
+      goToCheckout(s.redirectUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "We could not start that payment.");
       setBusy(null);
@@ -36,9 +37,9 @@ export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
       <p className="mb-2 text-[0.65rem] font-bold uppercase text-muted-foreground">Pay now</p>
       <div className="flex flex-wrap gap-2">
         {methods.card && (
-          <Button size="sm" disabled={busy !== null} onClick={() => void pay("yoco")}>
+          <Button size="sm" disabled={busy !== null} onClick={() => void pay("payfast")}>
             <CreditCard size={13} className="mr-1.5" />{" "}
-            {busy === "yoco" ? "Opening…" : "Card / Instant EFT"}
+            {busy === "payfast" ? "Opening…" : "Card / Instant EFT (PayFast)"}
           </Button>
         )}
         {methods.paypal && (

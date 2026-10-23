@@ -2,7 +2,7 @@
  * Every environment variable the app reads, grouped by feature. `src/test/env-registry.test.ts` fails if server code
  * starts reading a variable that is not listed here, so this file stays the single source for docs/release/env-matrix.md.
  * status: "required" = the site breaks without it; "feature" = the named feature is off until it is set;
- * "optional" = has a safe default; "retiring" = being removed (Yoco is dropped as of 23 Oct 2026).
+ * "optional" = has a safe default; "retiring" = being removed (none at present: Yoco was removed on 23 Oct 2026).
  */
 export type EnvStatus = "required" | "feature" | "optional" | "retiring";
 export type EnvVar = { name: string; group: string; status: EnvStatus; note: string };
@@ -103,18 +103,35 @@ export const ENV_VARS: EnvVar[] = [
   { name: "PAYPAL_ENV", group: "PayPal", status: "feature", note: "sandbox or live" },
   { name: "PAYPAL_API_BASE", group: "PayPal", status: "optional", note: "Tests only" },
   {
-    name: "YOCO_SECRET_KEY",
-    group: "Yoco",
-    status: "retiring",
-    note: "Yoco dropped 23 Oct 2026; replaced by PayFast",
+    name: "PAYFAST_MERCHANT_ID",
+    group: "PayFast",
+    status: "feature",
+    note: "Card / Instant EFT in rand; compared on every ITN",
   },
   {
-    name: "YOCO_WEBHOOK_SECRET",
-    group: "Yoco",
-    status: "retiring",
-    note: "Remove with the Yoco adapter",
+    name: "PAYFAST_MERCHANT_KEY",
+    group: "PayFast",
+    status: "feature",
+    note: "From the PayFast dashboard",
   },
-  { name: "YOCO_API_BASE", group: "Yoco", status: "retiring", note: "Tests only" },
+  {
+    name: "PAYFAST_PASSPHRASE",
+    group: "PayFast",
+    status: "feature",
+    note: "Must match Settings → Developer settings in PayFast",
+  },
+  {
+    name: "PAYFAST_ENV",
+    group: "PayFast",
+    status: "optional",
+    note: "live (default) or sandbox; ITN …/api/public/payments/payfast-itn",
+  },
+  {
+    name: "PAYFAST_API_BASE",
+    group: "PayFast",
+    status: "optional",
+    note: "Tests only (localhost mock)",
+  },
   { name: "GEMINI_API_KEY", group: "AI", status: "feature", note: "Chatbot and Journal" },
   { name: "GEMINI_RPM_LIMIT", group: "AI", status: "optional", note: "Default 8" },
   { name: "GEMINI_RPD_LIMIT", group: "AI", status: "optional", note: "Default 180" },

@@ -3,7 +3,7 @@ import { CRON_SECRET, MANAGER, PAYER, productId, signInUi, sql, userId } from ".
 
 /**
  * Milestone 5 — LIVE payments end to end in real Chromium against the real app + real Postgres, with the
- * providers replaced by scripts/live-stack/mock-providers.mjs (same API shapes; signed Yoco webhooks).
+ * providers replaced by scripts/live-stack/mock-providers.mjs (same API shapes; signed PayFast ITNs).
  * The point of these tests: the order becomes paid ONLY through a verified provider event or a server-side
  * PayPal capture — never because the browser landed on the return URL.
  */
@@ -75,34 +75,34 @@ test.beforeAll(async () => {
   // A current USD rate for PayPal regardless of whether the live market feed is reachable from this machine.
   sql(`select public.fx_record_live_rate('ZAR','USD', 17.00, 60, 'live-spec fixture')`);
   await mock("/_config", {
-    yocoAmountOverride: null,
+    payfastAmountOverride: null,
     paypalCaptureValue: null,
     replayWebhook: false,
   });
 });
 
-test("the checkout offers EFT, card and PayPal when the providers are configured", async ({
+test("the checkout offers card and PayPal when configured, and EFT only once bank details are confirmed", async ({
   page,
 }) => {
   await signInUi(page, PAYER);
   await fillCart(page);
   await toPaymentStep(page);
-  await expect(page.getByLabel(/EFT \/ Bank transfer/)).toBeVisible();
+  await expect(page.getByLabel(/Bank transfer \(EFT\)/)).toHaveCount(0); // no owner-confirmed details yet
   await expect(page.getByLabel(/Card or Instant EFT/)).toBeVisible();
   await expect(page.getByLabel(/PayPal/)).toBeVisible();
 });
 
-test("CARD: the order is paid only when the signed Yoco webhook arrives — and a replayed webhook changes nothing", async ({
+test("CARD: the order is paid only when the signed PayFast ITN arrives — and a replayed ITN changes nothing", async ({
   page,
 }) => {
   await mock("/_config", { replayWebhook: true });
   await signInUi(page, PAYER);
   await placeWith(page, /Card or Instant EFT/);
-  await page.waitForURL(/127\.0\.0\.1:4599\/yoco\/pay\//, { timeout: 30_000 });
+  await page.waitForURL(/127\.0\.0\.1:4599\/eng\/process/, { timeout: 30_000 });
   const id = latestOrder();
   expect(status(id)).toBe("awaiting_payment"); // hosted page shown, nothing paid yet
   expect(txStatus(id)).toBe("pending");
-  // the amount sent to Yoco is the database total (items + delivery), never anything the browser said
+  // the amount sent to PayFast is the database total (items + delivery), never anything the browser said
   expect(
     sql(
       `select expected_amount||expected_currency from public.payment_transactions where order_id='${id}'`,
@@ -131,9 +131,9 @@ test("CARD: the order is paid only when the signed Yoco webhook arrives — and 
 test("returning to the success URL WITHOUT paying marks nothing as paid", async ({ page }) => {
   await signInUi(page, PAYER);
   await placeWith(page, /Card or Instant EFT/);
-  await page.waitForURL(/127\.0\.0\.1:4599\/yoco\/pay\//, { timeout: 30_000 });
+  await page.waitForURL(/127\.0\.0\.1:4599\/eng\/process/, { timeout: 30_000 });
   const id = latestOrder();
-  await page.goto(`/payment/return?order=${id}&provider=yoco&result=success`); // the member (or an attacker) walks straight back
+  await page.goto(`/payment/return?order=${id}&provider=payfast&result=success`); // the member (or an attacker) walks straight back
   await expect(page.getByRole("heading", { name: /Confirming your payment/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Payment confirmed" })).toHaveCount(0);
   expect(status(id)).toBe("awaiting_payment");
@@ -146,10 +146,10 @@ test("returning to the success URL WITHOUT paying marks nothing as paid", async 
 test("a validly SIGNED event for the wrong amount is held for review, not paid", async ({
   page,
 }) => {
-  await mock("/_config", { yocoAmountOverride: 100 }); // R1.00 instead of the real total
+  await mock("/_config", { payfastAmountOverride: "1.00" }); // R1.00 instead of the real total
   await signInUi(page, PAYER);
   await placeWith(page, /Card or Instant EFT/);
-  await page.waitForURL(/127\.0\.0\.1:4599\/yoco\/pay\//, { timeout: 30_000 });
+  await page.waitForURL(/127\.0\.0\.1:4599\/eng\/process/, { timeout: 30_000 });
   const id = latestOrder();
   await page.getByRole("button", { name: "Pay" }).click();
   await page.waitForURL(/\/payment\/return/, { timeout: 30_000 });
@@ -161,7 +161,7 @@ test("a validly SIGNED event for the wrong amount is held for review, not paid",
       `select count(*) from public.notification_events where template='staff_payment_review' and data->>'transaction_id' = (select id::text from public.payment_transactions where order_id='${id}')`,
     ),
   ).not.toBe("0");
-  await mock("/_config", { yocoAmountOverride: null });
+  await mock("/_config", { payfastAmountOverride: null });
   sql(
     `select public.transition_order_status('${id}'::uuid,'cancelled','${userId(MANAGER)}'::uuid,'live test cleanup')`,
   );
@@ -169,21 +169,16 @@ test("a validly SIGNED event for the wrong amount is held for review, not paid",
 
 test("forged and tampered webhooks are refused before any business logic", async ({ request }) => {
   const before = Number(sql(`select count(*) from public.webhook_rejections`));
-  const forged = await request.post("/api/public/payments/yoco-webhook", {
-    data: {
-      id: "evt_forged123",
-      type: "payment.succeeded",
-      payload: { id: "p_1", amount: 10000, currency: "ZAR", mode: "test" },
-    },
-    headers: {
-      "webhook-id": "msg_x",
-      "webhook-timestamp": String(Math.floor(Date.now() / 1000)),
-      "webhook-signature": "v1,AAAA",
-    },
+  const forged = await request.post("/api/public/payments/payfast-itn", {
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    data:
+      "m_payment_id=x&pf_payment_id=1&payment_status=COMPLETE&amount_gross=100.00&signature=" +
+      "a".repeat(32),
   });
   expect(forged.status()).toBe(401);
-  const unsigned = await request.post("/api/public/payments/yoco-webhook", {
-    data: { hello: "world" },
+  const unsigned = await request.post("/api/public/payments/payfast-itn", {
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    data: "hello=world",
   });
   expect(unsigned.status()).toBe(401);
   const paypalUnsigned = await request.post("/api/public/payments/paypal-webhook", {
@@ -191,9 +186,11 @@ test("forged and tampered webhooks are refused before any business logic", async
   });
   expect(paypalUnsigned.status()).toBe(401);
   expect(Number(sql(`select count(*) from public.webhook_rejections`))).toBe(before + 3);
-  expect(sql(`select count(*) from public.webhook_events where event_key = 'evt_forged123'`)).toBe(
-    "0",
-  );
+  expect(
+    sql(
+      `select count(*) from public.webhook_events where provider = 'payfast' and event_key like '1:%'`,
+    ),
+  ).toBe("0");
 });
 
 test("PAYPAL: charged in USD at the stored rate; paid only after the server-side capture", async ({
@@ -248,7 +245,7 @@ test("ADMIN: managers see the Payments tab with the attempts, FX rate and refuse
   await page.getByRole("button", { name: "Payments", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Payments", exact: true })).toBeVisible();
   await expect(page.getByText(/PayPal exchange rate/)).toBeVisible();
-  await expect(page.getByRole("cell", { name: "yoco" }).first()).toBeVisible();
+  await expect(page.getByRole("cell", { name: "payfast" }).first()).toBeVisible();
   await expect(page.getByText("Refused webhooks (24h)")).toBeVisible();
   // the review-held attempts from the earlier tests are called out for a person
   await expect(page.getByRole("heading", { name: /Needs attention/ })).toBeVisible();

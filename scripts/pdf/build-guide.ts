@@ -88,7 +88,7 @@ ${table(
     ],
     [
       "Checkout &amp; payments",
-      "EFT, card or Instant EFT (Yoco), PayPal; an order is confirmed only after the payment is <i>verified</i>",
+      "Card or Instant EFT (PayFast), PayPal (US dollars) or bank transfer (EFT); an order is confirmed only after the payment is <i>verified</i>",
     ],
     [
       "Admin dashboard",
@@ -162,9 +162,9 @@ ${table(
       "When a manager verifies the payment in the bank account (amounts of R10,000 or more need a second manager).",
     ],
     [
-      "<b>Card or Instant EFT (Yoco)</b>",
-      "You are taken to Yoco’s secure page and return afterwards.",
-      "Automatically, when Yoco’s signed confirmation reaches us and the amount matches.",
+      "<b>Card or Instant EFT (PayFast)</b>",
+      "You are taken to PayFast’s secure page and return afterwards.",
+      "Automatically, when PayFast’s signed notification reaches us, PayFast confirms it and the amount matches.",
     ],
     [
       "<b>PayPal</b>",

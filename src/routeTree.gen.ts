@@ -32,8 +32,8 @@ import { Route as AdminPosReceiptSaleIdRouteImport } from './routes/admin_.pos.r
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
 import { Route as ApiPublicNotificationsDispatchRouteImport } from './routes/api/public/notifications/dispatch'
+import { Route as ApiPublicPaymentsPayfastItnRouteImport } from './routes/api/public/payments/payfast-itn'
 import { Route as ApiPublicPaymentsPaypalWebhookRouteImport } from './routes/api/public/payments/paypal-webhook'
-import { Route as ApiPublicPaymentsYocoWebhookRouteImport } from './routes/api/public/payments/yoco-webhook'
 import { Route as ApiPublicSignaturesWebhookRouteImport } from './routes/api/public/signatures/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -153,16 +153,16 @@ const ApiPublicNotificationsDispatchRoute =
     path: '/api/public/notifications/dispatch',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPaymentsPayfastItnRoute =
+  ApiPublicPaymentsPayfastItnRouteImport.update({
+    id: '/api/public/payments/payfast-itn',
+    path: '/api/public/payments/payfast-itn',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsPaypalWebhookRoute =
   ApiPublicPaymentsPaypalWebhookRouteImport.update({
     id: '/api/public/payments/paypal-webhook',
     path: '/api/public/payments/paypal-webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicPaymentsYocoWebhookRoute =
-  ApiPublicPaymentsYocoWebhookRouteImport.update({
-    id: '/api/public/payments/yoco-webhook',
-    path: '/api/public/payments/yoco-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicSignaturesWebhookRoute =
@@ -196,8 +196,8 @@ export interface FileRoutesByFullPath {
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
+  '/api/public/payments/payfast-itn': typeof ApiPublicPaymentsPayfastItnRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
-  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -224,8 +224,8 @@ export interface FileRoutesByTo {
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
+  '/api/public/payments/payfast-itn': typeof ApiPublicPaymentsPayfastItnRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
-  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRoutesById {
@@ -253,8 +253,8 @@ export interface FileRoutesById {
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
   '/api/public/notifications/dispatch': typeof ApiPublicNotificationsDispatchRoute
+  '/api/public/payments/payfast-itn': typeof ApiPublicPaymentsPayfastItnRoute
   '/api/public/payments/paypal-webhook': typeof ApiPublicPaymentsPaypalWebhookRoute
-  '/api/public/payments/yoco-webhook': typeof ApiPublicPaymentsYocoWebhookRoute
   '/api/public/signatures/webhook': typeof ApiPublicSignaturesWebhookRoute
 }
 export interface FileRouteTypes {
@@ -283,8 +283,8 @@ export interface FileRouteTypes {
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
+    | '/api/public/payments/payfast-itn'
     | '/api/public/payments/paypal-webhook'
-    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -311,8 +311,8 @@ export interface FileRouteTypes {
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
+    | '/api/public/payments/payfast-itn'
     | '/api/public/payments/paypal-webhook'
-    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   id:
     | '__root__'
@@ -339,8 +339,8 @@ export interface FileRouteTypes {
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
     | '/api/public/notifications/dispatch'
+    | '/api/public/payments/payfast-itn'
     | '/api/public/payments/paypal-webhook'
-    | '/api/public/payments/yoco-webhook'
     | '/api/public/signatures/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -368,8 +368,8 @@ export interface RootRouteChildren {
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
   ApiPublicNotificationsDispatchRoute: typeof ApiPublicNotificationsDispatchRoute
+  ApiPublicPaymentsPayfastItnRoute: typeof ApiPublicPaymentsPayfastItnRoute
   ApiPublicPaymentsPaypalWebhookRoute: typeof ApiPublicPaymentsPaypalWebhookRoute
-  ApiPublicPaymentsYocoWebhookRoute: typeof ApiPublicPaymentsYocoWebhookRoute
   ApiPublicSignaturesWebhookRoute: typeof ApiPublicSignaturesWebhookRoute
 }
 
@@ -536,18 +536,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicNotificationsDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/payfast-itn': {
+      id: '/api/public/payments/payfast-itn'
+      path: '/api/public/payments/payfast-itn'
+      fullPath: '/api/public/payments/payfast-itn'
+      preLoaderRoute: typeof ApiPublicPaymentsPayfastItnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/paypal-webhook': {
       id: '/api/public/payments/paypal-webhook'
       path: '/api/public/payments/paypal-webhook'
       fullPath: '/api/public/payments/paypal-webhook'
       preLoaderRoute: typeof ApiPublicPaymentsPaypalWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/payments/yoco-webhook': {
-      id: '/api/public/payments/yoco-webhook'
-      path: '/api/public/payments/yoco-webhook'
-      fullPath: '/api/public/payments/yoco-webhook'
-      preLoaderRoute: typeof ApiPublicPaymentsYocoWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/signatures/webhook': {
@@ -584,8 +584,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,
   ApiPublicNotificationsDispatchRoute: ApiPublicNotificationsDispatchRoute,
+  ApiPublicPaymentsPayfastItnRoute: ApiPublicPaymentsPayfastItnRoute,
   ApiPublicPaymentsPaypalWebhookRoute: ApiPublicPaymentsPaypalWebhookRoute,
-  ApiPublicPaymentsYocoWebhookRoute: ApiPublicPaymentsYocoWebhookRoute,
   ApiPublicSignaturesWebhookRoute: ApiPublicSignaturesWebhookRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,228 +1,324 @@
+// @vitest-environment happy-dom
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { FetchLike } from "@/lib/payments/provider";
 import { createPayPalProvider, paypalOrderFacts } from "@/lib/payments/paypal";
 import {
-  YOCO_TOLERANCE_SECONDS,
-  createYocoProvider,
-  signYocoPayload,
-  verifyYocoWebhook,
-  yocoFacts,
-} from "@/lib/payments/yoco";
+  PAYFAST_FIELD_ORDER,
+  createPayFastProvider,
+  parseItn,
+  payfastFacts,
+  payfastFromEnv,
+  pfEncode,
+  pfParamString,
+  pfSignature,
+  signCheckoutFields,
+  verifyItnSignature,
+  type PayFastConfig,
+} from "@/lib/payments/payfast";
+import { isPayFastUrl, payFastForm } from "@/lib/payments/redirect";
 
-const SECRET = `whsec_${Buffer.from("super-secret-signing-key-0123456789").toString("base64")}`;
-const NOW = 1_800_000_000;
 const TX = "11111111-1111-4111-8111-111111111111";
+const md5 = (s: string) => createHash("md5").update(s).digest("hex");
 
-const yocoBody = (over: Record<string, unknown> = {}, payload: Record<string, unknown> = {}) =>
-  JSON.stringify({
-    id: "evt_abc12345",
-    type: "payment.succeeded",
-    createdDate: "2026-10-02T10:00:00Z",
-    payload: {
-      id: "p_999",
-      amount: 27500,
-      currency: "ZAR",
-      mode: "test",
-      status: "succeeded",
-      type: "payment",
-      metadata: { checkoutId: "ch_1", transactionId: TX },
-      ...payload,
-    },
+// PayFast's published sandbox merchant (public test credentials).
+const PF: PayFastConfig = {
+  merchantId: "10000100",
+  merchantKey: "46f0cd694581a",
+  passphrase: "jt7NOE43FZPn",
+  sandbox: true,
+};
+const PF_IP = "197.97.145.144";
+
+const itnPairs = (over: Record<string, string> = {}): [string, string][] =>
+  Object.entries({
+    m_payment_id: TX,
+    pf_payment_id: "1089250",
+    payment_status: "COMPLETE",
+    item_name: "Cannaplug order CP-1001",
+    item_description: "",
+    amount_gross: "275.00",
+    amount_fee: "-6.33",
+    amount_net: "268.67",
+    custom_str1: "CP-1001",
+    name_first: "Test",
+    name_last: "",
+    email_address: "member@example.com",
+    merchant_id: PF.merchantId,
     ...over,
   });
-const signed = (raw: string, over: { id?: string; ts?: number; secret?: string } = {}) => {
-  const id = over.id ?? "msg_1";
-  const ts = String(over.ts ?? NOW);
-  return new Headers({
-    "webhook-id": id,
-    "webhook-timestamp": ts,
-    "webhook-signature": `v1,${signYocoPayload(over.secret ?? SECRET, id, ts, raw)}`,
-  });
+const itnBody = (pairs = itnPairs(), passphrase: string | null = PF.passphrase) =>
+  `${pfParamString(pairs)}&signature=${pfSignature(pfParamString(pairs), passphrase)}`;
+
+const validator = (
+  answer: string,
+  ok = true,
+): FetchLike & { calls: { url: string; body?: string | undefined }[] } => {
+  const calls: { url: string; body?: string | undefined }[] = [];
+  const f = (async (url: string, init?: { body?: string }) => {
+    calls.push({ url, body: init?.body });
+    return { ok, status: ok ? 200 : 503, text: async () => answer };
+  }) as FetchLike & { calls: typeof calls };
+  f.calls = calls;
+  return f;
 };
+const provider = (fetchFn: FetchLike = validator("VALID"), ips = [PF_IP]) =>
+  createPayFastProvider(PF, fetchFn, async () => ips);
 
-describe("Yoco webhook verification (Standard Webhooks)", () => {
-  const raw = yocoBody();
-  it("accepts a correctly signed, fresh message", () => {
-    expect(verifyYocoWebhook(SECRET, raw, signed(raw), NOW)).toEqual({ ok: true });
-  });
-  it("matches the published algorithm independently of our helper", async () => {
-    const { createHmac } = await import("node:crypto");
-    const key = Buffer.from(SECRET.slice(6), "base64");
-    const sig = createHmac("sha256", key).update(`msg_1.${NOW}.${raw}`).digest("base64");
-    const h = new Headers({
-      "webhook-id": "msg_1",
-      "webhook-timestamp": String(NOW),
-      "webhook-signature": `v1,${sig}`,
-    });
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW).ok).toBe(true);
-  });
-  it("rejects a tampered body, even by one character", () => {
-    const h = signed(raw);
-    expect(verifyYocoWebhook(SECRET, raw.replace("27500", "27400"), h, NOW)).toEqual({
-      ok: false,
-      reason: "invalid_signature",
-    });
-    expect(verifyYocoWebhook(SECRET, raw + " ", h, NOW).ok).toBe(false);
-  });
-  it("rejects a wrong secret, a swapped webhook id, and a swapped timestamp", () => {
-    expect(
-      verifyYocoWebhook(
-        SECRET,
-        raw,
-        signed(raw, { secret: "whsec_" + Buffer.from("other").toString("base64") }),
-        NOW,
-      ).ok,
-    ).toBe(false);
-    const h = signed(raw);
-    h.set("webhook-id", "msg_2");
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW).ok).toBe(false);
-    const t = signed(raw);
-    t.set("webhook-timestamp", String(NOW + 1));
-    expect(verifyYocoWebhook(SECRET, raw, t, NOW).ok).toBe(false);
-  });
-  it("rejects stale and future timestamps beyond 3 minutes (replay protection)", () => {
-    expect(YOCO_TOLERANCE_SECONDS).toBe(180);
-    expect(verifyYocoWebhook(SECRET, raw, signed(raw, { ts: NOW - 181 }), NOW)).toEqual({
-      ok: false,
-      reason: "stale_timestamp",
-    });
-    expect(verifyYocoWebhook(SECRET, raw, signed(raw, { ts: NOW + 181 }), NOW).ok).toBe(false);
-    expect(verifyYocoWebhook(SECRET, raw, signed(raw, { ts: NOW - 179 }), NOW).ok).toBe(true);
-  });
-  it("rejects missing headers and malformed timestamps", () => {
-    for (const drop of ["webhook-id", "webhook-timestamp", "webhook-signature"]) {
-      const h = signed(raw);
-      h.delete(drop);
-      expect(verifyYocoWebhook(SECRET, raw, h, NOW)).toEqual({
-        ok: false,
-        reason: "missing_headers",
-      });
-    }
-    const h = signed(raw);
-    h.set("webhook-timestamp", "yesterday");
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW)).toEqual({ ok: false, reason: "bad_timestamp" });
-  });
-  it("accepts any one valid signature among several, rejects a non-v1 or junk one", () => {
-    const h = signed(raw);
-    const good = h.get("webhook-signature")!;
-    h.set("webhook-signature", `v1,AAAA ${good}`);
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW).ok).toBe(true);
-    h.set("webhook-signature", good.replace("v1,", "v2,"));
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW).ok).toBe(false);
-    h.set("webhook-signature", "v1,");
-    expect(verifyYocoWebhook(SECRET, raw, h, NOW).ok).toBe(false);
+describe("PayFast signature", () => {
+  it("encodes the PHP urlencode way: uppercase hex, spaces as +, !'()*~ escaped", () => {
+    expect(pfEncode("Cannaplug order #1 (test)!")).toBe("Cannaplug+order+%231+%28test%29%21");
+    expect(pfEncode("https://x.co/a?b=c&d=e f")).toBe("https%3A%2F%2Fx.co%2Fa%3Fb%3Dc%26d%3De+f");
+    expect(pfEncode("a~b*c'd")).toBe("a%7Eb%2Ac%27d");
   });
 
-  it("the provider turns a verified event into facts and refuses a bad one before parsing", async () => {
-    const p = createYocoProvider(
-      { secretKey: "sk_test_x", webhookSecret: SECRET },
-      vi.fn() as unknown as FetchLike,
-      () => NOW * 1000,
+  it("is md5 over the ordered param string plus the passphrase, matching an independent computation", () => {
+    const pairs: [string, string][] = [
+      ["merchant_id", "10000100"],
+      ["merchant_key", "46f0cd694581a"],
+      ["amount", "275.00"],
+      ["item_name", "Cannaplug order CP-1001"],
+    ];
+    const expected = md5(
+      "merchant_id=10000100&merchant_key=46f0cd694581a&amount=275.00&item_name=Cannaplug+order+CP-1001&passphrase=jt7NOE43FZPn",
     );
-    const ok = await p.verifyWebhook(raw, signed(raw));
-    expect(ok).toMatchObject({
-      ok: true,
-      event: {
-        eventKey: "evt_abc12345",
-        eventType: "payment.succeeded",
-        facts: {
-          kind: "payment_succeeded",
-          transaction_id: TX,
-          provider_ref: "ch_1",
-          provider_payment_id: "p_999",
-          amount_minor: 27500,
-          currency: "ZAR",
-          mode: "test",
-        },
-      },
-    });
-    expect(await p.verifyWebhook(raw, new Headers())).toEqual({
-      ok: false,
-      reason: "missing_headers",
-    });
-    const notJson = "not json";
-    expect(await p.verifyWebhook(notJson, signed(notJson))).toEqual({
-      ok: false,
-      reason: "malformed_body",
-    });
-    const noId = JSON.stringify({ type: "payment.succeeded", payload: {} });
-    expect(await p.verifyWebhook(noId, signed(noId))).toEqual({
-      ok: false,
-      reason: "malformed_body",
-    });
+    expect(pfSignature(pfParamString(pairs), PF.passphrase)).toBe(expected);
+    expect(pfSignature(pfParamString(pairs), null)).toBe(
+      md5(
+        "merchant_id=10000100&merchant_key=46f0cd694581a&amount=275.00&item_name=Cannaplug+order+CP-1001",
+      ),
+    );
   });
-  it("maps failed and unknown event types; never trusts a non-integer amount", () => {
-    expect(yocoFacts(JSON.parse(yocoBody({ type: "payment.failed" }))).kind).toBe("payment_failed");
-    expect(yocoFacts(JSON.parse(yocoBody({ type: "refund.succeeded" }))).kind).toBe("ignored");
-    expect(yocoFacts(JSON.parse(yocoBody({}, { amount: 275.5 }))).amount_minor).toBeNull();
-    expect(yocoFacts(JSON.parse(yocoBody({}, { amount: "27500" }))).amount_minor).toBeNull();
-    expect(yocoFacts(JSON.parse(yocoBody({}, { mode: "sandbox" }))).mode).toBeNull();
+
+  it("signs checkout fields in PayFast's documented order, dropping blanks, whatever order they are given in", () => {
+    const signed = signCheckoutFields(
+      {
+        item_name: " Cannaplug order CP-1 ",
+        amount: "10.00",
+        custom_str1: "",
+        merchant_key: "k",
+        merchant_id: "10000100",
+      },
+      null,
+    );
+    expect(signed.map(([k]) => k)).toEqual([
+      "merchant_id",
+      "merchant_key",
+      "amount",
+      "item_name",
+      "signature",
+    ]);
+    expect(signed[3]![1]).toBe("Cannaplug order CP-1");
+    expect(PAYFAST_FIELD_ORDER.indexOf("m_payment_id")).toBeLessThan(
+      PAYFAST_FIELD_ORDER.indexOf("amount"),
+    );
+  });
+
+  it("ITN signature covers every posted field (blanks included) in the order posted, except signature", () => {
+    const pairs = itnPairs();
+    const body = itnBody(pairs);
+    expect(verifyItnSignature(parseItn(body)!, PF.passphrase)).toBe(true);
+    // one character changed anywhere fails
+    expect(verifyItnSignature(parseItn(body.replace("275.00", "275.01"))!, PF.passphrase)).toBe(
+      false,
+    );
+    // reordering the fields changes the signed string
+    const swapped = [pairs[1]!, pairs[0]!, ...pairs.slice(2)];
+    expect(
+      verifyItnSignature(
+        parseItn(
+          `${pfParamString(swapped)}&signature=${pfSignature(pfParamString(pairs), PF.passphrase)}`,
+        )!,
+        PF.passphrase,
+      ),
+    ).toBe(false);
+    expect(verifyItnSignature(parseItn(itnBody(pairs, "wrong"))!, PF.passphrase)).toBe(false);
+    expect(verifyItnSignature(parseItn(pfParamString(pairs))!, PF.passphrase)).toBe(false); // unsigned
+  });
+
+  it("parses only form bodies", () => {
+    expect(parseItn("")).toBeNull();
+    expect(parseItn("hello")).toBeNull();
+    expect(parseItn('{"a":1}')).toBeNull();
+    expect(parseItn("a=1\nb=2")).toBeNull();
+    expect(parseItn("Bad-Key=1")).toBeNull();
+    expect(parseItn("a=1&b=two+words")).toEqual([
+      ["a", "1"],
+      ["b", "two words"],
+    ]);
   });
 });
 
-describe("Yoco checkout creation", () => {
-  const res =
-    (body: unknown, status = 200) =>
-    async () => ({ ok: status < 300, status, text: async () => JSON.stringify(body) });
+describe("PayFast configuration", () => {
+  it("needs a numeric merchant id and a key; sandbox only when asked", () => {
+    expect(payfastFromEnv({})).toBeNull();
+    expect(payfastFromEnv({ PAYFAST_MERCHANT_ID: "abc", PAYFAST_MERCHANT_KEY: "k" })).toBeNull();
+    expect(
+      payfastFromEnv({ PAYFAST_MERCHANT_ID: "10000100", PAYFAST_MERCHANT_KEY: "k" }),
+    ).toMatchObject({ sandbox: false, passphrase: null });
+    expect(
+      payfastFromEnv({
+        PAYFAST_MERCHANT_ID: "10000100",
+        PAYFAST_MERCHANT_KEY: "k",
+        PAYFAST_PASSPHRASE: " p ",
+        PAYFAST_ENV: "Sandbox",
+      }),
+    ).toMatchObject({ sandbox: true, passphrase: "p" });
+  });
+});
+
+describe("PayFast checkout", () => {
   const req = {
     transactionId: TX,
-    orderNumber: "CP-100",
+    orderNumber: "CP-1001",
     amount: 275,
     currency: "ZAR" as const,
-    successUrl: "https://s/ok",
-    cancelUrl: "https://s/c",
-    failureUrl: "https://s/f",
+    successUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=success",
+    cancelUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=cancelled",
+    failureUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=failed",
+    notifyUrl: "https://shop.example/api/public/payments/payfast-itn",
   };
-  it("sends the authoritative amount in cents with an idempotency key, and returns the hosted URL", async () => {
-    const f = vi.fn(
-      res({
-        id: "ch_1",
-        redirectUrl: "https://c.yoco.com/checkout/1",
-        amount: 27500,
-        currency: "ZAR",
-      }),
-    );
-    const p = createYocoProvider(
-      { secretKey: "sk_test_x", webhookSecret: SECRET },
-      f as unknown as FetchLike,
-    );
-    expect(await p.createCheckout(req)).toEqual({
-      providerRef: "ch_1",
-      redirectUrl: "https://c.yoco.com/checkout/1",
+
+  it("returns a signed process URL for the stored amount; no network call, no product names", async () => {
+    const f = validator("VALID");
+    const s = await provider(f).createCheckout(req);
+    expect(f.calls).toHaveLength(0);
+    expect(s.providerRef).toBe(TX);
+    const u = new URL(s.redirectUrl);
+    expect(u.origin + u.pathname).toBe("https://sandbox.payfast.co.za/eng/process");
+    const fields = [...u.searchParams.entries()];
+    expect(Object.fromEntries(fields)).toMatchObject({
+      merchant_id: "10000100",
+      amount: "275.00",
+      m_payment_id: TX,
+      item_name: "Cannaplug order CP-1001",
+      notify_url: req.notifyUrl,
     });
-    const [url, init] = f.mock.calls[0] as unknown as [
-      string,
-      { headers: Record<string, string>; body: string },
-    ];
-    expect(url).toBe("https://payments.yoco.com/api/checkouts");
-    expect(init.headers["Idempotency-Key"]).toBe(TX);
-    expect(init.headers["Authorization"]).toBe("Bearer sk_test_x");
-    expect(JSON.parse(init.body)).toMatchObject({
-      amount: 27500,
+    const unsigned = fields.filter(([k]) => k !== "signature");
+    expect(u.searchParams.get("signature")).toBe(
+      pfSignature(pfParamString(unsigned), PF.passphrase),
+    );
+    expect(createPayFastProvider({ ...PF, sandbox: false }, f).processUrl).toBe(
+      "https://www.payfast.co.za/eng/process",
+    );
+  });
+
+  it("refuses USD, amounts under R5 and a missing notify URL", async () => {
+    const p = provider();
+    await expect(p.createCheckout({ ...req, currency: "USD" })).rejects.toThrow("ZAR");
+    await expect(p.createCheckout({ ...req, amount: 4.99 })).rejects.toThrow("R5.00");
+    await expect(p.createCheckout({ ...req, notifyUrl: undefined } as never)).rejects.toThrow(
+      "notify",
+    );
+  });
+
+  it("the browser posts exactly the signed fields to PayFast; other URLs are plain navigations", async () => {
+    const s = await provider().createCheckout(req);
+    expect(isPayFastUrl(s.redirectUrl)).toBe(true);
+    expect(isPayFastUrl("https://www.sandbox.paypal.com/checkoutnow?token=X")).toBe(false);
+    expect(isPayFastUrl("http://www.payfast.co.za/eng/process")).toBe(false);
+    expect(isPayFastUrl("https://payfast.co.za.evil.example/eng/process")).toBe(false);
+    const form = payFastForm(s.redirectUrl, document);
+    expect(form.method.toUpperCase()).toBe("POST");
+    expect(form.action).toBe("https://sandbox.payfast.co.za/eng/process");
+    const posted = [...form.querySelectorAll("input")].map((i) => [i.name, i.value]);
+    expect(posted).toEqual([...new URL(s.redirectUrl).searchParams.entries()]);
+  });
+});
+
+describe("PayFast ITN security checks", () => {
+  it("accepts a signed ITN from a PayFast address that PayFast confirms VALID, and maps it to facts", async () => {
+    const f = validator("VALID");
+    const pairs = itnPairs();
+    const v = await provider(f).verifyWebhook(itnBody(pairs), new Headers(), { sourceIp: PF_IP });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.event.eventKey).toBe("1089250:COMPLETE");
+    expect(v.event.facts).toEqual({
+      kind: "payment_succeeded",
+      transaction_id: TX,
+      provider_ref: TX,
+      provider_payment_id: "1089250",
+      amount_minor: 27500,
       currency: "ZAR",
-      metadata: { transactionId: TX },
+      mode: "test",
+      merchant_id: "10000100",
+    });
+    expect(JSON.stringify(v.event.payload)).not.toContain("signature");
+    // check 4: the same param string (no signature) went to PayFast's validate endpoint
+    expect(f.calls).toEqual([
+      { url: "https://sandbox.payfast.co.za/eng/query/validate", body: pfParamString(pairs) },
+    ]);
+  });
+
+  it("refuses a bad signature and a foreign address before asking PayFast anything", async () => {
+    const f = validator("VALID");
+    const p = provider(f);
+    expect(
+      await p.verifyWebhook(itnBody(itnPairs(), "attacker"), new Headers(), { sourceIp: PF_IP }),
+    ).toEqual({ ok: false, reason: "invalid_signature" });
+    expect(await p.verifyWebhook(itnBody(), new Headers(), { sourceIp: "203.0.113.9" })).toEqual({
+      ok: false,
+      reason: "verification_failed",
+    });
+    expect(await p.verifyWebhook(itnBody(), new Headers(), { sourceIp: null })).toEqual({
+      ok: false,
+      reason: "verification_failed",
+    });
+    expect(await p.verifyWebhook("junk", new Headers(), { sourceIp: PF_IP })).toEqual({
+      ok: false,
+      reason: "malformed_body",
+    });
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("an INVALID answer is a refusal; a validation or DNS outage is retryable", async () => {
+    const ctx = { sourceIp: PF_IP };
+    expect(
+      await provider(validator("INVALID")).verifyWebhook(itnBody(), new Headers(), ctx),
+    ).toEqual({
+      ok: false,
+      reason: "verification_failed",
+    });
+    expect(
+      await provider(validator("", false)).verifyWebhook(itnBody(), new Headers(), ctx),
+    ).toEqual({ ok: false, reason: "verification_unavailable" });
+    const throwing: FetchLike = async () => {
+      throw new Error("ECONNRESET");
+    };
+    expect(await provider(throwing).verifyWebhook(itnBody(), new Headers(), ctx)).toEqual({
+      ok: false,
+      reason: "verification_unavailable",
+    });
+    expect(
+      await provider(validator("VALID"), []).verifyWebhook(itnBody(), new Headers(), ctx),
+    ).toEqual({
+      ok: false,
+      reason: "verification_unavailable",
     });
   });
-  it("refuses a USD request, a provider error, a non-https redirect, and an echoed amount that differs", async () => {
-    const mk = (r: ReturnType<typeof res>) =>
-      createYocoProvider(
-        { secretKey: "sk_test_x", webhookSecret: SECRET },
-        r as unknown as FetchLike,
-      );
-    await expect(
-      mk(res({}))!.createCheckout({ ...req, currency: "USD" as never }),
-    ).rejects.toThrow();
-    await expect(mk(res({}, 500)).createCheckout(req)).rejects.toThrow("Yoco checkout failed");
-    await expect(
-      mk(
-        res({ id: "c", redirectUrl: "http://evil", amount: 27500, currency: "ZAR" }),
-      ).createCheckout(req),
-    ).rejects.toThrow();
-    await expect(
-      mk(
-        res({ id: "c", redirectUrl: "https://c.yoco.com/x", amount: 100, currency: "ZAR" }),
-      ).createCheckout(req),
-    ).rejects.toThrow("did not match");
+
+  it("in live mode the sandbox host is not a trusted source", async () => {
+    const resolve = vi.fn(async (h: string) =>
+      h === "sandbox.payfast.co.za" ? [PF_IP] : ["198.51.100.1"],
+    );
+    const live = createPayFastProvider({ ...PF, sandbox: false }, validator("VALID"), resolve);
+    expect(await live.verifyWebhook(itnBody(), new Headers(), { sourceIp: PF_IP })).toEqual({
+      ok: false,
+      reason: "verification_failed",
+    });
+    expect(resolve.mock.calls.map(([h]) => h)).not.toContain("sandbox.payfast.co.za");
+  });
+
+  it("maps FAILED and CANCELLED to failures, other statuses to ignored, and never trusts a malformed amount", () => {
+    const facts = (o: Record<string, string>) => payfastFacts(new Map(itnPairs(o)), "live");
+    expect(facts({ payment_status: "FAILED" })).toMatchObject({ kind: "payment_failed" });
+    expect(facts({ payment_status: "CANCELLED" })).toMatchObject({ kind: "payment_failed" });
+    expect(facts({ payment_status: "PENDING" })).toMatchObject({ kind: "ignored" });
+    expect(facts({ amount_gross: "27,500" }).amount_minor).toBeNull();
+    expect(facts({ amount_gross: "275.001" }).amount_minor).toBeNull();
+    expect(facts({ amount_gross: "0.10" }).amount_minor).toBe(10);
+    expect(facts({}).mode).toBe("live");
   });
 });
 

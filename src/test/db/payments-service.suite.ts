@@ -9,7 +9,12 @@ import {
   type PaymentsDeps,
   type TxView,
 } from "@/lib/payments/service";
-import { createYocoProvider, signYocoPayload } from "@/lib/payments/yoco";
+import {
+  createPayFastProvider,
+  pfParamString,
+  pfSignature,
+  type PayFastConfig,
+} from "@/lib/payments/payfast";
 import { rpc, uid, val, type Sql } from "./helpers";
 
 /**
@@ -24,7 +29,21 @@ export interface SuiteCtx {
   payEvents(orderId: string): Promise<number>;
 }
 
-const WH_SECRET = `whsec_${Buffer.from("integration-signing-secret-0123456789").toString("base64")}`;
+/** PayFast's published sandbox merchant (public test credentials). */
+const PF: PayFastConfig = {
+  merchantId: "10000100",
+  merchantKey: "46f0cd694581a",
+  passphrase: "jt7NOE43FZPn",
+  sandbox: true,
+};
+const PF_IP = "197.97.145.144";
+/** PayFast's /eng/query/validate: answers VALID / INVALID, or is down. */
+const fakePayFastValidate =
+  (answer: "VALID" | "INVALID" | "DOWN"): FetchLike =>
+  async (url) =>
+    url.endsWith("/eng/query/validate")
+      ? { ok: answer !== "DOWN", status: answer === "DOWN" ? 503 : 200, text: async () => answer }
+      : { ok: false, status: 404, text: async () => "" };
 const MERCHANT = "SBX-MERCHANT-1";
 
 function pgDb(sql: Sql): PaymentsDb {
@@ -64,29 +83,6 @@ export function servicePaymentsTests(ctx: SuiteCtx) {
     apply: (_t, _this, args) => (ctx.sql as any)(...args),
     get: (_t, prop) => (ctx.sql as any)[prop],
   });
-
-  /** In-process Yoco: records checkouts, echoes what it was asked to charge. */
-  function fakeYocoApi() {
-    const checkouts: { id: string; body: Record<string, any>; key: string }[] = [];
-    const f: FetchLike = async (url, init) => {
-      if (url.endsWith("/api/checkouts")) {
-        const body = JSON.parse(init!.body!);
-        const id = `ch_${uid().slice(0, 8)}`;
-        checkouts.push({ id, body, key: init!.headers!["Idempotency-Key"]! });
-        return json({
-          id,
-          redirectUrl: `https://c.yoco.com/checkout/${id}`,
-          amount: body.amount,
-          currency: body.currency,
-          status: "created",
-          merchantId: "1",
-          processingMode: "test",
-        });
-      }
-      return json({}, 404);
-    };
-    return { f, checkouts };
-  }
 
   /** In-process PayPal sandbox: orders move CREATED -> (approve) -> COMPLETED on capture. */
   function fakePayPalApi() {
@@ -162,20 +158,19 @@ export function servicePaymentsTests(ctx: SuiteCtx) {
     return { f, orders, state };
   }
 
-  const NOW = () => Date.now();
   function deps(
     over: {
-      yocoApi?: FetchLike;
+      payfastValid?: "VALID" | "INVALID" | "DOWN";
       paypalApi?: FetchLike;
-      providers?: Partial<Record<"yoco" | "paypal", PaymentProvider>>;
+      providers?: Partial<Record<"payfast" | "paypal", PaymentProvider>>;
       db?: PaymentsDb;
     } = {},
   ): PaymentsDeps {
     const providers: PaymentsDeps["providers"] = over.providers ?? {
-      yoco: createYocoProvider(
-        { secretKey: "sk_test_integration", webhookSecret: WH_SECRET },
-        over.yocoApi ?? fakeYocoApi().f,
-        NOW,
+      payfast: createPayFastProvider(
+        PF,
+        fakePayFastValidate(over.payfastValid ?? "VALID"),
+        async () => [PF_IP],
       ),
       paypal: createPayPalProvider(
         {
@@ -197,212 +192,178 @@ export function servicePaymentsTests(ctx: SuiteCtx) {
   }
   const startKey = () => `start-${uid()}`;
 
-  const yocoEvent = (
-    tx: { id: string; expected_amount: number | string; provider_ref: string | null },
-    over: Record<string, unknown> = {},
-    payload: Record<string, unknown> = {},
-  ) =>
-    JSON.stringify({
-      id: `evt_${uid().slice(0, 12)}`,
-      type: "payment.succeeded",
-      createdDate: new Date().toISOString(),
-      payload: {
-        id: `p_${uid().slice(0, 10)}`,
-        amount: Math.round(Number(tx.expected_amount) * 100),
-        currency: "ZAR",
-        mode: "test",
-        status: "succeeded",
-        type: "payment",
-        metadata: { checkoutId: tx.provider_ref, transactionId: tx.id },
-        ...payload,
-      },
+  /** A PayFast ITN for a transaction, signed the way PayFast signs it (fields in the order posted). */
+  const itn = (
+    tx: { id: string; expected_amount: number | string },
+    over: Record<string, string> = {},
+    passphrase: string | null = PF.passphrase,
+  ) => {
+    const gross = Number(tx.expected_amount).toFixed(2);
+    const f: Record<string, string> = {
+      m_payment_id: tx.id,
+      pf_payment_id: `pf${uid().replace(/-/g, "").slice(0, 10)}`,
+      payment_status: "COMPLETE",
+      item_name: "Cannaplug order",
+      item_description: "",
+      amount_gross: gross,
+      amount_fee: "-6.33",
+      amount_net: (Number(gross) - 6.33).toFixed(2),
+      custom_str1: "",
+      name_first: "Test",
+      name_last: "Member",
+      email_address: "member@example.com",
+      merchant_id: PF.merchantId,
       ...over,
-    });
-  const signedHeaders = (raw: string, o: { ts?: number; secret?: string; id?: string } = {}) => {
-    const id = o.id ?? `msg_${uid().slice(0, 8)}`;
-    const ts = String(o.ts ?? Math.floor(Date.now() / 1000));
-    return new Headers({
-      "webhook-id": id,
-      "webhook-timestamp": ts,
-      "webhook-signature": `v1,${signYocoPayload(o.secret ?? WH_SECRET, id, ts, raw)}`,
-    });
+    };
+    const pairs = Object.entries(f);
+    return `${pfParamString(pairs)}&signature=${pfSignature(pfParamString(pairs), passphrase)}`;
   };
   const rejections = () => val<number>(sql`SELECT count(*)::int FROM public.webhook_rejections`);
   const txOf = async (id: string) =>
     (await sql`SELECT * FROM public.payment_transactions WHERE id = ${id}`)[0] as any;
 
-  describe("Yoco end to end (sandbox-style)", () => {
-    it("starts a checkout from the DATABASE total, reuses it, and never trusts the return URL", async () => {
-      const o = await ctx.newOrder(275);
-      const api = fakeYocoApi();
-      const d = deps({ yocoApi: api.f });
-      const s = await startPayment(d, {
+  describe("PayFast end to end (sandbox-style)", () => {
+    const start = (d: PaymentsDeps, o: { member: string; orderId: string }) =>
+      startPayment(d, {
         userId: o.member,
         orderId: o.orderId,
-        provider: "yoco",
+        provider: "payfast",
         key: startKey(),
       });
-      expect(s).toMatchObject({ provider: "yoco", amount: 275, currency: "ZAR", fxRate: null });
-      expect(s.redirectUrl).toMatch(/^https:\/\/c\.yoco\.com\/checkout\/ch_/);
-      expect(api.checkouts[0]!.body["amount"]).toBe(27500);
-      expect(api.checkouts[0]!.body["successUrl"]).toContain("/payment/return?order=");
-      // the member comes back "successfully" — nothing has been verified, so nothing is paid
-      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
-      const again = await startPayment(d, {
-        userId: o.member,
-        orderId: o.orderId,
-        provider: "yoco",
-        key: startKey(),
-      });
-      expect(again.transactionId).toBe(s.transactionId);
-      expect(api.checkouts).toHaveLength(1);
-    });
 
-    it("a correctly signed success event pays the order once; replays and concurrent duplicates change nothing", async () => {
+    it("signs a checkout from the DATABASE total, reuses it, and never trusts the return URL", async () => {
       const o = await ctx.newOrder(275);
       const d = deps();
-      const s = await startPayment(d, {
-        userId: o.member,
-        orderId: o.orderId,
-        provider: "yoco",
-        key: startKey(),
+      const s = await start(d, o);
+      expect(s).toMatchObject({ provider: "payfast", amount: 275, currency: "ZAR", fxRate: null });
+      const url = new URL(s.redirectUrl);
+      expect(url.origin + url.pathname).toBe("https://sandbox.payfast.co.za/eng/process");
+      const fields = [...url.searchParams.entries()];
+      expect(Object.fromEntries(fields)).toMatchObject({
+        merchant_id: PF.merchantId,
+        amount: "275.00",
+        m_payment_id: s.transactionId,
+        notify_url: "https://shop.example/api/public/payments/payfast-itn",
       });
+      expect(url.searchParams.get("return_url")).toContain("/payment/return?order=");
+      // The signature PayFast will check is the one over exactly these fields.
+      const unsigned = fields.filter(([k]) => k !== "signature");
+      expect(url.searchParams.get("signature")).toBe(
+        pfSignature(pfParamString(unsigned), PF.passphrase),
+      );
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
+      const again = await start(d, o);
+      expect(again.transactionId).toBe(s.transactionId);
+    });
+
+    it("a verified COMPLETE notification pays the order once; replays and concurrent duplicates change nothing", async () => {
+      const o = await ctx.newOrder(275);
+      const d = deps();
+      const s = await start(d, o);
       const tx = (await d.db.getTx(s.transactionId))!;
-      const raw = yocoEvent(tx);
-      const h = signedHeaders(raw);
+      const raw = itn(tx);
       const rs = await Promise.all(
-        Array.from({ length: 6 }, () => handleWebhook(d, "yoco", raw, h, "iphash")),
+        Array.from({ length: 6 }, () =>
+          handleWebhook(d, "payfast", raw, new Headers(), "iphash", PF_IP),
+        ),
       );
       expect(rs.every((r) => r.status === 200)).toBe(true);
       expect(await ctx.orderStatus(o.orderId)).toBe("confirmed");
       expect(await ctx.payEvents(o.orderId)).toBe(1);
-      expect((await handleWebhook(d, "yoco", raw, h, null)).status).toBe(200); // late redelivery
-      expect(await ctx.payEvents(o.orderId)).toBe(1);
-      // same payment redelivered under a NEW event id and a fresh signature
-      const raw2 = JSON.stringify({ ...JSON.parse(raw), id: `evt_${uid().slice(0, 12)}` });
-      expect((await handleWebhook(d, "yoco", raw2, signedHeaders(raw2), null)).status).toBe(200);
+      expect((await handleWebhook(d, "payfast", raw, new Headers(), null, PF_IP)).status).toBe(200);
       expect(await ctx.payEvents(o.orderId)).toBe(1);
       expect((await txOf(s.transactionId)).status).toBe("succeeded");
+      expect((await txOf(s.transactionId)).provider_payment_id).toMatch(/^pf/);
     });
 
-    it("invalid messages are refused BEFORE business logic and leave no trace on the order", async () => {
+    it("invalid notifications are refused BEFORE business logic and leave no trace on the order", async () => {
       const o = await ctx.newOrder(275);
       const d = deps();
-      const s = await startPayment(d, {
-        userId: o.member,
-        orderId: o.orderId,
-        provider: "yoco",
-        key: startKey(),
-      });
+      const s = await start(d, o);
       const tx = (await d.db.getTx(s.transactionId))!;
-      const raw = yocoEvent(tx);
+      const raw = itn(tx);
       const apply = vi.spyOn(d.db, "apply");
       const before = await rejections();
-      const bad: [string, string, Headers, number][] = [
-        ["tampered body", raw.replace(String(27500), "1"), signedHeaders(raw), 401],
-        [
-          "wrong secret",
-          raw,
-          signedHeaders(raw, { secret: "whsec_" + Buffer.from("attacker").toString("base64") }),
-          401,
-        ],
-        [
-          "stale timestamp",
-          raw,
-          signedHeaders(raw, { ts: Math.floor(Date.now() / 1000) - 600 }),
-          401,
-        ],
-        ["no headers", raw, new Headers(), 401],
-        ["unsigned junk", "{}", new Headers({ "content-type": "application/json" }), 401],
+      const bad: [string, string, PaymentsDeps, string | null, number][] = [
+        ["tampered amount", raw.replace("amount_gross=275.00", "amount_gross=1.00"), d, PF_IP, 401],
+        ["wrong passphrase", itn(tx, {}, "attacker"), d, PF_IP, 401],
+        ["not from PayFast", raw, d, "203.0.113.9", 401],
+        ["PayFast says INVALID", raw, deps({ payfastValid: "INVALID" }), PF_IP, 401],
+        ["junk", "hello", d, PF_IP, 400],
       ];
-      for (const [, body, headers, status] of bad)
-        expect((await handleWebhook(d, "yoco", body, headers, "ip")).status).toBe(status);
+      for (const [name, body, dd, ip, status] of bad)
+        expect(
+          (await handleWebhook(dd, "payfast", body, new Headers(), "ip", ip)).status,
+          name,
+        ).toBe(status);
       expect(apply).not.toHaveBeenCalled();
       expect(await rejections()).toBe(before + bad.length);
       expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
       expect(await ctx.payEvents(o.orderId)).toBe(0);
+      // PayFast's validation endpoint down: ask PayFast to retry rather than refuse for good.
       expect(
-        (await handleWebhook(d, "yoco", "x".repeat(200_000), new Headers(), null)).status,
-      ).toBe(413);
-      const rows = await sql`SELECT * FROM public.webhook_rejections ORDER BY id DESC LIMIT 1`;
-      expect(Object.keys(rows[0]!).some((k) => /payload|body/.test(k))).toBe(false);
+        (
+          await handleWebhook(
+            deps({ payfastValid: "DOWN" }),
+            "payfast",
+            raw,
+            new Headers(),
+            null,
+            PF_IP,
+          )
+        ).status,
+      ).toBe(503);
     });
 
-    it("a VALID signature does not make a wrong amount, currency, mode or order reference payable", async () => {
-      const cases: [string, (tx: TxView) => Record<string, unknown>][] = [
-        ["amount", () => ({ amount: 100 })],
-        ["currency", () => ({ currency: "USD" })],
-        ["mode", () => ({ mode: "live" })],
-        [
-          "checkout reference",
-          () => ({ metadata: { checkoutId: "ch_somebody_else", transactionId: undefined } }),
-        ],
+    it("a VALID notification does not make a wrong amount, merchant or transaction payable", async () => {
+      const cases: [string, Record<string, string>][] = [
+        ["amount", { amount_gross: "100.00" }],
+        ["merchant", { merchant_id: "10000999" }],
       ];
       for (const [name, over] of cases) {
         const o = await ctx.newOrder(275);
         const d = deps();
-        const s = await startPayment(d, {
-          userId: o.member,
-          orderId: o.orderId,
-          provider: "yoco",
-          key: startKey(),
-        });
+        const s = await start(d, o);
         const tx = (await d.db.getTx(s.transactionId))!;
-        const patch = over(tx);
-        if ("metadata" in patch) (patch as any).metadata.transactionId = tx.id;
-        const raw = yocoEvent(tx, {}, patch);
-        expect((await handleWebhook(d, "yoco", raw, signedHeaders(raw), null)).status, name).toBe(
-          200,
-        ); // acknowledged, not applied
+        expect(
+          (await handleWebhook(d, "payfast", itn(tx, over), new Headers(), null, PF_IP)).status,
+          name,
+        ).toBe(200);
         expect(await ctx.orderStatus(o.orderId), name).toBe("awaiting_payment");
         expect((await txOf(s.transactionId)).status, name).toBe("review");
       }
-    });
-
-    it("an event naming another order's transaction cannot pay this order, and unknown ids pay nothing", async () => {
-      const a = await ctx.newOrder(275);
-      const b = await ctx.newOrder(275);
+      const o = await ctx.newOrder(275);
       const d = deps();
-      const sa = await startPayment(d, {
-        userId: a.member,
-        orderId: a.orderId,
-        provider: "yoco",
-        key: startKey(),
-      });
-      const sb = await startPayment(d, {
-        userId: b.member,
-        orderId: b.orderId,
-        provider: "yoco",
-        key: startKey(),
-      });
-      const txA = (await d.db.getTx(sa.transactionId))!;
-      const txB = (await d.db.getTx(sb.transactionId))!;
-      // A's checkout id with B's transaction id: the reference does not belong together
-      const raw = yocoEvent(
-        txB,
-        {},
-        { metadata: { checkoutId: txA.provider_ref, transactionId: txB.id } },
-      );
-      await handleWebhook(d, "yoco", raw, signedHeaders(raw), null);
-      expect(await ctx.orderStatus(a.orderId)).toBe("awaiting_payment");
-      expect(await ctx.orderStatus(b.orderId)).toBe("awaiting_payment");
-      const ghost = yocoEvent({ ...txA, id: uid() });
-      await handleWebhook(d, "yoco", ghost, signedHeaders(ghost), null);
-      expect(await ctx.orderStatus(a.orderId)).toBe("awaiting_payment");
+      const s = await start(d, o);
+      const tx = (await d.db.getTx(s.transactionId))!;
+      await handleWebhook(d, "payfast", itn({ ...tx, id: uid() }), new Headers(), null, PF_IP);
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
     });
 
-    it("a database failure answers 5xx (so Yoco redelivers) and a retry then succeeds exactly once", async () => {
+    it("a CANCELLED notification records the failure and the member can try again", async () => {
+      const o = await ctx.newOrder(275);
+      const d = deps();
+      const s = await start(d, o);
+      const tx = (await d.db.getTx(s.transactionId))!;
+      await handleWebhook(
+        d,
+        "payfast",
+        itn(tx, { payment_status: "CANCELLED" }),
+        new Headers(),
+        null,
+        PF_IP,
+      );
+      expect((await txOf(s.transactionId)).status).toBe("failed");
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
+      const again = await start(d, o);
+      expect(again.transactionId).not.toBe(s.transactionId);
+    });
+
+    it("a database failure answers 5xx (so PayFast resends) and a retry then succeeds exactly once", async () => {
       const o = await ctx.newOrder(275);
       const real = deps();
-      const s = await startPayment(real, {
-        userId: o.member,
-        orderId: o.orderId,
-        provider: "yoco",
-        key: startKey(),
-      });
-      const tx = (await real.db.getTx(s.transactionId))!;
-      const raw = yocoEvent(tx);
-      const h = signedHeaders(raw);
+      const s = await start(real, o);
+      const raw = itn((await real.db.getTx(s.transactionId))!);
       const flaky = {
         ...pgDb(sql),
         apply: vi
@@ -411,46 +372,32 @@ export function servicePaymentsTests(ctx: SuiteCtx) {
           .mockImplementation(pgDb(sql).apply),
       };
       const d = deps({ db: flaky });
-      await expect(handleWebhook(d, "yoco", raw, h, null)).rejects.toThrow(); // route turns this into HTTP 500
+      await expect(handleWebhook(d, "payfast", raw, new Headers(), null, PF_IP)).rejects.toThrow();
       expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
-      expect((await handleWebhook(d, "yoco", raw, h, null)).status).toBe(200);
+      expect((await handleWebhook(d, "payfast", raw, new Headers(), null, PF_IP)).status).toBe(200);
       expect(await ctx.orderStatus(o.orderId)).toBe("confirmed");
       expect(await ctx.payEvents(o.orderId)).toBe(1);
     });
 
-    it("a provider failure at checkout marks the attempt failed and the member can try again", async () => {
+    it("a provider failure at checkout marks the attempt failed; an unconfigured provider is unavailable", async () => {
       const o = await ctx.newOrder(275);
-      const broken: FetchLike = async () => json({ message: "boom" }, 500);
-      await expect(
-        startPayment(deps({ yocoApi: broken }), {
-          userId: o.member,
-          orderId: o.orderId,
-          provider: "yoco",
-          key: startKey(),
-        }),
-      ).rejects.toMatchObject({ code: "payment_provider_error" });
+      const broken: PaymentProvider = {
+        ...createPayFastProvider(PF, async () => json({}, 500)),
+        createCheckout: async () => {
+          throw new Error("boom");
+        },
+      };
+      await expect(start(deps({ providers: { payfast: broken } }), o)).rejects.toMatchObject({
+        code: "payment_provider_error",
+      });
       const [row] =
         await sql`SELECT status FROM public.payment_transactions WHERE order_id = ${o.orderId}`;
       expect(row!["status"]).toBe("failed");
-      const ok = await startPayment(deps(), {
-        userId: o.member,
-        orderId: o.orderId,
-        provider: "yoco",
-        key: startKey(),
+      expect((await start(deps(), o)).redirectUrl).toMatch(/^https:/);
+      const o2 = await ctx.newOrder(275);
+      await expect(start(deps({ providers: {} }), o2)).rejects.toMatchObject({
+        code: "payment_provider_unavailable",
       });
-      expect(ok.redirectUrl).toMatch(/^https:/);
-    });
-
-    it("an unconfigured provider is unavailable", async () => {
-      const o = await ctx.newOrder(275);
-      await expect(
-        startPayment(deps({ providers: {} }), {
-          userId: o.member,
-          orderId: o.orderId,
-          provider: "yoco",
-          key: startKey(),
-        }),
-      ).rejects.toMatchObject({ code: "payment_provider_unavailable" });
     });
   });
 

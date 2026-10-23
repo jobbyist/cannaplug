@@ -9,7 +9,7 @@ need your accounts or credentials are marked **[needs you]**.
   privileged action goes through a server function that re-checks the caller's role, then calls a service-role-only database function.
 - **Database**: Supabase Postgres. Money, stock, loyalty and roles are only changed by `SECURITY DEFINER` functions that browsers cannot execute
   (verified by `src/test/db/security-audit.test.ts`).
-- **Payments**: Yoco + PayPal hosted checkouts → signed webhooks (`/api/public/payments/*-webhook`) → `payments_apply_verified_event`.
+- **Payments**: PayFast (ZAR, signed form POST) and PayPal (USD) hosted checkouts → verified notifications (`/api/public/payments/payfast-itn`, `/api/public/payments/paypal-webhook`) → `payments_apply_verified_event`. Bank transfer (EFT) is offered only once a manager saves owner-confirmed bank details in Admin → Payments.
   Manual EFT: manager-only, dual control above R10,000. A payment return URL never marks anything paid.
 - **Email/SMS**: DB queue (`notification_events`) drained by `/api/public/notifications/dispatch` (Resend; optional Twilio).
 - **AI**: "Ask Cannaplug" (`gemini-2.5-flash`) and the Journal pipeline share one Gemini project; quotas are enforced in the database.
@@ -21,7 +21,7 @@ need your accounts or credentials are marked **[needs you]**.
 | Supabase                | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Service role key is server-only.                                                                           |
 | Cron                    | `LOVABLE_CRON_SECRET` (+ optional `_PREVIOUS` during rotation)                                                                                            | Same value goes in GitHub secret `CRON_SECRET`.                                                            |
 | Site                    | `SITE_URL`, `CONTACT_INBOX` (default `info@cannaplug012.co.za`), `VERIFICATION_IP_SALT`                                                                   |                                                                                                            |
-| Yoco                    | `YOCO_SECRET_KEY` (`sk_test_…`/`sk_live_…`), `YOCO_WEBHOOK_SECRET` (`whsec_…`)                                                                            | Test vs live is read from the key prefix.                                                                  |
+| PayFast                 | `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`, `PAYFAST_ENV` (`live` default, or `sandbox`)                                         | The passphrase must match PayFast → Settings → Developer settings. Merchant ID is compared on every ITN.   |
 | PayPal                  | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `PAYPAL_ENV`                                                       | `PAYPAL_MERCHANT_ID` is compared on every capture.                                                         |
 | Email                   | `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL`                                                                                                            | Default sender `Cannaplug Support <update@updates.cannaplug012.co.za>`; domain must be verified in Resend. |
 | SMS/WhatsApp (optional) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`                                                                      | Also switch on `payment_settings.sms_enabled`.                                                             |
@@ -45,7 +45,7 @@ Add repository secrets `APP_URL` and `CRON_SECRET`. Then:
 
 ## 4. Provider setup **[needs you]**
 
-1. **Yoco**: dashboard → Developers → Webhooks: URL `https://<site>/api/public/payments/yoco-webhook`; copy the `whsec_…` secret.
+1. **PayFast**: dashboard → Settings → Developer settings: copy Merchant ID and Merchant Key, set a **passphrase** (same value in `PAYFAST_PASSPHRASE`). No webhook to register: each payment carries its own notify URL (`https://<site>/api/public/payments/payfast-itn`). Ask PayFast to confirm the product range is acceptable on the account before going live.
 2. **PayPal**: developer dashboard → app → Webhooks: URL `https://<site>/api/public/payments/paypal-webhook`, events
    `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`; copy the Webhook ID. Merchant ID is under Account settings.
 3. **Resend**: verify `updates.cannaplug012.co.za` (SPF/DKIM). Send a test: `RESEND_API_KEY=… bun scripts/send-test-emails.ts you@example.com`.
@@ -61,7 +61,7 @@ These need a person in a dashboard:
 2. **Supabase → Authentication → Passwords → enable leaked-password protection.**
 3. **Supabase → Authentication → Email templates:** paste `supabase/templates/*.html` (see `supabase/templates/README.md`).
 4. **GitHub → Settings → Actions → General:** allow Actions to run, then add repository secrets `APP_URL` (`https://cannaplug012.co.za`) and `CRON_SECRET` (same value as `LOVABLE_CRON_SECRET`). Run _Scheduled jobs → dispatch_ once.
-5. **Vercel env vars:** run `bun scripts/check-env.ts .env.production` against a pulled copy, or compare with `docs/release/env-matrix.md`. Yoco variables are marked _retiring_.
+5. **Vercel env vars:** run `bun scripts/check-env.ts .env.production` against a pulled copy, or compare with `docs/release/env-matrix.md`. Yoco variables are gone (removed 23 Oct 2026); delete any `YOCO_*` left in Vercel.
 
 ## 5. Deploy
 
@@ -74,7 +74,7 @@ additive; the code tolerates the old schema for the minutes in between except th
   Check the provider dashboard; if the money is genuine, confirm via the EFT workflow or contact the customer. `needs_refund` = money arrived that
   cannot be applied (cancelled/duplicate) — refund in the provider dashboard.
 - **Webhook refusals** (24 h count on the Payments tab): a spike means someone is probing, or the signing secret is wrong after a rotation.
-- **FX**: PayPal needs a current ZAR→USD rate. Feeds down → last valid rate; none → PayPal is hidden at checkout (Yoco/EFT unaffected). Managers can
+- **FX**: PayPal needs a current ZAR→USD rate. Feeds down → last valid rate; none → PayPal is declined at checkout (PayFast/EFT unaffected). Managers can
   set a manual rate or switch to manual mode in Payments.
 - **Notifications**: `notification_events` rows in `dead` status failed permanently (`last_error` says why). Fix the cause, then
   `update notification_events set status='queued', attempts=0, next_attempt_at=now() where id=…`.

@@ -106,7 +106,7 @@ export async function startPayment(
       deps.warn?.("fx unavailable", err);
       throw new PaymentError(
         "fx_rate_unavailable",
-        "PayPal is temporarily unavailable. Please pay by card or EFT.",
+        "PayPal is temporarily unavailable. Please pay by card, Instant EFT or bank transfer.",
       );
     }
   }
@@ -144,6 +144,7 @@ export async function startPayment(
       successUrl: `${ret}&result=success`,
       cancelUrl: `${ret}&result=cancelled`,
       failureUrl: `${ret}&result=failed`,
+      notifyUrl: `${deps.siteUrl.replace(/\/+$/, "")}/api/public/payments/payfast-itn`,
     });
     await deps.db.attach(tx.id, session.providerRef, session.redirectUrl);
     return started(session.redirectUrl);
@@ -170,6 +171,7 @@ export async function handleWebhook(
   raw: string,
   headers: Headers,
   ipHash: string | null,
+  sourceIp: string | null = null,
 ): Promise<WebhookResult> {
   const provider = deps.providers[providerId];
   if (!provider) return { status: 503, body: "not configured" };
@@ -177,15 +179,10 @@ export async function handleWebhook(
     await deps.db.reject(providerId, "malformed_body", ipHash, null).catch(() => undefined);
     return { status: 413, body: "payload too large" };
   }
-  const v = await provider.verifyWebhook(raw, headers);
+  const v = await provider.verifyWebhook(raw, headers, { sourceIp });
   if (!v.ok) {
     await deps.db
-      .reject(
-        providerId,
-        v.reason,
-        ipHash,
-        headers.get("webhook-id") ?? headers.get("paypal-transmission-id"),
-      )
+      .reject(providerId, v.reason, ipHash, headers.get("paypal-transmission-id"))
       .catch(() => undefined);
     if (v.reason === "verification_unavailable") return { status: 503, body: "try again" };
     return { status: v.reason === "malformed_body" ? 400 : 401, body: "rejected" };
