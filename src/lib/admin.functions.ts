@@ -89,6 +89,20 @@ const productSchema = z.object({
   badge: z.string().max(80).nullable(),
   sort_order: z.number().int().nonnegative(),
   is_active: z.boolean(),
+  sku: z
+    .string()
+    .trim()
+    .max(64)
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  barcode: z
+    .string()
+    .trim()
+    .regex(/^[0-9A-Za-z-]{4,48}$/, "Barcode: 4-48 letters, digits or dashes")
+    .or(z.literal(""))
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  cost_rand: z.number().nonnegative().max(1_000_000).nullish(),
 });
 
 export const saveAdminProductFn = createServerFn({ method: "POST" })
@@ -142,3 +156,36 @@ export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
       Number(data.amountReceived),
     ),
   );
+
+export const createProductImageUploadFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data) =>
+    z
+      .object({
+        productId: z.string().uuid(),
+        mime: z.enum(["image/jpeg", "image/png", "image/webp"]),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    const { createProductImageUpload } = await import("@/lib/product-media.server");
+    return createProductImageUpload(context.userId, data.productId, data.mime);
+  });
+
+export const attachProductImageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data) =>
+    z.object({ productId: z.string().uuid(), path: z.string().min(10).max(200) }).parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    const { attachProductImage } = await import("@/lib/product-media.server");
+    return attachProductImage(context.userId, data.productId, data.path);
+  });
+
+export const removeProductImageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data) => z.object({ productId: z.string().uuid() }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { removeProductImage } = await import("@/lib/product-media.server");
+    return removeProductImage(context.userId, data.productId);
+  });

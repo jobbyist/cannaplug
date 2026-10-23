@@ -468,13 +468,21 @@ function MemberPortal() {
 function ProductRow({
   product,
 }: {
-  product: { id: string; name: string; category: string; price_rand: number };
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    price_rand: number;
+    image_url?: string | null;
+  };
 }) {
   return (
     <div className="flex items-center gap-3 border-b border-border py-3 last:border-0">
       <img
-        src={getCatalogImage(product.category)}
-        alt=""
+        src={product.image_url ?? getCatalogImage(product.category)}
+        alt={product.name}
+        width={40}
+        height={40}
         className="h-10 w-10 rounded-lg object-cover"
       />
       <div className="flex-1 text-xs">

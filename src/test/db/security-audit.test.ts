@@ -48,7 +48,16 @@ describe.skipIf(!DB_URL)("database privilege audit (real PostgreSQL)", () => {
       SELECT table_name, privilege_type FROM information_schema.role_table_grants
       WHERE table_schema = 'public' AND grantee = 'anon' ORDER BY 1, 2`;
     const grants = rows.map((r) => `${r["table_name"]}:${r["privilege_type"]}`);
-    expect(grants).toEqual(["articles:SELECT", "delivery_options:SELECT", "products:SELECT"]);
+    expect(grants).toEqual(["articles:SELECT", "delivery_options:SELECT"]);
+    // products: column-level SELECT only (20261023001000_product_media), never cost_rand, never a write.
+    const cols = await sql`
+      SELECT DISTINCT privilege_type FROM information_schema.column_privileges
+      WHERE table_schema = 'public' AND table_name = 'products' AND grantee = 'anon'`;
+    expect(cols.map((r) => r["privilege_type"])).toEqual(["SELECT"]);
+    expect(
+      await sql`SELECT 1 FROM information_schema.column_privileges
+        WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'cost_rand' AND privilege_type = 'SELECT' AND grantee IN ('anon', 'authenticated')`,
+    ).toHaveLength(0);
   });
 
   it("no browser role holds TRUNCATE, TRIGGER or REFERENCES anywhere (they bypass RLS)", async () => {
