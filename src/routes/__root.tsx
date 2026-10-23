@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PwaRegister } from "@/components/pwa/PwaRegister";
 import {
   Outlet,
   Link,
@@ -85,6 +86,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "CannaPlug" },
       { name: "description", content: "CannaPlug premium cannabis dispensary." },
       { name: "author", content: "CannaPlug" },
+      { name: "theme-color", content: "#0B3D20" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "CannaPlug" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { property: "og:title", content: "CannaPlug" },
       { property: "og:description", content: "Quality cannabis. Real people." },
       { property: "og:type", content: "website" },
@@ -110,7 +116,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "icon", href: "/favicon-192.png", type: "image/png", sizes: "192x192" },
-      { rel: "apple-touch-icon", href: "/favicon-512.png" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -148,6 +155,7 @@ function RootComponent() {
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
           <ChatWidget />
+          <PwaRegister />
         </CartProvider>
       </AuthProvider>
     </QueryClientProvider>

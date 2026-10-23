@@ -38,6 +38,8 @@ export function buildCsp(opts: HeaderOptions = {}): string {
     "media-src 'self' blob: https:",
     `connect-src ${["'self'", ...supa].join(" ")}`,
     "frame-src 'none'",
+    "worker-src 'self'",
+    "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self' https://www.payfast.co.za https://sandbox.payfast.co.za",

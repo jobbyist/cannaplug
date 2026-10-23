@@ -1019,3 +1019,15 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - **Hosted (23 Oct):** migration applied via `apply_migration`; verified the new provider checks and that `authenticated` cannot execute `payment_set_eft_details`.
 - **Owner actions:** set `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE` (and `PAYFAST_ENV=sandbox` for a first test) in Vercel; delete `YOCO_*`; enter the bank details in Admin → Payments once confirmed; one sandbox payment per provider before going live.
 - Rollback: `supabase/rollbacks/20261023005000_payfast_eft_rollback.sql` (refuses once PayFast payments exist) and revert the PR.
+
+## 2026-10-23 — Installable app (PWA) and offline page (Prompt 6)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-pwa`
+- Build note: Nitro picks its preset from the environment. Locally (and in Lovable) the default is `cloudflare-module`; on Vercel the `VERCEL` environment selects the Vercel preset automatically, so nothing is pinned in `vite.config.ts` (left untouched). Headers come from `src/server.ts` → `applySecurityHeaders`; files in `public/` (manifest, `sw.js`, icons) are served as static files.
+- `public/manifest.webmanifest` (CannaPlug, `/?source=pwa`, standalone, Forest/Cream, 192/512/maskable icons generated from `src/assets/cannaplug-badge.png` into `public/icons/`, shortcuts Shop / Account / Journal); linked from `__root.tsx` with theme-color and Apple tags.
+- `public/sw.js` (hand-written, no build plugin): versioned caches; cache-first for `/assets/*`, icons and Google Fonts; network-first (4 s timeout) for public pages, then the last copy, then `/offline`. Never cached: `/admin`, `/account`, `/doctor`, `/member`, `/checkout`, `/payment`, `/verify`, `/unsubscribe`, `/subscribe`, `/api/*`, server functions, Supabase and every other third party, non-GET requests, and any `no-store`/`private` response. Old caches removed on activate; "Update available → Reload" bar when a new worker waits.
+- `/offline` route (branded, no data). "Get the app" story bubble in the Stories bar: the browser install prompt where offered, Add-to-Home-Screen steps on iOS Safari, never offered twice in a week, hidden once installed.
+- CSP: `worker-src 'self'`, `manifest-src 'self'`.
+- Tests: `src/test/pwa.test.ts` (runs the real `sw.js` policy; manifest, head and CSP; install rules). Mutations caught: `/checkout` removed from the never-cache list; `no-store` responses stored. `e2e/pwa.spec.ts` via `bash scripts/pwa-e2e.sh` (production node-server build): manifest and icons, Chrome installability errors (the check Lighthouse's retired PWA audit used) = none, private routes never in any cache, worker controls the page and `/offline` renders styled with the server stopped — 4 passed. Added to the CI e2e job.
+- Migrations: none. Owner actions: none (after deploy, Android/desktop Chrome offers install; iPhone users see the steps).
+- Rollback: revert the PR. Already-installed workers retire themselves when `sw.js` is removed only after a new deploy serves a 404 for it; to force it, ship a `sw.js` that calls `self.registration.unregister()`.

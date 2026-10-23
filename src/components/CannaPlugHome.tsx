@@ -47,6 +47,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
+import { GetTheAppStory } from "@/components/pwa/GetTheAppStory";
 import { rand, useCart } from "@/lib/cart";
 import { getHomeCatalogueFn } from "@/lib/admin.functions";
 import { useAuth } from "@/hooks/useAuth";
@@ -246,6 +247,7 @@ function StoryNavigation() {
     <>
       <div className="stories-wrap" aria-label="CannaPlug stories">
         <div className="stories">
+          <GetTheAppStory />
           {stories.map((item, i) => (
             <button key={item.label} className="story" onClick={() => setActive(i)}>
               <span className="story-ring">
