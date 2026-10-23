@@ -957,3 +957,13 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Also: fixed a pre-existing Prettier error in `scripts/send-test-emails.ts` that failed `bun run lint` on `main`.
 - Migrations: none. Tests: `scripts/verify-release.sh` (full).
 - Rollback: revert the commit.
+
+## 2026-10-23 — Owner actions and environment audit (Prompt 1)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-owner-actions`
+- `supabase/owner-actions/2026-10-hosted-cleanup.sql` (idempotent) + `supabase/tests/verify-cleanup.sql`; DB test runs the script twice.
+- **Hosted (23 Oct):** the two `DROP POLICY`, the 5-argument `verification_submit` drop and `DROP EXTENSION http` had already been done; Claude recorded `20260930003000_id_verification` and `20260930004000_id_verification_expiry` in `schema_migrations`. `verify-cleanup.sql` returns all true.
+- **Hosted (23 Oct):** the legacy `cannaplug-chat` edge function (open, `verify_jwt=false`) was replaced by a `410 Gone` stub with JWT verification; delete it in the dashboard.
+- `scripts/env-registry.ts`, `scripts/check-env.ts`, `docs/release/env-matrix.md`; a unit test fails if server code reads an unlisted variable. Yoco variables marked _retiring_.
+- `docs/release/runbook.md` §4b lists the remaining dashboard actions.
+- Rollback: revert the commit (the hosted inserts are harmless bookkeeping).

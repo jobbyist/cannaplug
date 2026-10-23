@@ -1,0 +1,169 @@
+/**
+ * Every environment variable the app reads, grouped by feature. `src/test/env-registry.test.ts` fails if server code
+ * starts reading a variable that is not listed here, so this file stays the single source for docs/release/env-matrix.md.
+ * status: "required" = the site breaks without it; "feature" = the named feature is off until it is set;
+ * "optional" = has a safe default; "retiring" = being removed (Yoco is dropped as of 23 Oct 2026).
+ */
+export type EnvStatus = "required" | "feature" | "optional" | "retiring";
+export type EnvVar = { name: string; group: string; status: EnvStatus; note: string };
+
+export const ENV_VARS: EnvVar[] = [
+  { name: "SUPABASE_URL", group: "Supabase", status: "required", note: "Server-side Supabase URL" },
+  {
+    name: "SUPABASE_PUBLISHABLE_KEY",
+    group: "Supabase",
+    status: "required",
+    note: "Server-side anon key",
+  },
+  {
+    name: "SUPABASE_SERVICE_ROLE_KEY",
+    group: "Supabase",
+    status: "required",
+    note: "Server only; never VITE_",
+  },
+  {
+    name: "VITE_SUPABASE_URL",
+    group: "Supabase",
+    status: "required",
+    note: "Browser Supabase URL",
+  },
+  {
+    name: "VITE_SUPABASE_PUBLISHABLE_KEY",
+    group: "Supabase",
+    status: "required",
+    note: "Browser anon key",
+  },
+  {
+    name: "SITE_URL",
+    group: "Site",
+    status: "required",
+    note: "https://cannaplug012.co.za (payment return URLs)",
+  },
+  {
+    name: "PUBLIC_APP_URL",
+    group: "Site",
+    status: "required",
+    note: "Links in emails and document QR codes",
+  },
+  {
+    name: "CONTACT_INBOX",
+    group: "Site",
+    status: "optional",
+    note: "Default info@cannaplug012.co.za",
+  },
+  {
+    name: "LOVABLE_CRON_SECRET",
+    group: "Cron",
+    status: "required",
+    note: "Bearer for /api/public/* jobs; same value as GitHub secret CRON_SECRET",
+  },
+  {
+    name: "LOVABLE_CRON_SECRET_PREVIOUS",
+    group: "Cron",
+    status: "optional",
+    note: "Only during secret rotation",
+  },
+  {
+    name: "RESEND_API_KEY",
+    group: "Email",
+    status: "feature",
+    note: "All email; nothing is sent without it",
+  },
+  {
+    name: "NOTIFY_FROM_EMAIL",
+    group: "Email",
+    status: "optional",
+    note: "Default Cannaplug Support <update@updates.cannaplug012.co.za>",
+  },
+  {
+    name: "DOCUMENT_EMAIL_FROM",
+    group: "Email",
+    status: "optional",
+    note: "Sender for clinical document links",
+  },
+  {
+    name: "PAYPAL_CLIENT_ID",
+    group: "PayPal",
+    status: "feature",
+    note: "PayPal hidden at checkout until all PayPal vars are set",
+  },
+  { name: "PAYPAL_CLIENT_SECRET", group: "PayPal", status: "feature", note: "" },
+  {
+    name: "PAYPAL_WEBHOOK_ID",
+    group: "PayPal",
+    status: "feature",
+    note: "Webhook …/api/public/payments/paypal-webhook",
+  },
+  {
+    name: "PAYPAL_MERCHANT_ID",
+    group: "PayPal",
+    status: "feature",
+    note: "Compared on every capture",
+  },
+  { name: "PAYPAL_ENV", group: "PayPal", status: "feature", note: "sandbox or live" },
+  { name: "PAYPAL_API_BASE", group: "PayPal", status: "optional", note: "Tests only" },
+  {
+    name: "YOCO_SECRET_KEY",
+    group: "Yoco",
+    status: "retiring",
+    note: "Yoco dropped 23 Oct 2026; replaced by PayFast",
+  },
+  {
+    name: "YOCO_WEBHOOK_SECRET",
+    group: "Yoco",
+    status: "retiring",
+    note: "Remove with the Yoco adapter",
+  },
+  { name: "YOCO_API_BASE", group: "Yoco", status: "retiring", note: "Tests only" },
+  { name: "GEMINI_API_KEY", group: "AI", status: "feature", note: "Chatbot and Journal" },
+  { name: "GEMINI_RPM_LIMIT", group: "AI", status: "optional", note: "Default 8" },
+  { name: "GEMINI_RPD_LIMIT", group: "AI", status: "optional", note: "Default 180" },
+  {
+    name: "CHAT_RPD_LIMIT",
+    group: "AI",
+    status: "optional",
+    note: "Default 140 (rest reserved for the Journal)",
+  },
+  { name: "FIRECRAWL_API_KEY", group: "Journal", status: "feature", note: "Journal research step" },
+  {
+    name: "UNSPLASH_ACCESS_KEY",
+    group: "Journal",
+    status: "optional",
+    note: "Article cover photos",
+  },
+  {
+    name: "SIGNATURE_ATTESTATION_SECRET",
+    group: "Clinical",
+    status: "feature",
+    note: "Practitioner signing",
+  },
+  {
+    name: "VERIFICATION_IP_SALT",
+    group: "Clinical",
+    status: "feature",
+    note: "Hashes IPs on /verify and webhooks",
+  },
+  {
+    name: "EXTERNAL_SIGNATURE_API_URL",
+    group: "Clinical",
+    status: "optional",
+    note: "External signature provider (not yet chosen)",
+  },
+  { name: "EXTERNAL_SIGNATURE_API_KEY", group: "Clinical", status: "optional", note: "" },
+  { name: "EXTERNAL_SIGNATURE_WEBHOOK_SECRET", group: "Clinical", status: "optional", note: "" },
+  {
+    name: "TWILIO_ACCOUNT_SID",
+    group: "SMS/WhatsApp",
+    status: "optional",
+    note: "Also set payment_settings.sms_enabled",
+  },
+  { name: "TWILIO_AUTH_TOKEN", group: "SMS/WhatsApp", status: "optional", note: "" },
+  { name: "TWILIO_SMS_FROM", group: "SMS/WhatsApp", status: "optional", note: "" },
+  { name: "TWILIO_WHATSAPP_FROM", group: "SMS/WhatsApp", status: "optional", note: "" },
+  {
+    name: "TEST_DATABASE_URL",
+    group: "Tests",
+    status: "optional",
+    note: "Local real-Postgres tests only",
+  },
+];
