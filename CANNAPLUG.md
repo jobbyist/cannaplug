@@ -949,3 +949,11 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Real Yoco/PayPal sandbox round-trips (next session).
 - Hosted: delete the `cannaplug-chat` edge function and enable leaked-password protection (neither is exposed to the tools used here); paste `supabase/templates/*.html` into Auth → Email Templates; decide on the `admin_emails` signup trigger.
 - Vercel: `SIGNATURE_ATTESTATION_SECRET` and `VERIFICATION_IP_SALT` are not set (needed by the doctor-portal signature flow / verification-attempt hashing); Preview has no backend env vars.
+
+## 2026-10-23 — MVP build rules (Prompt 0)
+
+- Actor/tool: Claude (Claude Code session), branch `chore/mvp-build-rules`
+- Purpose: add `CLAUDE.md` (imports `AGENTS.md`) with the MVP build rules and the business decisions of 23 Oct 2026: Yoco dropped completely; online payments PayPal + PayFast; in-store cash, card and EFT; printable/emailable POS receipts.
+- Also: fixed a pre-existing Prettier error in `scripts/send-test-emails.ts` that failed `bun run lint` on `main`.
+- Migrations: none. Tests: `scripts/verify-release.sh` (full).
+- Rollback: revert the commit.
