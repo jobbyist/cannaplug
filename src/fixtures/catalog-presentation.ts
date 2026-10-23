@@ -4,7 +4,10 @@ import productImage from "@/assets/cannaplug-products.jpg";
 export const categoryOptions = [
   "All",
   "Flower",
+  "Pre-rolls",
   "Edibles",
+  "Drinks",
+  "CBD",
   "Vapes",
   "Concentrates",
   "Accessories",

@@ -65,9 +65,10 @@ export async function getMemberAccount(db: UserClient) {
     db
       .from("products")
       .select(
-        "id,slug,name,category,subcategory,strain_type,price_rand,unit,badge,description,sort_order,image_path",
+        "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,sort_order,image_path",
       )
       .eq("is_active", true)
+      .eq("sell_online", true)
       .order("sort_order")
       .order("name"),
     // Stock counts are staff-only; members only ever learn a boolean per product.

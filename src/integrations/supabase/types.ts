@@ -89,6 +89,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      catalogue_imports: {
+        Row: {
+          actor_user_id: string;
+          created_at: string;
+          file_sha256: string;
+          id: string;
+          source: string;
+          summary: Json;
+        };
+        Insert: {
+          actor_user_id: string;
+          created_at?: string;
+          file_sha256: string;
+          id?: string;
+          source: string;
+          summary: Json;
+        };
+        Update: {
+          actor_user_id?: string;
+          created_at?: string;
+          file_sha256?: string;
+          id?: string;
+          source?: string;
+          summary?: Json;
+        };
+        Relationships: [];
+      };
       chat_rate_limits: {
         Row: {
           request_count: number;
@@ -2117,6 +2144,7 @@ export type Database = {
         Row: {
           badge: string | null;
           barcode: string | null;
+          brand: string | null;
           category: string;
           created_at: string;
           cost_rand: number | null;
@@ -2126,16 +2154,23 @@ export type Database = {
           is_active: boolean;
           name: string;
           price_rand: number;
+          regular_price_rand: number | null;
+          sale_ends_at: string | null;
+          sell_online: boolean;
           sku: string | null;
           slug: string;
+          sold_by_weight: boolean;
           sort_order: number;
           strain_type: string | null;
           subcategory: string | null;
+          track_stock: boolean;
           unit: string | null;
+          weight_step_g: number;
         };
         Insert: {
           badge?: string | null;
           barcode?: string | null;
+          brand?: string | null;
           category: string;
           created_at?: string;
           cost_rand?: number | null;
@@ -2145,16 +2180,23 @@ export type Database = {
           is_active?: boolean;
           name: string;
           price_rand: number;
+          regular_price_rand?: number | null;
+          sale_ends_at?: string | null;
+          sell_online?: boolean;
           sku?: string | null;
           slug: string;
+          sold_by_weight?: boolean;
           sort_order?: number;
           strain_type?: string | null;
           subcategory?: string | null;
+          track_stock?: boolean;
           unit?: string | null;
+          weight_step_g?: number;
         };
         Update: {
           badge?: string | null;
           barcode?: string | null;
+          brand?: string | null;
           category?: string;
           created_at?: string;
           cost_rand?: number | null;
@@ -2164,12 +2206,18 @@ export type Database = {
           is_active?: boolean;
           name?: string;
           price_rand?: number;
+          regular_price_rand?: number | null;
+          sale_ends_at?: string | null;
+          sell_online?: boolean;
           sku?: string | null;
           slug?: string;
+          sold_by_weight?: boolean;
           sort_order?: number;
           strain_type?: string | null;
           subcategory?: string | null;
+          track_stock?: boolean;
           unit?: string | null;
+          weight_step_g?: number;
         };
         Relationships: [];
       };
@@ -2257,6 +2305,18 @@ export type Database = {
       // </m3-views>
     };
     Functions: {
+      end_expired_sales: { Args: Record<PropertyKey, never>; Returns: number };
+      import_catalogue: {
+        Args: {
+          p_actor: string;
+          p_deactivate_missing: boolean;
+          p_file_sha256: string;
+          p_idempotency_key: string;
+          p_rows: Json;
+          p_source: string;
+        };
+        Returns: Json;
+      };
       // <m5-functions>
       email_automations_run: { Args: { p_now?: string }; Returns: Json };
       ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number };

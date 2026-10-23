@@ -103,6 +103,17 @@ const productSchema = z.object({
     .nullish()
     .transform((v) => (v ? v : null)),
   cost_rand: z.number().nonnegative().max(1_000_000).nullish(),
+  brand: z
+    .string()
+    .trim()
+    .max(80)
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  sell_online: z.boolean().optional(),
+  sold_by_weight: z.boolean().optional(),
+  weight_step_g: z.union([z.literal(0.5), z.literal(1)]).optional(),
+  sale_price_rand: z.number().nonnegative().max(1_000_000).nullish(),
+  sale_ends_at: z.string().datetime({ offset: true }).nullish(),
 });
 
 export const saveAdminProductFn = createServerFn({ method: "POST" })

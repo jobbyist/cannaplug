@@ -23,6 +23,7 @@ import {
   saveAdminProductFn,
 } from "@/lib/admin.functions";
 import type { AdminProductInput } from "@/lib/admin-data.server";
+import { CatalogueImport } from "@/components/admin/CatalogueImport";
 import {
   PRODUCT_IMAGE_ACCEPT,
   PRODUCT_IMAGE_BUCKET,
@@ -47,6 +48,12 @@ const blank: AdminProductInput = {
   sku: null,
   barcode: null,
   cost_rand: null,
+  brand: null,
+  sell_online: true,
+  sold_by_weight: false,
+  weight_step_g: 1,
+  sale_price_rand: null,
+  sale_ends_at: null,
 };
 
 const TEXT_FIELDS: { key: keyof AdminProductInput; label: string; hint?: string }[] = [
@@ -54,6 +61,7 @@ const TEXT_FIELDS: { key: keyof AdminProductInput; label: string; hint?: string 
   { key: "slug", label: "Slug", hint: "Used in the web address, e.g. white-runtz-top-shelf" },
   { key: "category", label: "Category" },
   { key: "subcategory", label: "Subcategory" },
+  { key: "brand", label: "Brand" },
   { key: "sku", label: "SKU", hint: "Unique. Matches the Yoco export for imports" },
   { key: "barcode", label: "Barcode" },
   { key: "unit", label: "Unit", hint: "e.g. g, pack, 300ml" },
@@ -85,7 +93,10 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     category: p.category,
     subcategory: p.subcategory,
     description: p.description,
-    price_rand: Number(p.price_rand),
+    // While on sale, price_rand is the sale price and regular_price_rand the normal one.
+    price_rand: Number(p.regular_price_rand ?? p.price_rand),
+    sale_price_rand: p.regular_price_rand != null ? Number(p.price_rand) : null,
+    sale_ends_at: p.sale_ends_at,
     unit: p.unit,
     strain_type: p.strain_type,
     badge: p.badge,
@@ -94,6 +105,10 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     sku: p.sku,
     barcode: p.barcode,
     cost_rand: p.cost_rand == null ? null : Number(p.cost_rand),
+    brand: p.brand,
+    sell_online: p.sell_online,
+    sold_by_weight: p.sold_by_weight,
+    weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : 1,
   };
 }
 
@@ -187,9 +202,12 @@ export function ProductsPanel({
             managers only.
           </p>
         </div>
-        <Button size="sm" onClick={() => setEditingProduct("new")}>
-          <PlusCircle size={14} /> Add product
-        </Button>
+        <div className="flex gap-2">
+          <CatalogueImport onImported={onSaved} />
+          <Button size="sm" onClick={() => setEditingProduct("new")}>
+            <PlusCircle size={14} /> Add product
+          </Button>
+        </div>
       </div>
       <Table>
         <TableHeader>
@@ -224,7 +242,19 @@ export function ProductsPanel({
               <TableCell>{p.name}</TableCell>
               <TableCell className="font-mono text-xs">{p.sku ?? "—"}</TableCell>
               <TableCell>{p.category}</TableCell>
-              <TableCell>{rand(Number(p.price_rand))}</TableCell>
+              <TableCell>
+                {p.regular_price_rand != null ? (
+                  <span>
+                    <s className="mr-1 text-muted-foreground">
+                      {rand(Number(p.regular_price_rand))}
+                    </s>
+                    <b>{rand(Number(p.price_rand))}</b> <Badge variant="outline">Sale</Badge>
+                  </span>
+                ) : (
+                  rand(Number(p.price_rand))
+                )}
+                {p.sold_by_weight && <span className="text-muted-foreground"> / g</span>}
+              </TableCell>
               <TableCell>
                 <Badge variant={p.is_active ? "default" : "secondary"}>
                   {p.is_active ? "Active" : "Inactive"}
@@ -271,7 +301,9 @@ export function ProductsPanel({
               </div>
             ))}
             <div className="space-y-1">
-              <Label htmlFor="product-price">Price (R)</Label>
+              <Label htmlFor="product-price">
+                {form.sold_by_weight ? "Regular price per gram (R)" : "Regular price (R)"}
+              </Label>
               <Input
                 id="product-price"
                 type="number"
@@ -279,6 +311,39 @@ export function ProductsPanel({
                 step="0.01"
                 value={form.price_rand}
                 onChange={(e) => setForm((f) => ({ ...f, price_rand: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-sale">Sale price (R, optional)</Label>
+              <Input
+                id="product-sale"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.sale_price_rand ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    sale_price_rand: e.target.value === "" ? null : Number(e.target.value),
+                  }))
+                }
+              />
+              <p className="text-[0.65rem] text-muted-foreground">
+                Lower than the regular price. Leave empty to end the sale.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-sale-ends">Sale ends (optional)</Label>
+              <Input
+                id="product-sale-ends"
+                type="datetime-local"
+                value={form.sale_ends_at ? form.sale_ends_at.slice(0, 16) : ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    sale_ends_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                  }))
+                }
               />
             </div>
             <div className="space-y-1">
@@ -306,6 +371,44 @@ export function ProductsPanel({
                 value={form.sort_order}
                 onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
               />
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.sold_by_weight)}
+                  onChange={(e) => setForm((f) => ({ ...f, sold_by_weight: e.target.checked }))}
+                />
+                Sold by weight (priced per gram)
+              </label>
+              {form.sold_by_weight && (
+                <div className="space-y-1">
+                  <Label htmlFor="product-step">Smallest step at the till</Label>
+                  <select
+                    id="product-step"
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    value={String(form.weight_step_g ?? 1)}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, weight_step_g: e.target.value === "0.5" ? 0.5 : 1 }))
+                    }
+                  >
+                    <option value="1">1 g</option>
+                    <option value="0.5">0.5 g</option>
+                  </select>
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    The till sells whole grams today; 0.5 g steps switch on with the
+                    fractional-weight update.
+                  </p>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.sell_online !== false}
+                  onChange={(e) => setForm((f) => ({ ...f, sell_online: e.target.checked }))}
+                />
+                Sold online (untick for in-store-only items such as Lounge sessions)
+              </label>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="product-description">Description</Label>
