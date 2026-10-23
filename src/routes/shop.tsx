@@ -25,6 +25,8 @@ export const Route = createFileRoute("/shop")({
       { name: "description", content: "Browse CannaPlug's curated cannabis catalogue." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { category?: string } =>
+    typeof search["category"] === "string" ? { category: search["category"] } : {},
   component: ShopPage,
 });
 
@@ -107,7 +109,12 @@ function ProductCard({ product }: { product: StoreProduct }) {
 function ShopPage() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<(typeof categoryOptions)[number]>("All");
+  const search = Route.useSearch();
+  const [category, setCategory] = useState<(typeof categoryOptions)[number]>(
+    (categoryOptions as readonly string[]).includes(search.category ?? "")
+      ? (search.category as (typeof categoryOptions)[number])
+      : "All",
+  );
   const [strainType, setStrainType] = useState<StrainFilter>("All");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
 

@@ -114,6 +114,7 @@ const productSchema = z.object({
   weight_step_g: z.union([z.literal(0.5), z.literal(1)]).optional(),
   sale_price_rand: z.number().nonnegative().max(1_000_000).nullish(),
   sale_ends_at: z.string().datetime({ offset: true }).nullish(),
+  is_featured: z.boolean().optional(),
 });
 
 export const saveAdminProductFn = createServerFn({ method: "POST" })
@@ -141,6 +142,11 @@ export const listFulfilmentQueueFn = createServerFn({ method: "GET" })
 export const listStoreProductsFn = createServerFn({ method: "GET" }).handler(() =>
   listStoreProducts(),
 );
+
+export const getHomeCatalogueFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { getHomeCatalogue } = await import("@/lib/admin-data.server");
+  return getHomeCatalogue();
+});
 
 export const listMemberOrdersFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

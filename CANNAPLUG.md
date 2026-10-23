@@ -997,3 +997,11 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Till: after every sale and from sale history — paper choice (remembered per device), Print, PDF download, Email (Resend, PDF attached, audited). `/admin → Settings` now edits receipt details with a live preview and the VAT switch.
 - Receipt numbers keep the existing gap-free `POS-YYMMDD-nnnnnn` sequence from Milestone 3.
 - Tests: `src/test/receipts.test.ts` (8), `src/test/db/pos-receipts.test.ts` (3).
+
+## 2026-10-23 — Live homepage catalogue (Prompt 4)
+
+- Actor/tool: Claude (Claude Code session), branch `feat/mvp-live-homepage`
+- Migration `20261023004000_featured_products.sql` (mirror `drizzle/0028`, rollback, `scripts/rollback-rehearsal-featured.sh`): `products.is_featured` (public-readable).
+- Homepage "Shop by category" and "Featured products" now come from the live catalogue through public `getHomeCatalogueFn` (active, online, in-stock only; picked products first, then one per category). Hard-coded mock products and prices removed (guard test). Category cards link to `/shop?category=…`, which opens filtered. Product photos are used when uploaded; category placeholder images otherwise.
+- `/admin → Products` editor: "Featured on the homepage" checkbox.
+- Tests: `src/test/home-catalogue.test.ts`; security audit allow-lists the new public function.

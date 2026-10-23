@@ -43,6 +43,7 @@ export type AdminProductInput = Pick<
   | "sold_by_weight"
   | "weight_step_g"
   | "sale_ends_at"
+  | "is_featured"
 > & {
   /** Discounted selling price; empty = not on sale. price_rand is the regular price as typed by staff. */
   sale_price_rand?: number | null;
@@ -540,4 +541,38 @@ export async function listMemberOrders(userId: string) {
     ...order,
     items: items.filter((item) => item.order_id === order.id),
   }));
+}
+
+/** Public: the homepage's featured products and categories, from the live catalogue (online, active, in stock). */
+export async function getHomeCatalogue() {
+  const { pickFeatured, visibleCategories } = await import("@/lib/home-catalogue");
+  const [{ data, error }, stock] = await Promise.all([
+    supabaseAdmin
+      .from("products")
+      .select(
+        "id,slug,name,category,subcategory,price_rand,regular_price_rand,unit,badge,sold_by_weight,image_path,is_featured,sort_order",
+      )
+      .eq("is_active", true)
+      .eq("sell_online", true),
+    supabaseAdmin.from("inventory_availability").select("product_id,available"),
+  ]);
+  if (error) throw error;
+  const available = new Map((stock.data ?? []).map((s) => [s.product_id, Number(s.available)]));
+  const products = (data ?? []).map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    category: p.category,
+    subcategory: p.subcategory,
+    price_rand: Number(p.price_rand),
+    regular_price_rand: p.regular_price_rand == null ? null : Number(p.regular_price_rand),
+    unit: p.unit,
+    badge: p.badge,
+    sold_by_weight: p.sold_by_weight,
+    image_url: productImageUrl(p.image_path),
+    is_featured: p.is_featured,
+    sort_order: p.sort_order,
+    in_stock: (available.get(p.id) ?? 0) > 0,
+  }));
+  return { featured: pickFeatured(products), categories: visibleCategories(products) };
 }

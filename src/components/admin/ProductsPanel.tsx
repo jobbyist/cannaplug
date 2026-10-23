@@ -54,6 +54,7 @@ const blank: AdminProductInput = {
   weight_step_g: 1,
   sale_price_rand: null,
   sale_ends_at: null,
+  is_featured: false,
 };
 
 const TEXT_FIELDS: { key: keyof AdminProductInput; label: string; hint?: string }[] = [
@@ -109,6 +110,7 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     sell_online: p.sell_online,
     sold_by_weight: p.sold_by_weight,
     weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : 1,
+    is_featured: p.is_featured,
   };
 }
 
@@ -408,6 +410,14 @@ export function ProductsPanel({
                   onChange={(e) => setForm((f) => ({ ...f, sell_online: e.target.checked }))}
                 />
                 Sold online (untick for in-store-only items such as Lounge sessions)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_featured)}
+                  onChange={(e) => setForm((f) => ({ ...f, is_featured: e.target.checked }))}
+                />
+                Featured on the homepage (up to 8 are shown)
               </label>
             </div>
             <div className="space-y-1 sm:col-span-2">
