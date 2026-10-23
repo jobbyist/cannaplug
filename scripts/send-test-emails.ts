@@ -9,7 +9,8 @@ if (!to || !key) {
   console.error("usage: RESEND_API_KEY=... bun scripts/send-test-emails.ts <to> [template...]");
   process.exit(1);
 }
-const from = process.env["NOTIFY_FROM_EMAIL"] ?? "Cannaplug Support <update@updates.cannaplug012.co.za>";
+const from =
+  process.env["NOTIFY_FROM_EMAIL"] ?? "Cannaplug Support <update@updates.cannaplug012.co.za>";
 let failed = 0;
 for (const { name, rendered } of renderAll().filter((a) => !only.length || only.includes(a.name))) {
   const res = await fetch("https://api.resend.com/emails", {
