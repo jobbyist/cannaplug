@@ -88,6 +88,7 @@ describe("every staff server function has the error boundary first", () => {
     "src/lib/catalogue.functions.ts",
     "src/lib/product-csv.functions.ts",
     "src/lib/verification.functions.ts",
+    "src/lib/launch-rules.functions.ts",
   ];
   for (const f of files) {
     it(f, () => {

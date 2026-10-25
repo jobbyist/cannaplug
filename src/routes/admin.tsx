@@ -30,6 +30,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Badge } from "@/components/ui/badge";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
+import { PurchaseLimitsCard } from "@/components/admin/PurchaseLimitsCard";
 import { AuditPanel } from "@/components/admin/AuditPanel";
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 import { Progress } from "@/components/ui/progress";
@@ -425,7 +426,7 @@ function AdminPage() {
         )}
         {tab === "payments" && <PaymentsPanel />}
         {tab === "audit" && <AuditPanel />}
-        {tab === "id-checks" && <IdChecksPanel />}
+        {tab === "id-checks" && <IdChecksPanel canResetAttempts={atLeast(role, "admin")} />}
         {tab === "clinical" && <ClinicalDocsPanel />}
         {tab === "customers" && (
           <div>
@@ -452,7 +453,12 @@ function AdminPage() {
             </Table>
           </div>
         )}
-        {tab === "settings" && <ReceiptSettingsPanel />}
+        {tab === "settings" && (
+          <>
+            <ReceiptSettingsPanel />
+            <PurchaseLimitsCard />
+          </>
+        )}
         {["promotions", "events", "newsroom", "reports"].includes(tab) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>

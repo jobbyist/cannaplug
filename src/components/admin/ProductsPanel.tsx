@@ -45,6 +45,7 @@ const blank: AdminProductInput = {
   strain_type: null,
   badge: null,
   sort_order: 100,
+  low_stock_threshold: 5,
   is_active: true,
   sku: null,
   barcode: null,
@@ -103,6 +104,7 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     strain_type: p.strain_type,
     badge: p.badge,
     sort_order: p.sort_order,
+    low_stock_threshold: p.low_stock_threshold ?? 5,
     is_active: p.is_active,
     sku: p.sku,
     barcode: p.barcode,
@@ -384,6 +386,25 @@ export function ProductsPanel({
                 value={form.sort_order}
                 onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-low-stock">Low-stock alert at</Label>
+              <Input
+                id="product-low-stock"
+                type="number"
+                min={0}
+                max={100000}
+                value={form.low_stock_threshold ?? 5}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    low_stock_threshold: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                  }))
+                }
+              />
+              <p className="text-[0.7rem] text-muted-foreground">
+                Managers are emailed when available stock falls to this number (0 = never).
+              </p>
             </div>
             <div className="space-y-2 rounded-md border border-border p-3">
               <label className="flex items-center gap-2 text-sm">

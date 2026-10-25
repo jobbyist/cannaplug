@@ -2245,6 +2245,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      purchase_limits: {
+        Row: {
+          category: string;
+          daily_max: number;
+          enabled: boolean;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          category: string;
+          daily_max: number;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          category?: string;
+          daily_max?: number;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [];
+      };
       products: {
         Row: {
           badge: string | null;
@@ -2258,6 +2282,7 @@ export type Database = {
           image_path: string | null;
           is_active: boolean;
           is_featured: boolean;
+          low_stock_threshold: number;
           name: string;
           price_rand: number;
           regular_price_rand: number | null;
@@ -2285,6 +2310,7 @@ export type Database = {
           image_path?: string | null;
           is_active?: boolean;
           is_featured?: boolean;
+          low_stock_threshold?: number;
           name: string;
           price_rand: number;
           regular_price_rand?: number | null;
@@ -2312,6 +2338,7 @@ export type Database = {
           image_path?: string | null;
           is_active?: boolean;
           is_featured?: boolean;
+          low_stock_threshold?: number;
           name?: string;
           price_rand?: number;
           regular_price_rand?: number | null;
@@ -2427,6 +2454,20 @@ export type Database = {
           p_rows: Json;
           p_source: string;
         };
+        Returns: Json;
+      };
+      purchase_limit_set: {
+        Args: {
+          p_actor: string;
+          p_category: string;
+          p_daily_max: number;
+          p_enabled: boolean;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      verification_reset_attempts: {
+        Args: { p_actor: string; p_idempotency_key: string; p_member: string; p_reason: string };
         Returns: Json;
       };
       bulk_upsert_products: {

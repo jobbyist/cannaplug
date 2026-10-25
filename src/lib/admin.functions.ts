@@ -97,6 +97,7 @@ const productSchema = z.object({
   strain_type: z.string().max(80).nullable(),
   badge: z.string().max(80).nullable(),
   sort_order: z.number().int().nonnegative(),
+  low_stock_threshold: z.number().int().min(0).max(100000).optional(),
   is_active: z.boolean(),
   sku: z
     .string()

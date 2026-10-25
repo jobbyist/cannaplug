@@ -176,6 +176,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   verification_expired: "Your ID document has expired — upload a current one to keep ordering",
   invalid_expiry: "Enter the expiry date shown on your document",
   document_expired: "That document has expired — upload a current one",
+  purchase_limit_exceeded: "That is more than the daily purchase limit",
 };
 
 /** Detail text after the code is user-safe for these (it carries numbers the member needs). */
@@ -187,6 +188,7 @@ const SHOW_DETAIL = new Set([
   "insufficient_stock",
   "checkout_unavailable",
   "delivery_unavailable",
+  "purchase_limit_exceeded",
 ]);
 
 /**
