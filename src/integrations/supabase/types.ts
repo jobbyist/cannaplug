@@ -2429,6 +2429,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      bulk_upsert_products: {
+        Args: {
+          p_actor: string;
+          p_file_sha256: string;
+          p_idempotency_key: string;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
       // <m5-functions>
       email_automations_run: { Args: { p_now?: string }; Returns: Json };
       ai_quota_purge: { Args: Record<PropertyKey, never>; Returns: number };
