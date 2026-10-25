@@ -73,7 +73,19 @@ export const ENV_VARS: EnvVar[] = [
     name: "NOTIFY_FROM_EMAIL",
     group: "Email",
     status: "optional",
-    note: "Default Cannaplug Support <update@updates.cannaplug012.co.za>",
+    note: "Default Cannaplug Support <admin@cannaplug012.co.za>",
+  },
+  {
+    name: "NOTIFY_FROM_FALLBACK",
+    group: "Email",
+    status: "optional",
+    note: "Used only while the main domain is unverified in Resend; default Cannaplug Support <admin@updates.cannaplug012.co.za>; 'none' disables",
+  },
+  {
+    name: "NOTIFY_REPLY_TO",
+    group: "Email",
+    status: "optional",
+    note: "Default admin@cannaplug012.co.za",
   },
   {
     name: "DOCUMENT_EMAIL_FROM",

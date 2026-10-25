@@ -68,6 +68,7 @@ import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
 import { AdminSearch, type SearchHit } from "@/components/admin/AdminSearch";
+import { EmailCampaignsPanel } from "@/components/admin/EmailCampaignsPanel";
 import { ReceiptActions } from "@/components/admin/receipts/ReceiptActions";
 import type { SearchSale } from "@/lib/admin-search.server";
 import {
@@ -95,7 +96,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "id-checks", icon: ShieldCheck, label: "ID Checks" },
   { id: "clinical", icon: Stethoscope, label: "Clinical Docs" },
   { id: "deliveries", icon: Truck, label: "Deliveries" },
-  { id: "promotions", icon: Megaphone, label: "Promotions" },
+  { id: "promotions", icon: Megaphone, label: "Email & promotions" },
   { id: "events", icon: Calendar, label: "Events" },
   { id: "newsroom", icon: Newspaper, label: "Newsroom" },
   { id: "reports", icon: Wallet, label: "Reports" },
@@ -112,6 +113,7 @@ const TAB_KEYWORDS: Record<string, string> = {
   audit: "history log",
   deliveries: "driver delivery pickup collection",
   inventory: "stock available",
+  promotions: "email campaign newsletter marketing subscribers",
 };
 
 const transitions: Record<AdminOrderStatus, AdminOrderStatus[]> = {
@@ -561,7 +563,8 @@ function AdminPage() {
             )}
           </DialogContent>
         </Dialog>
-        {["promotions", "events", "newsroom", "reports"].includes(tab) && (
+        {tab === "promotions" && <EmailCampaignsPanel />}
+        {["events", "newsroom", "reports"].includes(tab) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
               <p className="font-display text-sm font-bold uppercase">{tab}</p>

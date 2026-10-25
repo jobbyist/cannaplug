@@ -41,7 +41,7 @@ describe("templates", () => {
     expect(ready.html).toMatch(/Bring a valid ID/);
     expect(ready.sms).toMatch(/collect at Shop 002/);
     expect(renderTemplate("order_received", pickup, ctx)!.html).toContain("Collect at");
-    expect(renderTemplate("order_ready", data, ctx)!.html).not.toContain("Shop 002");
+    expect(renderTemplate("order_ready", data, ctx)!.html).not.toMatch(/ready for collection/);
   });
   it("only ready/out-for-delivery carry an SMS short form", () => {
     expect(renderTemplate("order_ready", data, ctx)!.sms).toContain("CP-100");
@@ -68,9 +68,46 @@ describe("adapters", () => {
     expect(url).toBe("https://api.resend.com/emails");
     expect(init!.headers!["Idempotency-Key"]).toBe("n-1");
     expect(JSON.parse(init!.body!)).toMatchObject({
-      from: "Cannaplug Support <update@updates.cannaplug012.co.za>",
+      from: "Cannaplug Support <admin@cannaplug012.co.za>",
+      reply_to: "admin@cannaplug012.co.za",
       to: ["a@example.com"],
     });
+  });
+  it("Resend: retries once from the verified subdomain while the main domain is unverified", async () => {
+    const f = vi
+      .fn<Fetch>()
+      .mockResolvedValueOnce(
+        res(403, {
+          statusCode: 403,
+          message:
+            "The cannaplug012.co.za domain is not verified. Please, add and verify your domain on https://resend.com/domains",
+        }),
+      )
+      .mockResolvedValueOnce(res(200, { id: "re_2" }));
+    const send = adaptersFromEnv({ RESEND_API_KEY: "k" }, f).email!;
+    expect(await send(msg)).toEqual({ ok: true, messageId: "re_2" });
+    const bodies = f.mock.calls.map((c) => JSON.parse(c[1]!.body!));
+    expect(bodies.map((b) => b.from)).toEqual([
+      "Cannaplug Support <admin@cannaplug012.co.za>",
+      "Cannaplug Support <admin@updates.cannaplug012.co.za>",
+    ]);
+    expect(bodies[1].reply_to).toBe("admin@cannaplug012.co.za");
+    expect(f.mock.calls[1]![1]!.headers!["Idempotency-Key"]).toBe("n-1:fallback");
+    // any other refusal is not retried from another address
+    const g = vi.fn<Fetch>(async () => res(422, { message: "Invalid `to` field" }));
+    expect(await adaptersFromEnv({ RESEND_API_KEY: "k" }, g).email!(msg)).toMatchObject({
+      ok: false,
+      permanent: true,
+    });
+    expect(g).toHaveBeenCalledTimes(1);
+  });
+  it("a template's own reply-to (e.g. the contact form sender) wins over the support inbox", async () => {
+    const f = vi.fn<Fetch>(async () => res(200, { id: "re_3" }));
+    await adaptersFromEnv({ RESEND_API_KEY: "k" }, f).email!({
+      ...msg,
+      replyTo: "visitor@example.com",
+    });
+    expect(JSON.parse(f.mock.calls[0]![1]!.body!).reply_to).toBe("visitor@example.com");
   });
   it("classifies failures: 4xx permanent, 429/5xx retryable", async () => {
     const mk = (s: number) => resendAdapter({ apiKey: "k" }, async () => res(s));

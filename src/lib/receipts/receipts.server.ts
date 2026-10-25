@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
-import { DEFAULT_FROM } from "@/lib/notifications/adapters";
+import { sendWithResend, senderFromEnv } from "@/lib/email/sender";
 import {
   buildReceiptModel,
   formatRand,
@@ -180,17 +180,13 @@ export async function emailPosReceipt(
 <p>Your receipt is attached as a PDF. Thank you for shopping with us.</p>
 <p style="color:#6B7280;font-size:12px">${escapeHtml(b.legal_name)} · ${escapeHtml(b.address)}${b.phone ? ` · ${escapeHtml(b.phone)}` : ""}</p>
 </div>`;
-  const res = await fetchFn("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": `pos-receipt-${saleId}-${to}-${count ?? 0}`,
-    },
-    body: JSON.stringify({
-      from: process.env["NOTIFY_FROM_EMAIL"]?.trim() || DEFAULT_FROM,
+  const sender = senderFromEnv(process.env);
+  const res = await sendWithResend(
+    fetchFn,
+    apiKey,
+    b.email ? { ...sender, replyTo: b.email } : sender,
+    {
       to: [to],
-      reply_to: b.email ?? undefined,
       subject: `Your ${b.trading_name} receipt ${model.receiptNumber}`,
       html,
       text: receiptText(model),
@@ -200,10 +196,11 @@ export async function emailPosReceipt(
           content: Buffer.from(pdf).toString("base64"),
         },
       ],
-    }),
-  });
-  const body = await res.text();
-  if (!res.ok)
+    },
+    `pos-receipt-${saleId}-${to}-${count ?? 0}`,
+  );
+  const body = res.body;
+  if (res.status < 200 || res.status >= 300)
     throw new Error("The email could not be sent. Please try again or print the receipt.");
   let messageId: string | null = null;
   try {

@@ -5,7 +5,10 @@ export type Fetch = (
   init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
-export const DEFAULT_FROM = "Cannaplug Support <update@updates.cannaplug012.co.za>";
+import { EMAIL_FROM, sendWithResend, senderFromEnv, type Sender } from "@/lib/email/sender";
+
+/** Kept for callers that only need the display address. */
+export const DEFAULT_FROM = EMAIL_FROM;
 
 /** HTTP status → verdict. 4xx other than 408/429 means the message itself is bad, so retrying is pointless. */
 function verdict(status: number, body: string): SendResult | null {
@@ -15,29 +18,29 @@ function verdict(status: number, body: string): SendResult | null {
 }
 
 export function resendAdapter(
-  cfg: { apiKey: string; from?: string },
+  cfg: { apiKey: string; from?: string; sender?: Sender },
   fetchFn: Fetch,
 ): NonNullable<ChannelAdapters["email"]> {
+  const sender: Sender = cfg.sender ?? {
+    ...senderFromEnv({}),
+    ...(cfg.from ? { from: cfg.from, fallback: null } : {}),
+  };
   return async (m) => {
-    const res = await fetchFn("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": m.id,
-      },
-      body: JSON.stringify({
-        from: cfg.from ?? DEFAULT_FROM,
+    const { status, body: text } = await sendWithResend(
+      fetchFn as Parameters<typeof sendWithResend>[0],
+      cfg.apiKey,
+      sender,
+      {
         to: [m.to],
         subject: m.subject,
         html: m.html,
         text: m.text,
         ...(m.replyTo ? { reply_to: m.replyTo } : {}),
         ...(m.headers ? { headers: m.headers } : {}),
-      }),
-    });
-    const text = await res.text();
-    const bad = verdict(res.status, text);
+      },
+      m.id,
+    );
+    const bad = verdict(status, text);
     if (bad) return bad;
     try {
       const id = (JSON.parse(text) as { id?: unknown }).id;
@@ -87,11 +90,7 @@ export function adaptersFromEnv(
 ): ChannelAdapters {
   const out: ChannelAdapters = {};
   const key = env["RESEND_API_KEY"]?.trim();
-  if (key)
-    out.email = resendAdapter(
-      { apiKey: key, from: env["NOTIFY_FROM_EMAIL"]?.trim() || DEFAULT_FROM },
-      fetchFn,
-    );
+  if (key) out.email = resendAdapter({ apiKey: key, sender: senderFromEnv(env) }, fetchFn);
   const sid = env["TWILIO_ACCOUNT_SID"]?.trim();
   const tok = env["TWILIO_AUTH_TOKEN"]?.trim();
   if (sid && tok) {
