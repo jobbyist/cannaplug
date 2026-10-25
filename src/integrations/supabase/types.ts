@@ -2502,6 +2502,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      order_prescription_summaries: {
+        Args: { p_actor: string; p_order_ids: string[] };
+        Returns: Json;
+      };
       notification_claim: {
         Args: { p_lease_seconds?: number; p_limit: number };
         Returns: Database["public"]["Tables"]["notification_events"]["Row"][];

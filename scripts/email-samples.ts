@@ -78,6 +78,14 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
       { name: "Blue Gelato", available: 4 },
     ],
   },
+  // clinical notifications carry no data at all
+  practitioner_request_assigned: {},
+  practitioner_document_waiting: {},
+  clinical_request_completed: {},
+  clinical_request_declined: {},
+  document_ready: {},
+  document_revoked: {},
+  staff_prescription_revoked: { order_id: "o1", order_number: "CP-100245" },
 };
 
 export function renderAll() {

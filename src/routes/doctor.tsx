@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { DocumentSearchPanel } from "@/components/doctor/DocumentSearchPanel";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ClipboardCheck,
@@ -158,6 +159,10 @@ function DoctorPage() {
 
   const verified = profile.is_active && profile.verification_status === "verified";
   const pending = documents.filter((d) => d.status === "PENDING_DOCTOR_REVIEW");
+  // Requests assigned to me + documents waiting for my review or signature.
+  const waiting =
+    requests.filter((r) => r.status === "ASSIGNED").length +
+    documents.filter((d) => d.status === "PENDING_DOCTOR_REVIEW" || d.status === "APPROVED").length;
   const prescriptions = documents.filter((d) => d.document_type === "PRESCRIPTION_ORDER");
 
   return (
@@ -180,6 +185,14 @@ function DoctorPage() {
           <p className="text-sm text-muted-foreground">
             {profile.title} {profile.first_name} {profile.last_name} ·{" "}
             <RegistrationBadge status={profile.verification_status} />
+            {verified && waiting > 0 && (
+              <button
+                className="ml-2 rounded-full bg-primary px-2.5 py-0.5 text-[0.7rem] font-semibold text-primary-foreground"
+                onClick={() => setTab(requests.length > 0 ? "requests" : "reviews")}
+              >
+                Waiting for you: {waiting}
+              </button>
+            )}
           </p>
         </header>
         {error && <Notice tone="error">{error}</Notice>}
@@ -335,7 +348,12 @@ function DoctorPage() {
           />
         )}
         {verified && tab === "documents" && (
-          <DocumentTable rows={documents} onOpen={setReviewing} empty="No documents yet." />
+          <DocumentSearchPanel
+            refreshKey={documents.length}
+            renderTable={(rows) => (
+              <DocumentTable rows={rows} onOpen={setReviewing} empty="No documents match." />
+            )}
+          />
         )}
         {verified && tab === "prescriptions" && (
           <div className="grid gap-4">

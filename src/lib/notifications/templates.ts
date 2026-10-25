@@ -98,6 +98,10 @@ const orderRows = (d: TemplateData): [string, string][] => [
 ];
 const accountUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/account`;
 const adminUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/admin`;
+const doctorUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/doctor`;
+const documentsUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/member/documents`;
+const CLINICAL_NOTE =
+  "For your privacy, nothing from the document or request is included in this email.";
 const hi = (d: TemplateData) => `Hi ${esc(String(d["contact_name"] ?? "there").split(" ")[0])},`;
 
 export const TEMPLATES: Record<string, Template> = {
@@ -461,6 +465,90 @@ export const TEMPLATES: Record<string, Template> = {
           ),
         ) + (d["order_id"] ? kv([["Order", esc(d["order_number"] ?? d["order_id"])]]) : ""),
       cta: { label: "Open payments", url: adminUrl(c) },
+    }),
+  }),
+  // ---- Clinical pipeline: deliberately content-free. No document type, practitioner, member name, medicine or
+  // reason ever appears; the link leads to the signed-in area, where access is checked and audited.
+  practitioner_request_assigned: (_d, c) => ({
+    subject: "A request is waiting for you",
+    html: layout({
+      preheader: "Sign in to see it.",
+      title: "New request",
+      bodyHtml: p(
+        "A request has been assigned to you. Sign in to your practitioner portal to see it.",
+      ),
+      cta: { label: "Open my portal", url: doctorUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  practitioner_document_waiting: (_d, c) => ({
+    subject: "You have a document waiting",
+    html: layout({
+      preheader: "Sign in to continue.",
+      title: "Document waiting",
+      bodyHtml: p(
+        "A document is waiting for your review or signature. Sign in to your practitioner portal to continue.",
+      ),
+      cta: { label: "Open my portal", url: doctorUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  clinical_request_completed: (_d, c) => ({
+    subject: "There's an update on your request",
+    html: layout({
+      preheader: "Sign in to see it.",
+      title: "Request update",
+      bodyHtml: p(
+        "There is an update on your request. Sign in to your CannaPlug account to see it.",
+      ),
+      cta: { label: "My documents", url: documentsUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  clinical_request_declined: (_d, c) => ({
+    subject: "There's an update on your request",
+    html: layout({
+      preheader: "Sign in to see it.",
+      title: "Request update",
+      bodyHtml: p(
+        "There is an update on your request. Sign in to your CannaPlug account to see it, or contact the team if you have questions.",
+      ),
+      cta: { label: "My documents", url: documentsUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  document_ready: (_d, c) => ({
+    subject: "You have a document waiting",
+    html: layout({
+      preheader: "Sign in to view it.",
+      title: "Document ready",
+      bodyHtml: p("A document is ready in your CannaPlug account. Sign in to view it."),
+      cta: { label: "My documents", url: documentsUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  document_revoked: (_d, c) => ({
+    subject: "There's an update on one of your documents",
+    html: layout({
+      preheader: "Sign in to see it.",
+      title: "Document update",
+      bodyHtml: p(
+        "One of your documents has been updated. Sign in to your CannaPlug account to see its status.",
+      ),
+      cta: { label: "My documents", url: documentsUrl(c) },
+      footerNote: CLINICAL_NOTE,
+    }),
+  }),
+  staff_prescription_revoked: (d, c) => ({
+    subject: `Check order ${String(d["order_number"] ?? "")} before packing`.trim(),
+    html: layout({
+      preheader: "A linked document is no longer valid.",
+      title: "Order needs a check",
+      bodyHtml:
+        p(
+          "A document linked to this order is no longer valid. Please check the order with the member before packing.",
+        ) + kv([["Order", esc(d["order_number"] ?? "")]]),
+      cta: { label: "Open orders", url: adminUrl(c) },
     }),
   }),
 };

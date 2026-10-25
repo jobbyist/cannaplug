@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { requestContext, verificationUrl, appBaseUrl } from "@/lib/clinical/context.server";
-import { buildDocumentReadyEmail } from "@/lib/clinical/email";
 import { generateVerificationToken, hashesEqual, sha256Hex } from "@/lib/clinical/hash";
 import {
   ClinicalError,
@@ -107,6 +106,111 @@ export const listMyPatients = (userId: string) =>
   rpc<PatientRow[]>("doctor_list_patients", { p_actor: userId });
 export const listMyDocuments = (userId: string) =>
   rpc<DoctorDocumentRow[]>("doctor_list_documents", { p_actor: userId });
+export type DoctorSearch = {
+  query?: string | null | undefined;
+  status?: string | null | undefined;
+  type?: string | null | undefined;
+  from?: string | null | undefined;
+  to?: string | null | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+};
+export const searchMyDocuments = (userId: string, s: DoctorSearch) =>
+  rpc<{ total: number; limit: number; offset: number; rows: DoctorDocumentRow[] }>(
+    "doctor_search_documents",
+    {
+      p_actor: userId,
+      p_query: s.query ?? null,
+      p_status: s.status ?? null,
+      p_type: s.type ?? null,
+      p_from: s.from ?? null,
+      p_to: s.to ?? null,
+      p_limit: s.limit ?? 25,
+      p_offset: s.offset ?? 0,
+    },
+  );
+/** Admin readiness checklist: what still blocks issuing, each with the exact action to take. */
+export async function clinicalReadiness(userId: string) {
+  const r = await rpc<{
+    verified_practitioners: number;
+    prescribing_practitioners: number;
+    active_templates: Record<string, number>;
+    draft_templates: number;
+    policy_confirmed: Record<string, boolean>;
+    providers_enabled: number;
+  }>("clinical_readiness", { p_actor: userId });
+  const env = process.env;
+  const item = (ok: boolean, label: string, action: string) => ({ ok, label, action });
+  return [
+    item(
+      r.verified_practitioners > 0,
+      "A verified, active practitioner",
+      "Admin → Clinical Docs → Doctors: add the practitioner and record their HPCSA check.",
+    ),
+    item(
+      r.prescribing_practitioners > 0,
+      "A practitioner authorised to prescribe",
+      "Doctors: tick 'authorised to prescribe' after checking their scope (needed for prescriptions only).",
+    ),
+    item(
+      (r.active_templates["MEDICAL_LETTER"] ?? 0) > 0,
+      "An approved medical-letter template",
+      "The practitioner approves a letter template in /doctor → Templates.",
+    ),
+    item(
+      (r.active_templates["PRESCRIPTION_ORDER"] ?? 0) > 0,
+      "An approved prescription template",
+      "The practitioner (and pharmacist) approve a prescription template in /doctor → Templates.",
+    ),
+    item(
+      r.draft_templates === 0,
+      "No templates left in draft",
+      `${r.draft_templates} template(s) still in draft or awaiting approval.`,
+    ),
+    item(
+      !!r.policy_confirmed["MEDICAL_LETTER"] && !!r.policy_confirmed["PRESCRIPTION_ORDER"],
+      "Signature policy confirmed for both document types",
+      "Admin → Clinical Docs → Signatures: confirm the required assurance level for letters and prescriptions.",
+    ),
+    item(
+      r.providers_enabled > 0,
+      "A signature provider enabled",
+      "Signatures: enable a provider after confirming its assurance level.",
+    ),
+    item(
+      !!env["SIGNATURE_ATTESTATION_SECRET"]?.trim(),
+      "SIGNATURE_ATTESTATION_SECRET set",
+      "Vercel → Settings → Environment Variables: add a long random SIGNATURE_ATTESTATION_SECRET.",
+    ),
+    item(
+      !!env["VERIFICATION_IP_SALT"]?.trim(),
+      "VERIFICATION_IP_SALT set",
+      "Vercel: add a long random VERIFICATION_IP_SALT.",
+    ),
+  ];
+}
+
+export const listLinkablePrescriptions = (userId: string) =>
+  rpc<{ prescription_id: string; document_number: string; valid_until: string }[]>(
+    "member_linkable_prescriptions",
+    { p_actor: userId },
+  );
+export const linkPrescriptionToOrder = (
+  userId: string,
+  orderId: string,
+  rxId: string,
+  key: string,
+) =>
+  rpc<{ order_id: string; document_number: string; valid_until: string }>(
+    "link_prescription_to_order",
+    {
+      p_actor: userId,
+      p_order_id: orderId,
+      p_prescription_id: rxId,
+      p_idempotency_key: key,
+    },
+  );
+
 export const listMyAuditEvents = (userId: string) =>
   rpc<EventRow[]>("clinical_document_doctor_events", { p_actor: userId, p_limit: 200 });
 
@@ -840,38 +944,20 @@ export async function openDocument(
 // Email
 // ---------------------------------------------------------------------------
 
-/** Best effort: never blocks or fails issuance. Records only that a notification was sent or failed. */
-export async function notifyIssued(memberId: string, documentId: string): Promise<void> {
-  let ok = false;
-  try {
-    const key = process.env["RESEND_API_KEY"];
-    const from = process.env["DOCUMENT_EMAIL_FROM"];
-    if (key && from) {
-      const { data } = await supabaseAdmin.auth.admin.getUserById(memberId);
-      const to = data.user?.email;
-      if (to) {
-        const mail = buildDocumentReadyEmail(`${appBaseUrl()}/member/documents`);
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-          body: JSON.stringify({
-            from,
-            to,
-            subject: mail.subject,
-            text: mail.text,
-            html: mail.html,
-          }),
-          signal: AbortSignal.timeout(15_000),
-        });
-        ok = res.ok;
-      }
-    }
-  } catch {
-    ok = false;
-  }
+/**
+ * The "document ready" email (and push) is queued by the database when a document becomes ISSUED
+ * (`_medical_documents_notify` → notification_events, content-free template `document_ready`), so it is sent and
+ * retried by the dispatcher like every other message. This records, as before, that the member was notified.
+ */
+export async function notifyIssued(_memberId: string, documentId: string): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from("notification_events")
+    .select("id")
+    .eq("dedupe_key", `clin:doc:${documentId}:issued`)
+    .maybeSingle();
   await supabaseAdmin.rpc("clinical_document_log_notification", {
     p_doc: documentId,
-    p_ok: ok,
+    p_ok: !!data,
     p_channel: "email",
   });
 }

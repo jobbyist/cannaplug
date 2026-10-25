@@ -107,6 +107,68 @@ export const listDoctorDocumentsFn = createServerFn({ method: "GET" })
   .middleware([...auth])
   .handler(({ context }) => run(() => docs.listMyDocuments(context.userId)));
 
+export const searchDoctorDocumentsFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) =>
+    z
+      .object({
+        query: z.string().trim().max(80).nullish(),
+        status: z
+          .enum([
+            "DRAFT",
+            "PENDING_DOCTOR_REVIEW",
+            "APPROVED",
+            "SIGNING",
+            "SIGNED",
+            "ISSUED",
+            "EXPIRED",
+            "REVOKED",
+            "VOID",
+          ])
+          .nullish(),
+        type: z.enum(["MEDICAL_LETTER", "PRESCRIPTION_ORDER"]).nullish(),
+        from: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullish(),
+        to: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullish(),
+        limit: z.number().int().min(1).max(100).default(25),
+        offset: z.number().int().min(0).max(100_000).default(0),
+      })
+      .strict()
+      .parse(d ?? {}),
+  )
+  .handler(({ context, data }) => run(() => docs.searchMyDocuments(context.userId, data)));
+
+export const clinicalReadinessFn = createServerFn({ method: "GET" })
+  .middleware([...auth])
+  .handler(({ context }) => run(() => docs.clinicalReadiness(context.userId)));
+
+export const listLinkablePrescriptionsFn = createServerFn({ method: "GET" })
+  .middleware([...auth])
+  .handler(({ context }) => run(() => docs.listLinkablePrescriptions(context.userId)));
+
+export const linkPrescriptionToOrderFn = createServerFn({ method: "POST" })
+  .middleware([...auth])
+  .validator((d) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        prescriptionId: z.string().uuid(),
+        key: z.string().min(8).max(120),
+      })
+      .strict()
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    run(() =>
+      docs.linkPrescriptionToOrder(context.userId, data.orderId, data.prescriptionId, data.key),
+    ),
+  );
+
 export const listDoctorAuditFn = createServerFn({ method: "GET" })
   .middleware([...auth])
   .handler(({ context }) => run(() => docs.listMyAuditEvents(context.userId)));

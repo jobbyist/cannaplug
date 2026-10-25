@@ -1,4 +1,5 @@
 import { PayNow } from "@/components/account/PayNow";
+import { LinkPrescription } from "@/components/account/LinkPrescription";
 import { useState } from "react";
 import { Check, CircleDot, RotateCcw, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -356,6 +357,15 @@ export function OrdersPanel({
 
             {order.status === "awaiting_payment" && (
               <RedeemPoints order={order} account={account} onDone={reload} />
+            )}
+            {active && (
+              <LinkPrescription
+                orderId={order.id}
+                onDone={(m) => {
+                  notify(m);
+                  void reload();
+                }}
+              />
             )}
             {order.status === "awaiting_payment" && (
               <PayNow
