@@ -45,6 +45,14 @@
         {
           "file": "src/routes/terms-of-service.tsx",
           "snippet": "2026/047873/07"
+        },
+        {
+          "file": "src/components/admin/receipts/ReceiptView.tsx",
+          "snippet": "Reg. No."
+        },
+        {
+          "file": "src/lib/receipts/receipt-pdf.ts",
+          "snippet": "Reg. No."
         }
       ],
       "status": "pending"
@@ -120,6 +128,14 @@
         },
         {
           "file": "src/lib/ai/chat-prompt.ts",
+          "snippet": "+27 68 291 2107"
+        },
+        {
+          "file": "src/routes/checkout.tsx",
+          "snippet": "+27 68 291 2107"
+        },
+        {
+          "file": "src/routes/offline.tsx",
           "snippet": "+27 68 291 2107"
         }
       ],

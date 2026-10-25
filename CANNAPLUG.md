@@ -1110,3 +1110,58 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Tests: `src/test/db/scheduler.test.ts` (2).
 - Owner actions: fix GitHub billing (CI and the GitHub scheduler start again; nothing breaks if both run). When rotating the cron secret, update the Vault secret and the Vercel variable together.
 - Rollback: `supabase/rollbacks/20261025003000_scheduler_fallback_rollback.sql` (unschedules; extensions and Vault secrets stay) and revert the PR.
+
+## 2026-10-25 — Release verification, part 2: hosted check, production smoke, readiness score and go-live runbook (Prompt 15)
+
+- Actor/tool: Claude (Claude Code session), branch `chore/mvp-release-verification-2`
+- **verify-release.sh** on main (after PRs #38–#42): typecheck, lint, 584 unit/component, 432 real-Postgres, every rollback rehearsal, build — green. The live Playwright suite needs Docker for the local Supabase stack, which was not available in this session; it was not run (last green run recorded earlier in this file). PWA, a11y and smoke browser tests ran against production builds.
+- **Hosted:** every file in `supabase/migrations` is recorded in `supabase_migrations.schema_migrations`; `supabase/tests/verify-hosted.sql` extended (MVP tables, service-role-only MVP functions, product columns, purchase-limit and clinical triggers, Yoco removed, database scheduler jobs and Vault) — **15/15 true**. Not applied (not on main): web push (`feat/mvp-web-push`), which needs the owner to run its SQL.
+- **Production smoke** (`scripts/smoke-deployed.mjs`, extended with `/admin`, `/doctor`, `/offline`, manifest, service worker, robots, sitemap, health): **all pass** on https://cannaplug012.co.za. No Vercel preview URL was available to this session (deployment listing is not permitted for its token).
+- **Compliance copy** (`--strict`): register fixed (four new files carrying the phone number / registration number added to C-02 and C-05); **11 claims still need the client's written evidence** (C-01 SAHPRA Section 21, C-02 company registration, C-03 licensed dispensary wording, C-04 lab-testing, C-05 phone line, C-06 address and hours, C-07 EFT bank details, C-08 medical-recommendation and age statements, C-09 delivery and refund terms, C-10 Terms/Privacy incl. POPIA information officer, C-11 responsible-consumption wording).
+- Docs: `docs/release/go-live-runbook.md` (new), `release-checklist.md`, `runbook.md` (database scheduler, VAPID, GEMINI_CHAT_MODEL, CHAT_MEMBER_RPD, SENTRY_DSN).
+
+### MVP checklist (25 Oct 2026)
+
+| # | Item | Status |
+| --- | --- | --- |
+| 1 | Hosted clean-up, env audit | Done (PR #30) |
+| 2 | Product SKU, barcode, cost, photos | Done |
+| 3 | Yoco catalogue import (185 products, opening stock) | Done — category mapping awaits client OK |
+| 3b | POS receipts: print 80/58/A4, PDF, email | Done |
+| 3c | Customer import | Waiting for the export file |
+| 4 | Live homepage catalogue, featured products | Done |
+| 5 | PayFast + PayPal, EFT from settings, Yoco removed | Done in code — **keys and bank details not set** |
+| 6 | Installable app (PWA) | Done |
+| 7 | Web push | Built; DB step + VAPID keys pending (owner) |
+| 8 | Member chat assistant | Done (Gemini key set) |
+| 9 | Clinical notifications, prescription links | Done |
+| — | Product CSV upload/edit with template | Done (PR #38) |
+| 14 | Launch hardening (errors, 18+ gate, role-aware admin, a11y, SEO, health, limits, lockout reset, thresholds) | Done (PRs #40, #41) |
+| 15 | Release verification, scheduler fallback, go-live runbook | Done (PRs #42 and this one) |
+| 16 | Walkthrough guide, video, PDF | Done 23 Oct; refresh after launch |
+| 10–13 | Document library, contracts, Journal ops, live reports | Post-launch |
+
+### Production readiness: 80 / 100
+
+The 10 Oct audit document is not in the repository, so the score uses these thirteen areas, each scored 0–100 and averaged.
+
+| Area | Score | Why |
+| --- | --- | --- |
+| Architecture and codebase | 90 | One server boundary, typed functions, tests for every rule |
+| Storefront, PWA, accessibility, SEO | 88 | Axe clean (no serious/critical), sitemap, canonical, 18+ gate; no single-product pages yet |
+| Database, migrations, rollback | 95 | Every migration applied, mirrored, rehearsed and verified on hosted |
+| Security, RLS, privacy | 92 | Browser roles read-only, service-role functions, mutation-checked; leaked-password protection still to switch on |
+| Auth and staff roles | 85 | Role-aware admin, staff accounts live; staff must change passwords |
+| Online checkout and payments | 45 | Code complete and tested against fakes, but **no PayFast/PayPal keys and no confirmed EFT details**: online payment is off |
+| Till, receipts, stock | 90 | Ready; an old till session must be closed first |
+| Catalogue data | 85 | Imported; category mapping and photos pending |
+| Members, ID, loyalty | 85 | Ready; customer import pending |
+| Clinical documents | 70 | Pipeline ready; no verified practitioner, templates or signature policy yet |
+| Notifications and scheduling | 80 | Fixed by the database scheduler; push pending; GitHub locked |
+| CI, testing, release | 75 | Strong local suites; CI cannot run while GitHub billing is locked |
+| Operations, monitoring, compliance | 60 | Health + runbook in place; 11 compliance claims unevidenced; Sentry optional |
+
+**Launch call:** in-store trading on the till is ready for Monday. Online ordering goes live as soon as PayFast keys (or confirmed EFT details) are added.
+
+- Owner actions (in order): close the 2 Oct till session; staff change passwords; add PayFast keys (and/or confirm EFT details); fix GitHub billing; run the web-push SQL + VAPID keys; provide compliance evidence; confirm category mapping; switch on leaked-password protection.
+- Rollback: docs only, plus the scheduler fallback (part 1).

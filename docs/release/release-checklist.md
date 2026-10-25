@@ -8,20 +8,27 @@ Tick in order. **[needs you]** = requires your accounts/decisions; everything el
 - [x] Live browser suite green (real auth/RLS/Realtime, payments against mock providers)
 - [x] Hosted migrations applied and verified (`supabase/tests/verify-hosted.sql` all true; security advisories reviewed)
 - [x] Smoke suite passes against the local stack (`scripts/smoke-deployed.mjs`)
+- [x] **25 Oct 2026:** smoke suite passes against production (pages, admin/doctor sign-in pages, manifest, service worker, robots, sitemap, health, security headers, webhook and cron routes refuse unsigned calls)
+- [x] **25 Oct 2026:** `supabase/tests/verify-hosted.sql` (now 15 checks incl. the MVP tables, functions, triggers and the database scheduler) all true on the hosted project; every migration in `supabase/migrations` is recorded as applied
+- [x] **25 Oct 2026:** database scheduler (pg_cron + pg_net) runs dispatch every 5 min, housekeeping hourly and the Journal daily while GitHub Actions is locked
 - [ ] **[needs you]** Deploy preview/staging with sandbox keys and run `docs/release/staging.md` §B (one real sandbox payment per provider)
-- [ ] **[needs you]** `bun scripts/check-compliance-copy.ts --strict` passes — **currently blocks**: 10 compliance claims await client approval + documentary
+- [ ] **[needs you]** `bun scripts/check-compliance-copy.ts --strict` passes — **currently blocks**: 11 compliance claims await client approval + documentary
       evidence (SAHPRA authorisation, company registration, lab-test certificates, bank letter, legal sign-off, live phone number). Fill `compliance/copy-register.json`.
 
 ## Configuration **[needs you]**
 
 - [ ] Vercel env vars from `runbook.md` §2 (provider keys, `RESEND_API_KEY`, `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, `SITE_URL`, `LOVABLE_CRON_SECRET`)
-- [ ] GitHub secrets `APP_URL`, `CRON_SECRET`; run _Scheduled jobs → dispatch_ once; then _newsroom-launch-batch_ for the three launch articles
+- [ ] **GitHub billing**: the account is locked, so CI and the GitHub scheduler do not run. The database scheduler covers the jobs; fix billing so CI runs again. Then GitHub secrets `APP_URL`, `CRON_SECRET` and _newsroom-launch-batch_ for the three launch articles
+- [ ] Close the till session open since 2 Oct and open a fresh one (see `go-live-runbook.md`)
+- [ ] Staff change their passwords on first sign-in
 - [ ] PayFast live keys + passphrase set and PayPal webhook registered (live); EFT bank details saved and confirmed in Admin → Payments; Resend domain `updates.cannaplug012.co.za` verified; Supabase Auth SMTP + branded templates; leaked-password protection on
 - [ ] Delete the hosted `cannaplug-chat` edge function (replaced by the server function)
 - [ ] Decide on the `admin_emails` sign-up trigger (audit finding 12)
 - [ ] Run the three DROP statements and record the two ID migrations on hosted if not done (see CANNAPLUG.md, ID verification)
 
 ## Go-live
+
+See `go-live-runbook.md` for the first live day step by step.
 
 - [ ] Production migrations before code (already applied to the hosted project used so far)
 - [ ] Deploy; smoke script against production; place and refund one real low-value order per provider
@@ -31,11 +38,11 @@ Tick in order. **[needs you]** = requires your accounts/decisions; everything el
 
 1. Real sandbox/e2e round-trips against PayFast/PayPal/Resend in CI (needs sandbox secrets in GitHub).
 2. Admin UI for composing marketing campaigns (`promo_announcement` template and consent-aware queue exist; sending is by SQL/service for now).
-3. Map admin/staff panel errors to friendly messages (they currently show server text).
+3. ~~Map admin/staff panel errors to friendly messages~~ done 25 Oct (PR #40).
 4. Move the legacy `paypal-subscription` edge function (Shopify Admin API subscription page) into the app or retire it.
 5. Replace hand-written `types.ts` generation scripts with `supabase gen types` once the CLI is in CI.
 6. Lint toolchain advisories (brace-expansion) — dev-only.
-7. Per-product low-stock thresholds (currently a fixed 5) and a managers' stock-alert preference.
+7. ~~Per-product low-stock thresholds~~ done 25 Oct (PR #41); a managers' stock-alert preference remains.
 8. Back-in-stock and digest emails are sent by the hourly job — move to event-driven if hourly lag matters.
 9. Playwright live suite in CI nightly (currently on demand: Docker + local stack).
 10. PDF user guide screenshots are generated from the live stack; refresh them when the UI changes.
