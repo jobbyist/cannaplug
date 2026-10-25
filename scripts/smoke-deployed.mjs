@@ -34,6 +34,9 @@ for (const [path, needle] of [
   ["/terms-of-service", "html"],
   ["/account", "html"],
   ["/checkout", "html"],
+  ["/admin", "html"], // signed-out staff pages show a sign-in prompt, never an error
+  ["/doctor", "html"],
+  ["/offline", "html"],
 ]) {
   const r = await get(path);
   const body = await r.text();
@@ -41,6 +44,22 @@ for (const [path, needle] of [
     `GET ${path} renders`,
     r.status === 200 && body.toLowerCase().includes(needle.toLowerCase()),
     String(r.status),
+  );
+}
+// 1b. launch files: PWA, SEO, health
+for (const [path, type, needle] of [
+  ["/manifest.webmanifest", "manifest+json", "CannaPlug"],
+  ["/sw.js", "javascript", "cannaplug-static"],
+  ["/robots.txt", "text/plain", "Sitemap:"],
+  ["/sitemap.xml", "xml", "<urlset"],
+  ["/api/public/health", "json", '"db":"ok"'],
+]) {
+  const r = await get(path);
+  const body = await r.text();
+  ok(
+    `GET ${path}`,
+    r.status === 200 && (r.headers.get("content-type") ?? "").includes(type) && body.includes(needle),
+    `${r.status} ${r.headers.get("content-type") ?? ""}`,
   );
 }
 const notFound = await get("/definitely-not-a-page");

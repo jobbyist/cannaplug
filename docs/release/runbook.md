@@ -26,12 +26,24 @@ need your accounts or credentials are marked **[needs you]**.
 | Email                   | `RESEND_API_KEY`, optional `NOTIFY_FROM_EMAIL`                                                                                                            | Default sender `Cannaplug Support <update@updates.cannaplug012.co.za>`; domain must be verified in Resend. |
 | SMS/WhatsApp (optional) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`                                                                      | Also switch on `payment_settings.sms_enabled`.                                                             |
 | AI                      | `GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, optional `UNSPLASH_ACCESS_KEY`, `GEMINI_RPM_LIMIT` (8), `GEMINI_RPD_LIMIT` (180), `CHAT_RPD_LIMIT` (140)           | The free-tier numbers are shown in Google AI Studio; set the limits just below them.                       |
+| Push (web)              | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:info@cannaplug012.co.za`)                                                               | Generate with `bun scripts/gen-vapid.ts` once the web-push branch is merged.                               |
+| AI (member chat)        | optional `GEMINI_CHAT_MODEL` (default `gemini-2.5-flash`), `CHAT_MEMBER_RPD` (default 20)                                                                 | Per-member daily chat messages.                                                                            |
+| Monitoring              | optional `SENTRY_DSN`                                                                                                                                     | Server-side errors only, scrubbed; off when unset. Uptime checker: `GET /api/public/health`.               |
 | Clinical                | `SIGNATURE_ATTESTATION_SECRET`, `EXTERNAL_SIGNATURE_API_URL/KEY/WEBHOOK_SECRET`, `DOCUMENT_EMAIL_FROM`, `PUBLIC_APP_URL`                                  | See the clinical section of CANNAPLUG.md.                                                                  |
 
 **Supabase Edge Function secrets are NOT readable by the app.** The Resend/Gemini/Firecrawl keys must be added to Vercel; Edge Function secrets
 only serve the legacy `paypal-subscription` function.
 
-## 3. Schedulers (GitHub Actions: `.github/workflows/scheduled-jobs.yml`)
+## 3. Schedulers
+
+**Since 25 Oct 2026 the database runs the jobs** (pg_cron + pg_net, migration `20261025003000_scheduler_fallback`): jobs
+`cannaplug-dispatch`, `cannaplug-maintenance`, `cannaplug-newsroom-daily` call the routes below with the bearer stored in
+Supabase Vault (`cannaplug_scheduler_secret`, equal to Vercel `LOVABLE_CRON_SECRET_PREVIOUS`) and the URL in
+`cannaplug_app_url`. Check runs with `select * from net._http_response order by created desc limit 10;` and
+`select * from cron.job_run_details order by start_time desc limit 10;`. Rotate the secret in Vault and Vercel together.
+
+GitHub Actions (`.github/workflows/scheduled-jobs.yml`) is the second scheduler; it is not running while the GitHub
+account is locked over billing. Both can run at once: the routes lease or skip work that is not due.
 
 Add repository secrets `APP_URL` and `CRON_SECRET`. Then:
 
