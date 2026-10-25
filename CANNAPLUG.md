@@ -1100,3 +1100,13 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 - Owner actions: decide the limit numbers (if any) and switch them on in Settings.
 - Rollback: `supabase/rollbacks/20261025002000_launch_rules_rollback.sql` (restores the fixed threshold) and revert the PR.
 - **Hosted (25 Oct):** migration applied with `apply_migration`; all five function bodies match the repo (md5), none executable by `authenticated`, `purchase_limits` has RLS and is empty (limits off), both triggers present, every product starts at threshold 5. Before applying, the live `email_automations_run` was checked: it differed from the repo only by stripped comments.
+
+## 2026-10-25 — Release verification, part 1: the database now runs the scheduled jobs (Prompt 15)
+
+- Actor/tool: Claude (Claude Code session), branch `chore/mvp-release-verification`
+- **Found:** every GitHub Actions run (CI and `Scheduled jobs`) fails in 3 s with "The job was not started because your account is locked due to a billing issue." So the notification dispatcher, hourly housekeeping (stock holds on unpaid orders, loyalty retries, ID sweep, email automations, sale ends) and the daily Journal had not been running; 9 welcome emails were waiting since 12 Oct (the new `/api/public/health` reported `degraded`).
+- **Fix:** migration `20261025003000_scheduler_fallback.sql` (mirror `drizzle/0034`, rollback, `scripts/rollback-rehearsal-scheduler.sh`, in verify-release): enables `pg_cron` + `pg_net` where available and schedules `cannaplug-dispatch` (*/5), `cannaplug-maintenance` (:17 hourly) and `cannaplug-newsroom-daily` (04:00 UTC) through `scheduler_call_app(job)` (service role only; only the three app routes; reads the URL and bearer from Supabase Vault; a no-op without them). Both schedulers can run together: the routes already lease / skip work that is not due.
+- **Hosted (25 Oct):** migration applied; Vault secrets `cannaplug_app_url` and `cannaplug_scheduler_secret` created; Vercel production env `LOVABLE_CRON_SECRET_PREVIOUS` set to the same new bearer (the app already accepts the current or previous secret; nothing secret is in the repo). Takes effect with this PR's deploy.
+- Tests: `src/test/db/scheduler.test.ts` (2).
+- Owner actions: fix GitHub billing (CI and the GitHub scheduler start again; nothing breaks if both run). When rotating the cron secret, update the Vault secret and the Vercel variable together.
+- Rollback: `supabase/rollbacks/20261025003000_scheduler_fallback_rollback.sql` (unschedules; extensions and Vault secrets stay) and revert the PR.
