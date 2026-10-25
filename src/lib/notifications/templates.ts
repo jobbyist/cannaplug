@@ -31,13 +31,18 @@ const rand = (v: unknown) =>
 
 export const BRAND = {
   name: "Cannaplug",
-  green: "#17432b",
-  accent: "#2db35e",
-  bg: "#f6faf6",
+  // Design tokens: Forest, Leaf, Gold, Cream.
+  green: "#0B3D20",
+  accent: "#16A34A",
+  gold: "#D4AF37",
+  bg: "#F8FAF8",
   ink: "#14201a",
   muted: "#5d6b63",
-  gold: "#c9a64a",
-  supportEmail: "info@cannaplug012.co.za",
+  supportEmail: "admin@cannaplug012.co.za",
+  legal: "CANNAPLUG PTY LTD",
+  address: "Shop 002, One On Mutual, Pretoria Central",
+  phone: "+27 68 291 2107",
+  logoPath: "/email/cannaplug-logo-white.png",
 } as const;
 
 function layout(opts: {
@@ -46,22 +51,26 @@ function layout(opts: {
   bodyHtml: string;
   cta?: { label: string; url: string };
   footerNote?: string;
+  /** Absolute site URL, used for the logo image. */
+  siteUrl?: string;
 }): string {
   const { preheader, title, bodyHtml, cta, footerNote } = opts;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
+  const base = (opts.siteUrl ?? "https://cannaplug012.co.za").replace(/\/+$/, "");
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(title)}</title></head>
 <body style="margin:0;background:${BRAND.bg};font-family:Inter,Arial,sans-serif;color:${BRAND.ink}">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.bg}"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #dfe9e1;border-radius:14px;overflow:hidden">
-<tr><td style="background:${BRAND.green};padding:20px 28px"><span style="font-family:Montserrat,Arial,sans-serif;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffffff;font-size:16px">${BRAND.name}</span></td></tr>
+<tr><td style="background:${BRAND.green};padding:22px 28px;border-bottom:4px solid ${BRAND.gold}"><a href="${base}/" style="text-decoration:none"><img src="${base}${BRAND.logoPath}" width="144" height="32" alt="${BRAND.name}" style="display:block;border:0;height:32px;width:144px;color:#ffffff;font-family:Montserrat,Arial,sans-serif;font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase"></a></td></tr>
 <tr><td style="padding:28px">
-<h1 style="font-family:Montserrat,Arial,sans-serif;font-size:20px;line-height:1.25;margin:0 0 14px;text-transform:uppercase;letter-spacing:.02em;color:${BRAND.green}">${esc(title)}</h1>
+<h1 style="font-family:Montserrat,Arial,sans-serif;font-size:21px;line-height:1.25;margin:0 0 14px;text-transform:uppercase;letter-spacing:.02em;color:${BRAND.green}">${esc(title)}</h1>
 ${bodyHtml}
-${cta ? `<p style="margin:24px 0 4px"><a href="${esc(cta.url)}" style="background:${BRAND.accent};color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:999px;display:inline-block;font-size:14px">${esc(cta.label)}</a></p>` : ""}
+${cta ? `<p style="margin:24px 0 4px"><a href="${esc(cta.url)}" style="background:${BRAND.accent};color:#ffffff;text-decoration:none;font-family:Montserrat,Arial,sans-serif;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:13px 24px;border-radius:999px;display:inline-block;font-size:13px">${esc(cta.label)}</a></p>` : ""}
 </td></tr>
-<tr><td style="padding:18px 28px;background:#f1f6f2;color:${BRAND.muted};font-size:12px;line-height:1.5">
-${footerNote ? `<p style="margin:0 0 8px;border-left:3px solid ${BRAND.gold};padding-left:10px">${esc(footerNote)}</p>` : ""}
-<p style="margin:0">Cannaplug · Questions? Reply to this email or write to <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.green}">${BRAND.supportEmail}</a>.</p>
+<tr><td style="padding:18px 28px;background:${BRAND.bg};color:${BRAND.muted};font-size:12px;line-height:1.55;border-top:1px solid #e3ece5">
+${footerNote ? `<p style="margin:0 0 10px;border-left:3px solid ${BRAND.gold};padding-left:10px">${esc(footerNote)}</p>` : ""}
+<p style="margin:0 0 6px">Questions? Reply to this email or write to <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.green};font-weight:600">${BRAND.supportEmail}</a>.</p>
+<p style="margin:0">${BRAND.legal} · ${BRAND.address} · ${BRAND.phone}<br>For adults 18 and over. Please consume responsibly.</p>
 </td></tr></table></td></tr></table></body></html>`;
 }
 
@@ -432,25 +441,43 @@ export const TEMPLATES: Record<string, Template> = {
   },
   promo_announcement: (d, c) => {
     const base = c.siteUrl.replace(/\/+$/, "");
+    const test = d["test"] === true;
     const unsub = `${base}/unsubscribe?token=${esc(d["unsubscribe_token"])}`;
+    const paragraphs = String(d["body"] ?? "")
+      .split(/\n\s*\n/)
+      .map((para) => para.trim())
+      .filter(Boolean)
+      .map((para) => p(esc(para).replace(/\n/g, "<br>")))
+      .join("");
+    const ctaUrl = String(d["cta_url"] ?? "");
     return {
-      subject: String(d["headline"] ?? "News from Cannaplug").slice(0, 120),
-      headers: {
-        "List-Unsubscribe": `<${unsub}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
+      subject: `${test ? "[TEST] " : ""}${String(d["subject"] ?? d["headline"] ?? "News from Cannaplug").slice(0, 120)}`,
+      ...(test
+        ? {}
+        : {
+            headers: {
+              "List-Unsubscribe": `<${unsub}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }),
       html: layout({
-        preheader: String(d["preheader"] ?? "").slice(0, 120),
+        preheader: String(d["preheader"] ?? "").slice(0, 150),
         title: String(d["headline"] ?? "News from Cannaplug"),
         bodyHtml:
-          `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(d["body"])}</p>` +
-          p(`<a href="${unsub}" style="color:${BRAND.green}">Unsubscribe</a>`),
-        cta: {
-          label: String(d["cta_label"] ?? "Visit Cannaplug"),
-          url: String(d["cta_url"] ?? base),
-        },
+          (test
+            ? `<p style="margin:0 0 16px;padding:10px 12px;border-radius:8px;background:#fff8e1;border:1px solid ${BRAND.gold};font-size:13px"><b>Test email.</b> Only you received this. Subscribers get it when the campaign is sent.</p>`
+            : "") +
+          paragraphs +
+          (test
+            ? ""
+            : p(
+                `<span style="font-size:12px;color:${BRAND.muted}">Not for you? <a href="${unsub}" style="color:${BRAND.green}">Unsubscribe in one click</a>.</span>`,
+              )),
+        ...(d["cta_label"] && /^https:\/\//.test(ctaUrl)
+          ? { cta: { label: String(d["cta_label"]), url: ctaUrl } }
+          : {}),
         footerNote:
-          "You are receiving this because you subscribed on the Cannaplug website. For adults 18 and over.",
+          "You are receiving this because you subscribed to CannaPlug news and offers. For adults 18 and over.",
       }),
     };
   },

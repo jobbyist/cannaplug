@@ -1324,6 +1324,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_campaigns: {
+        Row: {
+          body: string;
+          created_at: string;
+          created_by: string;
+          cta_label: string | null;
+          cta_url: string | null;
+          headline: string;
+          id: string;
+          preheader: string | null;
+          recipient_count: number | null;
+          sent_at: string | null;
+          sent_by: string | null;
+          status: string;
+          subject: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          body: string;
+          created_at?: string;
+          created_by: string;
+          cta_label?: string | null;
+          cta_url?: string | null;
+          headline: string;
+          id?: string;
+          preheader?: string | null;
+          recipient_count?: number | null;
+          sent_at?: string | null;
+          sent_by?: string | null;
+          status?: string;
+          subject: string;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          created_by?: string;
+          cta_label?: string | null;
+          cta_url?: string | null;
+          headline?: string;
+          id?: string;
+          preheader?: string | null;
+          recipient_count?: number | null;
+          sent_at?: string | null;
+          sent_by?: string | null;
+          status?: string;
+          subject?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [];
+      };
       delivery_options: {
         Row: {
           code: string;
@@ -2462,6 +2516,33 @@ export type Database = {
         };
         Returns: Json;
       };
+      email_campaign_save: {
+        Args: {
+          p_actor: string;
+          p_body: string;
+          p_cta_label: string;
+          p_cta_url: string;
+          p_headline: string;
+          p_id: string;
+          p_idempotency_key: string;
+          p_preheader: string;
+          p_subject: string;
+        };
+        Returns: Json;
+      };
+      email_campaign_send: {
+        Args: { p_actor: string; p_id: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      email_campaign_test: {
+        Args: { p_actor: string; p_id: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      member_newsletter_set: {
+        Args: { p_idempotency_key: string; p_subscribe: boolean; p_user: string };
+        Returns: Json;
+      };
+      member_newsletter_status: { Args: { p_user: string }; Returns: boolean };
       admin_search: {
         Args: { p_actor: string; p_limit?: number; p_query: string };
         Returns: Json;

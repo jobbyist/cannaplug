@@ -34,6 +34,7 @@ import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
+import { EmailPreferences } from "@/components/account/EmailPreferences";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
@@ -482,6 +483,9 @@ function MemberPortal() {
                   ? { intro: "You followed a reset link. Choose your new password now." }
                   : {})}
               />
+            </div>
+            <div className="mt-6 border-t border-border pt-6">
+              <EmailPreferences />
             </div>
           </div>
         )}
