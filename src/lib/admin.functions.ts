@@ -19,6 +19,14 @@ import {
   type AdminOrderStatus,
 } from "@/lib/admin-data.server";
 
+/** The signed-in staff member's role, so /admin shows only the tabs they can use. */
+export const getMyStaffRoleFn = createServerFn({ method: "GET" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { assertRole } = await import("@/lib/admin-data.server");
+    return (await assertRole(context.userId, "budtender")) as "budtender" | "manager" | "admin";
+  });
+
 export const getAdminDashboardFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getAdminDashboard(context.userId));

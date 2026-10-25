@@ -120,11 +120,14 @@ export function ProductsPanel({
   editingProduct,
   setEditingProduct,
   onSaved,
+  canEdit = true,
 }: {
   products: AdminProduct[];
   editingProduct: string | null;
   setEditingProduct: (id: string | null) => void;
   onSaved: () => Promise<void>;
+  /** Budtenders see the list only; every change is also refused on the server. */
+  canEdit?: boolean;
 }) {
   const product = products.find((p) => p.id === editingProduct);
   const [form, setForm] = useState<AdminProductInput>(blank);
@@ -205,13 +208,15 @@ export function ProductsPanel({
             managers only.
           </p>
         </div>
-        <div className="flex gap-2">
-          <ProductCsv onSaved={onSaved} />
-          <CatalogueImport onImported={onSaved} />
-          <Button size="sm" onClick={() => setEditingProduct("new")}>
-            <PlusCircle size={14} /> Add product
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <ProductCsv onSaved={onSaved} />
+            <CatalogueImport onImported={onSaved} />
+            <Button size="sm" onClick={() => setEditingProduct("new")}>
+              <PlusCircle size={14} /> Add product
+            </Button>
+          </div>
+        )}
       </div>
       <Table>
         <TableHeader>
@@ -265,26 +270,30 @@ export function ProductsPanel({
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <Button variant="ghost" size="sm" onClick={() => setEditingProduct(p.id)}>
-                  Edit
-                </Button>
-                {p.is_active && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      void deactivateAdminProductFn({ data: { productId: p.id } }).then(onSaved)
-                    }
-                  >
-                    Deactivate
-                  </Button>
+                {canEdit && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingProduct(p.id)}>
+                      Edit
+                    </Button>
+                    {p.is_active && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void deactivateAdminProductFn({ data: { productId: p.id } }).then(onSaved)
+                        }
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </>
                 )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      {editingProduct && (
+      {canEdit && editingProduct && (
         <div
           className="mt-6 rounded-xl border border-border bg-card p-5"
           data-testid="product-editor"

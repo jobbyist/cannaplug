@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { ROLE_LABEL, atLeast, canSee, type StaffRole } from "@/lib/admin-nav";
 import {
   type LucideIcon,
   AlertTriangle,
@@ -47,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { rand } from "@/lib/cart";
 import {
   getAdminDashboardFn,
+  getMyStaffRoleFn,
   getAdminOrderFn,
   listAdminOrdersFn,
   listAdminProductsFn,
@@ -104,6 +106,7 @@ const statusVariant = (status: string) =>
 function AdminPage() {
   const { user, loading } = useAuth();
   const [tab, setTab] = useState("overview");
+  const [role, setRole] = useState<StaffRole | null>(null);
   const [dashboard, setDashboard] = useState<Awaited<
     ReturnType<typeof getAdminDashboardFn>
   > | null>(null);
@@ -136,13 +139,16 @@ function AdminPage() {
     setRefreshing(true);
     setError(null);
     try {
-      const [d, o, p, c, f] = await Promise.all([
+      const [r, d, o, p, c, f] = await Promise.all([
+        getMyStaffRoleFn(),
         getAdminDashboardFn(),
         listAdminOrdersFn(),
         listAdminProductsFn(),
         listCustomersFn(),
         listFulfilmentQueueFn(),
       ]);
+      setRole(r);
+      if (!canSee(r, tab)) setTab("overview");
       setDashboard(d);
       setOrders(o);
       setHasMoreOrders(o.length >= 100);
@@ -187,7 +193,7 @@ function AdminPage() {
   return (
     <div className="site flex min-h-screen flex-col bg-background md:flex-row">
       <DashboardSidebar
-        items={NAV_ITEMS}
+        items={NAV_ITEMS.filter((i) => canSee(role, i.id))}
         active={tab}
         onSelect={setTab}
         header={
@@ -217,7 +223,7 @@ function AdminPage() {
                 <CircleUserRound size={18} />
               </span>
               <div className="hidden text-xs sm:block">
-                <p className="font-semibold">Staff</p>
+                <p className="font-semibold">{role ? ROLE_LABEL[role] : "Staff"}</p>
                 <p className="text-muted-foreground">{user.email}</p>
               </div>
             </div>
@@ -354,6 +360,7 @@ function AdminPage() {
               await transitionAdminOrderFn({ data: { orderId, toStatus } });
               await refresh();
             }}
+            canConfirmPayment={atLeast(role, "manager")}
             onConfirmPayment={async (orderId, bankReference, amountReceived) => {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
@@ -374,6 +381,7 @@ function AdminPage() {
               await transitionAdminOrderFn({ data: { orderId, toStatus } });
               await refresh();
             }}
+            canConfirmPayment={atLeast(role, "manager")}
             onConfirmPayment={async (orderId, bankReference, amountReceived) => {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
@@ -389,6 +397,7 @@ function AdminPage() {
             editingProduct={editingProduct}
             setEditingProduct={setEditingProduct}
             onSaved={refresh}
+            canEdit={atLeast(role, "manager")}
           />
         )}
         {tab === "inventory" && dashboard && (
@@ -503,8 +512,11 @@ function OrdersPanel({
   onTransition,
   onConfirmPayment,
   onLoadMore,
+  canConfirmPayment = true,
 }: {
   onLoadMore?: () => Promise<void>;
+  /** Recording an EFT is a manager action (also enforced on the server). */
+  canConfirmPayment?: boolean;
   onConfirmPayment: (
     id: string,
     bankReference: string,
@@ -582,7 +594,7 @@ function OrdersPanel({
               <span>Total</span>
               <span>{rand(selected.total_rand)}</span>
             </div>
-            {selected.status === "awaiting_payment" && (
+            {canConfirmPayment && selected.status === "awaiting_payment" && (
               <EftConfirm
                 order={selected}
                 onConfirm={onConfirmPayment}
