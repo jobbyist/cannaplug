@@ -58,7 +58,9 @@ for (const [path, type, needle] of [
   const body = await r.text();
   ok(
     `GET ${path}`,
-    r.status === 200 && (r.headers.get("content-type") ?? "").includes(type) && body.includes(needle),
+    r.status === 200 &&
+      (r.headers.get("content-type") ?? "").includes(type) &&
+      body.includes(needle),
     `${r.status} ${r.headers.get("content-type") ?? ""}`,
   );
 }
