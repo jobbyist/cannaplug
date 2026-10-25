@@ -1330,7 +1330,9 @@ export type Database = {
           description: string | null;
           fee_rand: number;
           is_active: boolean;
+          is_pickup: boolean;
           label: string;
+          pickup_address: string | null;
           sort_order: number;
         };
         Insert: {
@@ -1338,7 +1340,9 @@ export type Database = {
           description?: string | null;
           fee_rand: number;
           is_active?: boolean;
+          is_pickup?: boolean;
           label: string;
+          pickup_address?: string | null;
           sort_order?: number;
         };
         Update: {
@@ -1346,7 +1350,9 @@ export type Database = {
           description?: string | null;
           fee_rand?: number;
           is_active?: boolean;
+          is_pickup?: boolean;
           label?: string;
+          pickup_address?: string | null;
           sort_order?: number;
         };
         Relationships: [];

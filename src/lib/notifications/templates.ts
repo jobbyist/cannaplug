@@ -92,9 +92,13 @@ type Ctx = { siteUrl: string };
 type Template = (d: TemplateData, c: Ctx) => Omit<Rendered, "text"> & { text?: string };
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+const PICKUP_ADDRESS = "Shop 002, One On Mutual, Pretoria Central";
 const orderRows = (d: TemplateData): [string, string][] => [
   ["Order", esc(d["order_number"])],
   ["Total", esc(rand(d["total_rand"]))],
+  ...(d["delivery_method"] === "collection"
+    ? ([["Collect at", PICKUP_ADDRESS]] as [string, string][])
+    : []),
 ];
 const accountUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/account`;
 const adminUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/admin`;
@@ -132,14 +136,24 @@ export const TEMPLATES: Record<string, Template> = {
       title: "Payment confirmed",
       bodyHtml:
         p(hi(d)) +
-        p("We have verified your payment and are now preparing your order.") +
+        p(
+          d["delivery_method"] === "collection"
+            ? "We have verified your payment and are preparing your order. We'll email you as soon as it is ready to collect at Shop 002, One On Mutual, Pretoria Central."
+            : "We have verified your payment and are now preparing your order.",
+        ) +
         kv(orderRows(d)),
       cta: { label: "Track my order", url: accountUrl(c) },
     }),
   }),
   order_ready: (d, c) => ({
-    subject: `Your order ${d["order_number"]} is ready`,
-    sms: `Cannaplug: order ${d["order_number"]} is ready.`,
+    subject:
+      d["delivery_method"] === "collection"
+        ? `Your order ${d["order_number"]} is ready to collect`
+        : `Your order ${d["order_number"]} is ready`,
+    sms:
+      d["delivery_method"] === "collection"
+        ? `Cannaplug: order ${d["order_number"]} is ready to collect at Shop 002, One On Mutual. Bring your ID.`
+        : `Cannaplug: order ${d["order_number"]} is ready.`,
     html: layout({
       preheader: "Your order is packed and ready.",
       title: "Your order is ready",
@@ -147,7 +161,7 @@ export const TEMPLATES: Record<string, Template> = {
         p(hi(d)) +
         p(
           d["delivery_method"] === "collection"
-            ? "Your order is ready for collection. Bring a valid ID."
+            ? `Your order is ready for collection at ${PICKUP_ADDRESS}. Bring a valid ID: we check it when you collect.`
             : "Your order is packed and will go out for delivery shortly.",
         ) +
         kv(orderRows(d)),

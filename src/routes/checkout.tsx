@@ -10,6 +10,7 @@ import {
   Minus,
   Plus,
   ShoppingBag,
+  Store,
   Trash2,
   Truck,
 } from "lucide-react";
@@ -43,7 +44,14 @@ export const Route = createFileRoute("/checkout")({
 const STEPS = ["Cart", "Details", "Delivery", "Payment", "Confirmation"] as const;
 type Step = (typeof STEPS)[number];
 
-type DeliveryOption = { code: string; label: string; description: string | null; fee_rand: number };
+type DeliveryOption = {
+  code: string;
+  label: string;
+  description: string | null;
+  fee_rand: number;
+  is_pickup?: boolean;
+  pickup_address?: string | null;
+};
 type SavedAddress = {
   id: string;
   label: string;
@@ -182,6 +190,8 @@ function CheckoutPage() {
 
   const [options, setOptions] = useState<DeliveryOption[]>([]);
   const [delivery, setDelivery] = useState<string | null>(null);
+  // How the order reaches the member: delivered to a saved address, or collected in store.
+  const [fulfil, setFulfil] = useState<"delivery" | "pickup">("delivery");
 
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -273,7 +283,7 @@ function CheckoutPage() {
       .then((rows) => {
         const list = rows as DeliveryOption[];
         setOptions(list);
-        setDelivery((current) => current ?? list[0]?.code ?? null);
+        setDelivery((current) => current ?? list.find((o) => !o.is_pickup)?.code ?? null);
       })
       .catch((err) => setError(errorText(err)));
   }, []);
@@ -318,6 +328,14 @@ function CheckoutPage() {
   }, [step, delivery, cartKey]);
 
   const deliveryFee = options.find((o) => o.code === delivery)?.fee_rand ?? null;
+  const pickupOption = options.find((o) => o.is_pickup) ?? null;
+  const shownOptions = options.filter((o) => Boolean(o.is_pickup) === (fulfil === "pickup"));
+  const chooseFulfil = (next: "delivery" | "pickup") => {
+    setFulfil(next);
+    setQuote(null);
+    setDelivery(options.find((o) => Boolean(o.is_pickup) === (next === "pickup"))?.code ?? null);
+  };
+  const needsAddress = fulfil === "delivery";
   const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
   const contactValid =
     contactName.trim().length >= 2 && /^[0-9+() -]{7,40}$/.test(contactPhone.trim());
@@ -340,7 +358,8 @@ function CheckoutPage() {
   };
 
   const placeOrder = async () => {
-    if (!quote || quote.total === null || !delivery || !addressId || !payMethod) return;
+    if (!quote || quote.total === null || !delivery || (needsAddress && !addressId) || !payMethod)
+      return;
     setPlacing(true);
     setError(null);
     try {
@@ -350,7 +369,7 @@ function CheckoutPage() {
           contactName: contactName.trim(),
           contactPhone: contactPhone.trim(),
           deliveryMethod: delivery,
-          addressId,
+          addressId: needsAddress ? addressId : null,
           paymentMethod: payMethod,
           expectedTotal: quote.total,
           notes: notes.trim() === "" ? null : notes.trim(),
@@ -555,7 +574,9 @@ function CheckoutPage() {
                       />
                     </div>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="co-notes">Delivery notes (optional)</Label>
+                      <Label htmlFor="co-notes">
+                        {needsAddress ? "Delivery notes (optional)" : "Notes (optional)"}
+                      </Label>
                       <Input
                         id="co-notes"
                         value={notes}
@@ -566,114 +587,162 @@ function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">
-                      Delivery address
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {addresses.map((a) => (
+                  {pickupOption && (
+                    <fieldset className="grid gap-2 sm:grid-cols-2">
+                      <legend className="mb-2 text-xs font-bold uppercase text-muted-foreground">
+                        How would you like to get your order?
+                      </legend>
+                      {(
+                        [
+                          ["delivery", "Delivery", "To your door"],
+                          [
+                            "pickup",
+                            "In-store pickup",
+                            `Free · ${pickupOption.pickup_address ?? "at the shop"}`,
+                          ],
+                        ] as const
+                      ).map(([value, label, hint]) => (
                         <label
-                          key={a.id}
+                          key={value}
                           className={
-                            "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition " +
-                            (addressId === a.id ? "border-primary bg-primary/5" : "border-border")
+                            "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition " +
+                            (fulfil === value ? "border-primary bg-primary/5" : "border-border")
                           }
                         >
                           <input
                             type="radio"
-                            name="address"
+                            name="fulfil"
                             className="mt-1 accent-primary"
-                            checked={addressId === a.id}
-                            onChange={() => setAddressId(a.id)}
+                            checked={fulfil === value}
+                            onChange={() => chooseFulfil(value)}
                           />
-                          <MapPin size={16} className="mt-0.5 text-primary" />
-                          <span className="text-xs">
-                            <b className="text-sm">{a.label}</b>
-                            <br />
-                            <span className="text-muted-foreground">{addressLine(a)}</span>
+                          <span>
+                            <span className="block font-semibold">{label}</span>
+                            <span className="text-xs text-muted-foreground">{hint}</span>
                           </span>
                         </label>
                       ))}
-                      {addressesLoaded && addresses.length === 0 && !adding && (
-                        <p className="text-xs text-muted-foreground">
-                          You have no saved addresses yet.
-                        </p>
+                    </fieldset>
+                  )}
+
+                  {needsAddress ? (
+                    <div>
+                      <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">
+                        Delivery address
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {addresses.map((a) => (
+                          <label
+                            key={a.id}
+                            className={
+                              "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition " +
+                              (addressId === a.id ? "border-primary bg-primary/5" : "border-border")
+                            }
+                          >
+                            <input
+                              type="radio"
+                              name="address"
+                              className="mt-1 accent-primary"
+                              checked={addressId === a.id}
+                              onChange={() => setAddressId(a.id)}
+                            />
+                            <MapPin size={16} className="mt-0.5 text-primary" />
+                            <span className="text-xs">
+                              <b className="text-sm">{a.label}</b>
+                              <br />
+                              <span className="text-muted-foreground">{addressLine(a)}</span>
+                            </span>
+                          </label>
+                        ))}
+                        {addressesLoaded && addresses.length === 0 && !adding && (
+                          <p className="text-xs text-muted-foreground">
+                            You have no saved addresses yet.
+                          </p>
+                        )}
+                      </div>
+                      {adding ? (
+                        <div className="mt-3 grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
+                          <div className="grid gap-1.5 sm:col-span-2">
+                            <Label htmlFor="co-line1">Street address</Label>
+                            <Input
+                              id="co-line1"
+                              value={draft.line1}
+                              onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="co-suburb">Suburb</Label>
+                            <Input
+                              id="co-suburb"
+                              value={draft.suburb}
+                              onChange={(e) => setDraft({ ...draft, suburb: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="co-city">City</Label>
+                            <Input
+                              id="co-city"
+                              value={draft.city}
+                              onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="co-province">Province</Label>
+                            <Input
+                              id="co-province"
+                              value={draft.province}
+                              onChange={(e) => setDraft({ ...draft, province: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="co-postal">Postal code</Label>
+                            <Input
+                              id="co-postal"
+                              value={draft.postal_code}
+                              onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex gap-2 sm:col-span-2">
+                            <Button
+                              size="sm"
+                              disabled={
+                                draft.line1.trim().length < 3 ||
+                                (draft.city.trim() === "" && draft.suburb.trim() === "")
+                              }
+                              onClick={() => void saveNewAddress()}
+                            >
+                              Save address
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setAdding(false)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-3 text-xs font-semibold text-primary"
+                          onClick={() => setAdding(true)}
+                        >
+                          + Add a new address
+                        </button>
                       )}
                     </div>
-                    {adding ? (
-                      <div className="mt-3 grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
-                        <div className="grid gap-1.5 sm:col-span-2">
-                          <Label htmlFor="co-line1">Street address</Label>
-                          <Input
-                            id="co-line1"
-                            value={draft.line1}
-                            onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="co-suburb">Suburb</Label>
-                          <Input
-                            id="co-suburb"
-                            value={draft.suburb}
-                            onChange={(e) => setDraft({ ...draft, suburb: e.target.value })}
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="co-city">City</Label>
-                          <Input
-                            id="co-city"
-                            value={draft.city}
-                            onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="co-province">Province</Label>
-                          <Input
-                            id="co-province"
-                            value={draft.province}
-                            onChange={(e) => setDraft({ ...draft, province: e.target.value })}
-                          />
-                        </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="co-postal">Postal code</Label>
-                          <Input
-                            id="co-postal"
-                            value={draft.postal_code}
-                            onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
-                          />
-                        </div>
-                        <div className="flex gap-2 sm:col-span-2">
-                          <Button
-                            size="sm"
-                            disabled={
-                              draft.line1.trim().length < 3 ||
-                              (draft.city.trim() === "" && draft.suburb.trim() === "")
-                            }
-                            onClick={() => void saveNewAddress()}
-                          >
-                            Save address
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setAdding(false)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="mt-3 text-xs font-semibold text-primary"
-                        onClick={() => setAdding(true)}
-                      >
-                        + Add a new address
-                      </button>
-                    )}
-                  </div>
+                  ) : (
+                    <p className="rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 p-3 text-xs">
+                      Collect at <b>{pickupOption?.pickup_address}</b>. We'll email you when your
+                      order is ready. Bring your ID: we check it on collection.
+                    </p>
+                  )}
 
                   <div className="flex justify-between">
                     <Button variant="outline" onClick={() => go("Cart")}>
                       Back
                     </Button>
-                    <Button disabled={!contactValid || !addressId} onClick={() => go("Delivery")}>
+                    <Button
+                      disabled={!contactValid || (needsAddress && !addressId)}
+                      onClick={() => go("Delivery")}
+                    >
                       Continue <ChevronRight size={15} />
                     </Button>
                   </div>
@@ -682,12 +751,12 @@ function CheckoutPage() {
 
             {step === "Delivery" && (
               <div className="flex flex-col gap-4">
-                {selectedAddress && (
+                {needsAddress && selectedAddress && (
                   <p className="text-xs text-muted-foreground">
                     Delivering to <b>{selectedAddress.label}</b> — {addressLine(selectedAddress)}
                   </p>
                 )}
-                {options.map((option) => (
+                {shownOptions.map((option) => (
                   <label
                     key={option.code}
                     className={
@@ -703,10 +772,16 @@ function CheckoutPage() {
                         checked={delivery === option.code}
                         onChange={() => setDelivery(option.code)}
                       />
-                      <Truck size={18} className="text-primary" />
+                      {option.is_pickup ? (
+                        <Store size={18} className="text-primary" />
+                      ) : (
+                        <Truck size={18} className="text-primary" />
+                      )}
                       <div>
                         <p className="text-sm font-semibold">{option.label}</p>
-                        <p className="text-xs text-muted-foreground">{option.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {option.is_pickup ? option.pickup_address : option.description}
+                        </p>
                       </div>
                     </div>
                     <b className="text-sm">{rand(Number(option.fee_rand))}</b>

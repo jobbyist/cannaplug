@@ -202,6 +202,68 @@ describe("checkout end to end (server mocked)", () => {
     expect(JSON.parse(window.localStorage.getItem("cannaplug.cart.v1") ?? "[]")).toEqual([]);
   });
 
+  it("in-store pickup needs no address and sends no address id", async () => {
+    const user = userEvent.setup();
+    mocks.listDeliveryOptionsFn.mockResolvedValue([
+      {
+        code: "collection",
+        label: "In-store pickup",
+        description: "Collect at the shop",
+        fee_rand: 0,
+        is_pickup: true,
+        pickup_address: "Shop 002, One On Mutual, Pretoria Central",
+      },
+      {
+        code: "standard",
+        label: "Standard delivery",
+        description: "2–3 working days",
+        fee_rand: 80,
+      },
+    ]);
+    mocks.listCheckoutAddressesFn.mockResolvedValue([]);
+    mocks.quoteCheckoutFn.mockResolvedValue(
+      quote({
+        delivery_method: "collection",
+        delivery_label: "In-store pickup",
+        delivery_fee: 0,
+        total: 200,
+      }),
+    );
+    mocks.placeOrderFn.mockResolvedValue({
+      order_id: "o9",
+      order_number: "CP-2610-0001",
+      status: "awaiting_payment",
+      subtotal: 200,
+      delivery_fee: 0,
+      total: 200,
+      payment_method: "eft",
+      hold_minutes: 120,
+    });
+    renderPage();
+    await user.click(screen.getByText("seed"));
+    await user.click(await screen.findByRole("button", { name: /continue/i }));
+    await user.clear(await screen.findByLabelText("Full name"));
+    await user.type(screen.getByLabelText("Full name"), "Mia Member");
+    await user.type(screen.getByLabelText("Phone"), "+27 82 000 0000");
+    const next = () => screen.getByRole("button", { name: /continue/i }) as HTMLButtonElement;
+    await waitFor(() => expect(next().disabled).toBe(true)); // delivery needs an address; none saved
+    await user.click(screen.getByLabelText(/In-store pickup/));
+    expect(screen.getAllByText(/Shop 002, One On Mutual, Pretoria Central/).length).toBeGreaterThan(
+      0,
+    );
+    expect(next().disabled).toBe(false);
+    await user.click(next());
+    expect(screen.queryByLabelText(/Standard delivery/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(await screen.findByRole("button", { name: /place order · R200/i }));
+    await screen.findByText("Order placed");
+    expect(mocks.placeOrderFn.mock.calls[0]![0].data).toMatchObject({
+      deliveryMethod: "collection",
+      addressId: null,
+      expectedTotal: 200,
+    });
+  });
+
   it("keeps the cart, shows the fresh total and uses a fresh key when the price moved", async () => {
     const user = userEvent.setup();
     mocks.quoteCheckoutFn

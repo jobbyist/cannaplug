@@ -101,6 +101,14 @@ const transitions: Record<AdminOrderStatus, AdminOrderStatus[]> = {
   completed: [],
   cancelled: [],
 };
+/** In-store pickup orders go ready -> completed (collected); the database enforces the same rule. */
+const isPickup = (method: string | null | undefined) => method === "collection";
+function nextStatuses(status: string, method: string | null | undefined): AdminOrderStatus[] {
+  if (isPickup(method) && status === "ready") return ["completed"];
+  return (transitions[status as AdminOrderStatus] ?? []).filter(
+    (s) => !(status === "awaiting_payment" && s === "confirmed"),
+  );
+}
 const statusLabel = (status: string) =>
   status.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const statusVariant = (status: string) =>
@@ -551,11 +559,7 @@ function OrdersPanel({
   const [paymentNote, setPaymentNote] = useState<{ orderId: string; text: string } | null>(null);
   // Unpaid orders are confirmed through the EFT receipt form below (records the bank reference and
   // checks the amount), not by a bare status change.
-  const next = selected
-    ? (transitions[selected.status as AdminOrderStatus] ?? []).filter(
-        (status) => !(selected.status === "awaiting_payment" && status === "confirmed"),
-      )
-    : [];
+  const next = selected ? nextStatuses(selected.status, selected.delivery_method) : [];
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <div>
@@ -679,7 +683,14 @@ function OrderDelivery({
     : null;
   return (
     <div className="mb-5 space-y-1 rounded-lg border border-border p-3 text-xs">
-      <p className="text-[0.65rem] font-bold uppercase text-muted-foreground">Delivery & contact</p>
+      <p className="text-[0.65rem] font-bold uppercase text-muted-foreground">
+        {isPickup(order.delivery_method) ? "In-store pickup & contact" : "Delivery & contact"}
+      </p>
+      {isPickup(order.delivery_method) && (
+        <p className="rounded bg-[#D4AF37]/15 px-2 py-1 font-semibold text-[#0B3D20]">
+          Customer collects at the shop. Check 18+ ID on collection, then mark Completed.
+        </p>
+      )}
       <p>
         {order.contact_name ?? order.customer_name ?? "—"}
         {order.contact_phone ? ` · ${order.contact_phone}` : ""}
@@ -696,9 +707,11 @@ function OrderDelivery({
       {address?.delivery_notes && <p className="italic">Notes: {address.delivery_notes}</p>}
       {order.notes && <p className="italic">Customer note: {order.notes}</p>}
       <p className="text-muted-foreground">
-        {order.delivery_method
-          ? `${statusLabel(order.delivery_method)} delivery`
-          : "No delivery method"}
+        {isPickup(order.delivery_method)
+          ? "In-store pickup"
+          : order.delivery_method
+            ? `${statusLabel(order.delivery_method)} delivery`
+            : "No delivery method"}
         {order.payment_method ? ` · Pay by ${order.payment_method.toUpperCase()}` : ""}
       </p>
       {order.prescription && <PrescriptionLine rx={order.prescription} />}
