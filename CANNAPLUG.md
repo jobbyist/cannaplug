@@ -1193,3 +1193,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Signed in staff: the dashboard as before, plus a **Sign out** button in the header.
 - Files: `src/components/admin/AdminSignIn.tsx` (new), `src/routes/admin.tsx`, `src/lib/admin.functions.ts` (`getMyStaffAccessFn`), `src/lib/admin-data.server.ts` (`staffRoleOf`), `src/test/admin-signin.test.tsx`.
 - Migrations: none. Tests: admin-signin (5); `scripts/verify-release.sh`. Owner actions: none. Rollback: revert the PR.
+
+## 25 Oct 2026 — In-store pickup for online orders
+
+- Purpose: members can choose **In-store pickup** (free) at Shop 002, One On Mutual, Pretoria Central instead of delivery.
+- Checkout: Details step asks "Delivery or In-store pickup?"; pickup needs no saved address; the Delivery step shows only the pickup option; the browser sends `addressId: null`.
+- Database (`20261025004000_in_store_pickup`, mirror `drizzle/0035`, rollback, `scripts/rollback-rehearsal-pickup.sh` in verify-release): `delivery_options.is_pickup` + `pickup_address`; option `collection` (R0); `checkout_place_order` stores the shop address as the order's address snapshot for pickups; `transition_order_status` lets a pickup go ready → completed and refuses out-for-delivery for it (a delivery order still cannot skip out-for-delivery). `_order_is_pickup` is service-role only.
+- Staff: order panel shows "In-store pickup", a reminder to check 18+ ID on collection, and offers **Completed** after Ready. Members see the pickup address on their order. Emails: "ready to collect" subject, address and bring-ID line; SMS short form.
+- Tests: `db/pickup.test.ts` (3), checkout flow pickup case, template case; `db/checkout.test.ts` updated (three active options). Mutation checks: removing the out-for-delivery refusal, and letting any order skip out-for-delivery, are both caught.
+- Owner actions: none. Rollback: the rollback file (removes the option if unused, else switches it off) and revert the PR.

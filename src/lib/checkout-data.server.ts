@@ -55,7 +55,7 @@ export type PlacedOrder = {
 export async function listDeliveryOptions() {
   const { data, error } = await supabaseAdmin
     .from("delivery_options")
-    .select("code,label,description,fee_rand")
+    .select("code,label,description,fee_rand,is_pickup,pickup_address")
     .eq("is_active", true)
     .order("sort_order");
   if (error) throw friendlyMemberError(error);
@@ -91,7 +91,8 @@ export type PlaceOrderInput = {
   contactName: string;
   contactPhone: string;
   deliveryMethod: string;
-  addressId: string;
+  /** Not needed for in-store pickup. */
+  addressId: string | null;
   paymentMethod: "eft" | "card" | "paypal";
   expectedTotal: number;
   notes: string | null;
@@ -112,7 +113,7 @@ export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput)
       p_contact_name: input.contactName,
       p_contact_phone: input.contactPhone,
       p_delivery_method: input.deliveryMethod,
-      p_address_id: input.addressId,
+      p_address_id: input.addressId as string,
       p_payment_method: input.paymentMethod,
       p_expected_total: input.expectedTotal,
       p_notes: input.notes,

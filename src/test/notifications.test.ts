@@ -33,6 +33,16 @@ describe("templates", () => {
     expect(r.html).toContain("Hi Ada");
     expect(r.html).toMatch(/R1\s234,50/);
   });
+  it("tells in-store pickup customers where to collect and to bring ID", () => {
+    const pickup = { ...data, delivery_method: "collection" };
+    const ready = renderTemplate("order_ready", pickup, ctx)!;
+    expect(ready.subject).toMatch(/ready to collect/);
+    expect(ready.html).toContain("Shop 002, One On Mutual, Pretoria Central");
+    expect(ready.html).toMatch(/Bring a valid ID/);
+    expect(ready.sms).toMatch(/collect at Shop 002/);
+    expect(renderTemplate("order_received", pickup, ctx)!.html).toContain("Collect at");
+    expect(renderTemplate("order_ready", data, ctx)!.html).not.toContain("Shop 002");
+  });
   it("only ready/out-for-delivery carry an SMS short form", () => {
     expect(renderTemplate("order_ready", data, ctx)!.sms).toContain("CP-100");
     expect(renderTemplate("order_out_for_delivery", data, ctx)!.sms).toBeTruthy();

@@ -385,7 +385,7 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
       (await asAnon(sql, (tx) => tx`SELECT code FROM public.delivery_options ORDER BY code`)).map(
         (r) => r["code"],
       ),
-    ).toEqual(["discreet", "standard"]);
+    ).toEqual(["collection", "discreet", "standard"]);
     const u = await mkMember(sql);
     expect(
       (await attempt(asUser(sql, u, (tx) => tx`UPDATE public.delivery_options SET fee_rand = 0`)))

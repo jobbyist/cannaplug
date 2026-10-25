@@ -71,6 +71,7 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   invalid_rows: "Some rows in the file are not valid",
   purchase_limit_exceeded: "This customer has reached today's purchase limit",
   not_locked: "This member is not locked out",
+  pickup_order: "This order is collected in store. Mark it Completed when the customer collects it.",
   // General
   idempotency_conflict: "This was already submitted with different details. Refresh and try again",
   idempotency_key_required: "Refresh the page and try again",

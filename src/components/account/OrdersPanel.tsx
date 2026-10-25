@@ -330,6 +330,16 @@ export function OrdersPanel({
                 </li>
               ))}
             </ul>
+            {order.delivery_method === "collection" && (
+              <p className="mb-2 rounded-md bg-secondary px-3 py-2 text-xs">
+                <b>In-store pickup</b> at{" "}
+                {String(
+                  (order.delivery_address as { line1?: string } | null)?.line1 ??
+                    "Shop 002, One On Mutual, Pretoria Central",
+                )}
+                . Bring your ID.
+              </p>
+            )}
             {Number(order.delivery_fee_rand) > 0 && (
               <p className="text-right text-xs text-muted-foreground">
                 Delivery {rand(Number(order.delivery_fee_rand))}
