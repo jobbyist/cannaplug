@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 import { friendlyClinicalError } from "@/lib/clinical/logic";
 import * as docs from "@/lib/clinical/documents-data.server";
 
@@ -66,7 +67,8 @@ async function run<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-const auth = [requireSupabaseAuth] as const;
+// friendlyStaffErrors last-resort: anything friendlyClinicalError did not catch still reaches the screen as a sentence.
+const auth = [friendlyStaffErrors, requireSupabaseAuth] as const;
 
 // ------------------------------------------------------------------ practitioner
 

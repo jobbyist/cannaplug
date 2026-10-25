@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 
 /**
  * Server-function boundary for payments. The browser names an order and a provider; the amount, currency,
@@ -64,7 +65,7 @@ export const paymentStatusFn = createServerFn({ method: "GET" })
 // ---- staff (manager+; enforced again in the data layer and by the database) ----
 
 export const getPaymentsOverviewFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(async ({ context }) =>
     (await import("@/lib/payments/payments-data.server")).getPaymentsOverview(context.userId),
   );
@@ -92,7 +93,7 @@ export const submitEftFn = createServerFn({ method: "POST" })
   );
 
 export const approveEftFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ transactionId: uuid }).parse(d))
   .handler(async ({ context, data }) =>
     (await import("@/lib/payments/payments-data.server")).approveEft(
@@ -102,7 +103,7 @@ export const approveEftFn = createServerFn({ method: "POST" })
   );
 
 export const rejectEftFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z.object({ transactionId: uuid, reason: z.string().trim().min(3).max(300) }).parse(d),
   )
@@ -115,7 +116,7 @@ export const rejectEftFn = createServerFn({ method: "POST" })
   );
 
 export const setEftDetailsFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -148,7 +149,7 @@ export const setEftDetailsFn = createServerFn({ method: "POST" })
   );
 
 export const updateFxSettingsFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({ mode: z.enum(["live", "manual"]), marginPercent: z.number().min(0).max(10) })
@@ -159,7 +160,7 @@ export const updateFxSettingsFn = createServerFn({ method: "POST" })
   );
 
 export const setManualFxRateFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({ rate: z.number().min(5).max(60), validHours: z.number().int().min(1).max(168) })
@@ -174,7 +175,7 @@ export const setManualFxRateFn = createServerFn({ method: "POST" })
   );
 
 export const listAuditEventsFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({

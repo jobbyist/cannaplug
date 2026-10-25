@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 import {
   getAdminDashboard,
   getAdminOrder,
@@ -19,11 +20,11 @@ import {
 } from "@/lib/admin-data.server";
 
 export const getAdminDashboardFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getAdminDashboard(context.userId));
 
 export const listAdminOrdersFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z
       .object({
@@ -41,12 +42,12 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
   );
 
 export const getAdminOrderFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ orderId: z.string().uuid() }).parse(data))
   .handler(({ context, data }) => getAdminOrder(context.userId, data.orderId));
 
 export const transitionAdminOrderFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z
       .object({
@@ -74,7 +75,7 @@ export const transitionAdminOrderFn = createServerFn({ method: "POST" })
   );
 
 export const listAdminProductsFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => listAdminProducts(context.userId));
 
 const productSchema = z.object({
@@ -118,7 +119,7 @@ const productSchema = z.object({
 });
 
 export const saveAdminProductFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z.object({ productId: z.string().uuid().optional(), input: productSchema }).parse(data),
   )
@@ -127,16 +128,16 @@ export const saveAdminProductFn = createServerFn({ method: "POST" })
   );
 
 export const deactivateAdminProductFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ productId: z.string().uuid() }).parse(data))
   .handler(({ context, data }) => deactivateAdminProduct(context.userId, data.productId));
 
 export const listCustomersFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => listCustomers(context.userId));
 
 export const listFulfilmentQueueFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => listFulfilmentQueue(context.userId));
 
 export const listStoreProductsFn = createServerFn({ method: "GET" }).handler(() =>
@@ -153,7 +154,7 @@ export const listMemberOrdersFn = createServerFn({ method: "GET" })
   .handler(({ context }) => listMemberOrders(context.userId));
 
 export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z
       .object({
@@ -175,7 +176,7 @@ export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
   );
 
 export const createProductImageUploadFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z
       .object({
@@ -190,7 +191,7 @@ export const createProductImageUploadFn = createServerFn({ method: "POST" })
   });
 
 export const attachProductImageFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z.object({ productId: z.string().uuid(), path: z.string().min(10).max(200) }).parse(data),
   )
@@ -200,7 +201,7 @@ export const attachProductImageFn = createServerFn({ method: "POST" })
   });
 
 export const removeProductImageFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ productId: z.string().uuid() }).parse(data))
   .handler(async ({ context, data }) => {
     const { removeProductImage } = await import("@/lib/product-media.server");

@@ -21,6 +21,7 @@ import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
@@ -29,6 +30,7 @@ import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
 import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AdminPosReceiptSaleIdRouteImport } from './routes/admin_.pos.receipt.$saleId'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
@@ -97,6 +99,11 @@ const ShopRoute = ShopRouteImport.update({
   path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
   id: '/terms-of-service',
   path: '/terms-of-service',
@@ -135,6 +142,11 @@ const SubscribeAdminApiRoute = SubscribeAdminApiRouteImport.update({
 const VerifyTokenRoute = VerifyTokenRouteImport.update({
   id: '/verify/$token',
   path: '/verify/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminPosReceiptSaleIdRoute = AdminPosReceiptSaleIdRouteImport.update({
@@ -191,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
@@ -199,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -220,6 +234,7 @@ export interface FileRoutesByTo {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
@@ -228,6 +243,7 @@ export interface FileRoutesByTo {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -250,6 +266,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/journal/$slug': typeof JournalSlugRoute
@@ -258,6 +275,7 @@ export interface FileRoutesById {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/admin_/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -281,6 +299,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
+    | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
     | '/journal/$slug'
@@ -289,6 +308,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/api/public/health'
     | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -310,6 +330,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
+    | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
     | '/journal/$slug'
@@ -318,6 +339,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal'
+    | '/api/public/health'
     | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -339,6 +361,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/refund-policy'
     | '/shop'
+    | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
     | '/journal/$slug'
@@ -347,6 +370,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/api/public/health'
     | '/admin_/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -369,6 +393,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   ShopRoute: typeof ShopRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   JournalSlugRoute: typeof JournalSlugRoute
@@ -377,6 +402,7 @@ export interface RootRouteChildren {
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   AdminPosReceiptSaleIdRoute: typeof AdminPosReceiptSaleIdRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
@@ -472,6 +498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms-of-service': {
       id: '/terms-of-service'
       path: '/terms-of-service'
@@ -526,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/verify/$token'
       fullPath: '/verify/$token'
       preLoaderRoute: typeof VerifyTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/pos/receipt/$saleId': {
@@ -593,6 +633,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   ShopRoute: ShopRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   JournalSlugRoute: JournalSlugRoute,
@@ -601,6 +642,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   AdminPosReceiptSaleIdRoute: AdminPosReceiptSaleIdRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,

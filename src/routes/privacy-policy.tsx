@@ -1,9 +1,12 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export const Route = createFileRoute("/privacy-policy")({
   head: () => ({
+    links: canonical("/privacy-policy").links,
     meta: [
+      ...canonical("/privacy-policy").meta,
       { title: "Privacy Policy | CannaPlug" },
       {
         name: "description",

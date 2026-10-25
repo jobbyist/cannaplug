@@ -1,3 +1,4 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Headphones, Mail, Phone } from "lucide-react";
 import { Header, Footer } from "@/components/CannaPlugHome";
@@ -10,7 +11,9 @@ import {
 
 export const Route = createFileRoute("/faq")({
   head: () => ({
+    links: canonical("/faq").links,
     meta: [
+      ...canonical("/faq").meta,
       { title: "FAQs | CannaPlug" },
       {
         name: "description",

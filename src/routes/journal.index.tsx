@@ -1,3 +1,4 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowRight, Clock3 } from "lucide-react";
@@ -15,7 +16,9 @@ export const Route = createFileRoute("/journal/")({
   validateSearch: z.object({ category: z.string().optional() }),
   loader: ({ context }) => context.queryClient.ensureQueryData(journalListQuery()),
   head: () => ({
+    links: canonical("/journal").links,
     meta: [
+      ...canonical("/journal").meta,
       { title: "The CannaPlug Journal | South African Cannabis Culture" },
       {
         name: "description",

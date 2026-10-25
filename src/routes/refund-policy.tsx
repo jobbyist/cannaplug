@@ -1,9 +1,12 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export const Route = createFileRoute("/refund-policy")({
   head: () => ({
+    links: canonical("/refund-policy").links,
     meta: [
+      ...canonical("/refund-policy").meta,
       { title: "Refund Policy | CannaPlug" },
       {
         name: "description",

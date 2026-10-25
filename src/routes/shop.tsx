@@ -1,3 +1,4 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, RotateCcw, ShoppingBag } from "lucide-react";
@@ -19,12 +20,23 @@ import { categoryOptions, getCatalogImage } from "@/fixtures/catalog-presentatio
 import { listStoreProductsFn } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/shop")({
-  head: () => ({
-    meta: [
-      { title: "Shop | CannaPlug" },
-      { name: "description", content: "Browse CannaPlug's curated cannabis catalogue." },
-    ],
-  }),
+  head: ({ match }) => {
+    const category = (match.search as { category?: string }).category;
+    const c = canonical(category ? `/shop?category=${encodeURIComponent(category)}` : "/shop");
+    return {
+      links: c.links,
+      meta: [
+        ...c.meta,
+        { title: category ? `${category} | Shop | CannaPlug` : "Shop | CannaPlug" },
+        {
+          name: "description",
+          content: category
+            ? `Shop ${category.toLowerCase()} at CannaPlug, Pretoria Central. Delivery and in-store collection for verified adults.`
+            : "Browse CannaPlug's curated cannabis catalogue.",
+        },
+      ],
+    };
+  },
   validateSearch: (search: Record<string, unknown>): { category?: string } =>
     typeof search["category"] === "string" ? { category: search["category"] } : {},
   component: ShopPage,

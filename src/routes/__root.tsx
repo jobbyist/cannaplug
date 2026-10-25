@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { AgeGate } from "@/components/AgeGate";
 import {
   Outlet,
   Link,
@@ -156,6 +157,7 @@ function RootComponent() {
           <Outlet />
           <ChatWidget />
           <PwaRegister />
+          <AgeGate />
         </CartProvider>
       </AuthProvider>
     </QueryClientProvider>

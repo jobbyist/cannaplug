@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 import { friendlyMemberError } from "@/lib/member-logic";
 import type { UserClient } from "@/lib/member-data.server";
 import {
@@ -64,21 +65,21 @@ export const submitVerificationFn = createServerFn({ method: "POST" })
   );
 
 export const listVerificationsFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ scope: z.enum(["pending", "decided"]) }).parse(d))
   .handler(({ context, data }) => run(() => listVerifications(context.userId, data.scope)));
 
 export const pendingVerificationCountFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => run(() => pendingVerificationCount(context.userId)));
 
 export const viewVerificationDocumentFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ userId: uuid }).parse(d))
   .handler(({ context, data }) => run(() => viewVerificationDocument(context.userId, data.userId)));
 
 export const reviewVerificationFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({

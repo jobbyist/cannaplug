@@ -207,7 +207,7 @@
       "needs": "Client / regulatory-adviser sign-off on the wording, with the source document it is based on",
       "locations": [
         {
-          "file": "src/components/CannaPlugHome.tsx",
+          "file": "src/components/ResponsibleConsumptionDialog.tsx",
           "snippet": "It follows the requirements of South African law and SAHPRA."
         }
       ],

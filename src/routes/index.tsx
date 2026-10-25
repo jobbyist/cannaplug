@@ -1,9 +1,12 @@
+import { canonical } from "@/lib/site";
 import { createFileRoute } from "@tanstack/react-router";
 import { CannaPlugHome } from "@/components/CannaPlugHome";
 
 export const Route = createFileRoute("/")({
   head: () => ({
+    links: canonical("/").links,
     meta: [
+      ...canonical("/").meta,
       { title: "CannaPlug | Premium Cannabis Dispensary Pretoria" },
       {
         name: "description",
