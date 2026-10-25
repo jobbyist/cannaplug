@@ -24,6 +24,7 @@ import {
 } from "@/lib/admin.functions";
 import type { AdminProductInput } from "@/lib/admin-data.server";
 import { CatalogueImport } from "@/components/admin/CatalogueImport";
+import { ProductCsv } from "@/components/admin/ProductCsv";
 import {
   PRODUCT_IMAGE_ACCEPT,
   PRODUCT_IMAGE_BUCKET,
@@ -205,6 +206,7 @@ export function ProductsPanel({
           </p>
         </div>
         <div className="flex gap-2">
+          <ProductCsv onSaved={onSaved} />
           <CatalogueImport onImported={onSaved} />
           <Button size="sm" onClick={() => setEditingProduct("new")}>
             <PlusCircle size={14} /> Add product
