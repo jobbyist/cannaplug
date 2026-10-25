@@ -27,6 +27,17 @@ export const getMyStaffRoleFn = createServerFn({ method: "GET" })
     return (await assertRole(context.userId, "budtender")) as "budtender" | "manager" | "admin";
   });
 
+/**
+ * Whether the signed-in person is staff, without treating "not staff" as an error, so /admin can show a
+ * clear "no staff access" screen instead of a failed dashboard.
+ */
+export const getMyStaffAccessFn = createServerFn({ method: "GET" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { staffRoleOf } = await import("@/lib/admin-data.server");
+    return { role: await staffRoleOf(context.userId) };
+  });
+
 export const getAdminDashboardFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getAdminDashboard(context.userId));

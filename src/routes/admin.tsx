@@ -50,6 +50,7 @@ import { rand } from "@/lib/cart";
 import {
   getAdminDashboardFn,
   getMyStaffRoleFn,
+  getMyStaffAccessFn,
   getAdminOrderFn,
   listAdminOrdersFn,
   listAdminProductsFn,
@@ -65,6 +66,7 @@ import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
+import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin Dashboard | CannaPlug" }] }),
@@ -105,7 +107,9 @@ const statusVariant = (status: string) =>
   status === "completed" ? "default" : status === "cancelled" ? "destructive" : "secondary";
 
 function AdminPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
+  // null = not checked yet; "none" = signed in but not staff
+  const [access, setAccess] = useState<StaffRole | "none" | null>(null);
   const [tab, setTab] = useState("overview");
   const [role, setRole] = useState<StaffRole | null>(null);
   const [dashboard, setDashboard] = useState<Awaited<
@@ -165,31 +169,38 @@ function AdminPage() {
     }
   };
   useEffect(() => {
-    if (user) void refresh();
+    setAccess(null);
+    if (!user) return;
+    let alive = true;
+    void getMyStaffAccessFn()
+      .then(({ role: r }) => {
+        if (!alive) return;
+        setAccess(r ?? "none");
+        if (r) void refresh();
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setAccess("none");
+        setError(e instanceof Error ? e.message : "Could not check your access.");
+      });
+    return () => {
+      alive = false;
+    };
     // Intentionally keyed on the signed-in user only; refresh() is re-created each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  if (loading)
+  if (loading || (user && access === null))
     return (
       <div className="grid min-h-screen place-items-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading admin dashboard…</p>
+        <p className="text-sm text-muted-foreground" role="status">
+          Loading admin dashboard…
+        </p>
       </div>
     );
-  if (!user)
-    return (
-      <div className="grid min-h-screen place-items-center bg-background">
-        <div className="text-center">
-          <p className="font-display text-xl font-bold uppercase">Admin sign-in required</p>
-          <Link
-            to="/account"
-            className="mt-4 inline-flex rounded-full bg-primary px-5 py-2.5 text-xs font-semibold uppercase text-primary-foreground"
-          >
-            Sign in
-          </Link>
-        </div>
-      </div>
-    );
+  if (!user) return <AdminSignIn />;
+  if (access === "none")
+    return <NoStaffAccess email={user.email ?? ""} onSignOut={() => void signOut()} />;
 
   return (
     <div className="site flex min-h-screen flex-col bg-background md:flex-row">
@@ -227,6 +238,9 @@ function AdminPage() {
                 <p className="font-semibold">{role ? ROLE_LABEL[role] : "Staff"}</p>
                 <p className="text-muted-foreground">{user.email}</p>
               </div>
+              <Button size="sm" variant="outline" onClick={() => void signOut()}>
+                Sign out
+              </Button>
             </div>
           </div>
         </header>

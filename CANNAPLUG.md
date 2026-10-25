@@ -1184,3 +1184,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Migrations: none.
 - Tests: new scope test (2 passed); mutation check: removing the loyalty filter makes it fail; `scripts/verify-release.sh`.
 - Owner actions: none. Rollback: revert this PR.
+
+## 25 Oct 2026 — Staff sign-in at /admin
+
+- Purpose: /admin showed a bare "Admin sign-in required" link to the member page, and a signed-in member saw a broken dashboard. /admin now has its own staff sign-in.
+- Signed out: branded "Staff sign-in" (work email + password, Forgot password? → reset email back to /account?reset=1). Errors are plain and never say whether an account exists.
+- Signed in but not staff: "No staff access" with the email shown, sign out, or go to the member account. No admin data is requested.
+- Signed in staff: the dashboard as before, plus a **Sign out** button in the header.
+- Files: `src/components/admin/AdminSignIn.tsx` (new), `src/routes/admin.tsx`, `src/lib/admin.functions.ts` (`getMyStaffAccessFn`), `src/lib/admin-data.server.ts` (`staffRoleOf`), `src/test/admin-signin.test.tsx`.
+- Migrations: none. Tests: admin-signin (5); `scripts/verify-release.sh`. Owner actions: none. Rollback: revert the PR.
