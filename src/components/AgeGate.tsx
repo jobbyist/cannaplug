@@ -66,7 +66,9 @@ export function AgeGate() {
       aria-describedby="age-gate-desc"
     >
       <div className="w-full max-w-sm rounded-2xl bg-background p-6 text-center shadow-xl">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#0B3D20] dark:text-[#D4AF37]">CannaPlug</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#0B3D20] dark:text-[#D4AF37]">
+          CannaPlug
+        </p>
         <h2 id="age-gate-title" className="mt-2 font-display text-2xl font-extrabold uppercase">
           Are you 18 or older?
         </h2>
