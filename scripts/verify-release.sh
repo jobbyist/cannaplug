@@ -12,7 +12,7 @@ if [ "${1:-}" != "--quick" ]; then
   step "database tests (real PostgreSQL, every migration)"; bun run test:db
   step "migration + rollback rehearsals"
   scripts/test-db.sh start >/dev/null
-  for s in rollback-rehearsal-m4 rollback-rehearsal-m5b rollback-rehearsal-payments rollback-rehearsal-m6 rollback-rehearsal-product-media rollback-rehearsal-catalogue-import rollback-rehearsal-pos-receipts rollback-rehearsal-featured rollback-rehearsal-payfast rollback-rehearsal-clinical-notify; do bash "scripts/$s.sh"; done
+  for s in rollback-rehearsal-m4 rollback-rehearsal-m5b rollback-rehearsal-payments rollback-rehearsal-m6 rollback-rehearsal-product-media rollback-rehearsal-catalogue-import rollback-rehearsal-pos-receipts rollback-rehearsal-featured rollback-rehearsal-payfast rollback-rehearsal-product-csv rollback-rehearsal-clinical-notify; do bash "scripts/$s.sh"; done
 fi
 step "production build"; bun run build
 step "dependency audit (critical gate; high/moderate are dev-toolchain only, see docs/release/audit.md)"; bun audit --audit-level=critical || true
