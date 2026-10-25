@@ -62,7 +62,9 @@ describe.skipIf(!DB_URL)("clinical notifications and prescription links (real Po
     return o.orderId as string;
   };
   const summaries = async (actor: string, orders: string[]) =>
-    (await sql`SELECT public.order_prescription_summaries(${actor}::uuid, ${orders}::uuid[]) AS r`)[0].r;
+    (
+      await sql`SELECT public.order_prescription_summaries(${actor}::uuid, ${orders}::uuid[]) AS r`
+    )[0].r;
   const link = (actor: string, order: string, rx: string) =>
     rpc(sql, "link_prescription_to_order", actor, order, rx, key("link"));
 
@@ -212,9 +214,7 @@ describe.skipIf(!DB_URL)("clinical notifications and prescription links (real Po
       const rx = await issuedRx();
       const order = await openOrder();
       await link(w.member, order, rx.rxId);
-      expect((await attempt(summaries(w.member, [order]))).ok).toBe(
-        false,
-      );
+      expect((await attempt(summaries(w.member, [order]))).ok).toBe(false);
       for (const actor of [w.member, w.budtender, w.admin]) {
         expect(
           (

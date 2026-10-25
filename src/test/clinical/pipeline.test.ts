@@ -577,35 +577,18 @@ describe("email notification", () => {
     });
   });
 
-  it("sends the fixed, content-free message with a link to the member area and no attachment", async () => {
+  it("never emails from the app: the database queues the content-free email, and it is recorded as sent", async () => {
     process.env["RESEND_API_KEY"] = "re_secret";
-    process.env["DOCUMENT_EMAIL_FROM"] = "CannaPlug <no-reply@cannaplug.example>";
-    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    h.state.tables["notification_events"] = { id: "55555555-5555-4555-8555-555555555555" };
     await docs.notifyIssued(MEMBER, DOC);
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe("https://api.resend.com/emails");
-    expect(init.headers.authorization).toBe("Bearer re_secret");
-    const body = JSON.parse(init.body);
-    expect(body.to).toBe("member@example.com");
-    expect(body.subject).toBe("Your CannaPlug medical document is ready");
-    expect(body.text).toContain("https://cannaplug.example/member/documents");
-    expect(body.attachments).toBeUndefined();
-    const all = JSON.stringify(body).toLowerCase();
-    for (const w of ["prescription", "cp-med", "verify/", "mp0123456", "dr jane"])
-      expect(all).not.toContain(w);
-    expect(called("clinical_document_log_notification")[0]!.args["p_ok"]).toBe(true);
-  });
-
-  it("a mail failure is recorded and never thrown", async () => {
-    process.env["RESEND_API_KEY"] = "re_secret";
-    process.env["DOCUMENT_EMAIL_FROM"] = "x@y.z";
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-    await expect(docs.notifyIssued(MEMBER, DOC)).resolves.toBeUndefined();
-    expect(called("clinical_document_log_notification")[0]!.args["p_ok"]).toBe(false);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("no", { status: 422 })));
-    await docs.notifyIssued(MEMBER, DOC);
-    expect(called("clinical_document_log_notification")[1]!.args["p_ok"]).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled(); // the dispatcher sends it, with retries, like every other message
+    expect(called("clinical_document_log_notification")[0]!.args).toMatchObject({
+      p_doc: DOC,
+      p_ok: true,
+      p_channel: "email",
+    });
   });
 
   it("does not send when the member has no email address", async () => {
