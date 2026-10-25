@@ -1165,3 +1165,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 
 - Owner actions (in order): close the 2 Oct till session; staff change passwords; add PayFast keys (and/or confirm EFT details); fix GitHub billing; run the web-push SQL + VAPID keys; provide compliance evidence; confirm category mapping; switch on leaked-password protection.
 - Rollback: docs only, plus the scheduler fallback (part 1).
+
+## 25 Oct 2026 — Password change and reset (launch blocker for staff)
+
+- Purpose: staff were given temporary passwords and there was no way to change one, and the FAQ promised a "Forgot password?" link that did not exist. Both now work for members and staff.
+- Files: `src/components/account/PasswordForms.tsx` (new: change form, forgot form, password rule), `src/routes/account.tsx` (forgot link on sign-in, `?reset=1` opens Settings with the change form), `src/test/password-forms.test.tsx`.
+- Rules: 8–72 characters with letters and a number; Supabase leaked-password rejections are explained; the reset form gives the same answer whether or not the email has an account.
+- Migrations: none.
+- Tests: `bunx vitest run src/test/password-forms.test.tsx` (4 passed); `scripts/verify-release.sh`.
+- Owner actions: in Supabase Auth → URL configuration, make sure `https://cannaplug012.co.za/account` is an allowed redirect URL; Supabase's built-in mailer is rate-limited, so add custom SMTP (e.g. Resend) before relying on reset emails.
+- Rollback: revert this PR.

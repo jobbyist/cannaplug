@@ -33,6 +33,7 @@ import { dobProblem, latestAdultBirthDate } from "@/lib/verification-logic";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
+import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
@@ -59,6 +60,7 @@ function AccountPage() {
 
 function AuthPanel() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -143,84 +145,100 @@ function AuthPanel() {
             <Link to="/" className="mb-8 block lg:hidden">
               <img src={logoImage} alt="CannaPlug" className="h-7 w-auto" />
             </Link>
-            <h2 className="font-display text-2xl font-extrabold uppercase">
-              {mode === "signin" ? "Sign in" : "Create account"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {mode === "signin" ? "New to CannaPlug?" : "Already have an account?"}{" "}
-              <button
-                type="button"
-                className="font-semibold text-primary underline-offset-2 hover:underline"
-                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-              >
-                {mode === "signin" ? "Create an account" : "Sign in instead"}
-              </button>
-            </p>
-            <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
-              {mode === "signup" && (
-                <div className="grid gap-1.5">
-                  <Label htmlFor="signup-name">Full name</Label>
-                  <Input
-                    id="signup-name"
-                    autoComplete="name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-              {mode === "signup" && (
-                <div className="grid gap-1.5">
-                  <Label htmlFor="signup-dob">Date of birth</Label>
-                  <Input
-                    id="signup-dob"
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    max={latestAdultBirthDate()}
-                    required
-                  />
-                  <p className="text-[0.7rem] text-muted-foreground">
-                    You must be 18 or older. We'll ask for a photo of your ID after you sign in —
-                    it's reviewed by hand before you can order.
-                  </p>
-                </div>
-              )}
-              <div className="grid gap-1.5">
-                <Label htmlFor="auth-email">Email address</Label>
-                <Input
-                  id="auth-email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="auth-password">Password</Label>
-                <Input
-                  id="auth-password"
-                  type="password"
-                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              {error && (
-                <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  {error}
+            {forgot && <ForgotPasswordForm onBack={() => setForgot(false)} />}
+            {!forgot && (
+              <>
+                <h2 className="font-display text-2xl font-extrabold uppercase">
+                  {mode === "signin" ? "Sign in" : "Create account"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {mode === "signin" ? "New to CannaPlug?" : "Already have an account?"}{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                  >
+                    {mode === "signin" ? "Create an account" : "Sign in instead"}
+                  </button>
                 </p>
-              )}
-              {notice && (
-                <p className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">{notice}</p>
-              )}
-              <Button type="submit" size="lg" disabled={submitting}>
-                {submitting ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
-              </Button>
-            </form>
+                <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
+                  {mode === "signup" && (
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="signup-name">Full name</Label>
+                      <Input
+                        id="signup-name"
+                        autoComplete="name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+                  {mode === "signup" && (
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="signup-dob">Date of birth</Label>
+                      <Input
+                        id="signup-dob"
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        max={latestAdultBirthDate()}
+                        required
+                      />
+                      <p className="text-[0.7rem] text-muted-foreground">
+                        You must be 18 or older. We'll ask for a photo of your ID after you sign in
+                        — it's reviewed by hand before you can order.
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="auth-email">Email address</Label>
+                    <Input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="auth-password">Password</Label>
+                    <Input
+                      id="auth-password"
+                      type="password"
+                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                    {mode === "signin" && (
+                      <button
+                        type="button"
+                        className="justify-self-end text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                        onClick={() => setForgot(true)}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  {error && (
+                    <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      {error}
+                    </p>
+                  )}
+                  {notice && (
+                    <p className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
+                      {notice}
+                    </p>
+                  )}
+                  <Button type="submit" size="lg" disabled={submitting}>
+                    {submitting ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+                  </Button>
+                </form>
+              </>
+            )}
             <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6 text-center text-[0.62rem] font-semibold uppercase text-muted-foreground">
               <div className="flex flex-col items-center gap-2">
                 <ShieldCheck size={18} className="text-primary" />
@@ -259,14 +277,18 @@ const NAV_ITEMS: SidebarItem[] = [
 
 function MemberPortal() {
   const { user, signOut } = useAuth();
-  const [tab, setTab] = useState("dashboard");
+  // Arriving from a password-reset email (?reset=1): go straight to choosing a new password.
+  const [resetting] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset"),
+  );
+  const [tab, setTab] = useState(resetting ? "settings" : "dashboard");
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
 
   // Onboarding: a member who has never submitted an ID lands on the verification step first.
   const onboarded = useRef(false);
   useEffect(() => {
-    if (!account || onboarded.current) return;
+    if (!account || onboarded.current || resetting) return;
     onboarded.current = true;
     if (!account.verification) setTab("verification");
   }, [account]);
@@ -453,6 +475,13 @@ function MemberPortal() {
                 <Label htmlFor="profile-name">Name</Label>
                 <Input id="profile-name" value={displayName} disabled />
               </div>
+            </div>
+            <div className="mt-6 border-t border-border pt-6">
+              <ChangePasswordForm
+                {...(resetting
+                  ? { intro: "You followed a reset link. Choose your new password now." }
+                  : {})}
+              />
             </div>
           </div>
         )}
