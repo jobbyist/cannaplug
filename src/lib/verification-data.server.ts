@@ -46,14 +46,18 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 
 // ---- Member --------------------------------------------------------------------------------
 
-/** The member's own row, read through RLS + the column grant (no storage path, no declared DOB). */
-export async function getMyVerification(db: UserClient) {
+/**
+ * The member's own row, read through RLS + the column grant (no storage path, no declared DOB).
+ * Filtered by user id as well: managers' RLS can read every member's row.
+ */
+export async function getMyVerification(db: UserClient, userId: string) {
   return unwrap(
     await db
       .from("customer_verification")
       .select(
         "status,document_type,document_expires_on,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
       )
+      .eq("user_id", userId)
       .maybeSingle(),
   );
 }

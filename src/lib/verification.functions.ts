@@ -32,7 +32,9 @@ async function run<T>(fn: () => Promise<T>): Promise<T> {
 
 export const getMyVerificationFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(({ context }) => run(() => getMyVerification(context.supabase as UserClient)));
+  .handler(({ context }) =>
+    run(() => getMyVerification(context.supabase as UserClient, context.userId)),
+  );
 
 export const createIdUploadFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

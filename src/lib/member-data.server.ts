@@ -7,8 +7,8 @@ import { friendlyMemberError, rulesFromRows, type ReorderCheck } from "@/lib/mem
 /**
  * Member account data layer.
  *
- *  - READS use the caller's own user-scoped client, so Row Level Security (not a WHERE clause we
- *    might forget) is what limits every row to the signed-in member.
+ *  - READS use the caller's own user-scoped client, so Row Level Security limits what can be read,
+ *    and also filter by the signed-in user id, because staff RLS can read other members' rows.
  *  - Anything that must be atomic or that clients may never write directly (addresses, loyalty,
  *    reorder) goes through service-only RPCs, with the acting member id taken from the verified
  *    JWT by the auth middleware. The browser never supplies a user id, price, total or balance.
@@ -23,7 +23,12 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 const ORDER_LIMIT = 50;
 const TXN_LIMIT = 50;
 
-export async function getMemberAccount(db: UserClient) {
+/**
+ * The signed-in person's own account. Every personal table is filtered by user id explicitly: staff RLS
+ * lets managers and budtenders read other members' rows, and without the filter a staff member's own
+ * account page would mix in (or fail on) other people's orders, points and ID status.
+ */
+export async function getMemberAccount(db: UserClient, userId: string) {
   const [
     orders,
     addresses,
@@ -37,13 +42,23 @@ export async function getMemberAccount(db: UserClient) {
     availability,
     verification,
   ] = await Promise.all([
-    db.from("orders").select("*").order("created_at", { ascending: false }).limit(ORDER_LIMIT),
+    db
+      .from("orders")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(ORDER_LIMIT),
     db
       .from("addresses")
       .select("*")
+      .eq("user_id", userId)
       .order("is_default", { ascending: false })
       .order("updated_at", { ascending: false }),
-    db.from("loyalty_accounts").select("points_balance,lifetime_points,tier_id").maybeSingle(),
+    db
+      .from("loyalty_accounts")
+      .select("points_balance,lifetime_points,tier_id")
+      .eq("user_id", userId)
+      .maybeSingle(),
     db
       .from("loyalty_tiers")
       .select("id,code,name,min_lifetime_points,perks")
@@ -52,15 +67,18 @@ export async function getMemberAccount(db: UserClient) {
     db
       .from("loyalty_transactions")
       .select("id,txn_type,source_type,order_id,pos_sale_id,points,balance_after,created_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(TXN_LIMIT),
     db
       .from("wishlist_items")
       .select("product_id,created_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     db
       .from("back_in_stock_subscriptions")
       .select("id,product_id,status,created_at,notified_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     db
       .from("products")
@@ -79,6 +97,7 @@ export async function getMemberAccount(db: UserClient) {
       .select(
         "status,document_type,document_expires_on,submitted_at,reviewed_at,rejection_code,rejection_note,attempt_count",
       )
+      .eq("user_id", userId)
       .maybeSingle(),
   ]);
 
