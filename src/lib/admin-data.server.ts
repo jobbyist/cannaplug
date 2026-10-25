@@ -114,6 +114,18 @@ export type AdminDashboard = {
   activity: { label: string; time: string }[];
 };
 
+/** The person's highest staff role, or null when they are not staff. */
+export async function staffRoleOf(
+  userId: string,
+): Promise<"budtender" | "manager" | "admin" | null> {
+  try {
+    return (await assertRole(userId, "budtender")) as "budtender" | "manager" | "admin";
+  } catch (err) {
+    if (err instanceof Error && /^Forbidden/.test(err.message)) return null;
+    throw err;
+  }
+}
+
 export async function assertRole(userId: string, minimum: "budtender" | "manager" | "admin") {
   const levels = { user: 10, customer: 10, budtender: 20, manager: 30, admin: 40 } as const;
   const { data, error } = await supabaseAdmin
