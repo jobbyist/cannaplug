@@ -53,3 +53,40 @@ test("footer: responsible-consumption modal, Instagram + WhatsApp only", async (
     "https://whatsapp.com/channel/0029Vb8vaazDJ6H8OHue3E3Z",
   );
 });
+
+test.describe("18+ gate", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("asks once, is remembered, and never blocks /verify or crawlers", async ({
+    page,
+    browser,
+  }) => {
+    await page.goto("/");
+    const gate = page.getByRole("dialog", { name: "Are you 18 or older?" });
+    await expect(gate).toBeVisible({ timeout: 15_000 });
+    await gate.getByRole("button", { name: "No" }).click();
+    await expect(gate).toContainText("adults aged 18 and over only");
+    await gate.getByRole("button", { name: "Yes, I'm 18 or older" }).click();
+    await expect(gate).toBeHidden();
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(gate).toBeHidden();
+
+    const fresh = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const v = await fresh.newPage();
+    await v.goto("/verify/not-a-real-token");
+    await v.waitForLoadState("networkidle");
+    await expect(v.getByRole("dialog", { name: "Are you 18 or older?" })).toHaveCount(0);
+    await fresh.close();
+
+    const bot = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      userAgent: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    });
+    const b = await bot.newPage();
+    await b.goto("/");
+    await b.waitForLoadState("networkidle");
+    await expect(b.getByRole("dialog", { name: "Are you 18 or older?" })).toHaveCount(0);
+    await bot.close();
+  });
+});

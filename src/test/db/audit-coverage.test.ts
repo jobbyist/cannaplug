@@ -94,7 +94,7 @@ describe.skipIf(!DB_URL)("audit coverage (real PostgreSQL)", () => {
     await advanceOrder(sql, manager, orderId, "confirmed");
     await rpc(sql, "transition_order_status", orderId, "packing", manager, null);
     const rows =
-      await sql`SELECT metadata, actor_user_id FROM public.audit_log WHERE action = 'order_status_changed' AND entity_id = ${orderId} AND created_at >= ${since} ORDER BY id`;
+      await sql`SELECT metadata, actor_user_id FROM public.audit_log WHERE action = 'order_status_changed' AND entity_id = ${orderId} AND created_at >= ${since} ORDER BY created_at, id`;
     expect(rows.map((r) => (r["metadata"] as { to: string }).to)).toEqual([
       "awaiting_payment",
       "confirmed",
@@ -107,13 +107,19 @@ describe.skipIf(!DB_URL)("audit coverage (real PostgreSQL)", () => {
     const user = uid();
     await sql`INSERT INTO auth.users (id, email) VALUES (${user}, ${`r-${user}@test.local`})`;
     await sql`DELETE FROM public.user_roles WHERE user_id = ${user}`; // drop whatever sign-up granted
-    const since = new Date();
+    // the database's clock; the sign-up role's removal above is excluded by role below because its audit row
+    // can still carry a timestamp at or after this point (seen as an intermittent failure)
+    const since = await val(sql`SELECT clock_timestamp() AS t`);
     await sql`INSERT INTO public.user_roles (user_id, role) VALUES (${user}, 'budtender'::public.app_role)`;
     await sql`UPDATE public.user_roles SET role = 'manager'::public.app_role WHERE user_id = ${user} AND role = 'budtender'`;
     await sql`DELETE FROM public.user_roles WHERE user_id = ${user}`;
     const rows =
-      await sql`SELECT action, metadata FROM public.audit_log WHERE entity_type = 'user_role' AND metadata->>'user_id' = ${user} AND created_at >= ${since} ORDER BY id`;
-    expect(rows.map((r) => r["action"])).toEqual(["role_granted", "role_changed", "role_revoked"]);
+      await sql`SELECT action, metadata FROM public.audit_log WHERE entity_type = 'user_role' AND metadata->>'user_id' = ${user} AND created_at >= ${since}
+                    AND NOT (action = 'role_revoked' AND metadata->>'role' = 'customer') ORDER BY created_at, id`;
+    expect(
+      rows.map((r) => r["action"]),
+      JSON.stringify(rows),
+    ).toEqual(["role_granted", "role_changed", "role_revoked"]);
     expect(rows[1]!["metadata"]).toMatchObject({ from: "budtender", to: "manager" });
   });
 

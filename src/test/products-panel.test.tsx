@@ -88,4 +88,20 @@ describe("ProductsPanel", () => {
       "That SKU is already used by another product.",
     );
   });
+
+  it("budtenders see the list but no editing, import or CSV controls", () => {
+    render(
+      <ProductsPanel
+        products={[product] as never}
+        editingProduct={product.id}
+        setEditingProduct={vi.fn()}
+        onSaved={vi.fn()}
+        canEdit={false}
+      />,
+    );
+    expect(screen.getAllByText("TS-WR").length).toBeGreaterThan(0);
+    for (const name of [/^Edit$/, /Deactivate/, /Add product/, /Import from Yoco/, /CSV upload/])
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(screen.queryByTestId("product-editor")).toBeNull();
+  });
 });

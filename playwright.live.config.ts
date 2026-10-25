@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { ageConfirmed } from "./e2e/age-confirmed";
 
 /**
  * LIVE browser tests: real Chromium driving the real app against a real (local) Supabase stack —
@@ -16,6 +17,7 @@ export default defineConfig({
   outputDir: "./test-results/live",
   use: {
     baseURL: process.env["LIVE_APP_URL"] ?? "http://127.0.0.1:4173",
+    storageState: ageConfirmed(process.env["LIVE_APP_URL"] ?? "http://127.0.0.1:4173"),
     viewport: { width: 1280, height: 900 },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",

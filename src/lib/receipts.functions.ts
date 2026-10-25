@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 
 const paper = z.enum(["80mm", "58mm", "a4"]);
 const saleId = z.string().uuid();
 
 export const getPosReceiptFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ saleId }).parse(data))
   .handler(async ({ context, data }) => {
     const { getPosReceipt } = await import("@/lib/receipts/receipts.server");
@@ -14,7 +15,7 @@ export const getPosReceiptFn = createServerFn({ method: "GET" })
   });
 
 export const recordCashReceivedFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z.object({ saleId, cashReceived: z.number().positive().max(1_000_000) }).parse(data),
   )
@@ -24,7 +25,7 @@ export const recordCashReceivedFn = createServerFn({ method: "POST" })
   });
 
 export const posReceiptPdfFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ saleId, paper }).parse(data))
   .handler(async ({ context, data }) => {
     const { posReceiptPdf } = await import("@/lib/receipts/receipts.server");
@@ -32,7 +33,7 @@ export const posReceiptPdfFn = createServerFn({ method: "POST" })
   });
 
 export const emailPosReceiptFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z.object({ saleId, email: z.string().trim().email().max(254), paper }).parse(data),
   )
@@ -62,14 +63,14 @@ const settings = z.object({
 });
 
 export const getReceiptSettingsFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { getReceiptSettings } = await import("@/lib/receipts/receipts.server");
     return getReceiptSettings(context.userId);
   });
 
 export const saveReceiptSettingsFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => settings.parse(data))
   .handler(async ({ context, data }) => {
     const { saveReceiptSettings } = await import("@/lib/receipts/receipts.server");

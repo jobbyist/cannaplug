@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 
 const csv = z
   .string()
@@ -9,7 +10,7 @@ const csv = z
 
 /** Manager+: current products as a CSV in the template's columns. */
 export const exportProductsCsvFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { exportProductsCsv } = await import("@/lib/product-csv.server");
     return exportProductsCsv(context.userId);
@@ -17,7 +18,7 @@ export const exportProductsCsvFn = createServerFn({ method: "GET" })
 
 /** Manager+: dry run of an uploaded product CSV. Writes nothing. */
 export const previewProductCsvFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ csv }).parse(data))
   .handler(async ({ context, data }) => {
     const { previewProductCsv } = await import("@/lib/product-csv.server");
@@ -26,7 +27,7 @@ export const previewProductCsvFn = createServerFn({ method: "POST" })
 
 /** Manager+: applies the uploaded product CSV in one transaction. */
 export const commitProductCsvFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ csv, key: z.string().min(8).max(100) }).parse(data))
   .handler(async ({ context, data }) => {
     const { commitProductCsv } = await import("@/lib/product-csv.server");

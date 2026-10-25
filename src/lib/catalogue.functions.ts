@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 
 const csv = z
   .string()
@@ -8,7 +9,7 @@ const csv = z
   .max(2 * 1024 * 1024);
 
 export const previewCatalogueImportFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ csv }).parse(data))
   .handler(async ({ context, data }) => {
     const { previewCatalogueImport } = await import("@/lib/catalogue-import.server");
@@ -16,7 +17,7 @@ export const previewCatalogueImportFn = createServerFn({ method: "POST" })
   });
 
 export const commitCatalogueImportFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>
     z.object({ csv, deactivateMissing: z.boolean(), key: z.string().min(8).max(100) }).parse(data),
   )

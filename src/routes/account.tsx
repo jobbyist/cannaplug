@@ -159,8 +159,14 @@ function AuthPanel() {
             <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
               {mode === "signup" && (
                 <div className="grid gap-1.5">
-                  <Label>Full name</Label>
-                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                  <Label htmlFor="signup-name">Full name</Label>
+                  <Input
+                    id="signup-name"
+                    autoComplete="name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
                 </div>
               )}
               {mode === "signup" && (
@@ -181,18 +187,22 @@ function AuthPanel() {
                 </div>
               )}
               <div className="grid gap-1.5">
-                <Label>Email address</Label>
+                <Label htmlFor="auth-email">Email address</Label>
                 <Input
+                  id="auth-email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Password</Label>
+                <Label htmlFor="auth-password">Password</Label>
                 <Input
+                  id="auth-password"
                   type="password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -436,12 +446,12 @@ function MemberPortal() {
             <h2 className="mb-4 font-display text-lg font-bold uppercase">Account settings</h2>
             <div className="grid gap-4">
               <div>
-                <Label>Email</Label>
-                <Input value={user?.email ?? ""} disabled />
+                <Label htmlFor="profile-email">Email</Label>
+                <Input id="profile-email" value={user?.email ?? ""} disabled />
               </div>
               <div>
-                <Label>Name</Label>
-                <Input value={displayName} disabled />
+                <Label htmlFor="profile-name">Name</Label>
+                <Input id="profile-name" value={displayName} disabled />
               </div>
             </div>
           </div>

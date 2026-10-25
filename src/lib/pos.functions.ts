@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { friendlyStaffErrors } from "@/lib/staff-errors.middleware";
 import {
   adjustStock,
   findPosSale,
@@ -31,18 +32,18 @@ const method = z.enum(["cash", "card", "eft", "paypal"]);
 const reference = z.string().trim().min(4).max(100).optional();
 
 export const getPosOverviewFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getPosOverview(context.userId));
 
 export const openPosSessionFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ drawerId: uuid, openingFloat: money, key: idempotencyKey }).parse(d))
   .handler(({ context, data }) =>
     posOpenSession(context.userId, data.drawerId, data.openingFloat, data.key),
   );
 
 export const closePosSessionFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -58,7 +59,7 @@ export const closePosSessionFn = createServerFn({ method: "POST" })
   );
 
 export const reviewPosSessionFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({ sessionId: uuid, approve: z.boolean(), note: z.string().trim().min(3).max(500) })
@@ -69,7 +70,7 @@ export const reviewPosSessionFn = createServerFn({ method: "POST" })
   );
 
 export const completePosSaleFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -92,7 +93,7 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
   .handler(({ context, data }) => posCompleteSale(context.userId, data));
 
 export const voidPosSaleFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({ saleId: uuid, reason: z.string().trim().min(3).max(500), key: idempotencyKey })
@@ -101,7 +102,7 @@ export const voidPosSaleFn = createServerFn({ method: "POST" })
   .handler(({ context, data }) => posVoidSale(context.userId, data.saleId, data.reason, data.key));
 
 export const refundPosSaleFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -124,17 +125,17 @@ export const refundPosSaleFn = createServerFn({ method: "POST" })
   .handler(({ context, data }) => posRefundSale(context.userId, data));
 
 export const findPosSaleFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ receipt: z.string().trim().min(4).max(40) }).parse(d))
   .handler(({ context, data }) => findPosSale(context.userId, data.receipt));
 
 export const listBatchesFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ productId: uuid }).parse(d))
   .handler(({ context, data }) => listBatches(context.userId, data.productId));
 
 export const receiveStockFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -151,7 +152,7 @@ export const receiveStockFn = createServerFn({ method: "POST" })
   .handler(({ context, data }) => receiveStock(context.userId, data));
 
 export const adjustStockFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({
@@ -168,7 +169,7 @@ export const adjustStockFn = createServerFn({ method: "POST" })
   .handler(({ context, data }) => adjustStock(context.userId, data));
 
 export const upsertDrawerFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
     z
       .object({

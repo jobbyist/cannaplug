@@ -195,4 +195,22 @@ export const ENV_VARS: EnvVar[] = [
     status: "optional",
     note: "Local real-Postgres tests only",
   },
+  {
+    name: "SENTRY_DSN",
+    group: "Site",
+    status: "optional",
+    note: "Error monitoring (server side, scrubbed); off when unset",
+  },
+  {
+    name: "VERCEL_ENV",
+    group: "Site",
+    status: "optional",
+    note: "Set by Vercel; labels monitoring events by environment",
+  },
+  {
+    name: "VERCEL_GIT_COMMIT_SHA",
+    group: "Site",
+    status: "optional",
+    note: "Set by Vercel; release tag on monitoring events",
+  },
 ];

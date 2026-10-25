@@ -1,3 +1,4 @@
+import { SITE_URL, canonical } from "@/lib/site";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode } from "react";
@@ -37,16 +38,16 @@ export const Route = createFileRoute("/journal/$slug")({
       author: {
         "@type": "Organization",
         name: "The CannaPlug Journal",
-        url: "https://cannaplug.lovable.app/journal",
+        url: `${SITE_URL}/journal`,
       },
       publisher: {
         "@type": "Organization",
         name: "CannaPlug",
-        url: "https://cannaplug.lovable.app",
+        url: `${SITE_URL}`,
       },
       mainEntityOfPage: {
         "@type": "WebPage",
-        "@id": `https://cannaplug.lovable.app/journal/${a.slug}`,
+        "@id": `${SITE_URL}/journal/${a.slug}`,
       },
       citation: a.sources?.map((s) => s.url),
     };
@@ -54,18 +55,21 @@ export const Route = createFileRoute("/journal/$slug")({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: "https://cannaplug.lovable.app/" },
+        { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
         {
           "@type": "ListItem",
           position: 2,
           name: "Journal",
-          item: "https://cannaplug.lovable.app/journal",
+          item: `${SITE_URL}/journal`,
         },
         { "@type": "ListItem", position: 3, name: a.title },
       ],
     };
+    const c = canonical(`/journal/${a.slug}`);
     return {
+      links: c.links,
       meta: [
+        ...c.meta,
         { title: `${a.title} | The CannaPlug Journal` },
         { name: "description", content: a.excerpt },
         { property: "og:title", content: a.title },
