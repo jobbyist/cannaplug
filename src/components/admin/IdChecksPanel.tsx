@@ -26,6 +26,7 @@ import {
   reviewVerificationFn,
   viewVerificationDocumentFn,
 } from "@/lib/verification.functions";
+import { resetVerificationAttemptsFn } from "@/lib/launch-rules.functions";
 import type { VerificationQueueItem } from "@/lib/verification-data.server";
 import {
   REJECTION_REASONS,
@@ -55,7 +56,71 @@ const ageOf = (dob: string | null) => {
 
 type Scope = "pending" | "decided";
 
-export function IdChecksPanel() {
+/** Admin only: unlock a member who used all 5 ID attempts. The reason is kept in the audit log. */
+function ResetAttempts({
+  item,
+  onDone,
+}: {
+  item: VerificationQueueItem;
+  onDone: (msg: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await resetVerificationAttemptsFn({
+        data: { memberId: item.user_id, reason, key: crypto.randomUUID() },
+      });
+      setOpen(false);
+      onDone(`${item.full_name ?? "The member"} can upload their ID again.`);
+    } catch (e) {
+      setErr(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Reset attempts
+      </Button>
+      {open && (
+        <Dialog open onOpenChange={(o) => !o && setOpen(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset ID attempts</DialogTitle>
+              <DialogDescription>
+                {item.full_name ?? "This member"} used all 5 attempts. Resetting lets them upload
+                their ID again. Say why (at least 10 characters). Do not include personal details.
+              </DialogDescription>
+            </DialogHeader>
+            <Label htmlFor="reset-reason">Reason</Label>
+            <Textarea
+              id="reset-reason"
+              value={reason}
+              maxLength={300}
+              onChange={(e) => setReason(e.target.value)}
+            />
+            {err && (
+              <p role="alert" className="text-xs text-destructive">
+                {err}
+              </p>
+            )}
+            <Button disabled={busy || reason.trim().length < 10} onClick={() => void submit()}>
+              {busy ? "Resetting…" : "Reset attempts"}
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+export function IdChecksPanel({ canResetAttempts = false }: { canResetAttempts?: boolean } = {}) {
   const [scope, setScope] = useState<Scope>("pending");
   const [items, setItems] = useState<VerificationQueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +223,19 @@ export function IdChecksPanel() {
                   <Badge>{item.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
+                  {canResetAttempts &&
+                    item.status === "rejected" &&
+                    (item.attempt_count ?? 0) >= 5 && (
+                      <span className="mr-2 inline-block">
+                        <ResetAttempts
+                          item={item}
+                          onDone={(msg) => {
+                            setNotice(msg);
+                            void load(scope);
+                          }}
+                        />
+                      </span>
+                    )}
                   <Button size="sm" variant="outline" onClick={() => setSelected(item)}>
                     {item.status === "pending" ? "Review" : "Details"}
                   </Button>

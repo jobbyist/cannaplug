@@ -69,6 +69,8 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   duplicate_sku_in_file: "The file repeats a SKU",
   barcode_in_use: "That barcode is already used by another product",
   invalid_rows: "Some rows in the file are not valid",
+  purchase_limit_exceeded: "This customer has reached today's purchase limit",
+  not_locked: "This member is not locked out",
   // General
   idempotency_conflict: "This was already submitted with different details. Refresh and try again",
   idempotency_key_required: "Refresh the page and try again",
@@ -86,6 +88,7 @@ const SHOW_DETAIL = new Set([
   "refund_mismatch",
   "invalid_sale_state",
   "barcode_in_use",
+  "purchase_limit_exceeded",
 ]);
 
 export const GENERIC_STAFF_ERROR = "That didn't work and nothing was changed. Please try again.";

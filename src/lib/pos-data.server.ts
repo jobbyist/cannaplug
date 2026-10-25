@@ -52,6 +52,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   forbidden: "You do not have permission for this action",
   not_pending: "Nothing to approve on that session",
   isolation_level: "Server configuration error (transaction isolation)",
+  purchase_limit_exceeded: "This customer has reached today's purchase limit",
 };
 
 /** Turns a PostgreSQL `code: detail` exception into a safe, human message (detail kept when useful). */
@@ -71,6 +72,7 @@ export function friendlyPosError(err: unknown): Error {
       "over_refund",
       "refund_mismatch",
       "invalid_sale_state",
+      "purchase_limit_exceeded",
     ].includes(code);
     return new Error(
       showDetail && detail ? `${ERROR_MESSAGES[code]} (${detail})` : ERROR_MESSAGES[code]!,

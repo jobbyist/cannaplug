@@ -44,6 +44,7 @@ export type AdminProductInput = Pick<
   | "weight_step_g"
   | "sale_ends_at"
   | "is_featured"
+  | "low_stock_threshold"
 > & {
   /** Discounted selling price; empty = not on sale. price_rand is the regular price as typed by staff. */
   sale_price_rand?: number | null;
@@ -306,6 +307,15 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     };
   });
 
+  // Each product's own low-stock level (default 5); Lounge services carry no stock and are left out.
+  const { data: thresholdRows } = await supabaseAdmin
+    .from("products")
+    .select("id,low_stock_threshold,track_stock")
+    .eq("is_active", true);
+  const thresholds = new Map(
+    (thresholdRows ?? []).map((p) => [p.id, p.track_stock ? p.low_stock_threshold : -1]),
+  );
+
   const { data: topRows } = await supabaseAdmin
     .from("order_items")
     .select("product_name,quantity")
@@ -323,7 +333,9 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     stats: {
       totalOrders: totalOrders ?? 0,
       revenueRand: (revenueRows ?? []).reduce((sum, row) => sum + Number(row.total_rand), 0),
-      inventoryAlerts: inventory.filter((item) => item.available <= 5).length,
+      inventoryAlerts: inventory.filter(
+        (item) => item.available <= (thresholds.get(item.product_id) ?? 5),
+      ).length,
       totalCustomers: totalCustomers ?? 0,
     },
     salesOverview,
