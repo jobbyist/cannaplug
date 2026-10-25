@@ -38,6 +38,15 @@ export const getMyStaffAccessFn = createServerFn({ method: "GET" })
     return { role: await staffRoleOf(context.userId) };
   });
 
+/** The search box at the top of /admin. */
+export const adminSearchFn = createServerFn({ method: "GET" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) => z.object({ q: z.string().trim().max(100) }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { adminSearch } = await import("@/lib/admin-search.server");
+    return adminSearch(context.userId, data.q);
+  });
+
 export const getAdminDashboardFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getAdminDashboard(context.userId));

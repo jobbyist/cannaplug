@@ -2462,6 +2462,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      admin_search: {
+        Args: { p_actor: string; p_limit?: number; p_query: string };
+        Returns: Json;
+      };
       purchase_limit_set: {
         Args: {
           p_actor: string;
