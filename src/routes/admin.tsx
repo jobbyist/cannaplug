@@ -67,6 +67,16 @@ import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
+import { AdminSearch, type SearchHit } from "@/components/admin/AdminSearch";
+import { ReceiptActions } from "@/components/admin/receipts/ReceiptActions";
+import type { SearchSale } from "@/lib/admin-search.server";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin Dashboard | CannaPlug" }] }),
@@ -91,6 +101,18 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "reports", icon: Wallet, label: "Reports" },
   { id: "settings", icon: Cog, label: "Settings" },
 ];
+
+/** Extra words the search box matches for each tab. */
+const TAB_KEYWORDS: Record<string, string> = {
+  pos: "till sale cash card receipt refund void drawer stock receive adjust",
+  orders: "online order eft",
+  payments: "payfast paypal eft bank exchange rate",
+  "id-checks": "id verification document",
+  settings: "receipt vat purchase limits",
+  audit: "history log",
+  deliveries: "driver delivery pickup collection",
+  inventory: "stock available",
+};
 
 const transitions: Record<AdminOrderStatus, AdminOrderStatus[]> = {
   awaiting_payment: ["cancelled"], // confirmation only comes from a verified payment
@@ -135,6 +157,31 @@ function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
+  // Set by the search box: narrows Customers / Products to the chosen result until "Show all".
+  const [focus, setFocus] = useState<{
+    kind: "customer" | "product";
+    id: string;
+    label: string;
+  } | null>(null);
+  const [saleOpen, setSaleOpen] = useState<SearchSale | null>(null);
+  const goTab = (next: string) => {
+    setFocus(null);
+    setTab(next);
+  };
+  const openHit = (hit: SearchHit) => {
+    if (hit.kind === "tab") return goTab(hit.id);
+    if (hit.kind === "order") {
+      setFocus(null);
+      setTab("orders");
+      void getAdminOrderFn({ data: { orderId: hit.id } })
+        .then(setSelectedOrder)
+        .catch((e) => setError(e instanceof Error ? e.message : "Could not open the order."));
+      return;
+    }
+    if (hit.kind === "sale") return setSaleOpen(hit.sale);
+    setFocus({ kind: hit.kind, id: hit.id, label: hit.label });
+    setTab(hit.kind === "customer" ? "customers" : "products");
+  };
 
   const loadMoreOrders = async () => {
     const last = orders[orders.length - 1];
@@ -215,7 +262,7 @@ function AdminPage() {
       <DashboardSidebar
         items={NAV_ITEMS.filter((i) => canSee(role, i.id))}
         active={tab}
-        onSelect={setTab}
+        onSelect={goTab}
         header={
           <Link to="/">
             <img src={logoImage} alt="CannaPlug" className="h-6 w-auto" />
@@ -224,13 +271,14 @@ function AdminPage() {
       />
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="relative w-full max-w-sm">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={16}
-            />
-            <Input className="pl-9" placeholder="Search orders, customers, products…" />
-          </div>
+          <AdminSearch
+            tabs={NAV_ITEMS.filter((i) => canSee(role, i.id)).map((i) => ({
+              id: i.id,
+              label: i.label,
+              keywords: TAB_KEYWORDS[i.id],
+            }))}
+            onOpen={openHit}
+          />
           <div className="flex items-center gap-3">
             <button
               aria-label="Notifications"
@@ -415,13 +463,20 @@ function AdminPage() {
           />
         )}
         {tab === "products" && (
-          <ProductsPanel
-            products={products}
-            editingProduct={editingProduct}
-            setEditingProduct={setEditingProduct}
-            onSaved={refresh}
-            canEdit={atLeast(role, "manager")}
-          />
+          <>
+            {focus?.kind === "product" && (
+              <SearchFocus label={focus.label} onClear={() => setFocus(null)} />
+            )}
+            <ProductsPanel
+              products={
+                focus?.kind === "product" ? products.filter((p) => p.id === focus.id) : products
+              }
+              editingProduct={editingProduct}
+              setEditingProduct={setEditingProduct}
+              onSaved={refresh}
+              canEdit={atLeast(role, "manager")}
+            />
+          </>
         )}
         {tab === "inventory" && dashboard && (
           <div>
@@ -453,6 +508,9 @@ function AdminPage() {
         {tab === "customers" && (
           <div>
             <h1 className="mb-4 font-display text-xl font-extrabold uppercase">Customers</h1>
+            {focus?.kind === "customer" && (
+              <SearchFocus label={focus.label} onClear={() => setFocus(null)} />
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -463,7 +521,10 @@ function AdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((c) => (
+                {(focus?.kind === "customer"
+                  ? customers.filter((c) => c.id === focus.id)
+                  : customers
+                ).map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>{c.full_name ?? "Unnamed"}</TableCell>
                     <TableCell>{c.phone ?? "—"}</TableCell>
@@ -481,6 +542,25 @@ function AdminPage() {
             <PurchaseLimitsCard />
           </>
         )}
+        <Dialog open={saleOpen !== null} onOpenChange={(o) => !o && setSaleOpen(null)}>
+          <DialogContent>
+            {saleOpen && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{saleOpen.receipt_number}</DialogTitle>
+                  <DialogDescription>
+                    Till sale · {statusLabel(saleOpen.status)} · {rand(Number(saleOpen.total))} ·{" "}
+                    {new Date(saleOpen.created_at).toLocaleString("en-ZA")}
+                  </DialogDescription>
+                </DialogHeader>
+                <ReceiptActions saleId={saleOpen.id} />
+                <p className="text-xs text-muted-foreground">
+                  To void or refund, a manager opens POS and finds this receipt number.
+                </p>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
         {["promotions", "events", "newsroom", "reports"].includes(tab) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
@@ -662,6 +742,19 @@ type AddressSnapshot = {
   postal_code?: string | null;
   delivery_notes?: string | null;
 };
+
+function SearchFocus({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-3 py-2 text-xs">
+      <span>
+        Showing search result: <b>{label}</b>
+      </span>
+      <button type="button" className="font-semibold text-primary" onClick={onClear}>
+        Show all
+      </button>
+    </div>
+  );
+}
 
 function OrderDelivery({
   order,

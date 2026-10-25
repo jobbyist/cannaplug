@@ -1202,3 +1202,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Staff: order panel shows "In-store pickup", a reminder to check 18+ ID on collection, and offers **Completed** after Ready. Members see the pickup address on their order. Emails: "ready to collect" subject, address and bring-ID line; SMS short form.
 - Tests: `db/pickup.test.ts` (3), checkout flow pickup case, template case; `db/checkout.test.ts` updated (three active options). Mutation checks: removing the out-for-delivery refusal, and letting any order skip out-for-delivery, are both caught.
 - Owner actions: none. Rollback: the rollback file (removes the option if unused, else switches it off) and revert the PR.
+
+## 25 Oct 2026 — Admin search works across the whole panel
+
+- Purpose: the search box at the top of /admin did nothing. It now searches orders (number, customer name, email, phone), customers (name, email, phone; staff accounts excluded), products (name, SKU, barcode, brand; with price and live availability, never cost) and till receipts (POS-…), plus the tabs the person can see (with keywords such as "refund" → POS, "VAT" → Settings).
+- Opening a result: order → Orders with the order open; customer / product → that tab narrowed to the result ("Show all" clears it); till receipt → a dialog with print / PDF / email; tab → that tab. Keyboard: Ctrl/⌘ K to focus, arrows and Enter; debounced at 250 ms.
+- Database (`20261025005000_admin_search`, mirror `drizzle/0036`, rollback, `scripts/rollback-rehearsal-admin-search.sh` in verify-release): `pg_trgm` + 8 trigram GIN indexes (product name/SKU/barcode, order number/contact, profile name/phone, receipt number) and `admin_search(actor, query, limit)` — staff only (`_assert_staff` budtender), service-role only, read-only (no idempotency key or audit row: it changes nothing and returns only what the person's tabs already show). `%` and `_` are matched literally; phone numbers match with or without 0 / +27.
+- Files: `src/components/admin/AdminSearch.tsx`, `src/lib/admin-search.server.ts`, `src/lib/admin.functions.ts` (`adminSearchFn`), `src/routes/admin.tsx`, types.
+- Tests: `db/admin-search.test.ts` (4), `admin-search-ui.test.tsx` (3). Mutation checks: no staff check, staff listed as customers, browser grant — all caught.
+- Owner actions: none. Rollback: the rollback file and revert the PR.
