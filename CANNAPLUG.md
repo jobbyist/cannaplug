@@ -1175,3 +1175,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `bunx vitest run src/test/password-forms.test.tsx` (4 passed); `scripts/verify-release.sh`.
 - Owner actions: in Supabase Auth → URL configuration, make sure `https://cannaplug012.co.za/account` is an allowed redirect URL; Supabase's built-in mailer is rate-limited, so add custom SMTP (e.g. Resend) before relying on reset emails.
 - Rollback: revert this PR.
+
+## 25 Oct 2026 — Staff can use their own account page
+
+- Purpose: found while capturing the manuals. Signed in as staff, /account showed "The action could not be completed" because the account loader relied on RLS alone, and staff RLS can read other members' loyalty, ID and order rows (a one-row read then found many). It also risked showing a staff member other people's orders in their own account.
+- Fix: every personal read on the account page (orders, addresses, loyalty, points history, saved products, stock alerts, ID status) is also filtered by the signed-in user id from the verified session.
+- Files: `src/lib/member-data.server.ts`, `src/lib/member.functions.ts`, `src/lib/verification-data.server.ts`, `src/lib/verification.functions.ts`, `src/test/member-account-scope.test.ts`.
+- Migrations: none.
+- Tests: new scope test (2 passed); mutation check: removing the loyalty filter makes it fail; `scripts/verify-release.sh`.
+- Owner actions: none. Rollback: revert this PR.

@@ -54,7 +54,9 @@ async function run<T>(fn: () => Promise<T>): Promise<T> {
 
 export const getMemberAccountFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(({ context }) => run(() => getMemberAccount(context.supabase as UserClient)));
+  .handler(({ context }) =>
+    run(() => getMemberAccount(context.supabase as UserClient, context.userId)),
+  );
 
 export const saveAddressFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
