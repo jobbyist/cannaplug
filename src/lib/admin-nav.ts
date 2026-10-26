@@ -13,7 +13,7 @@ export const TAB_MIN_ROLE: Record<string, StaffRole> = {
   customers: "budtender",
   payments: "manager",
   audit: "manager",
-  "id-checks": "manager",
+  "id-checks": "budtender", // budtenders review IDs; only admins reset a locked-out member
   promotions: "manager",
   events: "manager",
   newsroom: "manager",

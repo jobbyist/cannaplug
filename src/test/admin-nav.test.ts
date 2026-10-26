@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { TAB_MIN_ROLE, atLeast, canSee } from "@/lib/admin-nav";
 
 describe("/admin tabs by role", () => {
-  it("budtenders see only the till, orders, deliveries and read-only lists", () => {
+  it("budtenders see the till, orders, deliveries, ID checks and read-only lists", () => {
     const tabs = Object.keys(TAB_MIN_ROLE)
       .filter((t) => canSee("budtender", t))
       .sort();
     expect(tabs).toEqual([
       "customers",
       "deliveries",
+      "id-checks",
       "inventory",
       "orders",
       "overview",
