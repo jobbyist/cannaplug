@@ -1,6 +1,6 @@
 import { SITE_URL } from "@/lib/site";
 
-/** Where Supabase sends people back to after a confirmation or reset email: always the live site. */
+/** Where Supabase sends people back to after a password-reset email: always the live site. */
 export const AUTH_REDIRECT = `${SITE_URL}/account`;
 
 export type AuthProblem = {
@@ -30,7 +30,7 @@ export function authProblem(raw: string): AuthProblem {
     return {
       kind: "unconfirmed",
       message:
-        "Please confirm your email first: open the link we emailed you. Can't find it? Check spam, or send a new link below.",
+        "We couldn't sign you in to this account yet. Please contact us on +27 68 291 2107 and we'll sort it out.",
     };
   if (/invalid login credentials/i.test(raw))
     return {
