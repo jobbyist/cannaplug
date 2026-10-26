@@ -1226,3 +1226,10 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 
 - Purpose: the owner asked to hide the floating AI chat tab temporarily. `src/routes/__root.tsx` renders `<ChatWidget />` only when `CHAT_WIDGET_ENABLED` is true (now false). The chat code, routes and key are untouched; set the flag to true to bring it back.
 - Migrations: none. Tests: `scripts/verify-release.sh`. Owner actions: none. Rollback: set the flag to true (or revert the PR).
+
+## 26 Oct 2026 — Sign-up and reset emails: clear messages, resend link, live-site redirects
+
+- Found: customers saw "email rate limit exceeded" on sign-up and Forgot password. Supabase's built-in mailer sends only a few emails an hour; auth logs show 429s from 09:24 to 10:45 UTC. The auth Site URL is also the Vercel deployment address (SSO-protected), so confirmation links land on a Vercel login page.
+- Code: `src/lib/auth-messages.ts` (plain messages for rate limits, unconfirmed email, wrong password, existing account; `AUTH_REDIRECT` = https://cannaplug012.co.za/account). Sign-up sets `emailRedirectTo`; reset links always go to the live site; Forgot password now says when the email could not be sent instead of claiming it was; an unconfirmed member gets **Send a new confirmation link**.
+- Files: `src/lib/auth-messages.ts`, `src/routes/account.tsx`, `src/components/account/PasswordForms.tsx`, tests `auth-messages.test.ts`, `password-forms.test.tsx`.
+- Owner actions (Supabase dashboard): custom SMTP through Resend, raise the email rate limit, Site URL https://cannaplug012.co.za and redirect URLs https://cannaplug012.co.za/**. Migrations: none. Rollback: revert the PR.

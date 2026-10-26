@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
 
 export const MIN_PASSWORD = 8;
 
@@ -100,19 +101,27 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/account?reset=1`,
+      const { error: sendError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${AUTH_REDIRECT}?reset=1`,
       });
-    } catch {
-      /* same answer either way: never reveal whether an account exists */
+      // A sending problem (too many emails) is shown, because it is not about this person's account.
+      // Anything else gets the same answer whether or not the address has an account.
+      if (sendError && authProblem(sendError.message).kind === "rate_limited")
+        return setError(authProblem(sendError.message).message);
+      setSent(true);
+    } catch (err) {
+      const p = authProblem(err instanceof Error ? err.message : "");
+      if (p.kind === "rate_limited") setError(p.message);
+      else setSent(true);
     } finally {
       setBusy(false);
-      setSent(true);
     }
   };
 
@@ -131,6 +140,14 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
           <p className="text-xs text-muted-foreground">
             Enter your email and we'll send you a link to choose a new password.
           </p>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            >
+              {error}
+            </p>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="forgot-email">Email address</Label>
             <Input
