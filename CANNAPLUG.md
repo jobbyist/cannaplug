@@ -1221,3 +1221,8 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Members: Account Settings → **Email preferences** switch (`member_newsletter_set` / `member_newsletter_status`), the same consent list as the website footer.
 - Tests: `db/email-campaigns.test.ts` (3), `email-campaigns-ui.test.tsx` (3), notification adapter tests (sender, fallback only on unverified domain, template reply-to wins). Mutation checks: sending to unsubscribed people, resending a sent campaign, budtenders sending — all caught.
 - Owner actions: add the Resend DNS records for cannaplug012.co.za at GoDaddy (DKIM `resend._domainkey` TXT, `send` MX + TXT) and verify; then nothing else changes. Rollback: the rollback file and revert the PR.
+
+## 26 Oct 2026 — "Ask CannaPlug AI" tab hidden for now
+
+- Purpose: the owner asked to hide the floating AI chat tab temporarily. `src/routes/__root.tsx` renders `<ChatWidget />` only when `CHAT_WIDGET_ENABLED` is true (now false). The chat code, routes and key are untouched; set the flag to true to bring it back.
+- Migrations: none. Tests: `scripts/verify-release.sh`. Owner actions: none. Rollback: set the flag to true (or revert the PR).

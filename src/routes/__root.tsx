@@ -79,6 +79,9 @@ function ErrorComponent({ error: thrown, reset }: { error: unknown; reset: () =>
   );
 }
 
+/** The "Ask CannaPlug AI" tab is hidden for now at the owner's request (26 Oct 2026). Set to true to bring it back. */
+const CHAT_WIDGET_ENABLED = false;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -155,7 +158,7 @@ function RootComponent() {
         <CartProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
-          <ChatWidget />
+          {CHAT_WIDGET_ENABLED && <ChatWidget />}
           <PwaRegister />
           <AgeGate />
         </CartProvider>
