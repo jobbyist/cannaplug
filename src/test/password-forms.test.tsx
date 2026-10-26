@@ -69,11 +69,26 @@ describe("ForgotPasswordForm", () => {
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
     await waitFor(() =>
       expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("someone@example.com", {
-        redirectTo: `${window.location.origin}/account?reset=1`,
+        redirectTo: "https://cannaplug012.co.za/account?reset=1",
       }),
     );
     expect((await screen.findByRole("status")).textContent).toMatch(
       /If that email has a CannaPlug account/,
     );
+  });
+});
+
+describe("email sending problems", () => {
+  it("tells the customer when the reset email could not be sent (rate limit), without revealing the account", async () => {
+    auth.resetPasswordForEmail.mockResolvedValue({
+      data: null,
+      error: new Error("email rate limit exceeded"),
+    });
+    const user = userEvent.setup();
+    render(<ForgotPasswordForm onBack={vi.fn()} />);
+    await user.type(screen.getByLabelText("Email address"), "someone@example.com");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/couldn't send the email/);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
