@@ -237,14 +237,27 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
       expect(results.filter((r) => !r.ok && r.message.startsWith("not_pending"))).toHaveLength(1);
     });
 
-    it("needs a manager: budtenders, customers and nobody are refused", async () => {
+    it("needs staff: customers and nobody are refused; a budtender can decide (owner's rule, 26 Oct)", async () => {
       const u = await customer();
       await submit(u);
-      for (const actor of [await mkUser(sql, "budtender"), await customer(), null as never]) {
+      for (const actor of [await customer(), null as never]) {
         const o = await attempt(review(actor, u, "approve"));
         expect(failedWith(o, "forbidden")).toBe(true);
       }
       expect((await row(u))!["status"]).toBe("pending");
+      const budtender = await mkUser(sql, "budtender");
+      await review(budtender, u, "approve");
+      expect((await row(u))!["status"]).toBe("verified");
+      expect(
+        await val(
+          sql`SELECT count(*)::int FROM public.audit_log WHERE action = 'id_verification_approved' AND actor_user_id = ${budtender} AND target_user_id = ${u}`,
+        ),
+      ).toBe(1);
+      const self = await mkUser(sql, "budtender");
+      await submit(self);
+      expect(
+        failedWith(await attempt(review(self, self, "approve")), "self_review_forbidden"),
+      ).toBe(true);
     });
 
     it("nobody reviews their own ID, even a manager", async () => {
@@ -265,7 +278,7 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
       expect(failedWith(await attempt(review(manager, u, "approve")), "underage")).toBe(true);
     });
 
-    it("opening an ID image is audited, and refused for non-managers", async () => {
+    it("opening an ID image is audited, and refused for non-staff", async () => {
       const u = await customer();
       const path = pathFor(u);
       await submit(u, { path });
@@ -279,7 +292,13 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
         ),
       ).toBe(1);
       const budtender = await mkUser(sql, "budtender");
-      const denied = await attempt(rpc(sql, "verification_log_document_view", budtender, u));
+      await rpc(sql, "verification_log_document_view", budtender, u);
+      expect(
+        await val(
+          sql`SELECT count(*)::int FROM public.audit_log WHERE action = 'id_document_viewed' AND actor_user_id = ${budtender} AND target_user_id = ${u}`,
+        ),
+      ).toBe(1);
+      const denied = await attempt(rpc(sql, "verification_log_document_view", await customer(), u));
       expect(failedWith(denied, "forbidden")).toBe(true);
       expect(
         failedWith(

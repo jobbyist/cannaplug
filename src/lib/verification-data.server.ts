@@ -30,12 +30,12 @@ const MAX_FILES_PER_MEMBER = 10;
 
 const storage = () => supabaseAdmin.storage.from(ID_BUCKET);
 
-/** Reviewing IDs is manager-and-above only; budtenders get a clear message, not a generic failure. */
-async function assertManager(actor: string) {
+/** Reviewing IDs is for staff (budtender and up, owner's decision 26 Oct 2026); others get a clear message. */
+async function assertStaffReviewer(actor: string) {
   try {
-    await assertRole(actor, "manager");
+    await assertRole(actor, "budtender");
   } catch {
-    throw new MemberError("ID checks are for managers only.");
+    throw new MemberError("ID checks are for staff only.");
   }
 }
 
@@ -154,7 +154,7 @@ export async function listVerifications(
   actor: string,
   scope: "pending" | "decided",
 ): Promise<VerificationQueueItem[]> {
-  await assertManager(actor);
+  await assertStaffReviewer(actor);
   const base = supabaseAdmin
     .from("customer_verification")
     .select(
@@ -192,7 +192,7 @@ export async function listVerifications(
 }
 
 export async function pendingVerificationCount(actor: string): Promise<number> {
-  await assertManager(actor);
+  await assertStaffReviewer(actor);
   const { count, error } = await supabaseAdmin
     .from("customer_verification")
     .select("user_id", { count: "exact", head: true })

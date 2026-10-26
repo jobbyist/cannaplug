@@ -1233,3 +1233,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Code: `src/lib/auth-messages.ts` (plain messages for rate limits, unconfirmed email, wrong password, existing account; `AUTH_REDIRECT` = https://cannaplug012.co.za/account). Sign-up sets `emailRedirectTo`; reset links always go to the live site; Forgot password now says when the email could not be sent instead of claiming it was; an unconfirmed member gets **Send a new confirmation link**.
 - Files: `src/lib/auth-messages.ts`, `src/routes/account.tsx`, `src/components/account/PasswordForms.tsx`, tests `auth-messages.test.ts`, `password-forms.test.tsx`.
 - Owner actions (Supabase dashboard): custom SMTP through Resend, raise the email rate limit, Site URL https://cannaplug012.co.za and redirect URLs https://cannaplug012.co.za/**. Migrations: none. Rollback: revert the PR.
+
+## 26 Oct 2026 — Budtenders can approve ID checks
+
+- Owner's decision: budtenders review member IDs. `20261026001000_budtender_id_review` (mirror `drizzle/0038`, rollback, `scripts/rollback-rehearsal-budtender-id-review.sh` in verify-release): `verification_review` and `verification_log_document_view` now need budtender (was manager). Unchanged: nobody reviews their own ID, under-18 or expired documents can't be approved, every document view is audited before the 60-second link, and only an admin resets a locked-out member.
+- App: the **ID Checks** tab now shows for budtenders (`src/lib/admin-nav.ts`); `src/lib/verification-data.server.ts` checks budtender. New-ID email alerts still go to managers and admins.
+- Tests: `db/id-verification.test.ts` updated (a budtender approves and is audited; customers refused; a budtender can't review their own ID; budtender document view audited). Mutation check: applying the rollback (managers only) makes 2 tests fail.
+- Also: deleted the unconfirmed account of a customer whose confirmation email never arrived (owner's request; audit row `account_deleted_on_request`).
+- Owner actions: none. Rollback: the rollback file and revert the PR.
