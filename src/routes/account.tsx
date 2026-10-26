@@ -35,7 +35,7 @@ import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
 import { EmailPreferences } from "@/components/account/EmailPreferences";
-import { AUTH_REDIRECT, authProblem, type AuthProblem } from "@/lib/auth-messages";
+import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
@@ -69,37 +69,15 @@ function AuthPanel() {
   const [dob, setDob] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [problem, setProblem] = useState<AuthProblem["kind"] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fail = (err: unknown) => {
     const p = authProblem(err instanceof Error ? err.message : String(err ?? ""));
     setError(p.message);
-    setProblem(p.kind);
-  };
-  const resendConfirmation = async () => {
-    setSubmitting(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: email.trim(),
-        options: { emailRedirectTo: AUTH_REDIRECT },
-      });
-      if (resendError) throw resendError;
-      setProblem(null);
-      setNotice("A new confirmation link is on its way. Open it, then sign in here.");
-    } catch (err) {
-      fail(err);
-    } finally {
-      setSubmitting(false);
-    }
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    setProblem(null);
     setNotice(null);
     try {
       if (mode === "signin") {
@@ -117,12 +95,12 @@ function AuthPanel() {
           },
         });
         if (signUpError) throw signUpError;
-        // With email confirmation on there is no session yet; the ID upload is the first thing
-        // the member sees once they sign in.
-        if (!created.session)
-          setNotice(
-            "Account created — check your inbox to confirm your email, then sign in. You'll verify your ID next.",
-          );
+        // Sign-up signs the member straight in and the ID upload is the first thing they see. If Supabase
+        // ever returns no session, ask them to sign in rather than wait for an email.
+        if (!created.session) {
+          setMode("signin");
+          setNotice("Account created. Sign in with your email and password to upload your ID.");
+        }
       }
     } catch (err) {
       fail(err);
@@ -261,16 +239,6 @@ function AuthPanel() {
                     >
                       {error}
                     </p>
-                  )}
-                  {problem === "unconfirmed" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={submitting || !email.trim()}
-                      onClick={() => void resendConfirmation()}
-                    >
-                      Send a new confirmation link
-                    </Button>
                   )}
                   {notice && (
                     <p className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">

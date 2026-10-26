@@ -1241,3 +1241,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `db/id-verification.test.ts` updated (a budtender approves and is audited; customers refused; a budtender can't review their own ID; budtender document view audited). Mutation check: applying the rollback (managers only) makes 2 tests fail.
 - Also: deleted the unconfirmed account of a customer whose confirmation email never arrived (owner's request; audit row `account_deleted_on_request`).
 - Owner actions: none. Rollback: the rollback file and revert the PR.
+
+## 26 Oct 2026 — Sign-up no longer mentions email confirmation (feat/mvp-no-email-confirm)
+- Purpose: the owner turned off email confirmation in Supabase Auth, so sign-up signs the member straight in and the ID upload is the next step. Remove every customer-facing reference to confirming an email.
+- Files: `src/routes/account.tsx` (removed the "check your inbox to confirm your email" notice and the **Send a new confirmation link** button; if Supabase ever returns no session the form switches to Sign in with "Account created. Sign in with your email and password to upload your ID."), `src/lib/auth-messages.ts` (the "Email not confirmed" error now asks the customer to call the shop instead), `src/test/auth-messages.test.ts` (guards that the account page and messages never ask for email confirmation).
+- Migrations: none.
+- Also: sent the re-sign-up notice individually to the three customers whose earlier attempts were cleared (Resend, from admin@updates.cannaplug012.co.za, Reply-To admin@cannaplug012.co.za).
+- Deliverability check: updates.cannaplug012.co.za is verified in Resend with DKIM (resend._domainkey.updates) and SPF on the return path (send.updates); both align with the From domain, so the root DMARC policy (p=quarantine) passes. Open and click tracking are off. Spam placement is reputation and content, not authentication.
+- Tests: `bunx vitest run src/test/auth-messages.test.ts src/test/password-forms.test.tsx`, `scripts/verify-release.sh`.
+- Owner actions: in Supabase Auth → SMTP, the sender must be admin@updates.cannaplug012.co.za (cannaplug012.co.za is not verified in Resend, so Resend refuses it).
+- Rollback: revert this PR.
