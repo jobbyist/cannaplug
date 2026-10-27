@@ -296,6 +296,7 @@ function AdminPage() {
         items={NAV_ITEMS.filter((i) => canSee(role, i.id))}
         active={tab}
         onSelect={goTab}
+        hrefFor={(id) => (id === "overview" ? "/admin" : `/admin#${id}`)}
         header={
           <Link to="/">
             <img src={logoImage} alt="CannaPlug" className="h-6 w-auto" />
