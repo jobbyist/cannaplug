@@ -516,17 +516,15 @@ function SaleScreen({
                   </span>
                 </span>
               </button>
-              {data.isManager && (
-                <button
-                  type="button"
-                  title={p.regular_price_rand != null ? "Change or end the sale" : "Put on sale"}
-                  aria-label={`${p.regular_price_rand != null ? "Change sale for" : "Put on sale:"} ${p.name}`}
-                  onClick={() => setSaleFor(p)}
-                  className={`flex w-10 shrink-0 items-center justify-center rounded-lg border transition hover:bg-muted ${p.regular_price_rand != null ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#0B3D20]" : "border-border text-muted-foreground"}`}
-                >
-                  <BadgePercent size={16} />
-                </button>
-              )}
+              <button
+                type="button"
+                title={p.regular_price_rand != null ? "Change or end the sale" : "Put on sale"}
+                aria-label={`${p.regular_price_rand != null ? "Change sale for" : "Put on sale:"} ${p.name}`}
+                onClick={() => setSaleFor(p)}
+                className={`flex w-10 shrink-0 items-center justify-center rounded-lg border transition hover:bg-muted ${p.regular_price_rand != null ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#0B3D20]" : "border-border text-muted-foreground"}`}
+              >
+                <BadgePercent size={16} />
+              </button>
             </li>
           ))}
           {results.length === 0 && (

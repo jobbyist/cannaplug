@@ -491,7 +491,8 @@ export async function setProductSale(
   productId: string,
   input: { sale_price_rand: number | null; sale_ends_at: string | null },
 ) {
-  await assertRole(userId, "manager");
+  // Any staff member on the till may run a sale (owner's decision, 27 Oct 2026); every change is audited.
+  await assertRole(userId, "budtender");
   const { data: p, error: readError } = await supabaseAdmin
     .from("products")
     .select("id,name,price_rand,regular_price_rand")

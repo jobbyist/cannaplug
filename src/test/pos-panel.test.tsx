@@ -124,11 +124,17 @@ describe("POS screen — speed-first search & keyboard controls", () => {
     expect(screen.getAllByText(/R150/).length).toBeGreaterThan(0);
   });
 
+  it("every staff member on the till gets the sale (discount) button", async () => {
+    const { user, search } = await ready();
+    await user.type(search, "sour");
+    expect(screen.getByRole("button", { name: "Put on sale: Sour OG" })).toBeTruthy();
+  });
+
   it("out-of-stock products cannot be added", async () => {
     const { user, search } = await ready();
     await user.type(search, "sour{Enter}");
     expect(screen.queryByLabelText("Quantity for Sour OG")).toBeNull();
-    expect((screen.getByRole("button", { name: /Sour OG/ }) as HTMLButtonElement).disabled).toBe(
+    expect((screen.getByRole("button", { name: /^Sour OG/ }) as HTMLButtonElement).disabled).toBe(
       true,
     );
   });

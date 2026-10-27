@@ -1306,3 +1306,18 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Files: `src/components/dashboard/Sidebar.tsx` (optional `hrefFor`: items become links to `/admin#<section>`; a plain click still switches section in place, modified and middle clicks are left to the browser; the account page keeps buttons), `src/routes/admin.tsx`, `src/test/admin-nav-links.test.tsx`.
 - Migrations: none. Tests: the new test plus `scripts/verify-release.sh`.
 - Owner actions: none. Rollback: revert the PR.
+
+## 27 Oct 2026 — PWA switched off; till discounts for all staff (feat/mvp-pwa-off)
+- Purpose: the client saw recent changes come and go (the hidden AI chat button reappearing until a reload, the new POS category buttons missing, discounts "not working").
+- Diagnosis:
+  - The caching service worker served the home page network-first with a 4-second timeout, falling back to its last saved copy, and kept every old script bundle cache-first. On a slow connection, staff got the old home page and its old scripts. Moving on to /admin inside the app then kept running that old code, so the till showed the old POS without category buttons and the AI button came back. A full reload fixed it until the next slow load.
+  - Discounts: the till runs under a budtender account, and the % (sale) button was manager-only.
+- Fix:
+  - `public/sw.js` is now a kill switch: it deletes every `cannaplug-` cache, unregisters itself, has no fetch handler and never reloads a page, so an open till keeps working.
+  - `PwaRegister` removes any registered worker and our caches. With `PWA_ENABLED = false` (`src/lib/pwa/flag.ts`), the manifest is no longer linked and "Get the app" is hidden.
+  - The old worker is kept in `pwa/sw-cached.js` so it can be turned back on.
+  - The sale button and `setProductSale` are now open to any staff member (owner's decision; audited).
+- Migrations: none.
+- Tests: `src/test/pwa-off.test.ts`, updated `pwa.test.ts` and `pos-panel.test.tsx`, plus verify-release.
+- Owner actions: at the till, finish the current sale, then reload the tab once (or close and reopen it). Open tabs keep the old code until they reload.
+- Rollback: revert the PR.
