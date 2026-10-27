@@ -49,6 +49,7 @@ import {
   type StatusFilter,
   type StockStatus,
 } from "@/lib/inventory-logic";
+import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 import { AdjustDialog, HistoryDialog, ReceiveDialog, ThresholdDialog } from "./InventoryDialogs";
 import { serverInventoryApi, type InventoryApi } from "./inventory-api";
 
@@ -177,7 +178,10 @@ export function InventoryPanel({
   const done = async (message: string) => {
     setNotice(message);
     await load();
+    notifyAdminTabs("stock");
   };
+  // A sale, refund or stock change in another admin tab: reload quietly, keeping filters and search.
+  useAdminTabSync(["stock", "products"], () => void load());
   const downloadCsv = () => {
     const blob = new Blob([inventoryCsv(visible)], { type: "text/csv" });
     const a = document.createElement("a");

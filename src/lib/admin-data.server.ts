@@ -482,6 +482,62 @@ export async function saveAdminProduct(
   return data;
 }
 
+/**
+ * Put a product on sale (or end its sale) without the full product editor: used from the till.
+ * The regular price is kept; the sale price is what both the till and online checkout charge.
+ */
+export async function setProductSale(
+  userId: string,
+  productId: string,
+  input: { sale_price_rand: number | null; sale_ends_at: string | null },
+) {
+  await assertRole(userId, "manager");
+  const { data: p, error: readError } = await supabaseAdmin
+    .from("products")
+    .select("id,name,price_rand,regular_price_rand")
+    .eq("id", productId)
+    .single();
+  if (readError || !p) throw new Error("Product not found.");
+  const regular = Number(p.regular_price_rand ?? p.price_rand);
+  const ending = input.sale_price_rand == null;
+  if (!ending) {
+    const problem = saleProblem({
+      price: regular,
+      sale: input.sale_price_rand,
+      endsAt: input.sale_ends_at,
+    });
+    if (problem) throw new Error(problem);
+  }
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .update(
+      ending
+        ? { price_rand: regular, regular_price_rand: null, sale_ends_at: null }
+        : {
+            price_rand: input.sale_price_rand!,
+            regular_price_rand: regular,
+            sale_ends_at: input.sale_ends_at,
+          },
+    )
+    .eq("id", productId)
+    .select("id,price_rand,regular_price_rand,sale_ends_at")
+    .single();
+  if (error) throw productSaveError(error);
+  await supabaseAdmin.from("audit_log").insert({
+    actor_user_id: userId,
+    action: ending ? "product_sale_ended_by_staff" : "product_sale_set",
+    entity_type: "product",
+    entity_id: productId,
+    metadata: {
+      regular_price: regular,
+      sale_price: ending ? null : input.sale_price_rand,
+      sale_ends_at: ending ? null : input.sale_ends_at,
+      from: "pos",
+    },
+  });
+  return data;
+}
+
 export async function deactivateAdminProduct(userId: string, productId: string) {
   await assertRole(userId, "manager");
   const { data, error } = await supabaseAdmin

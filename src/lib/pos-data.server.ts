@@ -30,6 +30,7 @@ export type PosCatalogItem = {
   price_rand: number;
   /** Set while the product is on sale: the normal price, shown struck through. price_rand is what is charged. */
   regular_price_rand: number | null;
+  sale_ends_at: string | null;
   available: number;
 };
 
@@ -105,7 +106,9 @@ export async function getPosOverview(userId: string) {
     supabaseAdmin.from("inventory_availability").select("product_id,available"),
     supabaseAdmin
       .from("products")
-      .select("id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand")
+      .select(
+        "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at",
+      )
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),

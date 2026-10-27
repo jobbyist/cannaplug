@@ -64,6 +64,12 @@ import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admi
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
+import {
+  notifyAdminTabs,
+  sectionFromHash,
+  useAdminTabSync,
+  type AdminTopic,
+} from "@/lib/admin-sync";
 import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
@@ -166,6 +172,21 @@ function AdminPage() {
     label: string;
   } | null>(null);
   const [saleOpen, setSaleOpen] = useState<SearchSale | null>(null);
+  // Each tab remembers its own section in the address (#pos), so a reload or a second tab opens where you were.
+  useEffect(() => {
+    const fromHash = sectionFromHash(window.location.hash, "");
+    if (fromHash) setTab(fromHash);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const want = tab === "overview" ? "" : `#${tab}`;
+    if (window.location.hash !== want)
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${want}`,
+      );
+  }, [tab]);
   const goTab = (next: string) => {
     setFocus(null);
     setTab(next);
@@ -225,9 +246,18 @@ function AdminPage() {
       setRefreshing(false);
     }
   };
+  // Changes made in another admin tab: reload quietly (no sign-in check, nothing on screen is reset).
+  useAdminTabSync(["any"], () => {
+    if (access && access !== "none") void refresh();
+  });
+  const refreshAndShare = async (topic: AdminTopic) => {
+    await refresh();
+    notifyAdminTabs(topic);
+  };
+  const userId = user?.id ?? null;
   useEffect(() => {
     setAccess(null);
-    if (!user) return;
+    if (!userId) return;
     let alive = true;
     void getMyStaffAccessFn()
       .then(({ role: r }) => {
@@ -243,9 +273,10 @@ function AdminPage() {
     return () => {
       alive = false;
     };
-    // Intentionally keyed on the signed-in user only; refresh() is re-created each render.
+    // Keyed on the signed-in person only: an hourly token refresh (in this tab or another) must not reload
+    // the whole admin and wipe what is on screen. refresh() is re-created each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [userId]);
 
   if (loading || (user && access === null))
     return (
@@ -431,14 +462,14 @@ function AdminPage() {
             }
             onTransition={async (orderId, toStatus) => {
               await transitionAdminOrderFn({ data: { orderId, toStatus } });
-              await refresh();
+              await refreshAndShare("orders");
             }}
             canConfirmPayment={atLeast(role, "manager")}
             onConfirmPayment={async (orderId, bankReference, amountReceived) => {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
               });
-              await refresh();
+              await refreshAndShare("payments");
               return result;
             }}
           />
@@ -452,14 +483,14 @@ function AdminPage() {
             }
             onTransition={async (orderId, toStatus) => {
               await transitionAdminOrderFn({ data: { orderId, toStatus } });
-              await refresh();
+              await refreshAndShare("orders");
             }}
             canConfirmPayment={atLeast(role, "manager")}
             onConfirmPayment={async (orderId, bankReference, amountReceived) => {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
               });
-              await refresh();
+              await refreshAndShare("payments");
               return result;
             }}
           />
@@ -475,7 +506,7 @@ function AdminPage() {
               }
               editingProduct={editingProduct}
               setEditingProduct={setEditingProduct}
-              onSaved={refresh}
+              onSaved={() => refreshAndShare("products")}
               canEdit={atLeast(role, "manager")}
             />
           </>

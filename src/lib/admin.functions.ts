@@ -13,6 +13,7 @@ import {
   listMemberOrders,
   listStoreProducts,
   saveAdminProduct,
+  setProductSale,
   deactivateAdminProduct,
   transitionAdminOrder,
   type AdminProductInput,
@@ -154,6 +155,24 @@ export const saveAdminProductFn = createServerFn({ method: "POST" })
   )
   .handler(({ context, data }) =>
     saveAdminProduct(context.userId, data.input as AdminProductInput, data.productId),
+  );
+
+export const setProductSaleFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) =>
+    z
+      .object({
+        productId: z.string().uuid(),
+        salePrice: z.number().positive().max(1_000_000).nullable(),
+        endsAt: z.string().datetime({ offset: true }).nullable(),
+      })
+      .parse(data),
+  )
+  .handler(({ context, data }) =>
+    setProductSale(context.userId, data.productId, {
+      sale_price_rand: data.salePrice,
+      sale_ends_at: data.salePrice == null ? null : data.endsAt,
+    }),
   );
 
 export const deactivateAdminProductFn = createServerFn({ method: "POST" })
