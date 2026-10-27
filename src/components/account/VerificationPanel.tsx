@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { createIdUploadFn, submitVerificationFn } from "@/lib/verification.functions";
+import { DateOfBirthField } from "./DateOfBirthField";
 import {
   DOCUMENT_TYPES,
   ID_ACCEPT,
@@ -14,8 +15,6 @@ import {
   dobProblem,
   documentNeedsExpiry,
   expiryProblem,
-  earliestBirthDate,
-  latestAdultBirthDate,
   verificationView,
   type DocumentType,
   type VerificationRow,
@@ -162,18 +161,12 @@ export function VerificationPanel({
               ))}
             </select>
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="id-dob">Date of birth (as on your ID)</Label>
-            <Input
-              id="id-dob"
-              type="date"
-              required
-              min={earliestBirthDate()}
-              max={latestAdultBirthDate()}
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-            />
-          </div>
+          <DateOfBirthField
+            id="id-dob"
+            label="Date of birth (as on your ID)"
+            value={dob}
+            onChange={setDob}
+          />
           {documentNeedsExpiry(documentType) ? (
             <div className="grid gap-1.5">
               <Label htmlFor="id-expiry">Expiry date (as on your document)</Label>

@@ -167,9 +167,40 @@ export function latestAdultBirthDate(today: Date = new Date()): string {
 export const earliestBirthDate = (today: Date = new Date()) =>
   iso(today.getFullYear() - 120, today.getMonth() + 1, Math.min(today.getDate(), 28));
 
+/** True when YYYY-MM-DD is a real calendar day (no 31 April or 29 February in a common year). */
+export function isRealDate(dob: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+export type DobParts = { day: string; month: string; year: string };
+
+/** Splits YYYY-MM-DD into the three dropdown values ("" when missing). */
+export function splitDob(dob: string): DobParts {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob ?? "");
+  return m ? { year: m[1]!, month: m[2]!, day: m[3]! } : { day: "", month: "", year: "" };
+}
+
+/** Joins the dropdowns into YYYY-MM-DD, or "" until all three are chosen. */
+export function joinDob({ day, month, year }: DobParts): string {
+  return day && month && year ? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}` : "";
+}
+
+/**
+ * Years offered in the dropdown, newest first, back 120 years. Under-18 years stay in the list so a young
+ * visitor gets the clear "18 or older" message rather than a vague "select an item".
+ */
+export function birthYears(today: Date = new Date()): string[] {
+  const newest = today.getFullYear();
+  return Array.from({ length: 121 }, (_, i) => String(newest - i));
+}
+
 export function dobProblem(dob: string, today: Date = new Date()): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(Date.parse(dob)))
-    return "Enter your date of birth.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return "Choose your date of birth: day, month and year.";
+  if (!isRealDate(dob)) return "That date doesn't exist. Check the day and month.";
   if (dob < earliestBirthDate(today)) return "Enter your date of birth.";
   if (dob > latestAdultBirthDate(today)) return "You must be 18 or older to shop with CannaPlug.";
   return null;
