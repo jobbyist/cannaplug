@@ -29,7 +29,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { rand } from "@/lib/cart";
 import { VerificationBanner, VerificationPanel } from "@/components/account/VerificationPanel";
-import { dobProblem, latestAdultBirthDate } from "@/lib/verification-logic";
+import { dobProblem } from "@/lib/verification-logic";
+import { DateOfBirthField } from "@/components/account/DateOfBirthField";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
@@ -199,14 +200,11 @@ function AuthPanel() {
                   )}
                   {mode === "signup" && (
                     <div className="grid gap-1.5">
-                      <Label htmlFor="signup-dob">Date of birth</Label>
-                      <Input
+                      <DateOfBirthField
                         id="signup-dob"
-                        type="date"
+                        label="Date of birth"
                         value={dob}
-                        onChange={(e) => setDob(e.target.value)}
-                        max={latestAdultBirthDate()}
-                        required
+                        onChange={setDob}
                       />
                       <p className="text-[0.7rem] text-muted-foreground">
                         You must be 18 or older. We'll ask for a photo of your ID after you sign in

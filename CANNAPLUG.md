@@ -1379,3 +1379,19 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - Mutation check: removing the budget check fails three tests.
 - Owner actions: none.
 - Rollback: apply the rollback SQL, then revert the PR.
+
+## 27 Oct 2026 — Date of birth as day / month / year dropdowns (feat/mvp-dob-picker)
+
+- **Purpose:** members reported trouble entering their date of birth at sign-up. Phone date pickers open on
+  today's date, so people scrolled back the year and kept today's day and month (sign-ups on 26 Oct had
+  birthdays of 26 Oct; one corrected it at the ID step) or gave up. Sign-up and the ID upload form now use three
+  dropdowns (Day, Month, Year) that start empty. Days that don't exist (31 April, 29 Feb in a common year) are
+  caught with a clear message; all years back 120 are listed so under-18s get the "18 or older" message.
+- **Files:** `src/components/account/DateOfBirthField.tsx` (new), `src/routes/account.tsx`,
+  `src/components/account/VerificationPanel.tsx`, `src/lib/verification-logic.ts` (`isRealDate`, `splitDob`,
+  `joinDob`, `birthYears`; `dobProblem` messages).
+- **Migrations:** none. The value sent is still YYYY-MM-DD, so the server checks are unchanged.
+- **Tests:** `src/test/dob-field.test.tsx` (new); `verification-panel`, `verification-logic` pass; checked on an
+  iPhone-sized screen.
+- **Owner actions:** none. Staff: when reviewing IDs, compare the date of birth against the document as usual.
+- **Rollback:** revert the PR.
