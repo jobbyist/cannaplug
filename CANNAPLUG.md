@@ -1300,3 +1300,9 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `src/test/admin-tabs.test.tsx` (token refresh does not re-trigger the admin; tabs notify each other once per burst; section in the address), `src/test/pos-category-sale.test.tsx` (category counts and filtering, % maths and end times, start / end / refuse sale). Mutation checks: making `sameUser` always false fails the tab test; removing the manager check in `setProductSale` fails the data-layer security audit.
 - Owner actions: none.
 - Rollback: revert the PR.
+
+## 27 Oct 2026 — Admin sidebar items open in a new tab (feat/mvp-admin-nav-links)
+- Purpose: owner's request. Staff keep POS in one tab and ID checks (or any section) in another. The sidebar items were buttons, so Ctrl/⌘-click, middle-click and right-click → "Open in new tab" did nothing.
+- Files: `src/components/dashboard/Sidebar.tsx` (optional `hrefFor`: items become links to `/admin#<section>`; a plain click still switches section in place, modified and middle clicks are left to the browser; the account page keeps buttons), `src/routes/admin.tsx`, `src/test/admin-nav-links.test.tsx`.
+- Migrations: none. Tests: the new test plus `scripts/verify-release.sh`.
+- Owner actions: none. Rollback: revert the PR.
