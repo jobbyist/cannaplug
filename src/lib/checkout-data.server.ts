@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { friendlyMemberError } from "@/lib/member-logic";
+import { endExpiredSales } from "@/lib/sale-expiry.server";
 
 /**
  * Checkout data layer. The browser supplies product ids + quantities, ONE of its own saved address
@@ -63,6 +64,7 @@ export async function listDeliveryOptions() {
 }
 
 export async function quoteCheckout(items: CheckoutItem[], deliveryMethod: string) {
+  await endExpiredSales(null);
   return unwrap(
     await supabaseAdmin.rpc("checkout_quote", {
       p_items: toRpcItems(items),
@@ -106,6 +108,7 @@ export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput)
   const methods = await availableOnlineMethods();
   const ok = input.paymentMethod === "eft" ? methods.eft !== null : methods[input.paymentMethod];
   if (!ok) throw friendlyMemberError(new Error("payment_method_unsupported"));
+  await endExpiredSales(null);
   return unwrap(
     await supabaseAdmin.rpc("checkout_place_order", {
       p_user_id: userId,

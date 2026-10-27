@@ -3,6 +3,7 @@ import { ImagePlus, PlusCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fromLocalInput, saleProblem, toLocalInput } from "@/lib/sale-price";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -147,7 +148,16 @@ export function ProductsPanel({
   const set = (key: keyof AdminProductInput, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value === "" ? null : value }));
 
+  const saleIssue = saleProblem({
+    price: Number(form.price_rand),
+    sale: form.sale_price_rand,
+    endsAt: form.sale_ends_at,
+  });
   const save = async () => {
+    if (saleIssue) {
+      setMessage(saleIssue);
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -344,22 +354,28 @@ export function ProductsPanel({
                 }
               />
               <p className="text-[0.65rem] text-muted-foreground">
-                Lower than the regular price. Leave empty to end the sale.
+                Lower than the regular price. Charged online and at the till. Leave empty to end the
+                sale.
               </p>
+              {saleIssue && (
+                <p role="alert" className="text-[0.65rem] font-semibold text-destructive">
+                  {saleIssue}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label htmlFor="product-sale-ends">Sale ends (optional)</Label>
               <Input
                 id="product-sale-ends"
                 type="datetime-local"
-                value={form.sale_ends_at ? form.sale_ends_at.slice(0, 16) : ""}
+                value={toLocalInput(form.sale_ends_at)}
                 onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    sale_ends_at: e.target.value ? new Date(e.target.value).toISOString() : null,
-                  }))
+                  setForm((f) => ({ ...f, sale_ends_at: fromLocalInput(e.target.value) }))
                 }
               />
+              <p className="text-[0.65rem] text-muted-foreground">
+                The regular price comes back automatically at this time, online and at the till.
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="product-cost">Cost price (R, managers only)</Label>

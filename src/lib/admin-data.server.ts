@@ -1,3 +1,4 @@
+import { saleProblem } from "@/lib/sale-price";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { productImageUrl } from "@/lib/product-image-url.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -54,6 +55,13 @@ export type AdminProductInput = Pick<
  *  and the regular price in regular_price_rand while a sale runs, so checkout and the till need no changes. */
 function toProductColumns(input: AdminProductInput) {
   const { sale_price_rand, ...rest } = input;
+  // A sale price that is not lower used to be dropped silently; refuse it so staff know the sale is not on.
+  const problem = saleProblem({
+    price: input.price_rand,
+    sale: sale_price_rand,
+    endsAt: input.sale_ends_at,
+  });
+  if (problem) throw new Error(problem);
   const onSale =
     sale_price_rand != null && sale_price_rand >= 0 && sale_price_rand < input.price_rand;
   return {
