@@ -1321,3 +1321,37 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `src/test/pwa-off.test.ts`, updated `pwa.test.ts` and `pos-panel.test.tsx`, plus verify-release.
 - Owner actions: at the till, finish the current sale, then reload the tab once (or close and reopen it). Open tabs keep the old code until they reload.
 - Rollback: revert the PR.
+
+## 27 Oct 2026 — Live sales on the overview, Reports tab, daily sales email (feat/mvp-sales-reports)
+- Purpose: owner's request.
+  - Till and online sales should show live on the Overview for all staff, in particular admin@ and info@.
+  - Managers should get a daily sales report by email.
+  - The Reports tab should get useful sales reports.
+- Found: the old Overview counted only completed online orders as "Revenue", and its 7-day chart ignored till sales entirely (every sale so far was at the till). The Reports tab was a placeholder.
+- Database (`20261027003000_sales_reports`):
+  - `_sales_report(from, to)` works on South African days.
+    - Till: gross excluding voids, refunds made in the period, net.
+    - Online: paid orders (confirmed onwards), with unpaid and cancelled orders counted separately.
+    - Breakdowns: by day, hour, till tender, online method, product (refunded items taken off), category and till staff member, plus the latest 15 transactions (receipt or order number only).
+    - No customer names or contact details.
+  - `sales_report(actor, …)` is open to any staff member.
+  - `sales_report_email(actor, day, key)` lets a manager email a day's report now (idempotent, audited).
+  - `sales_daily_report_enqueue(day)` runs from pg_cron `cannaplug-daily-sales` at 05:00 UTC (07:00 SAST) and emails yesterday's report to every manager and admin, once per day.
+  - `pos_sales` added to the realtime publication (staff already read it through RLS).
+- App:
+  - Overview: `LiveSales`. Today's total, till net, online paid (with awaiting payment), average sale and till payments by method; a 7-day stacked chart (till and online); a live feed of the latest sales. It updates within about a second of a till sale or order change (Supabase realtime on `pos_sales` and `orders`), with a 30-second fallback and cross-tab sync. The old online-only Revenue card and chart are gone.
+  - Reports tab (`SalesReportsPanel`, managers):
+    - Periods: today, yesterday, 7 days, 30 days, this month, last month, or custom dates.
+    - KPIs (total, till, online, average, refunds and voids, unpaid online).
+    - Charts: sales by day, and busiest hours with the peak hour.
+    - Breakdowns: payment methods, top 25 products, categories, till sales by staff, latest transactions.
+    - CSV download, and "Email to managers" for a single day.
+  - Email template `staff_daily_sales`: totals, till and online, payment methods, top 5 products. Balances only, no customer data.
+- Migrations: `20261027003000_sales_reports` (drizzle `0041_sales_reports`), rollback `supabase/rollbacks/20261027003000_sales_reports_rollback.sql`, rehearsal `scripts/rollback-rehearsal-sales-reports.sh` (in verify-release).
+- Tests:
+  - `src/test/db/sales-reports.test.ts`: till and online totals, voids, refunds, tenders, SAST hours, products and categories, no contact data, staff-only access, range limits, daily email to managers and admins once a day, and sending it now (manager only, idempotent, audited).
+  - `src/test/sales-reports-ui.test.tsx`: live overview and reload on a realtime event; Reports tab; periods; CSV; email template.
+  - `sales-report.server.ts` added to the security audit.
+  - Mutation checks: removing the staff check, sending the daily email to budtenders, and letting budtenders send it each fail a test.
+- Owner actions: none. The PayFast keys are still owed (see the PayFast entry above).
+- Rollback: apply the rollback SQL, then revert the PR.
