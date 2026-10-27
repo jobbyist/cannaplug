@@ -128,6 +128,10 @@ export function summariseReorder(check: ReorderCheck) {
   };
 }
 
+/** Shown on the sign-up form and for ID uploads when the shop has no ID-check credits left. */
+export const ID_CREDITS_DEPLETED_MESSAGE =
+  "New sign-ups are paused for now: our ID-check credits are used up. Please try again soon, or contact us on +27 68 291 2107.";
+
 const ERROR_MESSAGES: Record<string, string> = {
   address_not_found: "That address could not be found",
   address_limit: "You can save up to 10 addresses",
@@ -166,6 +170,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_document_type: "Choose the type of document you are uploading",
   invalid_document_path: "We could not read your upload — please upload your ID again",
   too_many_attempts: "Too many attempts — please contact CannaPlug support",
+  id_credits_depleted: ID_CREDITS_DEPLETED_MESSAGE,
   forbidden: "You do not have permission for this action",
   self_review_forbidden: "Another manager must review your own ID",
   not_pending: "This ID is no longer waiting for review — refresh the list",

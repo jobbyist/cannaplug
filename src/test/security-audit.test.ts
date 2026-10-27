@@ -61,6 +61,7 @@ function serverFns(): Fn[] {
 const PUBLIC_FNS: Record<string, string> = {
   listStoreProductsFn: "public catalogue",
   getHomeCatalogueFn: "public homepage catalogue (same columns as the shop; never cost)",
+  idCreditsOpenFn: "sign-up form: yes/no whether new members can be ID-checked (no balances)",
   listDeliveryOptionsFn: "public checkout info",
   getOnlineMethodsFn:
     "which payment buttons to show, plus the shop's owner-confirmed bank details for EFT (business info only)",
@@ -130,6 +131,8 @@ const DATA_LAYERS: Record<string, string[]> = {
   ],
   "src/lib/pos-data.server.ts": ["friendlyPosError"],
   "src/lib/inventory-data.server.ts": [],
+  // idCreditsOpen is the public yes/no for the sign-up form; the rest pass p_actor and the RPCs check the role.
+  "src/lib/id-credits.server.ts": ["idCreditsOpen"],
   // Ending expired sales lowers nothing: it only restores regular prices, and the RPC checks a staff actor.
   "src/lib/sale-expiry.server.ts": ["endExpiredSales"],
   "src/lib/payments/payments-data.server.ts": [

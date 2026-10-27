@@ -72,6 +72,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   },
   staff_eft_approval: { amount: 12500 },
   staff_id_review: { member_name: "Thandi Mokoena" },
+  id_credits_low: { available: 97, reserved: 558, total: 655, threshold: 100, cost_per_check: 3 },
   staff_low_stock: {
     items: [
       { name: "Gorilla Zkittlez", available: 2 },

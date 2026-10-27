@@ -26,6 +26,7 @@ import {
   reviewVerificationFn,
   viewVerificationDocumentFn,
 } from "@/lib/verification.functions";
+import { IdCreditsCard } from "./IdCreditsCard";
 import { resetVerificationAttemptsFn } from "@/lib/launch-rules.functions";
 import type { VerificationQueueItem } from "@/lib/verification-data.server";
 import {
@@ -161,6 +162,7 @@ export function IdChecksPanel({ canResetAttempts = false }: { canResetAttempts?:
           ))}
         </div>
       </div>
+      <IdCreditsCard canSetReserve={canResetAttempts} />
       {notice && (
         <p role="status" className="mb-3 rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
           {notice}
