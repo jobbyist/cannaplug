@@ -62,6 +62,7 @@ import {
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
+import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
 import { LiveSales } from "@/components/admin/reports/LiveSales";
 import { SalesReportsPanel } from "@/components/admin/reports/SalesReportsPanel";
@@ -494,13 +495,20 @@ function AdminPage() {
           </>
         )}
         {tab === "inventory" && (
-          <InventoryPanel
-            canManage={atLeast(role, "manager")}
-            onEditProduct={(id) => {
-              setEditingProduct(id);
-              setTab("products");
-            }}
-          />
+          <>
+            <InventoryPanel
+              canManage={atLeast(role, "manager")}
+              onEditProduct={(id) => setEditingProduct(id)}
+            />
+            {atLeast(role, "manager") && (
+              <ProductEditDialog
+                products={products}
+                editingProduct={editingProduct}
+                setEditingProduct={setEditingProduct}
+                onSaved={() => refreshAndShare("products")}
+              />
+            )}
+          </>
         )}
         {tab === "payments" && <PaymentsPanel />}
         {tab === "audit" && <AuditPanel />}

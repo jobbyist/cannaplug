@@ -1412,3 +1412,20 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Owner actions:** if Apple Pay or Google Pay do not appear on PayFast's page, switch them on in the PayFast
   dashboard (they are PayFast account options). Set `DELIVERY_ENABLED=true` when delivery is approved.
 - **Rollback:** revert the PR.
+
+## 27 Oct 2026 — Product edit popup; Online Only sale prices (feat/mvp-product-modal)
+
+- **Purpose:** (1) Editing or adding a product now opens a popup (scrolls on small screens, Save and Cancel stay in
+  view) instead of a form at the bottom of the page. Inventory → "Edit product & price" opens the same popup
+  without leaving the Inventory tab. (2) A sale can be limited to online orders with an **Online only** tick box
+  beside the sale price: the shop and checkout charge the sale price while the till keeps charging the regular
+  price. The Products list shows "Sale · online only". The flag clears itself when a sale ends.
+- **Files:** `src/components/admin/ProductEditDialog.tsx` (new, extracted from `ProductsPanel.tsx`), `src/routes/admin.tsx`,
+  `src/lib/admin-data.server.ts`, `src/lib/admin.functions.ts`, `src/lib/pos-data.server.ts`,
+  `src/integrations/supabase/types.ts`.
+- **Migration:** `20261027005000_online_only_sales` (mirror `drizzle/migrations/0043_online_only_sales.sql`, rollback
+  `supabase/rollbacks/20261027005000_online_only_sales_rollback.sql`, rehearsal `scripts/rollback-rehearsal-online-only.sh`).
+  Adds `products.sale_online_only`, a self-clearing trigger, and updates `pos_complete_sale` (till price) and
+  `products_end_expired_sales` (clears the flag). **Applied to the hosted project.**
+- **Tests:** `product-edit-dialog.test.tsx`, `db/online-only-sales.test.ts` (mutation check: a till that ignores the flag
+  fails it), rehearsal. **Owner actions:** none. **Rollback:** run the rollback SQL, then revert the PR.

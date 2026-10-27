@@ -44,6 +44,7 @@ export type AdminProductInput = Pick<
   | "sold_by_weight"
   | "weight_step_g"
   | "sale_ends_at"
+  | "sale_online_only"
   | "is_featured"
   | "low_stock_threshold"
 > & {
@@ -69,6 +70,8 @@ function toProductColumns(input: AdminProductInput) {
     price_rand: onSale ? sale_price_rand : input.price_rand,
     regular_price_rand: onSale ? input.price_rand : null,
     sale_ends_at: onSale ? (input.sale_ends_at ?? null) : null,
+    // Online only: the shop charges the sale price, the till keeps the regular one.
+    sale_online_only: onSale ? Boolean(input.sale_online_only) : false,
   };
 }
 
@@ -489,7 +492,7 @@ export async function saveAdminProduct(
 export async function setProductSale(
   userId: string,
   productId: string,
-  input: { sale_price_rand: number | null; sale_ends_at: string | null },
+  input: { sale_price_rand: number | null; sale_ends_at: string | null; online_only?: boolean },
 ) {
   // Any staff member on the till may run a sale (owner's decision, 27 Oct 2026); every change is audited.
   await assertRole(userId, "budtender");
@@ -513,11 +516,17 @@ export async function setProductSale(
     .from("products")
     .update(
       ending
-        ? { price_rand: regular, regular_price_rand: null, sale_ends_at: null }
+        ? {
+            price_rand: regular,
+            regular_price_rand: null,
+            sale_ends_at: null,
+            sale_online_only: false,
+          }
         : {
             price_rand: input.sale_price_rand!,
             regular_price_rand: regular,
             sale_ends_at: input.sale_ends_at,
+            sale_online_only: Boolean(input.online_only),
           },
     )
     .eq("id", productId)
@@ -533,6 +542,7 @@ export async function setProductSale(
       regular_price: regular,
       sale_price: ending ? null : input.sale_price_rand,
       sale_ends_at: ending ? null : input.sale_ends_at,
+      online_only: ending ? false : Boolean(input.online_only),
       from: "pos",
     },
   });

@@ -1,0 +1,487 @@
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { fromLocalInput, saleProblem, toLocalInput } from "@/lib/sale-price";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  attachProductImageFn,
+  createProductImageUploadFn,
+  listAdminProductsFn,
+  removeProductImageFn,
+  saveAdminProductFn,
+} from "@/lib/admin.functions";
+import type { AdminProductInput } from "@/lib/admin-data.server";
+import {
+  PRODUCT_IMAGE_ACCEPT,
+  PRODUCT_IMAGE_BUCKET,
+  checkProductImageFile,
+  fitWithin,
+} from "@/lib/product-media";
+
+export type AdminProduct = Awaited<ReturnType<typeof listAdminProductsFn>>[number];
+
+const blank: AdminProductInput = {
+  slug: "",
+  name: "",
+  category: "Flower",
+  subcategory: null,
+  description: null,
+  price_rand: 0,
+  unit: null,
+  strain_type: null,
+  badge: null,
+  sort_order: 100,
+  low_stock_threshold: 5,
+  is_active: true,
+  sku: null,
+  barcode: null,
+  cost_rand: null,
+  brand: null,
+  sell_online: true,
+  sold_by_weight: false,
+  weight_step_g: 1,
+  sale_price_rand: null,
+  sale_ends_at: null,
+  sale_online_only: false,
+  is_featured: false,
+};
+
+const TEXT_FIELDS: { key: keyof AdminProductInput; label: string; hint?: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "slug", label: "Slug", hint: "Used in the web address, e.g. white-runtz-top-shelf" },
+  { key: "category", label: "Category" },
+  { key: "subcategory", label: "Subcategory" },
+  { key: "brand", label: "Brand" },
+  { key: "sku", label: "SKU", hint: "Unique. Matches the Yoco export for imports" },
+  { key: "barcode", label: "Barcode" },
+  { key: "unit", label: "Unit", hint: "e.g. g, pack, 300ml" },
+  { key: "strain_type", label: "Strain type" },
+  { key: "badge", label: "Badge" },
+];
+
+/** Downscales to at most 1200 px and re-encodes as WebP so photos stay small; falls back to the original. */
+async function prepareImage(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = fitWithin(bitmap.width, bitmap.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.85));
+    return blob && blob.size > 0 ? new File([blob], "photo.webp", { type: "image/webp" }) : file;
+  } catch {
+    return file;
+  }
+}
+
+function toForm(p: AdminProduct | undefined): AdminProductInput {
+  if (!p) return blank;
+  return {
+    slug: p.slug,
+    name: p.name,
+    category: p.category,
+    subcategory: p.subcategory,
+    description: p.description,
+    // While on sale, price_rand is the sale price and regular_price_rand the normal one.
+    price_rand: Number(p.regular_price_rand ?? p.price_rand),
+    sale_price_rand: p.regular_price_rand != null ? Number(p.price_rand) : null,
+    sale_ends_at: p.sale_ends_at,
+    sale_online_only: Boolean(p.sale_online_only),
+    unit: p.unit,
+    strain_type: p.strain_type,
+    badge: p.badge,
+    sort_order: p.sort_order,
+    low_stock_threshold: p.low_stock_threshold ?? 5,
+    is_active: p.is_active,
+    sku: p.sku,
+    barcode: p.barcode,
+    cost_rand: p.cost_rand == null ? null : Number(p.cost_rand),
+    brand: p.brand,
+    sell_online: p.sell_online,
+    sold_by_weight: p.sold_by_weight,
+    weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : 1,
+    is_featured: p.is_featured,
+  };
+}
+
+/**
+ * Add / edit a product in a popup (scrolls on small screens; Save and Cancel stay in view). Used by the Products tab
+ * and by Inventory, so editing never drops a form at the bottom of a page.
+ */
+export function ProductEditDialog({
+  products,
+  editingProduct,
+  setEditingProduct,
+  onSaved,
+}: {
+  products: AdminProduct[];
+  editingProduct: string | null;
+  setEditingProduct: (id: string | null) => void;
+  onSaved: () => Promise<void>;
+}) {
+  const product = products.find((p) => p.id === editingProduct);
+  const [form, setForm] = useState<AdminProductInput>(blank);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setForm(toForm(product));
+    setMessage(null);
+    // Reset the form only when a different product is selected.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
+
+  const set = (key: keyof AdminProductInput, value: string) =>
+    setForm((prev) => ({ ...prev, [key]: value === "" ? null : value }));
+
+  const saleIssue = saleProblem({
+    price: Number(form.price_rand),
+    sale: form.sale_price_rand,
+    endsAt: form.sale_ends_at,
+  });
+  const save = async () => {
+    if (saleIssue) {
+      setMessage(saleIssue);
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      await saveAdminProductFn({
+        data: {
+          productId: editingProduct === "new" ? undefined : (editingProduct ?? undefined),
+          input: {
+            ...form,
+            name: form.name ?? "",
+            slug: form.slug ?? "",
+            category: form.category ?? "",
+          },
+        },
+      });
+      setEditingProduct(null);
+      await onSaved();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Could not save the product.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadPhoto = async (picked: File) => {
+    if (!product) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const file = await prepareImage(picked);
+      const problem = checkProductImageFile(file);
+      if (problem) throw new Error(problem);
+      const { path, token } = await createProductImageUploadFn({
+        data: {
+          productId: product.id,
+          mime: file.type as "image/jpeg" | "image/png" | "image/webp",
+        },
+      });
+      const { error } = await supabase.storage
+        .from(PRODUCT_IMAGE_BUCKET)
+        .uploadToSignedUrl(path, token, file, { contentType: file.type });
+      if (error) throw new Error("The upload failed. Please try again.");
+      await attachProductImageFn({ data: { productId: product.id, path } });
+      await onSaved();
+      setMessage("Photo saved.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Could not upload the photo.");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <Dialog open={Boolean(editingProduct)} onOpenChange={(o) => !o && setEditingProduct(null)}>
+      <DialogContent
+        className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
+        data-testid="product-editor"
+      >
+        <DialogHeader className="border-b border-border px-5 py-4 text-left">
+          <DialogTitle className="font-display text-sm font-bold uppercase">
+            {editingProduct === "new" ? "Add product" : `Edit ${product?.name ?? "product"}`}
+          </DialogTitle>
+          <DialogDescription>
+            Prices keep their history. Changes apply online and at the till as soon as you save.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {TEXT_FIELDS.map(({ key, label, hint }) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`product-${key}`}>{label}</Label>
+                <Input
+                  id={`product-${key}`}
+                  value={(form[key] as string | null) ?? ""}
+                  onChange={(e) => set(key, e.target.value)}
+                />
+                {hint && <p className="text-[0.65rem] text-muted-foreground">{hint}</p>}
+              </div>
+            ))}
+            <div className="space-y-1">
+              <Label htmlFor="product-price">
+                {form.sold_by_weight ? "Regular price per gram (R)" : "Regular price (R)"}
+              </Label>
+              <Input
+                id="product-price"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.price_rand}
+                onChange={(e) => setForm((f) => ({ ...f, price_rand: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-sale">Sale price (R, optional)</Label>
+              <Input
+                id="product-sale"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.sale_price_rand ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    sale_price_rand: e.target.value === "" ? null : Number(e.target.value),
+                  }))
+                }
+              />
+              <p className="text-[0.65rem] text-muted-foreground">
+                Lower than the regular price. Charged online and at the till (or online only,
+                below). Leave empty to end the sale.
+              </p>
+              {saleIssue && (
+                <p role="alert" className="text-[0.65rem] font-semibold text-destructive">
+                  {saleIssue}
+                </p>
+              )}
+            </div>
+            <label className="flex items-start gap-2 rounded-md border border-border p-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                id="product-sale-online-only"
+                checked={Boolean(form.sale_online_only)}
+                disabled={form.sale_price_rand == null}
+                onChange={(e) => setForm((f) => ({ ...f, sale_online_only: e.target.checked }))}
+              />
+              <span>
+                <span className="font-semibold">Online only</span>
+                <span className="block text-[0.7rem] text-muted-foreground">
+                  The sale price applies to online orders only. The till keeps charging the regular
+                  price. Untick to run the sale online and in store.
+                </span>
+              </span>
+            </label>
+            <div className="space-y-1">
+              <Label htmlFor="product-sale-ends">Sale ends (optional)</Label>
+              <Input
+                id="product-sale-ends"
+                type="datetime-local"
+                value={toLocalInput(form.sale_ends_at)}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, sale_ends_at: fromLocalInput(e.target.value) }))
+                }
+              />
+              <p className="text-[0.65rem] text-muted-foreground">
+                The regular price comes back automatically at this time, online and at the till.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-cost">Cost price (R, managers only)</Label>
+              <Input
+                id="product-cost"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.cost_rand ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    cost_rand: e.target.value === "" ? null : Number(e.target.value),
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-sort">Sort order</Label>
+              <Input
+                id="product-sort"
+                type="number"
+                min={0}
+                value={form.sort_order}
+                onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="product-low-stock">Low-stock alert at</Label>
+              <Input
+                id="product-low-stock"
+                type="number"
+                min={0}
+                max={100000}
+                value={form.low_stock_threshold ?? 5}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    low_stock_threshold: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                  }))
+                }
+              />
+              <p className="text-[0.7rem] text-muted-foreground">
+                Managers are emailed when available stock falls to this number (0 = never).
+              </p>
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.sold_by_weight)}
+                  onChange={(e) => setForm((f) => ({ ...f, sold_by_weight: e.target.checked }))}
+                />
+                Sold by weight (priced per gram)
+              </label>
+              {form.sold_by_weight && (
+                <div className="space-y-1">
+                  <Label htmlFor="product-step">Smallest step at the till</Label>
+                  <select
+                    id="product-step"
+                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    value={String(form.weight_step_g ?? 1)}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, weight_step_g: e.target.value === "0.5" ? 0.5 : 1 }))
+                    }
+                  >
+                    <option value="1">1 g</option>
+                    <option value="0.5">0.5 g</option>
+                  </select>
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    The till sells whole grams today; 0.5 g steps switch on with the
+                    fractional-weight update.
+                  </p>
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.sell_online !== false}
+                  onChange={(e) => setForm((f) => ({ ...f, sell_online: e.target.checked }))}
+                />
+                Sold online (untick for in-store-only items such as Lounge sessions)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_featured)}
+                  onChange={(e) => setForm((f) => ({ ...f, is_featured: e.target.checked }))}
+                />
+                Featured on the homepage (up to 8 are shown)
+              </label>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="product-description">Description</Label>
+              <textarea
+                id="product-description"
+                className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.description ?? ""}
+                onChange={(e) => set("description", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-lg border border-dashed border-border p-4">
+            <Label>Photo</Label>
+            {editingProduct === "new" ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Save the product first, then add a photo.
+              </p>
+            ) : (
+              <div className="mt-2 flex items-center gap-4">
+                {product?.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    width={96}
+                    height={96}
+                    className="h-24 w-24 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="grid h-24 w-24 place-items-center rounded-lg bg-secondary text-xs text-muted-foreground">
+                    No photo
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept={PRODUCT_IMAGE_ACCEPT}
+                    className="hidden"
+                    aria-label="Product photo"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadPhoto(f);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <ImagePlus size={14} /> {product?.image_url ? "Replace photo" : "Add photo"}
+                  </Button>
+                  {product?.image_url && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void removeProductImageFn({ data: { productId: product.id } }).then(onSaved)
+                      }
+                    >
+                      <Trash2 size={14} /> Remove
+                    </Button>
+                  )}
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    JPG, PNG or WebP. Resized to 1200 px.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {message && (
+            <p role="status" className="mt-3 text-sm">
+              {message}
+            </p>
+          )}
+        </div>
+        <DialogFooter className="flex-row justify-end gap-2 border-t border-border bg-background px-5 py-3">
+          <Button variant="outline" onClick={() => setEditingProduct(null)}>
+            Cancel
+          </Button>
+          <Button disabled={busy} onClick={() => void save()}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

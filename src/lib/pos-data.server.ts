@@ -107,7 +107,7 @@ export async function getPosOverview(userId: string) {
     supabaseAdmin
       .from("products")
       .select(
-        "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at",
+        "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only",
       )
       .eq("is_active", true)
       .order("sort_order")
@@ -119,12 +119,18 @@ export async function getPosOverview(userId: string) {
   const availability = new Map(
     (availabilityRes.data ?? []).map((a) => [a.product_id, a.available]),
   );
-  const catalog: PosCatalogItem[] = (productsRes.data ?? []).map((p) => ({
-    ...p,
-    price_rand: Number(p.price_rand),
-    regular_price_rand: p.regular_price_rand == null ? null : Number(p.regular_price_rand),
-    available: availability.get(p.id) ?? 0,
-  }));
+  const catalog: PosCatalogItem[] = (productsRes.data ?? []).map(({ sale_online_only, ...p }) => {
+    // An online-only sale is not offered at the till: show (and charge) the regular price, with no sale.
+    const hidden = sale_online_only && p.regular_price_rand != null;
+    return {
+      ...p,
+      price_rand: Number(hidden ? p.regular_price_rand : p.price_rand),
+      regular_price_rand:
+        hidden || p.regular_price_rand == null ? null : Number(p.regular_price_rand),
+      sale_ends_at: hidden ? null : p.sale_ends_at,
+      available: availability.get(p.id) ?? 0,
+    };
+  });
 
   const openSessions = openRes.data ?? [];
   const mySession = openSessions.find((s) => s.opened_by === userId) ?? null;
