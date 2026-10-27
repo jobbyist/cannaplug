@@ -6,7 +6,8 @@ import { z } from "zod";
  * rate-limited by hashed IP in the database. Nothing is emailed from the request: the RPCs enqueue
  * notifications that the cron dispatcher sends from "Cannaplug Support <update@updates.cannaplug012.co.za>".
  */
-export const SITE_INBOX = "info@cannaplug012.co.za";
+/** Every website form submission is delivered here. Fixed in code on purpose: no environment setting can redirect it. */
+export const SITE_INBOX = "admin@cannaplug012.co.za";
 
 const email = z.string().trim().toLowerCase().email().max(254);
 
@@ -52,7 +53,7 @@ export const submitContactFn = createServerFn({ method: "POST" })
       p_subject: data.subject,
       p_message: data.message,
       p_ip_hash: (await clientIpHash()) as string,
-      p_inbox: process.env["CONTACT_INBOX"]?.trim() || SITE_INBOX,
+      p_inbox: SITE_INBOX,
     });
     if (error) throw friendly(error);
     return { ok: true as const };

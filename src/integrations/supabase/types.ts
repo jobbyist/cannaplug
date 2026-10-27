@@ -2431,13 +2431,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      member_signup_details: {
+        Row: {
+          created_at: string;
+          id_number: string | null;
+          referral_code: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id_number?: string | null;
+          referral_code?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id_number?: string | null;
+          referral_code?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           address: string | null;
           created_at: string;
           date_of_birth: string | null;
+          first_name: string | null;
           full_name: string | null;
           id: string;
+          last_name: string | null;
           phone: string | null;
           updated_at: string;
         };
@@ -2445,8 +2468,10 @@ export type Database = {
           address?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id: string;
+          last_name?: string | null;
           phone?: string | null;
           updated_at?: string;
         };
@@ -2454,8 +2479,10 @@ export type Database = {
           address?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id?: string;
+          last_name?: string | null;
           phone?: string | null;
           updated_at?: string;
         };

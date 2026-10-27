@@ -46,12 +46,6 @@ export const ENV_VARS: EnvVar[] = [
     note: "Links in emails and document QR codes",
   },
   {
-    name: "CONTACT_INBOX",
-    group: "Site",
-    status: "optional",
-    note: "Default info@cannaplug012.co.za",
-  },
-  {
     name: "LOVABLE_CRON_SECRET",
     group: "Cron",
     status: "required",

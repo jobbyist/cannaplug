@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { rand } from "@/lib/cart";
 import { VerificationBanner, VerificationPanel } from "@/components/account/VerificationPanel";
 import { dobProblem } from "@/lib/verification-logic";
+import { signupMetadata, signupProblem } from "@/lib/signup-logic";
 import { DateOfBirthField } from "@/components/account/DateOfBirthField";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
@@ -75,7 +76,11 @@ function AuthPanel() {
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [idNumber, setIdNumber] = useState("");
+  const [referral, setReferral] = useState("");
   const [dob, setDob] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +99,9 @@ function AuthPanel() {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
       } else {
-        const dobIssue = dobProblem(dob);
-        if (dobIssue) throw new Error(dobIssue);
+        const fields = { firstName, lastName, email, phone, dob, idNumber, referral };
+        const issue = signupProblem(fields, dobProblem(dob));
+        if (issue) throw new Error(issue);
         // New members need an ID check; when the shop has no credits left, sign-up is paused.
         if (!(await idCreditsOpenFn())) {
           setCreditsOpen(false);
@@ -105,7 +111,7 @@ function AuthPanel() {
           email,
           password,
           options: {
-            data: { full_name: fullName, date_of_birth: dob },
+            data: signupMetadata(fields),
             emailRedirectTo: AUTH_REDIRECT,
           },
         });
@@ -187,15 +193,27 @@ function AuthPanel() {
                 </p>
                 <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
                   {mode === "signup" && (
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="signup-name">Full name</Label>
-                      <Input
-                        id="signup-name"
-                        autoComplete="name"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="signup-first">Name</Label>
+                        <Input
+                          id="signup-first"
+                          autoComplete="given-name"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="signup-last">Surname</Label>
+                        <Input
+                          id="signup-last"
+                          autoComplete="family-name"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          required
+                        />
+                      </div>
                     </div>
                   )}
                   {mode === "signup" && (
@@ -223,6 +241,34 @@ function AuthPanel() {
                       required
                     />
                   </div>
+                  {mode === "signup" && (
+                    <>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="signup-phone">Phone number</Label>
+                        <Input
+                          id="signup-phone"
+                          type="tel"
+                          autoComplete="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="signup-id">ID / passport number</Label>
+                        <Input
+                          id="signup-id"
+                          autoComplete="off"
+                          value={idNumber}
+                          onChange={(e) => setIdNumber(e.target.value)}
+                          required
+                        />
+                        <p className="text-[0.7rem] text-muted-foreground">
+                          Stored securely for age verification. It is never shown in emails.
+                        </p>
+                      </div>
+                    </>
+                  )}
                   <div className="grid gap-1.5">
                     <Label htmlFor="auth-password">Password</Label>
                     <Input
@@ -244,6 +290,17 @@ function AuthPanel() {
                       </button>
                     )}
                   </div>
+                  {mode === "signup" && (
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="signup-referral">Referral code (optional)</Label>
+                      <Input
+                        id="signup-referral"
+                        autoComplete="off"
+                        value={referral}
+                        onChange={(e) => setReferral(e.target.value)}
+                      />
+                    </div>
+                  )}
                   {error && (
                     <p
                       role="alert"

@@ -1476,3 +1476,29 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   `src/routeTree.gen.ts`, `src/lib/site.ts`, `src/styles.css`, `src/test/age-gate.test.tsx`, `src/test/site-polish.test.tsx`.
 - **Migrations:** none. **Tests:** age gate (no link), footer badges, calendar link, sitemap; `verify-release.sh --quick`.
 - **Owner actions:** when the apps exist, swap the badges for links. **Rollback:** revert the PR.
+
+## 27 Oct 2026 — Member sign-up fields and forms to admin@ (feat/mvp-forms-signup)
+
+- **Purpose:** (1) The member sign-up form now asks for Name, Surname, Email, Phone, Date of birth and ID/passport number (all required) plus an optional Referral code (to be wired up later). (2) The contact form's staff notification always goes to `admin@cannaplug012.co.za`.
+- **Files:** `src/routes/account.tsx`, `src/lib/signup-logic.ts` (new), `src/lib/forms.functions.ts`, `src/integrations/supabase/types.ts`, `scripts/env-registry.ts`, `.env.example`, `docs/release/env-matrix.md`, `docs/release/runbook.md`, `scripts/verify-release.sh`, tests `signup-logic.test.ts`, `forms-inbox.test.ts`, `db/signup-details.test.ts`.
+- **Migration:** `20261027007000_signup_details` (mirror `drizzle/migrations/0045_signup_details.sql`, rollback `supabase/rollbacks/20261027007000_signup_details_rollback.sql`, rehearsal `scripts/rollback-rehearsal-signup-details.sh`). Adds `profiles.first_name/last_name` and the locked table `member_signup_details` (ID/passport number, referral code; service role only), and replaces `handle_new_user`, which also removes the ID number and referral code from the account's own metadata so they are not carried in the session token.
+- **Limits to know:** the fields are mandatory in the form only; the database trigger never raises, so staff and imported accounts without details still work. There is no admin screen yet to view a stored ID number. Newsletter sign-ups are stored but not emailed to admin@ (Resend 100/day budget).
+- **Tests:** unit, DB test with a mutation check (removing the metadata scrub fails it), `verify-release.sh`.
+- **Owner actions:** none required. **Rollback:** run the rollback SQL, then revert the PR.
+
+### MVP checklist update (27 Oct 2026)
+
+| Item                                                             | Status                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------- |
+| PayFast live (Card, Instant EFT, Apple Pay, Google Pay) — PR #63 | Done; Apple/Google Pay may need enabling in PayFast   |
+| Pickup-only online orders (`DELIVERY_ENABLED`) — PR #63          | Done; set `true` when delivery is approved            |
+| Product edit popup, Online Only sale prices — PR #64             | Done                                                  |
+| POS item and order discounts — PR #65                            | Done; owner to confirm the 20% cashier limit          |
+| Age Gate link removed, app-store badges, Calendar page — PR #66  | Done                                                  |
+| Member sign-up fields, forms to admin@ — this PR                 | Done                                                  |
+| Other admin popup modals                                         | Partial (products only); do the rest after Friday     |
+| Customer import (3c)                                             | Waiting for the export file                           |
+| Prompt 13, then 10 → 11 → 12                                     | Remaining prompts, after Friday                       |
+| Admin view of stored ID/passport numbers                         | Not built                                             |
+| GitHub CI on main                                                | Failing before any step runs (runner/account problem) |
+| Drop old 6-argument `pos_complete_sale` on hosted                | Optional clean-up                                     |
