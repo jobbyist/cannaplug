@@ -35,7 +35,7 @@ export type SetSale = (input: {
 const serverSetSale: SetSale = (data) => setProductSaleFn({ data });
 
 /**
- * Managers put a product on sale (or end its sale) straight from the till. The sale price applies at the till
+ * Staff on the till put a product on sale (or end its sale) straight from the till. The sale price applies at the till
  * and online, and the regular price comes back by itself at the end time.
  */
 export function PosSaleDialog({

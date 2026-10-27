@@ -19,10 +19,10 @@ type Sw = {
   assetUrlsIn(html: string): string[];
   VERSION: string;
 };
-/** Loads the real public/sw.js the browser gets, outside a worker (it only exports its pure helpers). */
+/** Loads the caching worker kept in pwa/sw-cached.js (switched off for now; restored as public/sw.js to re-enable). */
 function loadSw(): Sw {
   const mod = { exports: {} as Sw };
-  runInNewContext(readFileSync(join(root, "public/sw.js"), "utf8"), { module: mod, URL });
+  runInNewContext(readFileSync(join(root, "pwa/sw-cached.js"), "utf8"), { module: mod, URL });
   return mod.exports;
 }
 const sw = loadSw();
@@ -129,9 +129,11 @@ describe("web app manifest and head", () => {
       "/journal",
     ]);
   });
-  it("is linked from the root route with theme colour and Apple icon", () => {
+  it("is linked from the root route (only while the PWA is on) with theme colour and Apple icon", () => {
     const rootTsx = readFileSync(join(root, "src/routes/__root.tsx"), "utf8");
-    expect(rootTsx).toContain('{ rel: "manifest", href: "/manifest.webmanifest" }');
+    expect(rootTsx).toContain(
+      'PWA_ENABLED ? [{ rel: "manifest", href: "/manifest.webmanifest" }] : []',
+    );
     expect(rootTsx).toContain('{ name: "theme-color", content: "#0B3D20" }');
     expect(rootTsx).toContain("/icons/apple-touch-icon.png");
   });

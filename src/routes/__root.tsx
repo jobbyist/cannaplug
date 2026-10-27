@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { PWA_ENABLED } from "@/lib/pwa/flag";
 import { AgeGate } from "@/components/AgeGate";
 import {
   Outlet,
@@ -121,7 +122,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "icon", href: "/favicon-192.png", type: "image/png", sizes: "192x192" },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png", sizes: "180x180" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
+      ...(PWA_ENABLED ? [{ rel: "manifest", href: "/manifest.webmanifest" }] : []),
     ],
   }),
   shellComponent: RootShell,
