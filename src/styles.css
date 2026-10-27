@@ -1213,6 +1213,36 @@ footer {
   background: var(--primary-foreground);
   color: var(--primary);
 }
+.app-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.app-badges li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in oklab, var(--primary-foreground) 30%, transparent);
+  border-radius: 10px;
+  color: color-mix(in oklab, var(--primary-foreground) 85%, transparent);
+}
+.app-badges span {
+  display: grid;
+  line-height: 1.15;
+}
+.app-badges small {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+.app-badges strong {
+  font-size: 0.8rem;
+}
 .socials {
   display: flex;
   gap: 8px;

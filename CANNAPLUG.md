@@ -1466,3 +1466,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Owner actions:** decide whether 20% is the right cashier limit (one constant in `pos_complete_sale`). The reason
   box warns staff not to enter health or ID details.
 - **Rollback:** run the rollback SQL (it refuses while any discounted sale exists), then revert the PR.
+
+## 27 Oct 2026 — Age Gate link removed, app-store badges, Calendar page (feat/mvp-site-polish)
+
+- **Purpose:** (1) The "Responsible consumption" link is gone from the Age Gate (the footer link stays). (2) The footer
+  shows "Coming soon to the App Store" and "Coming soon to Google Play" badges (plain text badges, not links). (3) New
+  `/calendar` page ("Coming soon") and the events section's "View calendar" link now opens it; it is in the sitemap.
+- **Files:** `src/components/AgeGate.tsx`, `src/components/CannaPlugHome.tsx`, `src/routes/calendar.tsx` (new),
+  `src/routeTree.gen.ts`, `src/lib/site.ts`, `src/styles.css`, `src/test/age-gate.test.tsx`, `src/test/site-polish.test.tsx`.
+- **Migrations:** none. **Tests:** age gate (no link), footer badges, calendar link, sitemap; `verify-release.sh --quick`.
+- **Owner actions:** when the apps exist, swap the badges for links. **Rollback:** revert the PR.
