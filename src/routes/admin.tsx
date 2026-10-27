@@ -26,7 +26,6 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
@@ -64,6 +63,8 @@ import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admi
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
+import { LiveSales } from "@/components/admin/reports/LiveSales";
+import { SalesReportsPanel } from "@/components/admin/reports/SalesReportsPanel";
 import {
   notifyAdminTabs,
   sectionFromHash,
@@ -347,7 +348,8 @@ function AdminPage() {
               <h1 className="font-display text-2xl font-extrabold uppercase">Overview</h1>
               <p className="text-sm text-muted-foreground">Live dispensary operations</p>
             </div>
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <LiveSales />
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {(
                 [
                   [
@@ -355,7 +357,6 @@ function AdminPage() {
                     "Total Orders",
                     dashboard.stats.totalOrders.toLocaleString("en-ZA"),
                   ],
-                  [Wallet, "Revenue", rand(dashboard.stats.revenueRand)],
                   [AlertTriangle, "Inventory Alerts", dashboard.stats.inventoryAlerts],
                   [
                     Users,
@@ -378,34 +379,10 @@ function AdminPage() {
               ))}
             </section>
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="font-display text-sm font-bold uppercase">Sales overview</h2>
-                  <span className="text-xs text-muted-foreground">Last 7 days</span>
-                </div>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dashboard.salesOverview}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="var(--border)"
-                      />
-                      <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        fontSize={11}
-                        tickFormatter={(v) => v / 1000 + "k"}
-                      />
-                      <Tooltip formatter={(value: number) => rand(value)} />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="var(--primary)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
               <div className="rounded-xl border border-border bg-card p-5">
-                <h2 className="mb-4 font-display text-sm font-bold uppercase">Top products</h2>
+                <h2 className="mb-4 font-display text-sm font-bold uppercase">
+                  Top products online
+                </h2>
                 {dashboard.topProducts.map((p, i) => (
                   <div key={p.name} className="flex items-center gap-3 py-2 text-xs">
                     <span className="grid h-7 w-7 place-items-center rounded-full bg-secondary text-[0.65rem] font-bold text-primary">
@@ -582,7 +559,8 @@ function AdminPage() {
           </DialogContent>
         </Dialog>
         {tab === "promotions" && <EmailCampaignsPanel />}
-        {["events", "newsroom", "reports"].includes(tab) && (
+        {tab === "reports" && <SalesReportsPanel canEmail={atLeast(role, "manager")} />}
+        {["events", "newsroom"].includes(tab) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
               <p className="font-display text-sm font-bold uppercase">{tab}</p>
