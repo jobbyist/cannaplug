@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { ensureLiveFxRate } from "./fx.server";
-import { createPayFastProvider, payfastFromEnv } from "./payfast";
+import { createPayFastProvider, payfastConfigProblems, payfastFromEnv } from "./payfast";
 import { createPayPalProvider, paypalFromEnv } from "./paypal";
 import type { FetchLike, PaymentProvider, ProviderId } from "./provider";
 import type { PaymentsDb, PaymentsDeps, TxView } from "./service";
@@ -100,9 +100,20 @@ const nodeFetch: FetchLike = async (u, i) => {
   return { ok: r.ok, status: r.status, text: () => r.text() };
 };
 
+let warned = "";
+/** Logs each distinct PayFast misconfiguration once per server instance (names and rules only, no values). */
+function reportPayFastConfig(env: Record<string, string | undefined>): void {
+  const problems = payfastConfigProblems(env);
+  const key = problems.join("\n");
+  if (!key || key === warned) return;
+  warned = key;
+  for (const p of problems) console.warn(`[payments] ${p}`);
+}
+
 export function configuredProviders(
   env: Record<string, string | undefined> = process.env,
 ): Partial<Record<ProviderId, PaymentProvider>> {
+  reportPayFastConfig(env);
   const out: Partial<Record<ProviderId, PaymentProvider>> = {};
   const pf = payfastFromEnv(env);
   if (pf) out.payfast = createPayFastProvider(pf, nodeFetch);

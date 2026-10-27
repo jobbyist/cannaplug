@@ -72,12 +72,28 @@ export interface CheckoutSession {
   redirectUrl: string;
 }
 
+/** Who is paying, for providers whose on-page window needs it. Read from the verified session, never the browser. */
+export interface OnsiteBuyer {
+  email: string | null;
+}
+
+/** An on-page payment window the provider renders itself (PayFast onsite). */
+export interface OnsiteSession {
+  /** One-time identifier the provider's script opens its window with. */
+  uuid: string;
+  /** The provider's script, by exact URL; the browser loads nothing else. */
+  engineUrl: string;
+}
+
 export interface PaymentProvider {
   id: ProviderId;
   mode: Mode;
   /** Merchant identifier stored on the transaction and compared with the verified event. */
   merchantId: string | null;
   createCheckout(req: CheckoutRequest): Promise<CheckoutSession>;
+  /** Present only on providers that can take the payment on our page (PayFast, when switched on). */
+  onsite?: boolean;
+  createOnsitePayment?(req: CheckoutRequest, buyer: OnsiteBuyer): Promise<OnsiteSession>;
   verifyWebhook(raw: string, headers: Headers, ctx?: WebhookContext): Promise<VerifyOutcome>;
 }
 

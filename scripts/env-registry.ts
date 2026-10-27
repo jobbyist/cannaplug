@@ -133,6 +133,12 @@ export const ENV_VARS: EnvVar[] = [
     note: "live (default) or sandbox; ITN …/api/public/payments/payfast-itn",
   },
   {
+    name: "PAYFAST_ONSITE",
+    group: "PayFast",
+    status: "optional",
+    note: "true: PayFast window on our checkout (onsite beta; enable on the merchant account), else PayFast's page",
+  },
+  {
     name: "DELIVERY_ENABLED",
     group: "Checkout",
     status: "optional",

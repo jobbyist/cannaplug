@@ -4,7 +4,14 @@ import { Check, Clock, X } from "lucide-react";
 import { Header } from "@/components/CannaPlugHome";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { confirmPayPalReturnFn, paymentStatusFn } from "@/lib/payments.functions";
+import { PaymentPanel } from "@/components/checkout/PaymentPanel";
+import { randCents } from "@/lib/cart";
+import {
+  confirmPayPalReturnFn,
+  getOnlineMethodsFn,
+  paymentStatusFn,
+} from "@/lib/payments.functions";
+import { clearPendingCheckout } from "@/lib/payments/pending-checkout";
 
 /**
  * Where providers send the member back to. This page proves NOTHING by itself: the query string is only a
@@ -34,7 +41,13 @@ function PaymentReturn() {
   const { user, loading } = useAuth();
   const [view, setView] = useState<View>(null);
   const [timedOut, setTimedOut] = useState(false);
+  const [onsite, setOnsite] = useState(false);
   const captured = useRef(false);
+  useEffect(() => {
+    getOnlineMethodsFn()
+      .then((m) => setOnsite(!!m.cardOnsite))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (loading || !user || !order) return;
@@ -49,7 +62,10 @@ function PaymentReturn() {
         const v = await paymentStatusFn({ data: { orderId: order } });
         if (!live) return;
         setView(v);
-        if (v?.paid || v?.orderStatus === "cancelled") return;
+        if (v?.paid || v?.orderStatus === "cancelled") {
+          clearPendingCheckout(); // nothing left to resume at checkout
+          return;
+        }
       } catch {
         /* keep polling */
       }
@@ -67,6 +83,9 @@ function PaymentReturn() {
 
   const paid = view?.paid === true;
   const cancelled = result === "cancelled" || result === "failed";
+  // Paying again is offered only after a cancelled/failed attempt on an order the server says is still
+  // waiting — never after a "success" return that is merely slow to confirm (that could charge twice).
+  const canRetry = !!view && !paid && view.orderStatus === "awaiting_payment" && cancelled;
   return (
     <div className="site">
       <Header />
@@ -107,7 +126,7 @@ function PaymentReturn() {
             <h1 className="font-display text-xl font-extrabold uppercase">Payment not completed</h1>
             <p className="text-sm text-muted-foreground">
               Nothing was charged. Your order is still reserved for a short time — you can try again
-              from your account.
+              below or from your account.
             </p>
           </>
         ) : (
@@ -124,6 +143,20 @@ function PaymentReturn() {
                 : "We are waiting for the payment provider to confirm. Please keep this page open."}
             </p>
           </>
+        )}
+        {view && (
+          <p className="text-xs text-muted-foreground">
+            Order <b>{view.orderNumber}</b> · Total {randCents(view.total)}
+          </p>
+        )}
+        {canRetry && view && (
+          <PaymentPanel
+            orderId={order}
+            orderNumber={view.orderNumber}
+            method={provider === "paypal" ? "paypal" : "card"}
+            total={provider === "paypal" ? null : view.total}
+            onsite={onsite}
+          />
         )}
         <Link to="/account">
           <Button size="sm" variant="outline">

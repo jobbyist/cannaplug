@@ -401,6 +401,101 @@ export function servicePaymentsTests(ctx: SuiteCtx) {
     });
   });
 
+  describe("PayFast onsite window end to end (sandbox-style)", () => {
+    /** PayFast's /onsite/process + /eng/query/validate: checks our signature, records what it was asked to charge. */
+    function fakeOnsite(down = false) {
+      const asked: Record<string, string>[] = [];
+      const f: FetchLike = async (url, init) => {
+        if (url.endsWith("/eng/query/validate"))
+          return { ok: true, status: 200, text: async () => "VALID" };
+        if (!url.endsWith("/onsite/process") || down)
+          return { ok: false, status: 503, text: async () => "" };
+        const pairs = [...new URLSearchParams(init!.body!).entries()];
+        const unsigned = pairs.filter(([k]) => k !== "signature");
+        const sig = pairs.find(([k]) => k === "signature")?.[1];
+        if (sig !== pfSignature(pfParamString(unsigned), PF.passphrase))
+          return { ok: false, status: 400, text: async () => "signature mismatch" };
+        asked.push(Object.fromEntries(unsigned));
+        return { ok: true, status: 200, text: async () => JSON.stringify({ uuid: uid() }) };
+      };
+      return { f, asked };
+    }
+    const onsiteDeps = (f: FetchLike) =>
+      deps({
+        providers: {
+          payfast: createPayFastProvider({ ...PF, onsite: true }, f, async () => [PF_IP]),
+        },
+      });
+    const start = (d: PaymentsDeps, o: { member: string; orderId: string }) =>
+      startPayment(d, {
+        userId: o.member,
+        orderId: o.orderId,
+        provider: "payfast",
+        key: startKey(),
+        buyerEmail: "member@example.com",
+      });
+
+    it("the window charges the DATABASE total; the window closing 'successfully' pays nothing until a verified ITN", async () => {
+      const o = await ctx.newOrder(275, 2);
+      const api = fakeOnsite();
+      const d = onsiteDeps(api.f);
+      const s = await start(d, o);
+      expect(s.onsite?.engineUrl).toBe("https://sandbox.payfast.co.za/onsite/engine.js");
+      expect(api.asked).toHaveLength(1);
+      expect(api.asked[0]).toMatchObject({
+        amount: "550.00",
+        m_payment_id: s.transactionId,
+        email_address: "member@example.com",
+        notify_url: "https://shop.example/api/public/payments/payfast-itn",
+      });
+      // The member saw PayFast's "done" and came back: nothing the browser does changes the order.
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
+      expect((await txOf(s.transactionId)).status).toBe("pending");
+      // Refreshing / retrying reuses the same transaction with a fresh window.
+      const again = await start(d, o);
+      expect(again.transactionId).toBe(s.transactionId);
+      expect(again.onsite?.uuid).not.toBe(s.onsite?.uuid);
+      expect(api.asked[1]!["amount"]).toBe("550.00");
+      // PayFast's ITN for that transaction settles it, once.
+      const tx = (await d.db.getTx(s.transactionId))!;
+      const raw = itn(tx);
+      expect((await handleWebhook(d, "payfast", raw, new Headers(), null, PF_IP)).status).toBe(200);
+      expect((await handleWebhook(d, "payfast", raw, new Headers(), null, PF_IP)).status).toBe(200);
+      expect(await ctx.orderStatus(o.orderId)).toBe("confirmed");
+      expect(await ctx.payEvents(o.orderId)).toBe(1);
+    });
+
+    it("a forged 'paid' ITN for less than the window's amount does not pay the order", async () => {
+      const o = await ctx.newOrder(275);
+      const d = onsiteDeps(fakeOnsite().f);
+      const s = await start(d, o);
+      const tx = (await d.db.getTx(s.transactionId))!;
+      await handleWebhook(
+        d,
+        "payfast",
+        itn(tx, { amount_gross: "5.00" }),
+        new Headers(),
+        null,
+        PF_IP,
+      ).catch(() => undefined);
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
+      // An unsigned/forged one is refused outright.
+      const forged = itn(tx, {}, "not-our-passphrase");
+      expect((await handleWebhook(d, "payfast", forged, new Headers(), null, PF_IP)).status).toBe(
+        401,
+      );
+      expect(await ctx.orderStatus(o.orderId)).toBe("awaiting_payment");
+    });
+
+    it("when PayFast's onsite endpoint is down, the member still gets PayFast's page for the same attempt", async () => {
+      const o = await ctx.newOrder(275);
+      const s = await start(onsiteDeps(fakeOnsite(true).f), o);
+      expect(s.onsite).toBeNull();
+      expect(new URL(s.redirectUrl).pathname).toBe("/eng/process");
+      expect((await txOf(s.transactionId)).status).toBe("pending");
+    });
+  });
+
   describe("PayPal end to end (sandbox-style, USD at the stored rate)", () => {
     it("creates the order with the USD amount stored on the transaction", async () => {
       const o = await ctx.newOrder(275);

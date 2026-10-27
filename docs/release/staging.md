@@ -16,7 +16,7 @@ scripts/verify-release.sh          # typecheck, lint, unit, real-PostgreSQL test
 2. Verify the result with `supabase/tests/verify-hosted.sql` (below) — it checks tables, RLS, grants and function exposure on the _hosted_ database.
 3. Create a Vercel preview/staging project pointing at the staging Supabase; set the variables from `runbook.md` using **sandbox/test** provider keys
    (`sk_test_…`, `PAYPAL_ENV=sandbox`).
-4. Register the staging webhook URL with the PayPal sandbox and set `PAYFAST_ENV=sandbox` with the PayFast sandbox merchant; add the staging URL to Supabase Auth → URL configuration.
+4. Register the staging webhook URL with the PayPal sandbox and set `PAYFAST_ENV=sandbox` with the PayFast sandbox merchant (optionally `PAYFAST_ONSITE=true` to try the on-page window; PayFast's own PHP SDK refuses onsite in sandbox, so if the sandbox will not issue a payment id the page falls back to the sandbox hosted page); add the staging URL to Supabase Auth → URL configuration.
 5. `node scripts/smoke-deployed.mjs https://<staging> --cron-secret=…`
 6. Manual critical path (15 min): sign up → upload ID → approve in /admin → add to cart → pay with EFT (confirm as manager) → pay with the PayFast sandbox
    → pay with PayPal sandbox → refresh /account (status live) → POS cash/card/EFT sale → contact form → newsletter → Ask Cannaplug.

@@ -23,7 +23,7 @@ Each migration has a tested rollback in `supabase/rollbacks/`. Rehearsals: `scri
 
 ## Re-enabling things you switched off
 
-- PayPal off: remove the `PAYPAL_*` variables (the button disappears). PayFast off: remove `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY`. EFT off: Admin → Payments → Switch EFT off. Migration `20261023005000_payfast_eft` has a rollback in `supabase/rollbacks/` (refuses once PayFast payments exist).
+- PayPal off: remove the `PAYPAL_*` variables (the button disappears). PayFast off: remove `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY`. PayFast window off (back to PayFast's page): set `PAYFAST_ONSITE=false`. EFT off: Admin → Payments → Switch EFT off. Migration `20261023005000_payfast_eft` has a rollback in `supabase/rollbacks/` (refuses once PayFast payments exist).
 - Chatbot off: remove `GEMINI_API_KEY` (the widget shows the contact details). Journal pipeline off: disable the `newsroom-daily` schedule.
 - Email off: remove `RESEND_API_KEY`; nothing is claimed, so queued mail waits instead of failing.
 
