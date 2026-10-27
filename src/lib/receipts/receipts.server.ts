@@ -59,7 +59,9 @@ export async function saveReceiptSettings(userId: string, input: ReceiptSettings
 async function buildModel(saleId: string): Promise<ReceiptModel> {
   const { data: sale, error } = await supabaseAdmin
     .from("pos_sales")
-    .select("id,receipt_number,created_at,status,subtotal,total,cashier_id,customer_id")
+    .select(
+      "id,receipt_number,created_at,status,subtotal,discount_rand,total,cashier_id,customer_id",
+    )
     .eq("id", saleId)
     .maybeSingle();
   if (error) throw error;
@@ -67,7 +69,9 @@ async function buildModel(saleId: string): Promise<ReceiptModel> {
   const [items, tenders, meta, settings, people] = await Promise.all([
     supabaseAdmin
       .from("pos_sale_items")
-      .select("product_id,product_name,quantity,unit_price_rand,line_total")
+      .select(
+        "product_id,product_name,quantity,unit_price_rand,line_discount_rand,order_discount_rand,line_total",
+      )
       .eq("sale_id", saleId),
     supabaseAdmin.from("pos_tenders").select("method,amount,reference").eq("sale_id", saleId),
     supabaseAdmin
@@ -96,6 +100,7 @@ async function buildModel(saleId: string): Promise<ReceiptModel> {
       created_at: sale.created_at,
       status: sale.status,
       subtotal: Number(sale.subtotal),
+      discount_rand: Number(sale.discount_rand),
       total: Number(sale.total),
     },
     items: (items.data ?? []).map((i) => ({
@@ -103,6 +108,8 @@ async function buildModel(saleId: string): Promise<ReceiptModel> {
       quantity: i.quantity,
       unit_price_rand: Number(i.unit_price_rand),
       line_total: Number(i.line_total),
+      line_discount_rand: Number(i.line_discount_rand),
+      order_discount_rand: Number(i.order_discount_rand),
       unit: unitOf.get(i.product_id) ?? null,
     })),
     tenders: (tenders.data ?? []).map((t) => ({

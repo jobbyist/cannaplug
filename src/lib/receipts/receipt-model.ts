@@ -25,7 +25,10 @@ export type ReceiptLine = {
   quantity: number;
   unit: string | null;
   unitPrice: number;
+  /** What was paid for the line, after any discount. */
   total: number;
+  /** Discount on this line (its own plus its share of an order discount); 0 when none. */
+  discount: number;
 };
 export type ReceiptTender = { method: string; amount: number; reference: string | null };
 
@@ -39,6 +42,8 @@ export type ReceiptModel = {
   status: string;
   lines: ReceiptLine[];
   subtotal: number;
+  /** All discounts on the sale; 0 when none. */
+  discount: number;
   total: number;
   vat: { rate: number; amount: number; number: string } | null;
   tenders: { label: string; amount: number }[];
@@ -94,6 +99,7 @@ export function buildReceiptModel(input: {
     created_at: string;
     status: string;
     subtotal: number;
+    discount_rand?: number;
     total: number;
   };
   items: {
@@ -101,6 +107,8 @@ export function buildReceiptModel(input: {
     quantity: number;
     unit_price_rand: number;
     line_total: number;
+    line_discount_rand?: number;
+    order_discount_rand?: number;
     unit?: string | null;
   }[];
   tenders: { method: string; amount: number; reference: string | null }[];
@@ -130,8 +138,10 @@ export function buildReceiptModel(input: {
       unit: i.unit ?? null,
       unitPrice: roundCents(Number(i.unit_price_rand)),
       total: roundCents(Number(i.line_total)),
+      discount: roundCents(Number(i.line_discount_rand ?? 0) + Number(i.order_discount_rand ?? 0)),
     })),
     subtotal: roundCents(Number(sale.subtotal)),
+    discount: roundCents(Number(sale.discount_rand ?? 0)),
     total,
     vat:
       settings.vat_registered && settings.vat_number
@@ -176,6 +186,9 @@ export function receiptText(m: ReceiptModel): string {
         `${l.quantity}${l.unit ? ` ${l.unit}` : ""} × ${l.name} @ ${formatRand(l.unitPrice)} = ${formatRand(l.total)}`,
     ),
     "",
+    ...(m.discount > 0
+      ? [`Subtotal ${formatRand(m.subtotal)}`, `Discount -${formatRand(m.discount)}`]
+      : []),
     `Total ${formatRand(m.total)}`,
     ...(m.vat
       ? [`Includes VAT (${m.vat.rate}%) ${formatRand(m.vat.amount)} · VAT no. ${m.vat.number}`]

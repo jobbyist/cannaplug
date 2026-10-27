@@ -65,11 +65,24 @@ export function ReceiptView({ receipt, paper }: { receipt: ReceiptModel; paper: 
               {l.quantity}
               {l.unit ? ` ${l.unit}` : ""} × {formatRand(l.unitPrice)}
               {l.unit ? ` / ${l.unit}` : ""}
+              {l.discount > 0 ? ` · discount −${formatRand(l.discount)}` : ""}
             </div>
           </li>
         ))}
       </ul>
       <hr className="my-1.5 border-[#9CA3AF]" />
+      {receipt.discount > 0 && (
+        <>
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>{formatRand(receipt.subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Discount</span>
+            <span>−{formatRand(receipt.discount)}</span>
+          </div>
+        </>
+      )}
       <div className="flex justify-between text-base font-extrabold text-[#0B3D20]">
         <span>TOTAL</span>
         <span>{formatRand(receipt.total)}</span>

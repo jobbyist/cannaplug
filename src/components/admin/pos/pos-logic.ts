@@ -31,7 +31,14 @@ export type CatalogItem = {
   available: number;
 };
 
-export type CartLine = { product: CatalogItem; quantity: number };
+/** A discount the cashier typed: a percentage ("10") or a rand amount ("15.50"). The server works out the cents. */
+export type DiscountInput = { kind: "percent" | "amount"; value: string };
+
+export type CartLine = {
+  product: CatalogItem;
+  quantity: number;
+  discount?: DiscountInput | undefined;
+};
 
 export type TenderRow = { rowId: string; method: TenderMethod; amount: string; reference: string };
 
@@ -49,6 +56,84 @@ export const priceCents = (price: number): number => Math.round(price * 100);
 
 export function cartTotalCents(lines: CartLine[]): number {
   return lines.reduce((sum, l) => sum + priceCents(l.product.price_rand) * l.quantity, 0);
+}
+
+/**
+ * Cents a discount takes off `baseCents`, or null when it is empty or invalid (so the till shows nothing
+ * rather than a wrong number). Same rounding as the database, which has the final say.
+ */
+export function discountCents(
+  d: DiscountInput | null | undefined,
+  baseCents: number,
+): number | null {
+  if (!d || !d.value.trim()) return 0;
+  const v = d.value.trim().replace(/^R\s*/i, "");
+  if (!/^\d{1,8}(\.\d{1,2})?$/.test(v)) return null;
+  const cents =
+    d.kind === "percent"
+      ? Number(v) > 100
+        ? null
+        : Math.round((baseCents * Number(v)) / 100)
+      : Math.round(Number(v) * 100);
+  return cents === null || cents > baseCents ? null : cents;
+}
+
+export type CartSummary = {
+  grossCents: number;
+  lineDiscountCents: number;
+  orderDiscountCents: number;
+  /** What the customer pays. */
+  totalCents: number;
+  /** False when any typed discount is not valid yet. */
+  discountsValid: boolean;
+  hasDiscount: boolean;
+};
+
+export function cartSummary(lines: CartLine[], orderDiscount?: DiscountInput | null): CartSummary {
+  let gross = 0;
+  let lineDisc = 0;
+  let valid = true;
+  for (const l of lines) {
+    const base = priceCents(l.product.price_rand) * l.quantity;
+    gross += base;
+    const d = discountCents(l.discount, base);
+    if (d === null) valid = false;
+    else lineDisc += d;
+  }
+  const net = gross - lineDisc;
+  const o = discountCents(orderDiscount, net);
+  if (o === null) valid = false;
+  const orderDisc = o ?? 0;
+  const total = net - orderDisc;
+  if (net > 0 && total <= 0) valid = false;
+  return {
+    grossCents: gross,
+    lineDiscountCents: lineDisc,
+    orderDiscountCents: orderDisc,
+    totalCents: total,
+    discountsValid: valid,
+    hasDiscount: lineDisc + orderDisc > 0,
+  };
+}
+
+/** The discount to send, or undefined when empty. */
+export const sendableDiscount = (d: DiscountInput | null | undefined) =>
+  d && d.value.trim() ? { kind: d.kind, value: d.value.trim().replace(/^R\s*/i, "") } : undefined;
+
+/**
+ * Cents to hand back for `qty` more units of a line, given what was paid for the line (after any discount).
+ * Same cumulative rounding as the database, so the refund of a whole line adds up to its line_total exactly.
+ */
+export function refundLineCents(
+  lineTotal: number,
+  quantity: number,
+  alreadyRefunded: number,
+  qty: number,
+): number {
+  if (qty <= 0 || quantity <= 0) return 0;
+  const total = Math.round(lineTotal * 100);
+  const upTo = (n: number) => Math.round((total * n) / quantity);
+  return upTo(alreadyRefunded + qty) - upTo(alreadyRefunded);
 }
 
 export const clampQuantity = (quantity: number, available: number): number => {

@@ -17,7 +17,12 @@ export type PosTenderInput = {
   amount: string;
   reference?: string | undefined;
 };
-export type PosItemInput = { product_id: string; quantity: number };
+export type PosDiscountInput = { kind: "percent" | "amount"; value: string };
+export type PosItemInput = {
+  product_id: string;
+  quantity: number;
+  discount?: PosDiscountInput | undefined;
+};
 
 export type PosCatalogItem = {
   id: string;
@@ -52,6 +57,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   reason_required: "A reason is required",
   invalid_tenders: "Invalid tender details",
   invalid_items: "Invalid basket",
+  invalid_discount: "That discount is not valid",
+  discount_too_large: "The discount is too large: the sale must still total more than R0",
+  discount_limit: "Cashiers can discount up to 20% of a sale. Ask a manager for more",
+  discount_reason_required: "Give a reason for the discount",
   invalid_amount: "Invalid amount",
   forbidden: "You do not have permission for this action",
   not_pending: "Nothing to approve on that session",
@@ -349,6 +358,8 @@ export type SaleResult = {
   sale_id: string;
   receipt_number: string;
   total: number;
+  subtotal?: number;
+  discount?: number;
   replayed?: boolean;
   items: {
     product_id: string;
@@ -379,6 +390,8 @@ export async function posCompleteSale(
     items: PosItemInput[];
     tenders: PosTenderInput[];
     customerId: string | null;
+    orderDiscount?: PosDiscountInput | null;
+    discountReason?: string | null;
     key: string;
   },
 ) {
@@ -387,7 +400,11 @@ export async function posCompleteSale(
     await supabaseAdmin.rpc("pos_complete_sale", {
       p_actor: userId,
       p_session_id: input.sessionId,
-      p_items: input.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+      p_items: input.items.map((i) => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        ...(i.discount ? { discount: i.discount } : {}),
+      })),
       p_tenders: input.tenders.map((t) => ({
         method: t.method,
         amount: t.amount,
@@ -395,6 +412,8 @@ export async function posCompleteSale(
       })),
       p_customer_id: input.customerId,
       p_idempotency_key: input.key,
+      p_order_discount: input.orderDiscount ?? null,
+      p_discount_reason: input.discountReason ?? null,
     }),
   ) as unknown as SaleResult;
 

@@ -33,7 +33,11 @@ import { recordCashReceivedFn } from "@/lib/receipts.functions";
 import {
   TENDER_METHODS,
   addToCart,
-  cartTotalCents,
+  cartSummary,
+  discountCents,
+  refundLineCents,
+  sendableDiscount,
+  type DiscountInput,
   cashChangeCents,
   categoryCounts,
   centsToAmount,
@@ -53,6 +57,7 @@ import {
   type TenderRow,
 } from "./pos-logic";
 import { PosSaleDialog } from "./PosSaleDialog";
+import { DiscountEditor } from "./DiscountEditor";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 
 type Overview = Awaited<ReturnType<typeof getPosOverviewFn>>;
@@ -287,6 +292,8 @@ function SaleScreen({
   const [lines, setLines] = useState<CartLine[]>([]);
   const [tenders, setTenders] = useState<TenderRow[]>([]);
   const [customerId, setCustomerId] = useState("");
+  const [orderDiscount, setOrderDiscount] = useState<DiscountInput | undefined>();
+  const [discountReason, setDiscountReason] = useState("");
   const [cashReceived, setCashReceived] = useState("");
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
@@ -311,13 +318,16 @@ function SaleScreen({
       cur.flatMap((l) => {
         const fresh = data.catalog.find((p) => p.id === l.product.id);
         return fresh
-          ? [{ product: fresh, quantity: clampQuantity(l.quantity, fresh.available) }]
+          ? [{ ...l, product: fresh, quantity: clampQuantity(l.quantity, fresh.available) }]
           : [];
       }),
     );
   }, [data.catalog]);
 
-  const totalCents = cartTotalCents(lines);
+  const summary = cartSummary(lines, orderDiscount);
+  const totalCents = summary.totalCents;
+  const reasonOk = !summary.hasDiscount || discountReason.trim().length >= 3;
+  const discountsOk = summary.discountsValid && reasonOk;
   const status = tenderStatus(totalCents, tenders);
   const cashTender = tenders
     .filter((t) => t.method === "cash")
@@ -381,11 +391,16 @@ function SaleScreen({
   };
 
   const completeSale = async () => {
-    if (inFlight.current || !status.ok || lines.length === 0) return;
+    if (inFlight.current || !status.ok || !discountsOk || lines.length === 0) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
-    const items = lines.map((l) => ({ product_id: l.product.id, quantity: l.quantity }));
+    const items = lines.map((l) => {
+      const discount = sendableDiscount(l.discount);
+      return { product_id: l.product.id, quantity: l.quantity, ...(discount ? { discount } : {}) };
+    });
+    const od = sendableDiscount(orderDiscount);
+    const reason = summary.hasDiscount ? discountReason.trim() : null;
     const sendTenders = tenders.map((t) => ({
       method: t.method,
       amount: centsToAmount(parseCents(t.amount) ?? 0),
@@ -393,10 +408,20 @@ function SaleScreen({
     }));
     const cid = customerId || null;
     // Same payload => same key (safe retry after a network failure); changed payload => new key.
-    const key = keys.current.keyFor(salesSignature({ s: session.id, items, sendTenders, cid }));
+    const key = keys.current.keyFor(
+      salesSignature({ s: session.id, items, sendTenders, cid, od, reason }),
+    );
     try {
       const res = await completePosSaleFn({
-        data: { sessionId: session.id, items, tenders: sendTenders, customerId: cid, key },
+        data: {
+          sessionId: session.id,
+          items,
+          tenders: sendTenders,
+          customerId: cid,
+          orderDiscount: od ?? null,
+          discountReason: reason,
+          key,
+        },
       });
       const received = parseCents(cashReceived);
       setReceipt({ ...res, cashReceivedCents: received } as Receipt);
@@ -410,6 +435,8 @@ function SaleScreen({
       setTenders([]);
       setCashReceived("");
       setCustomerId("");
+      setOrderDiscount(undefined);
+      setDiscountReason("");
       await onChanged();
       focusSearch();
     } catch (e) {
@@ -569,6 +596,8 @@ function SaleScreen({
                 onClick={() => {
                   setLines([]);
                   setTenders([]);
+                  setOrderDiscount(undefined);
+                  setDiscountReason("");
                   focusSearch();
                 }}
               >
@@ -660,14 +689,90 @@ function SaleScreen({
                       </Button>
                     </div>
                     <p className="text-sm font-bold">
-                      {money(Math.round(l.product.price_rand * 100) * l.quantity)}
+                      {money(
+                        Math.round(l.product.price_rand * 100) * l.quantity -
+                          (discountCents(
+                            l.discount,
+                            Math.round(l.product.price_rand * 100) * l.quantity,
+                          ) ?? 0),
+                      )}
                     </p>
                   </div>
+                  <details className="mt-2" open={Boolean(l.discount)}>
+                    <summary className="cursor-pointer text-xs font-semibold text-primary">
+                      Discount this item
+                    </summary>
+                    <div className="mt-1.5">
+                      <DiscountEditor
+                        label={`Discount for ${l.product.name}`}
+                        value={l.discount}
+                        invalid={
+                          discountCents(
+                            l.discount,
+                            Math.round(l.product.price_rand * 100) * l.quantity,
+                          ) === null
+                        }
+                        onChange={(d) =>
+                          setLines((cur) =>
+                            cur.map((x) =>
+                              x.product.id === l.product.id ? { ...x, discount: d } : x,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </details>
                 </li>
               ))}
             </ul>
           )}
 
+          {lines.length > 0 && (
+            <div className="mt-4 grid gap-2 border-t border-border pt-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Discount whole order
+                </span>
+                <DiscountEditor
+                  label="Order discount"
+                  value={orderDiscount}
+                  invalid={!summary.discountsValid && Boolean(orderDiscount)}
+                  onChange={setOrderDiscount}
+                />
+              </div>
+              {summary.hasDiscount && (
+                <>
+                  <label className="grid gap-1 text-xs font-semibold">
+                    Reason for discount (required)
+                    <Input
+                      aria-label="Discount reason"
+                      className="h-8 text-sm"
+                      maxLength={200}
+                      placeholder="e.g. Loyal customer, damaged packaging"
+                      value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                    />
+                    <span className="font-normal text-muted-foreground">
+                      Do not enter health or ID details.
+                    </span>
+                  </label>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{money(summary.grossCents)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-primary">
+                    <span>Discounts</span>
+                    <span>−{money(summary.lineDiscountCents + summary.orderDiscountCents)}</span>
+                  </div>
+                </>
+              )}
+              {!summary.discountsValid && (
+                <p role="alert" className="text-xs text-destructive">
+                  Check the discount: it must be a number and no more than what it applies to.
+                </p>
+              )}
+            </div>
+          )}
           <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
             <span className="text-xs font-semibold uppercase text-muted-foreground">Total</span>
             <span className="font-display text-2xl font-extrabold">{money(totalCents)}</span>
@@ -823,7 +928,7 @@ function SaleScreen({
               type="button"
               size="lg"
               className="mt-4 w-full"
-              disabled={!status.ok || busy}
+              disabled={!status.ok || !discountsOk || busy}
               onClick={() => void completeSale()}
             >
               {busy ? "Completing…" : `Complete sale · ${money(totalCents)} (F9)`}
@@ -1130,7 +1235,7 @@ function RefundForm({
   const keys = useRef(createKeyStore());
 
   const refundCents = sale.items.reduce(
-    (s, i) => s + Math.round(i.unit_price_rand * 100) * (qty[i.id] ?? 0),
+    (s, i) => s + refundLineCents(i.line_total, i.quantity, i.refunded_quantity, qty[i.id] ?? 0),
     0,
   );
   const capacity = useMemo(() => {
@@ -1196,7 +1301,8 @@ function RefundForm({
             <span>
               {i.product_name}{" "}
               <span className="text-muted-foreground">
-                ({max} refundable @ {rand(i.unit_price_rand)})
+                ({max} refundable @ {rand(i.unit_price_rand)}
+                {i.line_total < i.unit_price_rand * i.quantity ? ", discounted sale" : ""})
               </span>
             </span>
             <Input

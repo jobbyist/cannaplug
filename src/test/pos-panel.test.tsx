@@ -213,10 +213,44 @@ describe("POS screen — multi-tender capture", () => {
       items: [{ product_id: "p1", quantity: 1 }],
       tenders: [{ method: "cash", amount: "50.00" }],
       customerId: null,
+      orderDiscount: null,
+      discountReason: null,
       key: expect.stringMatching(/^[\w-]{8,}$/),
     });
     expect(JSON.stringify(data)).not.toMatch(/price|total|stock|available|actor|user/i);
     expect(await screen.findByText("POS-260929-000001")).toBeTruthy();
+  });
+
+  it("discounts an item and the whole order, needs a reason, and sends only kind and value", async () => {
+    const { user } = await withGelato(); // Blue Gelato, R50
+    await user.click(screen.getByText("Discount this item"));
+    await user.type(screen.getByLabelText("Discount for Blue Gelato"), "10");
+    await user.type(screen.getByLabelText("Order discount"), "R 5");
+    // R50 less 10% is R45; the order discount is R5 off, so R40 is due.
+    await user.selectOptions(screen.getByLabelText("Order discount type"), "amount");
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    // A discount needs a reason before the sale can be completed.
+    expect(completeButton().disabled).toBe(true);
+    await user.type(screen.getByLabelText("Discount reason"), "Loyal customer");
+    expect(completeButton().disabled).toBe(false);
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalledTimes(1));
+    const { data } = server.completePosSaleFn.mock.calls[0]![0];
+    expect(data.items).toEqual([
+      { product_id: "p1", quantity: 1, discount: { kind: "percent", value: "10" } },
+    ]);
+    expect(data.orderDiscount).toEqual({ kind: "amount", value: "5" });
+    expect(data.discountReason).toBe("Loyal customer");
+    expect(data.tenders).toEqual([{ method: "cash", amount: "40.00" }]);
+  });
+
+  it("blocks completion while a discount is not a valid number", async () => {
+    const { user } = await withGelato();
+    await user.click(screen.getByText("Discount this item"));
+    await user.type(screen.getByLabelText("Discount for Blue Gelato"), "150");
+    expect(screen.getByRole("alert").textContent).toMatch(/Check the discount/);
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    expect(completeButton().disabled).toBe(true);
   });
 
   it("F9 completes the sale from the keyboard, and rapid double-submits send only one request", async () => {
