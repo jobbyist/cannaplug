@@ -25,6 +25,18 @@ const statusVariant = (s: string) =>
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-ZA", { dateStyle: "short", timeStyle: "short" });
 
+/** Shown until PayFast credentials are configured on the server (the notice disappears once card payments work). */
+export function PayfastPendingNotice() {
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/10 px-4 py-3 text-sm font-semibold text-[#0B3D20]"
+    >
+      Payfast payment pending activation, contact your administrator or developer for details
+    </div>
+  );
+}
+
 /** Manager-only. Server functions and the database enforce the role; this panel is a convenience. */
 export function PaymentsPanel() {
   const [data, setData] = useState<Overview | null>(null);
@@ -78,6 +90,7 @@ export function PaymentsPanel() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-xl font-extrabold uppercase">Payments</h1>
+      {!data.configured.card && <PayfastPendingNotice />}
       {note && (
         <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs">
           {note}
