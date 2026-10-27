@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { rand } from "@/lib/cart";
+import { PayfastAccountCard } from "./PayfastAccountCard";
 import { EftDetailsCard } from "./EftDetailsCard";
 import {
   approveEftFn,
@@ -83,6 +84,8 @@ export function PaymentsPanel() {
           {note}
         </p>
       )}
+
+      {data.configured.card && <PayfastAccountCard />}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-4 text-xs">

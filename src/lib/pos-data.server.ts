@@ -62,6 +62,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   discount_limit: "Cashiers can discount up to 20% of a sale. Ask a manager for more",
   discount_reason_required: "Give a reason for the discount",
   invalid_amount: "Invalid amount",
+  invalid_input: "Check the details and try again",
+  expense_not_found: "That expense was not found",
+  already_voided: "That expense was already removed",
   forbidden: "You do not have permission for this action",
   not_pending: "Nothing to approve on that session",
   isolation_level: "Server configuration error (transaction isolation)",
@@ -76,7 +79,7 @@ export function friendlyPosError(err: unknown): Error {
       : typeof err === "object" && err && "message" in err
         ? String((err as { message: unknown }).message)
         : String(err);
-  const code = /^([a-z_]+):/.exec(raw)?.[1];
+  const code = /^([a-z_]+)(?::|$)/.exec(raw)?.[1];
   if (code && ERROR_MESSAGES[code]) {
     const detail = raw.slice(code.length + 1).trim();
     const showDetail = [
@@ -86,6 +89,8 @@ export function friendlyPosError(err: unknown): Error {
       "refund_mismatch",
       "invalid_sale_state",
       "purchase_limit_exceeded",
+      "invalid_amount",
+      "invalid_input",
     ].includes(code);
     return new Error(
       showDetail && detail ? `${ERROR_MESSAGES[code]} (${detail})` : ERROR_MESSAGES[code]!,
@@ -162,6 +167,65 @@ export async function getPosOverview(userId: string) {
     };
   }
 
+  // Till expenses and discounts so far (not expected cash: the count stays blind).
+  let sessionCashup: {
+    expenses: {
+      id: string;
+      amount: number;
+      category: string;
+      description: string;
+      created_at: string;
+      mine: boolean;
+    }[];
+    expensesTotal: number;
+    discountsTotal: number;
+  } | null = null;
+  if (mySession) {
+    const [exp, disc] = await Promise.all([
+      supabaseAdmin
+        .from("pos_session_expenses")
+        .select("id,amount,category,description,created_at,created_by")
+        .eq("session_id", mySession.id)
+        .is("voided_at", null)
+        .order("created_at", { ascending: true }),
+      supabaseAdmin
+        .from("pos_sales")
+        .select("discount_rand")
+        .eq("session_id", mySession.id)
+        .neq("status", "voided"),
+    ]);
+    if (exp.error) throw friendlyPosError(exp.error);
+    if (disc.error) throw friendlyPosError(disc.error);
+    const expenses = (exp.data ?? []).map((e) => ({
+      id: e.id,
+      amount: Number(e.amount),
+      category: e.category,
+      description: e.description,
+      created_at: e.created_at,
+      mine: e.created_by === userId,
+    }));
+    sessionCashup = {
+      expenses,
+      expensesTotal: expenses.reduce((t, e) => t + e.amount, 0),
+      discountsTotal: (disc.data ?? []).reduce((t, r) => t + Number(r.discount_rand ?? 0), 0),
+    };
+  }
+
+  // The float each free drawer should start with: what was left after the last close's bank deposit.
+  const carried = new Map<string, number>();
+  {
+    const { data, error } = await supabaseAdmin
+      .from("pos_sessions")
+      .select("drawer_id,float_carried,closed_at")
+      .eq("status", "closed")
+      .not("float_carried", "is", null)
+      .order("closed_at", { ascending: false })
+      .limit(200);
+    if (error) throw friendlyPosError(error);
+    for (const r of data ?? [])
+      if (!carried.has(r.drawer_id)) carried.set(r.drawer_id, Number(r.float_carried));
+  }
+
   let pendingApprovals: {
     id: string;
     drawer_name: string;
@@ -205,6 +269,7 @@ export async function getPosOverview(userId: string) {
     drawers: (drawersRes.data ?? []).map((d) => ({
       ...d,
       in_use: openSessions.some((s) => s.drawer_id === d.id),
+      carried_float: carried.get(d.id) ?? null,
     })),
     // Expected cash is deliberately NOT exposed while a session is open (blind count).
     mySession: mySession
@@ -216,6 +281,7 @@ export async function getPosOverview(userId: string) {
         }
       : null,
     sessionSummary,
+    sessionCashup,
     sales,
     catalog,
     pendingApprovals,
@@ -324,6 +390,7 @@ export async function posCloseSession(
   userId: string,
   sessionId: string,
   actualCash: string,
+  cashDeposited: string,
   note: string | undefined,
   key: string,
 ) {
@@ -332,7 +399,54 @@ export async function posCloseSession(
       p_actor: userId,
       p_session_id: sessionId,
       p_actual_cash: Number(actualCash),
+      p_cash_deposited: Number(cashDeposited),
       p_note: note ?? null,
+      p_idempotency_key: key,
+    }),
+  );
+}
+
+export const EXPENSE_CATEGORIES = [
+  "supplies",
+  "cleaning",
+  "transport",
+  "food",
+  "maintenance",
+  "stock",
+  "other",
+] as const;
+
+export async function posAddExpense(
+  userId: string,
+  sessionId: string,
+  amount: string,
+  category: (typeof EXPENSE_CATEGORIES)[number],
+  description: string,
+  key: string,
+) {
+  return unwrap(
+    await supabaseAdmin.rpc("pos_add_expense", {
+      p_actor: userId,
+      p_session_id: sessionId,
+      p_amount: Number(amount),
+      p_category: category,
+      p_description: description,
+      p_idempotency_key: key,
+    }),
+  );
+}
+
+export async function posVoidExpense(
+  userId: string,
+  expenseId: string,
+  reason: string,
+  key: string,
+) {
+  return unwrap(
+    await supabaseAdmin.rpc("pos_void_expense", {
+      p_actor: userId,
+      p_expense_id: expenseId,
+      p_reason: reason,
       p_idempotency_key: key,
     }),
   );

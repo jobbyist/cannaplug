@@ -11,6 +11,9 @@ vi.mock("@/lib/payments.functions", () => ({
   updateFxSettingsFn: vi.fn(),
 }));
 vi.mock("@/components/admin/EftDetailsCard", () => ({ EftDetailsCard: () => null }));
+vi.mock("@/components/admin/PayfastAccountCard", () => ({
+  PayfastAccountCard: () => <div data-testid="payfast-account" />,
+}));
 
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 
@@ -42,5 +45,6 @@ describe("Payments tab", () => {
       "Google Pay",
     ]);
     expect(screen.getByText("live")).toBeTruthy();
+    expect(screen.getByTestId("payfast-account")).toBeTruthy();
   });
 });
