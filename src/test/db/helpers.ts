@@ -131,7 +131,12 @@ export function sell(
   sessionId: string,
   items: { product_id: string; quantity: number; [k: string]: unknown }[],
   tenders: unknown[],
-  opts: { customer?: string | null; idem?: string } = {},
+  opts: {
+    customer?: string | null;
+    idem?: string;
+    orderDiscount?: unknown;
+    reason?: string | null;
+  } = {},
 ) {
   return rpc(
     sql,
@@ -142,6 +147,8 @@ export function sell(
     tenders,
     opts.customer ?? null,
     opts.idem ?? key("sale"),
+    opts.orderDiscount ?? null,
+    opts.reason ?? null,
   );
 }
 

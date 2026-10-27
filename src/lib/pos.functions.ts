@@ -69,6 +69,13 @@ export const reviewPosSessionFn = createServerFn({ method: "POST" })
     posReviewSession(context.userId, data.sessionId, data.approve, data.note),
   );
 
+const discount = z
+  .object({
+    kind: z.enum(["percent", "amount"]),
+    value: z.string().regex(/^\d{1,8}(\.\d{1,2})?$/),
+  })
+  .strict();
+
 export const completePosSaleFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
@@ -77,7 +84,13 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
         sessionId: uuid,
         // Only ids and quantities: no price, total or stock value is accepted from the client.
         items: z
-          .array(z.object({ product_id: uuid, quantity: z.number().int().min(1).max(9999) }))
+          .array(
+            z.object({
+              product_id: uuid,
+              quantity: z.number().int().min(1).max(9999),
+              discount: discount.optional(),
+            }),
+          )
           .min(1)
           .max(100),
         tenders: z
@@ -85,6 +98,9 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
           .min(1)
           .max(8),
         customerId: uuid.nullable(),
+        // Only the kind and the typed value: the database works out the cents.
+        orderDiscount: discount.nullable().default(null),
+        discountReason: z.string().trim().min(3).max(200).nullable().default(null),
         key: idempotencyKey,
       })
       .strict()

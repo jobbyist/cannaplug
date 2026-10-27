@@ -141,7 +141,7 @@ export async function renderReceiptPdf(m: ReceiptModel, paper: PaperSize): Promi
     push(g.small * 1.4, (p, y) =>
       p.drawText(
         safe(
-          `  ${l.quantity}${l.unit ? ` ${l.unit}` : ""} x ${formatRand(l.unitPrice)}${l.unit ? ` / ${l.unit}` : ""}`,
+          `  ${l.quantity}${l.unit ? ` ${l.unit}` : ""} x ${formatRand(l.unitPrice)}${l.unit ? ` / ${l.unit}` : ""}${l.discount > 0 ? ` - discount ${formatRand(l.discount)}` : ""}`,
         ),
         { x: g.margin, y: y - g.small, size: g.small, font: regular, color: SLATE },
       ),
@@ -150,6 +150,10 @@ export async function renderReceiptPdf(m: ReceiptModel, paper: PaperSize): Promi
   rule();
 
   // Totals
+  if (m.discount > 0) {
+    pair("Subtotal", formatRand(m.subtotal));
+    pair("Discount", `-${formatRand(m.discount)}`);
+  }
   pair("TOTAL", formatRand(m.total), bold, g.size + 2, FOREST);
   if (m.vat)
     pair(`Includes VAT @ ${m.vat.rate}%`, formatRand(m.vat.amount), regular, g.small, SLATE);

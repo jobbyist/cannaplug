@@ -14,7 +14,8 @@ HASH="select md5(string_agg(pg_get_functiondef(p.oid), '' order by p.proname)) f
 
 run "$P -d postgres -c 'DROP DATABASE IF EXISTS $DB WITH (FORCE)' -c 'CREATE DATABASE $DB'"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/tests/local/bootstrap.sql" >/dev/null 2>&1
-for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | grep -v "$M4"); do
+# Only migrations BEFORE M4: later ones (e.g. pos_discounts) redefine pos_refund_sale, which this rehearsal hashes.
+for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | awk -v m="$M4" '{ n=$0; sub(/.*\//, "", n); if (n < m ".sql") print }'); do
   run "$P -d $DB -v ON_ERROR_STOP=1 -f $f" >/dev/null 2>&1 || { echo "FAIL applying $f"; exit 1; }
 done
 before=$(run "$P -At -d $DB -c \"$HASH\"")

@@ -606,6 +606,8 @@ export type Database = {
       pos_sale_items: {
         Row: {
           id: string;
+          line_discount_rand: number;
+          order_discount_rand: number;
           line_total: number;
           product_id: string;
           product_name: string;
@@ -616,6 +618,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          line_discount_rand?: number;
+          order_discount_rand?: number;
           line_total: number;
           product_id: string;
           product_name: string;
@@ -626,6 +630,8 @@ export type Database = {
         };
         Update: {
           id?: string;
+          line_discount_rand?: number;
+          order_discount_rand?: number;
           line_total?: number;
           product_id?: string;
           product_name?: string;
@@ -641,6 +647,8 @@ export type Database = {
           cashier_id: string;
           created_at: string;
           customer_id: string | null;
+          discount_reason: string | null;
+          discount_rand: number;
           id: string;
           idempotency_key: string;
           receipt_number: string;
@@ -656,6 +664,8 @@ export type Database = {
           cashier_id: string;
           created_at?: string;
           customer_id?: string | null;
+          discount_reason?: string | null;
+          discount_rand?: number;
           id?: string;
           idempotency_key: string;
           receipt_number: string;
@@ -671,6 +681,8 @@ export type Database = {
           cashier_id?: string;
           created_at?: string;
           customer_id?: string | null;
+          discount_reason?: string | null;
+          discount_rand?: number;
           id?: string;
           idempotency_key?: string;
           receipt_number?: string;
@@ -3169,8 +3181,10 @@ export type Database = {
         Args: {
           p_actor: string;
           p_customer_id: string | null;
+          p_discount_reason?: string | null;
           p_idempotency_key: string;
           p_items: Json;
+          p_order_discount?: Json | null;
           p_session_id: string;
           p_tenders: Json;
         };

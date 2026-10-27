@@ -1122,44 +1122,44 @@ exercised against faithful local fakes. Run a sandbox payment per provider after
 
 ### MVP checklist (25 Oct 2026)
 
-| # | Item | Status |
-| --- | --- | --- |
-| 1 | Hosted clean-up, env audit | Done (PR #30) |
-| 2 | Product SKU, barcode, cost, photos | Done |
-| 3 | Yoco catalogue import (185 products, opening stock) | Done — category mapping awaits client OK |
-| 3b | POS receipts: print 80/58/A4, PDF, email | Done |
-| 3c | Customer import | Waiting for the export file |
-| 4 | Live homepage catalogue, featured products | Done |
-| 5 | PayFast + PayPal, EFT from settings, Yoco removed | Done in code — **keys and bank details not set** |
-| 6 | Installable app (PWA) | Done |
-| 7 | Web push | Built; DB step + VAPID keys pending (owner) |
-| 8 | Member chat assistant | Done (Gemini key set) |
-| 9 | Clinical notifications, prescription links | Done |
-| — | Product CSV upload/edit with template | Done (PR #38) |
-| 14 | Launch hardening (errors, 18+ gate, role-aware admin, a11y, SEO, health, limits, lockout reset, thresholds) | Done (PRs #40, #41) |
-| 15 | Release verification, scheduler fallback, go-live runbook | Done (PRs #42 and this one) |
-| 16 | Walkthrough guide, video, PDF | Done 23 Oct; refresh after launch |
-| 10–13 | Document library, contracts, Journal ops, live reports | Post-launch |
+| #     | Item                                                                                                        | Status                                           |
+| ----- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 1     | Hosted clean-up, env audit                                                                                  | Done (PR #30)                                    |
+| 2     | Product SKU, barcode, cost, photos                                                                          | Done                                             |
+| 3     | Yoco catalogue import (185 products, opening stock)                                                         | Done — category mapping awaits client OK         |
+| 3b    | POS receipts: print 80/58/A4, PDF, email                                                                    | Done                                             |
+| 3c    | Customer import                                                                                             | Waiting for the export file                      |
+| 4     | Live homepage catalogue, featured products                                                                  | Done                                             |
+| 5     | PayFast + PayPal, EFT from settings, Yoco removed                                                           | Done in code — **keys and bank details not set** |
+| 6     | Installable app (PWA)                                                                                       | Done                                             |
+| 7     | Web push                                                                                                    | Built; DB step + VAPID keys pending (owner)      |
+| 8     | Member chat assistant                                                                                       | Done (Gemini key set)                            |
+| 9     | Clinical notifications, prescription links                                                                  | Done                                             |
+| —     | Product CSV upload/edit with template                                                                       | Done (PR #38)                                    |
+| 14    | Launch hardening (errors, 18+ gate, role-aware admin, a11y, SEO, health, limits, lockout reset, thresholds) | Done (PRs #40, #41)                              |
+| 15    | Release verification, scheduler fallback, go-live runbook                                                   | Done (PRs #42 and this one)                      |
+| 16    | Walkthrough guide, video, PDF                                                                               | Done 23 Oct; refresh after launch                |
+| 10–13 | Document library, contracts, Journal ops, live reports                                                      | Post-launch                                      |
 
 ### Production readiness: 80 / 100
 
 The 10 Oct audit document is not in the repository, so the score uses these thirteen areas, each scored 0–100 and averaged.
 
-| Area | Score | Why |
-| --- | --- | --- |
-| Architecture and codebase | 90 | One server boundary, typed functions, tests for every rule |
-| Storefront, PWA, accessibility, SEO | 88 | Axe clean (no serious/critical), sitemap, canonical, 18+ gate; no single-product pages yet |
-| Database, migrations, rollback | 95 | Every migration applied, mirrored, rehearsed and verified on hosted |
-| Security, RLS, privacy | 92 | Browser roles read-only, service-role functions, mutation-checked; leaked-password protection still to switch on |
-| Auth and staff roles | 85 | Role-aware admin, staff accounts live; staff must change passwords |
-| Online checkout and payments | 45 | Code complete and tested against fakes, but **no PayFast/PayPal keys and no confirmed EFT details**: online payment is off |
-| Till, receipts, stock | 90 | Ready; an old till session must be closed first |
-| Catalogue data | 85 | Imported; category mapping and photos pending |
-| Members, ID, loyalty | 85 | Ready; customer import pending |
-| Clinical documents | 70 | Pipeline ready; no verified practitioner, templates or signature policy yet |
-| Notifications and scheduling | 80 | Fixed by the database scheduler; push pending; GitHub locked |
-| CI, testing, release | 75 | Strong local suites; CI cannot run while GitHub billing is locked |
-| Operations, monitoring, compliance | 60 | Health + runbook in place; 11 compliance claims unevidenced; Sentry optional |
+| Area                                | Score | Why                                                                                                                        |
+| ----------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| Architecture and codebase           | 90    | One server boundary, typed functions, tests for every rule                                                                 |
+| Storefront, PWA, accessibility, SEO | 88    | Axe clean (no serious/critical), sitemap, canonical, 18+ gate; no single-product pages yet                                 |
+| Database, migrations, rollback      | 95    | Every migration applied, mirrored, rehearsed and verified on hosted                                                        |
+| Security, RLS, privacy              | 92    | Browser roles read-only, service-role functions, mutation-checked; leaked-password protection still to switch on           |
+| Auth and staff roles                | 85    | Role-aware admin, staff accounts live; staff must change passwords                                                         |
+| Online checkout and payments        | 45    | Code complete and tested against fakes, but **no PayFast/PayPal keys and no confirmed EFT details**: online payment is off |
+| Till, receipts, stock               | 90    | Ready; an old till session must be closed first                                                                            |
+| Catalogue data                      | 85    | Imported; category mapping and photos pending                                                                              |
+| Members, ID, loyalty                | 85    | Ready; customer import pending                                                                                             |
+| Clinical documents                  | 70    | Pipeline ready; no verified practitioner, templates or signature policy yet                                                |
+| Notifications and scheduling        | 80    | Fixed by the database scheduler; push pending; GitHub locked                                                               |
+| CI, testing, release                | 75    | Strong local suites; CI cannot run while GitHub billing is locked                                                          |
+| Operations, monitoring, compliance  | 60    | Health + runbook in place; 11 compliance claims unevidenced; Sentry optional                                               |
 
 **Launch call:** in-store trading on the till is ready for Monday. Online ordering goes live as soon as PayFast keys (or confirmed EFT details) are added.
 
@@ -1243,6 +1243,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Owner actions: none. Rollback: the rollback file and revert the PR.
 
 ## 26 Oct 2026 — Sign-up no longer mentions email confirmation (feat/mvp-no-email-confirm)
+
 - Purpose: the owner turned off email confirmation in Supabase Auth, so sign-up signs the member straight in and the ID upload is the next step. Remove every customer-facing reference to confirming an email.
 - Files: `src/routes/account.tsx` (removed the "check your inbox to confirm your email" notice and the **Send a new confirmation link** button; if Supabase ever returns no session the form switches to Sign in with "Account created. Sign in with your email and password to upload your ID."), `src/lib/auth-messages.ts` (the "Email not confirmed" error now asks the customer to call the shop instead), `src/test/auth-messages.test.ts` (guards that the account page and messages never ask for email confirmation).
 - Migrations: none.
@@ -1253,6 +1254,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: revert this PR.
 
 ## 27 Oct 2026 — Sale prices verified at the till and online; Inventory tab rebuilt (feat/mvp-inventory-sales)
+
 - Purpose: the client asked (1) to verify that the admin sale price works for POS and online sales and (2) for a simpler, friendlier Inventory tab.
 - Sale price check: the till (`pos_complete_sale`) and online checkout (`checkout_quote` / `checkout_place_order`) both charge `price_rand`, which holds the sale price while a sale runs, so both already charged the sale price. Gaps found and fixed:
   - **Sales never ended.** `sale_ends_at` was stored but nothing acted on it, so an ended sale kept charging the sale price everywhere. New `products_end_expired_sales(actor)` restores the regular price with an audit row (`product_sale_ended`); pg_cron runs it every minute (`cannaplug-end-sales`) and the app calls it just before pricing a till sale, a checkout quote or an order (`src/lib/sale-expiry.server.ts`).
@@ -1271,12 +1273,15 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: apply the rollback SQL, then revert the PR.
 
 ## 27 Oct 2026 — PayFast pending-activation notice (feat/mvp-payfast-notice)
+
 - Purpose: owner's request. Until PayFast credentials are configured, /admin → Payments shows "Payfast payment pending activation, contact your administrator or developer for details". The notice disappears by itself once PAYFAST_MERCHANT_ID and PAYFAST_MERCHANT_KEY are set in Vercel.
 - Files: `src/components/admin/PaymentsPanel.tsx` (`PayfastPendingNotice`), `src/test/payfast-notice.test.tsx`.
 - Migrations: none. Tests: the notice test plus `scripts/verify-release.sh`.
 - Owner actions: add the PayFast merchant ID, key and passphrase in Vercel and set the PayFast notify URL when activating.
 - Rollback: revert the PR.
+
 ## 27 Oct 2026 — ID-check credits (feat/mvp-id-credits)
+
 - Purpose: owner's decision. Every new member costs 3 credits, charged once at their first ID submission. Opening balance 400 credits for new sign-ups plus 558 reserved for the 186 members in the customer import (3 each). Sign-ups since 26 Oct 2026 00:00 SAST are charged from the opening balance. At 100 or fewer unreserved credits one email goes to admin@ and info@cannaplug012.co.za; it goes again after a top-up lifts the balance above 100, or daily while at or below zero. When unreserved credits cannot cover a check, the sign-up form shows "New sign-ups are paused for now: our ID-check credits are used up…" and the database refuses new ID submissions (`id_credits_depleted`). Imported members (auth app_metadata `source = customer_import`, set only by the server) are charged from the reserve and are not blocked while it lasts.
 - Files: migration `20261027002000_id_check_credits` (tables `id_credit_settings`, `id_credit_ledger` (append-only); trigger on `customer_verification`; `id_credits_summary` (staff), `id_credits_top_up` (any staff), `id_credits_set_reserve` (admin), `id_credits_open` (public yes/no)), `src/lib/id-credits.{server,functions}.ts`, `src/components/admin/IdCreditsCard.tsx` (ID checks tab: balance, reserve, use, alert status, recent activity, Record top-up and Reserve modals), `src/routes/account.tsx` (sign-up paused message), `src/lib/member-logic.ts`, template `id_credits_low` (balances only, no member data), `scripts/email-samples.ts`, `supabase/tests/local/bootstrap.sql` (auth.users.raw_app_meta_data, as on Supabase).
 - Migrations: `20261027002000_id_check_credits` (drizzle `0040_id_check_credits`), rollback `supabase/rollbacks/20261027002000_id_check_credits_rollback.sql`, rehearsal `scripts/rollback-rehearsal-id-credits.sh` (in verify-release).
@@ -1287,8 +1292,9 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: apply the rollback SQL (drops the ledger), then revert the PR.
 
 ## 27 Oct 2026 — Admin across several tabs; POS category filter and sale prices (feat/mvp-admin-tabs-pos)
+
 - Purpose: client requests. (1) Staff work in several /admin tabs at once and the admin kept "refreshing". (2) POS needs a category filter and a way to put products on sale from the till.
-- Found (verified on the live site): the sign-in itself was already shared across tabs (one session in localStorage). But Supabase hands out a new session object on every token refresh (about hourly) and broadcasts it to every open tab; /admin re-checked access on every new user *object*, so each refresh in any tab blanked every admin tab to "Loading admin dashboard…" and threw away what was on screen (a basket, a search, an open form).
+- Found (verified on the live site): the sign-in itself was already shared across tabs (one session in localStorage). But Supabase hands out a new session object on every token refresh (about hourly) and broadcasts it to every open tab; /admin re-checked access on every new user _object_, so each refresh in any tab blanked every admin tab to "Loading admin dashboard…" and threw away what was on screen (a basket, a search, an open form).
 - Fix:
   - `src/hooks/useAuth.tsx` keeps the same user object while it is the same person with the same profile (`src/lib/auth-user.ts` `sameUser`), and /admin is keyed on the user id. Token refreshes no longer reload anything.
   - `src/lib/admin-sync.ts`: when one tab changes something (till sale, refund, stock received or adjusted, product or sale price saved, order moved on, payment confirmed) the other admin tabs reload that data quietly in the background (BroadcastChannel; only a topic name crosses tabs). Baskets, searches and forms stay as they are. The POS keeps its basket and re-checks it against new stock and prices.
@@ -1302,12 +1308,14 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: revert the PR.
 
 ## 27 Oct 2026 — Admin sidebar items open in a new tab (feat/mvp-admin-nav-links)
+
 - Purpose: owner's request. Staff keep POS in one tab and ID checks (or any section) in another. The sidebar items were buttons, so Ctrl/⌘-click, middle-click and right-click → "Open in new tab" did nothing.
 - Files: `src/components/dashboard/Sidebar.tsx` (optional `hrefFor`: items become links to `/admin#<section>`; a plain click still switches section in place, modified and middle clicks are left to the browser; the account page keeps buttons), `src/routes/admin.tsx`, `src/test/admin-nav-links.test.tsx`.
 - Migrations: none. Tests: the new test plus `scripts/verify-release.sh`.
 - Owner actions: none. Rollback: revert the PR.
 
 ## 27 Oct 2026 — PWA switched off; till discounts for all staff (feat/mvp-pwa-off)
+
 - Purpose: the client saw recent changes come and go (the hidden AI chat button reappearing until a reload, the new POS category buttons missing, discounts "not working").
 - Diagnosis:
   - The caching service worker served the home page network-first with a 4-second timeout, falling back to its last saved copy, and kept every old script bundle cache-first. On a slow connection, staff got the old home page and its old scripts. Moving on to /admin inside the app then kept running that old code, so the till showed the old POS without category buttons and the AI button came back. A full reload fixed it until the next slow load.
@@ -1323,6 +1331,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: revert the PR.
 
 ## 27 Oct 2026 — Live sales on the overview, Reports tab, daily sales email (feat/mvp-sales-reports)
+
 - Purpose: owner's request.
   - Till and online sales should show live on the Overview for all staff, in particular admin@ and info@.
   - Managers should get a daily sales report by email.
@@ -1357,6 +1366,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Rollback: apply the rollback SQL, then revert the PR.
 
 ## 27 Oct 2026 — Keep email under the Resend daily limit (feat/mvp-email-budget)
+
 - Purpose: owner's request. Resend allows 100 emails a day; send only high-priority email, drop the ID-received and ID-review emails, and move the welcome email to ID approval with a "verification successful" line.
 - Found (hosted, last 48 hours): 135 emails. 50 were "ID waiting for review" to staff, 27 welcome emails at sign-up, 25 "we received your ID", 25 "ID approved", 6 low-stock, 1 rejection and 1 campaign.
 - Changes (`20261027004000_email_budget`):
@@ -1429,3 +1439,30 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   `products_end_expired_sales` (clears the flag). **Applied to the hosted project.**
 - **Tests:** `product-edit-dialog.test.tsx`, `db/online-only-sales.test.ts` (mutation check: a till that ignores the flag
   fails it), rehearsal. **Owner actions:** none. **Rollback:** run the rollback SQL, then revert the PR.
+
+## 27 Oct 2026 — Discounts at the till: items and whole orders (feat/mvp-pos-discounts)
+
+- **Purpose:** Staff can discount a single item ("Discount this item" under the line) and the whole order (below the
+  basket), by percentage or by rand amount. A reason is required. Cashiers can give up to 20% off a sale; managers and
+  admins can give more, but a sale must still total more than R0. Receipts (screen, print, PDF, email text) show the
+  subtotal and the discount. The browser sends only the kind and the typed value; the database works out the cents
+  from its own prices, shares an order discount across the lines (largest remainder, to the cent) and checks the tender.
+  Each line keeps what was really paid for it, and refunds are pro-rated from that, so a refund never gives back more
+  than was paid and a full refund adds up to the line exactly. Every discounted sale writes a `pos_sale_discount`
+  audit row (amounts and reason).
+- **Files:** `src/components/admin/pos/DiscountEditor.tsx` (new), `PosPanel.tsx`, `pos-logic.ts`, `src/lib/pos.functions.ts`,
+  `src/lib/pos-data.server.ts`, `src/lib/receipts/*`, `src/components/admin/receipts/ReceiptView.tsx`,
+  `src/integrations/supabase/types.ts`.
+- **Migration:** `20261027006000_pos_discounts` (mirror `drizzle/migrations/0044_pos_discounts.sql`, rollback
+  `supabase/rollbacks/20261027006000_pos_discounts_rollback.sql`, rehearsal `scripts/rollback-rehearsal-pos-discounts.sh`).
+  Adds `pos_sales.discount_rand/discount_reason`, `pos_sale_items.line_discount_rand/order_discount_rand`, replaces the
+  two total checks, adds `_pos_discount_cents`, replaces `pos_complete_sale` (now 8 arguments) and `pos_refund_sale`.
+  **Applied to the hosted project** (in parts, recorded as version 20261027006000). **Not applied on the hosted
+  project:** `DROP FUNCTION` of the old six-argument `pos_complete_sale` was blocked in the session; the old overload
+  is still there, service-role only and unused (the app always sends all eight arguments). Drop it when convenient:
+  `DROP FUNCTION public.pos_complete_sale(uuid, uuid, jsonb, jsonb, uuid, text);`
+- **Tests:** `pos-discounts.test.ts`, `pos-panel.test.tsx` (two new cases), `db/pos-discounts.test.ts` (10 cases).
+  Mutation checks: refund that ignores the discount, no cashier limit, and no reason requirement each fail a test.
+- **Owner actions:** decide whether 20% is the right cashier limit (one constant in `pos_complete_sale`). The reason
+  box warns staff not to enter health or ID details.
+- **Rollback:** run the rollback SQL (it refuses while any discounted sale exists), then revert the PR.
