@@ -39,7 +39,8 @@ import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
-import { statusLabel } from "@/lib/member-logic";
+import { ID_CREDITS_DEPLETED_MESSAGE, statusLabel } from "@/lib/member-logic";
+import { idCreditsOpenFn } from "@/lib/id-credits.functions";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import logoImage from "@/assets/cannaplug-logo.png";
 import logoImageWhite from "@/assets/cannaplug-logo-white.png";
@@ -62,6 +63,14 @@ function AccountPage() {
 
 function AuthPanel() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [creditsOpen, setCreditsOpen] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (mode !== "signup" || creditsOpen !== null) return;
+    idCreditsOpenFn()
+      .then((open) => setCreditsOpen(open))
+      .catch(() => setCreditsOpen(true));
+  }, [mode, creditsOpen]);
+  const signupPaused = mode === "signup" && creditsOpen === false;
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -86,6 +95,11 @@ function AuthPanel() {
       } else {
         const dobIssue = dobProblem(dob);
         if (dobIssue) throw new Error(dobIssue);
+        // New members need an ID check; when the shop has no credits left, sign-up is paused.
+        if (!(await idCreditsOpenFn())) {
+          setCreditsOpen(false);
+          return;
+        }
         const { data: created, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -245,7 +259,15 @@ function AuthPanel() {
                       {notice}
                     </p>
                   )}
-                  <Button type="submit" size="lg" disabled={submitting}>
+                  {signupPaused && (
+                    <p
+                      role="alert"
+                      className="rounded-md border border-[#D4AF37]/60 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#0B3D20]"
+                    >
+                      {ID_CREDITS_DEPLETED_MESSAGE}
+                    </p>
+                  )}
+                  <Button type="submit" size="lg" disabled={submitting || signupPaused}>
                     {submitting ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
                   </Button>
                 </form>

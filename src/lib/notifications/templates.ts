@@ -393,6 +393,40 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open ID checks", url: adminUrl(c) },
     }),
   }),
+  // ID-check credits are running low (no member data: balances only).
+  id_credits_low: (d, c) => {
+    const available = Number(d["available"] ?? 0);
+    const cost = Math.max(Number(d["cost_per_check"] ?? 3), 1);
+    const checks = Math.max(Math.floor(available / cost), 0);
+    return {
+      subject:
+        available <= 0
+          ? "ID-check credits are used up: new sign-ups are paused"
+          : "Top up your ID-check credits",
+      html: layout({
+        preheader:
+          available <= 0
+            ? "New members cannot sign up until credits are topped up."
+            : `${available} credits left. Top up to avoid service disruption.`,
+        title: available <= 0 ? "ID-check credits used up" : "ID-check credits running low",
+        bodyHtml:
+          p(
+            available <= 0
+              ? "New sign-ups and ID uploads are paused until credits are topped up."
+              : "Please top up your ID-check credits to avoid service disruption.",
+          ) +
+          kv([
+            ["Credits available", esc(available)],
+            ["New-member checks left", esc(checks)],
+            ["Reserved for imported members", esc(d["reserved"] ?? 0)],
+            ["Cost per new member", `${esc(cost)} credits`],
+            ["Alert level", `${esc(d["threshold"] ?? 100)} credits`],
+          ]) +
+          p("Record the top-up in /admin → ID checks once it is bought."),
+        cta: { label: "Open ID checks", url: adminUrl(c) },
+      }),
+    };
+  },
   staff_low_stock: (d, c) => ({
     subject: "Low stock today",
     html: layout({

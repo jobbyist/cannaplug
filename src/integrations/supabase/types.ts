@@ -3213,6 +3213,26 @@ export type Database = {
         Args: { p_actor?: string | null };
         Returns: number;
       };
+      id_credits_summary: { Args: { p_actor: string }; Returns: Json };
+      id_credits_top_up: {
+        Args: {
+          p_actor: string;
+          p_credits: number;
+          p_note: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      id_credits_set_reserve: {
+        Args: {
+          p_actor: string;
+          p_reserved: number;
+          p_note: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      id_credits_open: { Args: Record<PropertyKey, never>; Returns: boolean };
       pos_void_sale: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_sale_id: string };
         Returns: Json;

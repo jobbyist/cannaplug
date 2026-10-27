@@ -256,7 +256,11 @@ export function InventoryPanel({
           onClick={() => toggleStatus("expired")}
         />
         {summary.value != null ? (
-          <StatCard label="Stock at cost" value={rand(summary.value)} icon={PackageOpen} />
+          <StatCard
+            label="Stock at cost"
+            value={rand(Math.round(summary.value))}
+            icon={PackageOpen}
+          />
         ) : (
           <StatCard label="Categories" value={categories.length} icon={PackageOpen} />
         )}
@@ -371,7 +375,7 @@ export function InventoryPanel({
           return (
             <li
               key={r.product_id}
-              className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-center"
+              className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-center"
             >
               <div className="flex min-w-0 items-center gap-3">
                 {r.image_url ? (
