@@ -26,6 +26,8 @@ export type CatalogItem = {
   price_rand: number;
   /** The normal price while a sale runs (shown struck through); price_rand is what the till charges. */
   regular_price_rand?: number | null;
+  /** When the sale ends (ISO), if it has an end. */
+  sale_ends_at?: string | null;
   available: number;
 };
 
@@ -62,16 +64,22 @@ export function parseQuickQuantity(query: string): { quantity: number; term: str
 }
 
 /** Speed-first search: every whitespace-separated token must match name/category/strain/slug. */
-export function searchCatalog(catalog: CatalogItem[], query: string, limit = 8): CatalogItem[] {
+export function searchCatalog(
+  catalog: CatalogItem[],
+  query: string,
+  limit = 8,
+  category: string | null = null,
+): CatalogItem[] {
   const { term } = parseQuickQuantity(query);
   const tokens = term.toLowerCase().split(/\s+/).filter(Boolean);
+  const inCategory = category ? catalog.filter((p) => p.category === category) : catalog;
   const matches = tokens.length
-    ? catalog.filter((p) => {
+    ? inCategory.filter((p) => {
         const hay =
           `${p.name} ${p.category} ${p.subcategory ?? ""} ${p.strain_type ?? ""} ${p.slug}`.toLowerCase();
         return tokens.every((t) => hay.includes(t));
       })
-    : catalog;
+    : inCategory;
   // In-stock first, then name-prefix matches, then the catalogue's own order.
   const first = tokens[0] ?? "";
   return [...matches]
@@ -84,6 +92,16 @@ export function searchCatalog(catalog: CatalogItem[], query: string, limit = 8):
       return prefix;
     })
     .slice(0, limit);
+}
+
+/** Categories on the till, in catalogue order of first appearance, with how many products each has. */
+export function categoryCounts(catalog: CatalogItem[]): { category: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const p of catalog)
+    if (p.category) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+  return [...counts]
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => a.category.localeCompare(b.category));
 }
 
 export function addToCart(lines: CartLine[], product: CatalogItem, quantity = 1): CartLine[] {

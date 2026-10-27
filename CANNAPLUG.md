@@ -1285,3 +1285,18 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Hosted: applied 27 Oct 2026 in parts with execute_sql (apply_migration refused the run while it contained DROP statements, so the triggers use CREATE OR REPLACE TRIGGER) and recorded in supabase_migrations as version 20261027002000. After the backfill (8 members since 26 Oct): 376 available, 558 reserved.
 - Also: Inventory tab polish (stock value rounded to whole rand; wider stock column so "alert at" no longer wraps).
 - Rollback: apply the rollback SQL (drops the ledger), then revert the PR.
+
+## 27 Oct 2026 — Admin across several tabs; POS category filter and sale prices (feat/mvp-admin-tabs-pos)
+- Purpose: client requests. (1) Staff work in several /admin tabs at once and the admin kept "refreshing". (2) POS needs a category filter and a way to put products on sale from the till.
+- Found (verified on the live site): the sign-in itself was already shared across tabs (one session in localStorage). But Supabase hands out a new session object on every token refresh (about hourly) and broadcasts it to every open tab; /admin re-checked access on every new user *object*, so each refresh in any tab blanked every admin tab to "Loading admin dashboard…" and threw away what was on screen (a basket, a search, an open form).
+- Fix:
+  - `src/hooks/useAuth.tsx` keeps the same user object while it is the same person with the same profile (`src/lib/auth-user.ts` `sameUser`), and /admin is keyed on the user id. Token refreshes no longer reload anything.
+  - `src/lib/admin-sync.ts`: when one tab changes something (till sale, refund, stock received or adjusted, product or sale price saved, order moved on, payment confirmed) the other admin tabs reload that data quietly in the background (BroadcastChannel; only a topic name crosses tabs). Baskets, searches and forms stay as they are. The POS keeps its basket and re-checks it against new stock and prices.
+  - Each tab remembers its section in the address (`/admin#pos`), so a reload or a second tab opens where you were.
+- POS (`src/components/admin/pos/PosPanel.tsx`, `PosSaleDialog.tsx`, `pos-logic.ts`):
+  - Category chips with counts above the search ("All", then each category). Picking a category shows up to 40 of its products; typing searches within it.
+  - Managers get a % button on each product: **Put on sale** (5–50% chips or a custom %, or a sale price in rand; ends tonight / 3 days / 1 week / a chosen time / no end; preview "R120 → R96 (20% off)"), **Update sale** and **End sale now**. The sale applies at the till and online and ends by itself (`products_end_expired_sales`). Server: `setProductSaleFn` → `setProductSale` (manager only, same rules as the product editor, audit `product_sale_set` / `product_sale_ended_by_staff`).
+- Migrations: none.
+- Tests: `src/test/admin-tabs.test.tsx` (token refresh does not re-trigger the admin; tabs notify each other once per burst; section in the address), `src/test/pos-category-sale.test.tsx` (category counts and filtering, % maths and end times, start / end / refuse sale). Mutation checks: making `sameUser` always false fails the tab test; removing the manager check in `setProductSale` fails the data-layer security audit.
+- Owner actions: none.
+- Rollback: revert the PR.

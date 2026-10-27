@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
+  BadgePercent,
   Banknote,
   CheckCircle2,
   CreditCard,
@@ -34,6 +35,7 @@ import {
   addToCart,
   cartTotalCents,
   cashChangeCents,
+  categoryCounts,
   centsToAmount,
   clampQuantity,
   createKeyStore,
@@ -46,9 +48,12 @@ import {
   setLineQuantity,
   tenderStatus,
   type CartLine,
+  type CatalogItem,
   type TenderMethod,
   type TenderRow,
 } from "./pos-logic";
+import { PosSaleDialog } from "./PosSaleDialog";
+import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 
 type Overview = Awaited<ReturnType<typeof getPosOverviewFn>>;
 type SaleView = Overview["sales"][number];
@@ -81,6 +86,13 @@ export function PosPanel({ customers }: { customers: CustomerOption[] }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // Another admin tab sold, refunded or received stock, or changed a price: reload the catalogue quietly.
+  // The basket on this screen is kept (it is re-checked against the new stock and prices).
+  useAdminTabSync(["stock", "products"], () => void refresh());
+  const changed = useCallback(async () => {
+    await refresh();
+    notifyAdminTabs("stock");
+  }, [refresh]);
 
   if (error && !data) return <div className={errorClass}>{error}</div>;
   if (!data) return <p className="text-xs text-muted-foreground">Loading point of sale…</p>;
@@ -111,24 +123,24 @@ export function PosPanel({ customers }: { customers: CustomerOption[] }) {
       {error && <div className={errorClass}>{error}</div>}
 
       {!data.mySession ? (
-        <OpenTill data={data} onChanged={refresh} />
+        <OpenTill data={data} onChanged={changed} />
       ) : (
         <>
           <SaleScreen
             data={data}
             session={data.mySession}
             customers={customers}
-            onChanged={refresh}
+            onChanged={changed}
           />
-          <RecentSales data={data} session={data.mySession} onChanged={refresh} />
-          <CloseTill session={data.mySession} onChanged={refresh} />
+          <RecentSales data={data} session={data.mySession} onChanged={changed} />
+          <CloseTill session={data.mySession} onChanged={changed} />
         </>
       )}
 
       {data.isManager && data.pendingApprovals.length > 0 && (
-        <VarianceApprovals data={data} onChanged={refresh} />
+        <VarianceApprovals data={data} onChanged={changed} />
       )}
-      {data.isManager && <StockControl catalog={data.catalog} onChanged={refresh} />}
+      {data.isManager && <StockControl catalog={data.catalog} onChanged={changed} />}
     </div>
   );
 }
@@ -282,8 +294,16 @@ function SaleScreen({
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const keys = useRef(createKeyStore());
 
-  const results = useMemo(() => searchCatalog(data.catalog, query, 8), [data.catalog, query]);
-  useEffect(() => setHighlight(0), [query]);
+  const [category, setCategory] = useState<string | null>(null);
+  const [saleFor, setSaleFor] = useState<CatalogItem | null>(null);
+  const [saleNotice, setSaleNotice] = useState<string | null>(null);
+  const categories = useMemo(() => categoryCounts(data.catalog), [data.catalog]);
+  // Typing narrows to the best 8; browsing a category shows more of it.
+  const results = useMemo(
+    () => searchCatalog(data.catalog, query, category && !query.trim() ? 40 : 8, category),
+    [data.catalog, query, category],
+  );
+  useEffect(() => setHighlight(0), [query, category]);
 
   // Keep the cart consistent with refreshed availability (display only; the server re-checks).
   useEffect(() => {
@@ -426,15 +446,48 @@ function SaleScreen({
             }
           />
         </div>
+        <div
+          className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1"
+          role="group"
+          aria-label="Filter by category"
+        >
+          {[{ category: null as string | null, count: data.catalog.length }, ...categories].map(
+            (c) => (
+              <button
+                key={c.category ?? "all"}
+                type="button"
+                aria-pressed={category === c.category}
+                onClick={() => {
+                  setCategory(c.category);
+                  searchRef.current?.focus();
+                }}
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition ${category === c.category ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"}`}
+              >
+                {c.category ?? "All"} <span className="opacity-70">{c.count}</span>
+              </button>
+            ),
+          )}
+        </div>
+        {saleNotice && (
+          <p role="status" className="mb-2 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
+            {saleNotice}
+          </p>
+        )}
         <ul id="pos-results" role="listbox" className="grid gap-1.5">
           {results.map((p, i) => (
-            <li key={p.id} role="option" id={`pos-result-${p.id}`} aria-selected={i === highlight}>
+            <li
+              key={p.id}
+              role="option"
+              id={`pos-result-${p.id}`}
+              aria-selected={i === highlight}
+              className="flex items-stretch gap-1.5"
+            >
               <button
                 type="button"
                 disabled={p.available <= 0}
                 onClick={() => addProduct(p.id, parseQuickQuantity(query).quantity)}
                 onMouseEnter={() => setHighlight(i)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${i === highlight ? "border-primary bg-primary/5" : "border-border hover:bg-muted"}`}
+                className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${i === highlight ? "border-primary bg-primary/5" : "border-border hover:bg-muted"}`}
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold">{p.name}</span>
@@ -463,14 +516,34 @@ function SaleScreen({
                   </span>
                 </span>
               </button>
+              {data.isManager && (
+                <button
+                  type="button"
+                  title={p.regular_price_rand != null ? "Change or end the sale" : "Put on sale"}
+                  aria-label={`${p.regular_price_rand != null ? "Change sale for" : "Put on sale:"} ${p.name}`}
+                  onClick={() => setSaleFor(p)}
+                  className={`flex w-10 shrink-0 items-center justify-center rounded-lg border transition hover:bg-muted ${p.regular_price_rand != null ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#0B3D20]" : "border-border text-muted-foreground"}`}
+                >
+                  <BadgePercent size={16} />
+                </button>
+              )}
             </li>
           ))}
           {results.length === 0 && (
             <li className="px-1 py-6 text-center text-xs text-muted-foreground">
-              No matching products.
+              No matching products{category ? ` in ${category}` : ""}.
             </li>
           )}
         </ul>
+        <PosSaleDialog
+          product={saleFor}
+          onOpenChange={(o) => !o && setSaleFor(null)}
+          onDone={async (m) => {
+            setSaleNotice(m);
+            await onChanged();
+            notifyAdminTabs("products");
+          }}
+        />
         <p className="mt-3 text-[0.68rem] text-muted-foreground">
           Keys: <kbd>/</kbd> search · <kbd>↑</kbd>/<kbd>↓</kbd> choose · <kbd>Enter</kbd> add ·{" "}
           <kbd>F4</kbd> exact cash · <kbd>F9</kbd> complete sale

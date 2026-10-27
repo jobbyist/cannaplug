@@ -42,3 +42,27 @@ export function saleEndsLabel(iso: string | null | undefined): string | null {
   const d = new Date(iso);
   return `Ends ${d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** Sale price for "x% off" the regular price, to the cent (never below R0.01). */
+export function salePriceFromPercent(regular: number, percent: number): number {
+  const p = Math.min(Math.max(percent, 0), 99);
+  return Math.max(Math.round(regular * (100 - p)) / 100, 0.01);
+}
+
+/** "20% off" for a sale price against the regular price (whole percent). */
+export function percentOff(regular: number, sale: number): number {
+  return regular > 0 ? Math.round((1 - sale / regular) * 100) : 0;
+}
+
+export type SaleEnds = "none" | "today" | "3d" | "7d" | "custom";
+
+/** End of the chosen period, in the browser's local time. */
+export function endsAtFor(choice: SaleEnds, custom: string, now = new Date()): string | null {
+  if (choice === "none") return null;
+  if (choice === "custom") return fromLocalInput(custom);
+  const d = new Date(now);
+  d.setHours(23, 59, 0, 0);
+  if (choice === "3d") d.setDate(d.getDate() + 2);
+  if (choice === "7d") d.setDate(d.getDate() + 6);
+  return d.toISOString();
+}
