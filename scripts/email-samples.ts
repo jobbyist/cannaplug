@@ -73,6 +73,25 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   staff_eft_approval: { amount: 12500 },
   staff_id_review: { member_name: "Thandi Mokoena" },
   id_credits_low: { available: 97, reserved: 558, total: 655, threshold: 100, cost_per_check: 3 },
+  staff_daily_sales: {
+    day: "2026-10-27",
+    total: 4120,
+    transactions: 31,
+    average_sale: 132.9,
+    pos: {
+      count: 28,
+      gross: 3420,
+      refunds: 100,
+      refund_count: 1,
+      voided_count: 1,
+      voided_total: 80,
+      net: 3320,
+    },
+    online: { count: 3, total: 800, awaiting_count: 1, awaiting_total: 150, cancelled_count: 0 },
+    pos_tenders: { cash: 1400, card: 2020 },
+    online_methods: { eft: 800 },
+    products: [{ name: "Gorilla Zkittlez", qty: 9, revenue: 900 }],
+  },
   staff_low_stock: {
     items: [
       { name: "Gorilla Zkittlez", available: 2 },

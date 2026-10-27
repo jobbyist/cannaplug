@@ -427,6 +427,66 @@ export const TEMPLATES: Record<string, Template> = {
       }),
     };
   },
+  // Daily (or on-demand) sales summary for managers and admins: totals only, no customer data.
+  staff_daily_sales: (d, c) => {
+    const pos = (d["pos"] ?? {}) as Record<string, unknown>;
+    const online = (d["online"] ?? {}) as Record<string, unknown>;
+    const tenders = (d["pos_tenders"] ?? {}) as Record<string, unknown>;
+    const methods = (d["online_methods"] ?? {}) as Record<string, unknown>;
+    const products = (
+      (d["products"] as { name?: unknown; qty?: unknown; revenue?: unknown }[]) ?? []
+    ).slice(0, 5);
+    const label = (k: string) =>
+      ({ cash: "Cash", card: "Card", eft: "EFT", paypal: "PayPal" })[k] ?? k;
+    const day = new Date(`${String(d["day"] ?? "")}T12:00:00Z`).toLocaleDateString("en-ZA", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    return {
+      subject: `Sales report ${String(d["day"] ?? "")}: ${rand(d["total"])}`,
+      html: layout({
+        preheader: `${rand(d["total"])} from ${esc(d["transactions"] ?? 0)} sales.`,
+        title: "Daily sales report",
+        bodyHtml:
+          p(`<b>${esc(day)}</b>`) +
+          kv([
+            ["Total sales", `<b>${rand(d["total"])}</b>`],
+            ["Transactions", esc(d["transactions"] ?? 0)],
+            ["Average sale", rand(d["average_sale"])],
+          ]) +
+          p("<b>In store (till)</b>") +
+          kv([
+            ["Sales", `${esc(pos["count"] ?? 0)} · ${rand(pos["gross"])}`],
+            ["Refunds", `${esc(pos["refund_count"] ?? 0)} · ${rand(pos["refunds"])}`],
+            ["Voided", `${esc(pos["voided_count"] ?? 0)} · ${rand(pos["voided_total"])}`],
+            ["Net", `<b>${rand(pos["net"])}</b>`],
+            ...Object.entries(tenders).map(([k, v]): [string, string] => [label(k), rand(v)]),
+          ]) +
+          p("<b>Online</b>") +
+          kv([
+            ["Paid orders", `${esc(online["count"] ?? 0)} · ${rand(online["total"])}`],
+            [
+              "Awaiting payment",
+              `${esc(online["awaiting_count"] ?? 0)} · ${rand(online["awaiting_total"])}`,
+            ],
+            ["Cancelled", esc(online["cancelled_count"] ?? 0)],
+            ...Object.entries(methods).map(([k, v]): [string, string] => [label(k), rand(v)]),
+          ]) +
+          (products.length
+            ? p("<b>Top products</b>") +
+              kv(
+                products.map((x): [string, string] => [
+                  String(x.name ?? ""),
+                  `${esc(x.qty)} · ${rand(x.revenue)}`,
+                ]),
+              )
+            : ""),
+        cta: { label: "Open reports", url: `${adminUrl(c)}#reports` },
+      }),
+    };
+  },
   staff_low_stock: (d, c) => ({
     subject: "Low stock today",
     html: layout({

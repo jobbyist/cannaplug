@@ -131,6 +131,7 @@ const DATA_LAYERS: Record<string, string[]> = {
   ],
   "src/lib/pos-data.server.ts": ["friendlyPosError"],
   "src/lib/inventory-data.server.ts": [],
+  "src/lib/sales-report.server.ts": [],
   // idCreditsOpen is the public yes/no for the sign-up form; the rest pass p_actor and the RPCs check the role.
   "src/lib/id-credits.server.ts": ["idCreditsOpen"],
   // Ending expired sales lowers nothing: it only restores regular prices, and the RPC checks a staff actor.
