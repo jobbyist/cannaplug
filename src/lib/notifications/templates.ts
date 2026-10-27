@@ -289,23 +289,46 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Read the Journal", url: `${c.siteUrl.replace(/\/+$/, "")}/journal` },
     }),
   }),
-  member_welcome: (d, c) => ({
-    subject: "Welcome to Cannaplug",
-    html: layout({
-      preheader: "Your account is ready — one quick step before you can order.",
-      title: "Welcome to Cannaplug",
-      bodyHtml:
-        p(hi(d)) +
-        p(
-          "Your member account is ready. To order online we verify your ID once — upload it from your account and our team reviews it, usually within one business day.",
-        ) +
-        p(
-          "Once you are verified you can order, track every order live, earn rewards points on every purchase and save your favourites.",
-        ),
-      cta: { label: "Verify my ID", url: accountUrl(c) },
-      footerNote: "Cannaplug is for adults 18 and over.",
-    }),
-  }),
+  // Sent when the member's ID is approved (sign-up itself sends nothing, to save the daily email quota).
+  member_welcome: (d, c) =>
+    d["id_verified"]
+      ? {
+          subject: "Welcome to Cannaplug: your ID is verified",
+          html: layout({
+            preheader: "Your ID verification was successful. You can order now.",
+            title: "Welcome to Cannaplug",
+            bodyHtml:
+              p(hi(d)) +
+              p(
+                "<b>Your ID verification was successful</b>, so your account is ready and you can order online now." +
+                  (d["document_expires_on"]
+                    ? ` Your ID document expires on ${esc(d["document_expires_on"])}; we will remind you before then.`
+                    : ""),
+              ) +
+              p(
+                "Track every order live, earn rewards points on every purchase and save your favourites from your account.",
+              ),
+            cta: { label: "Start shopping", url: `${c.siteUrl.replace(/\/+$/, "")}/shop` },
+            footerNote: "Cannaplug is for adults 18 and over.",
+          }),
+        }
+      : {
+          subject: "Welcome to Cannaplug",
+          html: layout({
+            preheader: "Your account is ready — one quick step before you can order.",
+            title: "Welcome to Cannaplug",
+            bodyHtml:
+              p(hi(d)) +
+              p(
+                "Your member account is ready. To order online we verify your ID once — upload it from your account and our team reviews it, usually within one business day.",
+              ) +
+              p(
+                "Once you are verified you can order, track every order live, earn rewards points on every purchase and save your favourites.",
+              ),
+            cta: { label: "Verify my ID", url: accountUrl(c) },
+            footerNote: "Cannaplug is for adults 18 and over.",
+          }),
+        },
   id_submitted: (d, c) => ({
     subject: "We received your ID",
     html: layout({

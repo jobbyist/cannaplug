@@ -18,7 +18,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   order_out_for_delivery: order,
   order_completed: order,
   order_cancelled: order,
-  member_welcome: { contact_name: "Thandi Mokoena" },
+  member_welcome: { contact_name: "Thandi Mokoena", id_verified: true },
   id_submitted: { contact_name: "Thandi Mokoena" },
   id_approved: { contact_name: "Thandi Mokoena", document_expires_on: "2031-04-12" },
   id_rejected: { contact_name: "Thandi Mokoena", rejection_code: "unreadable" },

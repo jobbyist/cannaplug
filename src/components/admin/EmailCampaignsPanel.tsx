@@ -384,9 +384,24 @@ export function EmailCampaignsPanel() {
             </p>
           )}
         </div>
+        {activity?.budget && (
+          <div
+            className="mb-2 rounded-lg border border-border bg-card px-3 py-2 text-xs"
+            data-testid="email-budget"
+          >
+            <b>
+              {activity.budget.used} of {activity.budget.limit}
+            </b>{" "}
+            emails used in the last 24 hours (Resend daily limit).
+            {activity.budget.waiting > 0 && ` ${activity.budget.waiting} waiting.`} Order, payment,
+            receipt, welcome and rejected-ID emails go first; campaigns stop at{" "}
+            {activity.budget.low_ceiling} and digests at {activity.budget.normal_ceiling} so there
+            is always room for them. Anything over the limit waits and goes out later.
+          </div>
+        )}
         <p className="mb-2 text-[0.7rem] text-muted-foreground">
-          Emails go out every 5 minutes. Order, ID and receipt emails are automatic; failed ones are
-          retried up to 5 times.
+          Emails go out every 5 minutes. Order, payment, receipt and ID-decision emails are
+          automatic; failed ones are retried up to 5 times.
         </p>
         <Table>
           <TableHeader>

@@ -164,6 +164,10 @@ export async function emailPosReceipt(
   const apiKey = process.env["RESEND_API_KEY"]?.trim();
   if (!apiKey)
     throw new Error("Email is not set up yet (RESEND_API_KEY). Print the receipt instead.");
+  // Resend allows 100 emails a day: when today's budget is used up, the till prints instead.
+  const { data: budget } = await supabaseAdmin.rpc("email_budget_status");
+  if (budget && (budget as { receipts_open?: boolean }).receipts_open === false)
+    throw new Error("Today's email limit has been reached. Print the receipt instead.");
   const { count } = await supabaseAdmin
     .from("pos_receipt_sends")
     .select("id", { count: "exact", head: true })

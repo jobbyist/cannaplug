@@ -3213,6 +3213,7 @@ export type Database = {
         Args: { p_actor?: string | null };
         Returns: number;
       };
+      email_budget_status: { Args: Record<PropertyKey, never>; Returns: Json };
       sales_report: { Args: { p_actor: string; p_from: string; p_to: string }; Returns: Json };
       sales_report_email: {
         Args: { p_actor: string; p_day: string; p_idempotency_key: string };

@@ -1355,3 +1355,27 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - Mutation checks: removing the staff check, sending the daily email to budtenders, and letting budtenders send it each fail a test.
 - Owner actions: none. The PayFast keys are still owed (see the PayFast entry above).
 - Rollback: apply the rollback SQL, then revert the PR.
+
+## 27 Oct 2026 — Keep email under the Resend daily limit (feat/mvp-email-budget)
+- Purpose: owner's request. Resend allows 100 emails a day; send only high-priority email, drop the ID-received and ID-review emails, and move the welcome email to ID approval with a "verification successful" line.
+- Found (hosted, last 48 hours): 135 emails. 50 were "ID waiting for review" to staff, 27 welcome emails at sign-up, 25 "we received your ID", 25 "ID approved", 6 low-stock, 1 rejection and 1 campaign.
+- Changes (`20261027004000_email_budget`):
+  - Submitting an ID emails nobody: no member email and no staff email (staff use the ID checks tab).
+  - Sign-up sends nothing.
+  - On the first approval the member gets one email, the welcome email, which now says "Your ID verification was successful" and links to the shop. A later re-verification gets the short approval email. A rejection still emails the member.
+  - `notification_claim` sends email only while the last 24 hours stay under the budget. The count includes queued emails sent and till receipts emailed. 5 of the 100 are kept back for Supabase's own emails (password resets).
+  - Priorities:
+    - High, up to 95: orders, payments, receipts, welcome, rejected ID, clinical, staff money alerts, daily sales report.
+    - Normal, up to 75: low-stock digest, back in stock, ID expiring, newsletter welcome.
+    - Low, up to 40: campaigns, Journal digest.
+  - Emails over budget wait in the queue and go out as the window frees up. Queued ID-review and ID-received emails are marked suppressed. Other channels are not limited.
+  - `email_budget_status()`. The till refuses to email a receipt once the budget is used up ("Print the receipt instead").
+  - Admin → Email & promotions shows "X of 100 emails used in the last 24 hours".
+- Also: /admin reacts to the address changing (`#reports` typed in, Back / Forward).
+- Migrations: `20261027004000_email_budget` (drizzle `0042_email_budget`), rollback `supabase/rollbacks/20261027004000_email_budget_rollback.sql` (restores the earlier claim and ID-email functions), rehearsal `scripts/rollback-rehearsal-email-budget.sh`.
+- Tests:
+  - `src/test/db/email-budget.test.ts` (priority order, ceilings, queue not lost, other channels unlimited, suppressed templates, receipts counted).
+  - Updated `src/test/db/email-automations.test.ts` and `src/test/email-budget-templates.test.ts`.
+  - Mutation check: removing the budget check fails three tests.
+- Owner actions: none.
+- Rollback: apply the rollback SQL, then revert the PR.

@@ -100,10 +100,21 @@ export async function sendCampaign(userId: string, id: string, key: string) {
 }
 
 /** The last 60 emails and how they did, plus 7-day totals, for Admin -> Promotions -> Email activity. */
+/** Resend's free plan allows 100 emails a day; the queue keeps to the budget (see 20261027004000_email_budget). */
+export type EmailBudget = {
+  used: number;
+  limit: number;
+  usable: number;
+  normal_ceiling: number;
+  low_ceiling: number;
+  waiting: number;
+  receipts_open: boolean;
+};
+
 export async function emailActivity(userId: string) {
   await assertRole(userId, "manager");
   const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const [{ data, error }, week] = await Promise.all([
+  const [{ data, error }, week, budget] = await Promise.all([
     supabaseAdmin
       .from("notification_events")
       .select("id,template,category,status,recipient,attempts,created_at,sent_at,last_error")
@@ -116,6 +127,7 @@ export async function emailActivity(userId: string) {
       .eq("channel", "email")
       .gte("created_at", since)
       .limit(5000),
+    supabaseAdmin.rpc("email_budget_status"),
   ]);
   if (error) throw error;
   const totals = { sent: 0, waiting: 0, failed: 0 };
@@ -126,6 +138,7 @@ export async function emailActivity(userId: string) {
   }
   return {
     totals,
+    budget: (budget.data ?? null) as EmailBudget | null,
     rows: (data ?? []).map((r) => ({
       id: r.id,
       label: templateLabel(r.template),

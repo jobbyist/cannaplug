@@ -26,26 +26,41 @@ describe.skipIf(!DB_URL)("email automations (real PostgreSQL)", () => {
       sql`SELECT count(*)::int FROM public.notification_events WHERE template = ${template} AND recipient_user_id = ${userId}`,
     );
 
-  it("a new member gets exactly one welcome email", async () => {
+  it("sign-up sends nothing; the welcome email goes out once, when the ID is approved", async () => {
     const id = uid();
     await sql`INSERT INTO auth.users (id, email) VALUES (${id}, ${`w-${id}@test.local`})`;
     await sql`INSERT INTO public.profiles (id, full_name) VALUES (${id}, 'Wendy Welcome') ON CONFLICT (id) DO NOTHING`;
+    expect(await queued("member_welcome", id)).toBe(0);
+    await sql`INSERT INTO public.customer_verification (user_id, status, document_type, declared_dob, submitted_at, document_path)
+              VALUES (${id}, 'pending', 'sa_id', '1990-01-01', now(), ${`${id}/id.jpg`})`;
+    await sql`UPDATE public.customer_verification SET status = 'verified', verified_at = now(), verified_by = ${manager}, reviewed_at = now(), reviewed_by = ${manager}, method = 'manual_id_review' WHERE user_id = ${id}`;
     expect(await queued("member_welcome", id)).toBe(1);
-    await sql`UPDATE public.profiles SET full_name = 'Wendy W' WHERE id = ${id}`;
-    expect(await queued("member_welcome", id)).toBe(1);
+    const data = await val(
+      sql`SELECT data FROM public.notification_events WHERE template = 'member_welcome' AND recipient_user_id = ${id}`,
+    );
+    expect((data as { id_verified: boolean }).id_verified).toBe(true);
+    expect(await queued("id_approved", id)).toBe(0);
   });
 
-  it("ID verification: member is told when it is received, approved and rejected; managers are told about new submissions", async () => {
+  it("ID verification: nothing on submission (member or staff); a rejection emails the member; a re-approval gets the short email", async () => {
     const member = await mkUser(sql, "customer");
     await sql`INSERT INTO public.customer_verification (user_id, status, document_type, declared_dob, submitted_at, document_path)
               VALUES (${member}, 'pending', 'sa_id', '1990-01-01', now(), ${`${member}/id.jpg`})`;
-    expect(await queued("id_submitted", member)).toBe(1);
+    expect(await queued("id_submitted", member)).toBe(0);
     expect(
       await val(
-        sql`SELECT count(*)::int FROM public.notification_events WHERE template = 'staff_id_review' AND recipient_user_id = ${manager}`,
+        sql`SELECT count(*)::int FROM public.notification_events WHERE template = 'staff_id_review' AND status <> 'suppressed'`,
       ),
-    ).toBeGreaterThanOrEqual(1);
+    ).toBe(0);
+    await sql`UPDATE public.customer_verification SET status = 'rejected', rejection_code = 'unreadable', reviewed_at = now(), reviewed_by = ${manager} WHERE user_id = ${member}`;
+    expect(await queued("id_rejected", member)).toBe(1);
+    await sql`UPDATE public.customer_verification SET status = 'pending', rejection_code = NULL WHERE user_id = ${member}`;
     await sql`UPDATE public.customer_verification SET status = 'verified', verified_at = now(), verified_by = ${manager}, reviewed_at = now(), reviewed_by = ${manager}, method = 'manual_id_review' WHERE user_id = ${member}`;
+    expect(await queued("member_welcome", member)).toBe(1);
+    // A later re-verification (e.g. a renewed passport) gets the short approval email, not a second welcome.
+    await sql`UPDATE public.customer_verification SET status = 'pending' WHERE user_id = ${member}`;
+    await sql`UPDATE public.customer_verification SET status = 'verified', reviewed_at = now() + interval '1 second' WHERE user_id = ${member}`;
+    expect(await queued("member_welcome", member)).toBe(1);
     expect(await queued("id_approved", member)).toBe(1);
     // unchanged status never re-sends
     await sql`UPDATE public.customer_verification SET attempt_count = attempt_count WHERE user_id = ${member}`;
