@@ -177,6 +177,10 @@ function AdminPage() {
   useEffect(() => {
     const fromHash = sectionFromHash(window.location.hash, "");
     if (fromHash) setTab(fromHash);
+    // Typing /admin#reports in the address bar, or Back / Forward, switches section too.
+    const onHash = () => setTab(sectionFromHash(window.location.hash));
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
