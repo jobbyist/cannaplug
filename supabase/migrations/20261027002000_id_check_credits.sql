@@ -56,8 +56,7 @@ BEGIN
   RAISE EXCEPTION 'id_credit_ledger is append-only';
 END;
 $$;
-DROP TRIGGER IF EXISTS id_credit_ledger_no_change ON public.id_credit_ledger;
-CREATE TRIGGER id_credit_ledger_no_change BEFORE UPDATE OR DELETE ON public.id_credit_ledger
+CREATE OR REPLACE TRIGGER id_credit_ledger_no_change BEFORE UPDATE OR DELETE ON public.id_credit_ledger
   FOR EACH ROW EXECUTE FUNCTION public._id_credit_ledger_immutable();
 REVOKE ALL ON FUNCTION public._id_credit_ledger_immutable() FROM PUBLIC, anon, authenticated;
 
@@ -161,8 +160,7 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public._id_credit_on_submission() FROM PUBLIC, anon, authenticated;
-DROP TRIGGER IF EXISTS customer_verification_id_credit ON public.customer_verification;
-CREATE TRIGGER customer_verification_id_credit
+CREATE OR REPLACE TRIGGER customer_verification_id_credit
   AFTER INSERT OR UPDATE OF status ON public.customer_verification
   FOR EACH ROW EXECUTE FUNCTION public._id_credit_on_submission();
 
