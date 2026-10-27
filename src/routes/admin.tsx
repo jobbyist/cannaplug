@@ -33,7 +33,6 @@ import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
 import { PurchaseLimitsCard } from "@/components/admin/PurchaseLimitsCard";
 import { AuditPanel } from "@/components/admin/AuditPanel";
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -64,6 +63,7 @@ import {
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
+import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
 import { ReceiptSettingsPanel } from "@/components/admin/ReceiptSettingsPanel";
 import logoImage from "@/assets/cannaplug-logo.png";
 import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
@@ -480,28 +480,14 @@ function AdminPage() {
             />
           </>
         )}
-        {tab === "inventory" && dashboard && (
-          <div>
-            <h1 className="mb-4 font-display text-xl font-extrabold uppercase">Inventory</h1>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Available = on hand minus stock held for unpaid online orders. Figures come from the
-              immutable stock ledger and reservations; change stock in POS → Stock control.
-            </p>
-            <div className="grid gap-3">
-              {dashboard.inventory.map((item) => (
-                <div key={item.product_id} className="rounded-xl border border-border bg-card p-4">
-                  <div className="mb-2 flex justify-between text-xs">
-                    <span className="font-semibold">{item.product_name}</span>
-                    <span>
-                      {item.available} available · {item.held} held · {item.quantity_on_hand} on
-                      hand · {item.batches} batches
-                    </span>
-                  </div>
-                  <Progress value={Math.min(100, Math.max(0, item.available * 10))} />
-                </div>
-              ))}
-            </div>
-          </div>
+        {tab === "inventory" && (
+          <InventoryPanel
+            canManage={atLeast(role, "manager")}
+            onEditProduct={(id) => {
+              setEditingProduct(id);
+              setTab("products");
+            }}
+          />
         )}
         {tab === "payments" && <PaymentsPanel />}
         {tab === "audit" && <AuditPanel />}

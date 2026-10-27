@@ -3209,6 +3209,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      products_end_expired_sales: {
+        Args: { p_actor?: string | null };
+        Returns: number;
+      };
       pos_void_sale: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_sale_id: string };
         Returns: Json;

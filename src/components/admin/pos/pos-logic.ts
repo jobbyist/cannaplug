@@ -24,6 +24,8 @@ export type CatalogItem = {
   strain_type: string | null;
   unit: string | null;
   price_rand: number;
+  /** The normal price while a sale runs (shown struck through); price_rand is what the till charges. */
+  regular_price_rand?: number | null;
   available: number;
 };
 

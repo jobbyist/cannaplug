@@ -1,6 +1,7 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
+import { endExpiredSales } from "@/lib/sale-expiry.server";
 
 /**
  * POS data layer. Every mutation goes through a SECURITY DEFINER PostgreSQL function that
@@ -27,6 +28,8 @@ export type PosCatalogItem = {
   strain_type: string | null;
   unit: string | null;
   price_rand: number;
+  /** Set while the product is on sale: the normal price, shown struck through. price_rand is what is charged. */
+  regular_price_rand: number | null;
   available: number;
 };
 
@@ -91,6 +94,7 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 export async function getPosOverview(userId: string) {
   const role = await assertRole(userId, "budtender");
   const isManager = role === "manager" || role === "admin";
+  await endExpiredSales(userId);
 
   const [drawersRes, openRes, availabilityRes, productsRes] = await Promise.all([
     supabaseAdmin.from("cash_drawers").select("id,name,location,is_active").order("name"),
@@ -101,7 +105,7 @@ export async function getPosOverview(userId: string) {
     supabaseAdmin.from("inventory_availability").select("product_id,available"),
     supabaseAdmin
       .from("products")
-      .select("id,slug,name,category,subcategory,strain_type,unit,price_rand")
+      .select("id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand")
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),
@@ -115,6 +119,7 @@ export async function getPosOverview(userId: string) {
   const catalog: PosCatalogItem[] = (productsRes.data ?? []).map((p) => ({
     ...p,
     price_rand: Number(p.price_rand),
+    regular_price_rand: p.regular_price_rand == null ? null : Number(p.regular_price_rand),
     available: availability.get(p.id) ?? 0,
   }));
 
@@ -368,6 +373,7 @@ export async function posCompleteSale(
     key: string;
   },
 ) {
+  await endExpiredSales(userId);
   const sale = unwrap(
     await supabaseAdmin.rpc("pos_complete_sale", {
       p_actor: userId,

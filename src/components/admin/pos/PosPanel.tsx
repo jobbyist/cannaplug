@@ -443,7 +443,19 @@ function SaleScreen({
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="block text-sm font-bold">{rand(p.price_rand)}</span>
+                  <span className="block text-sm font-bold">
+                    {p.regular_price_rand != null && (
+                      <>
+                        <span className="mr-1 rounded bg-[#D4AF37] px-1 text-[0.6rem] font-bold uppercase text-[#0B3D20]">
+                          Sale
+                        </span>
+                        <s className="mr-1 text-xs font-normal text-muted-foreground">
+                          {rand(p.regular_price_rand)}
+                        </s>
+                      </>
+                    )}
+                    {rand(p.price_rand)}
+                  </span>
                   <span
                     className={`block text-[0.7rem] ${p.available <= 0 ? "text-destructive" : p.available <= 5 ? "text-amber-600" : "text-muted-foreground"}`}
                   >
@@ -506,6 +518,9 @@ function SaleScreen({
                       <p className="truncate text-sm font-semibold">{l.product.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {rand(l.product.price_rand)} each
+                        {l.product.regular_price_rand != null && (
+                          <> · sale (normally {rand(l.product.regular_price_rand)})</>
+                        )}
                       </p>
                     </div>
                     <button

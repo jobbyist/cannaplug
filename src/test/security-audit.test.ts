@@ -129,6 +129,9 @@ const DATA_LAYERS: Record<string, string[]> = {
     "confirmOrderPayment",
   ],
   "src/lib/pos-data.server.ts": ["friendlyPosError"],
+  "src/lib/inventory-data.server.ts": [],
+  // Ending expired sales lowers nothing: it only restores regular prices, and the RPC checks a staff actor.
+  "src/lib/sale-expiry.server.ts": ["endExpiredSales"],
   "src/lib/payments/payments-data.server.ts": [
     "availableOnlineMethods",
     "configuredOnlineProviders",

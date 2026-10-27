@@ -1251,3 +1251,21 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `bunx vitest run src/test/auth-messages.test.ts src/test/password-forms.test.tsx`, `scripts/verify-release.sh`.
 - Owner actions: in Supabase Auth → SMTP, the sender must be admin@updates.cannaplug012.co.za (cannaplug012.co.za is not verified in Resend, so Resend refuses it).
 - Rollback: revert this PR.
+
+## 27 Oct 2026 — Sale prices verified at the till and online; Inventory tab rebuilt (feat/mvp-inventory-sales)
+- Purpose: the client asked (1) to verify that the admin sale price works for POS and online sales and (2) for a simpler, friendlier Inventory tab.
+- Sale price check: the till (`pos_complete_sale`) and online checkout (`checkout_quote` / `checkout_place_order`) both charge `price_rand`, which holds the sale price while a sale runs, so both already charged the sale price. Gaps found and fixed:
+  - **Sales never ended.** `sale_ends_at` was stored but nothing acted on it, so an ended sale kept charging the sale price everywhere. New `products_end_expired_sales(actor)` restores the regular price with an audit row (`product_sale_ended`); pg_cron runs it every minute (`cannaplug-end-sales`) and the app calls it just before pricing a till sale, a checkout quote or an order (`src/lib/sale-expiry.server.ts`).
+  - **The "Sale ends" picker shifted time by two hours on every save** (it showed UTC as local). Fixed with `toLocalInput` / `fromLocalInput` (`src/lib/sale-price.ts`).
+  - **A sale price that was not lower than the regular price was dropped silently.** The editor and the server now refuse it with a clear message, as well as a R0 sale, an end date without a sale price, and an end time in the past (`saleProblem`).
+  - The POS product search and basket now show a gold **Sale** tag with the regular price struck through.
+- Inventory tab (`src/components/admin/inventory/*`, `src/lib/inventory-logic.ts`, `src/lib/inventory-data.server.ts`, `src/lib/inventory.functions.ts`):
+  - Lists every product (previously only products that already had a batch), with photo, SKU, category, brand, status badge (In stock / Low / Out / Not tracked), sale, in-store-only, expired and expiring-soon badges, an availability bar and on hand / held / alert level.
+  - Clickable summary cards (Products, Low stock, Out of stock, Expiring ≤30 days, Expired stock, Stock at cost for managers) act as filters.
+  - Search (name, SKU, brand), Category, Status and Sort drop-downs, a Show inactive switch, Clear filters, 50 rows at a time with Show more, and a CSV stock sheet for counts (no cost data).
+  - Modals: **Receive stock** (searchable product picker from "Receive delivery", new batch with a suggested code or top-up of an existing batch, quantity stepper with +1/+5/+10/+25/+50, expiry, unit cost, notes, before → after preview); **Adjust stock** (Set counted amount / Remove / Add, batch picked automatically when there is one, reason drop-down, preview that refuses going below zero or below stock held for online orders); **Stock history** (latest 50 movements with batch and staff name); **Low-stock alert** (stepper and presets; audited as `product_low_stock_threshold_set`). "Edit product & price" jumps to the product editor.
+  - Budtenders can view and see history; receiving, adjusting and alert levels are managers only (also enforced on the server).
+- Migrations: `20261027001000_sale_expiry` (drizzle `0039_sale_expiry`), rollback `supabase/rollbacks/20261027001000_sale_expiry_rollback.sql`, rehearsal `scripts/rollback-rehearsal-sale-expiry.sh` (in verify-release).
+- Tests: `src/test/db/sale-pricing.test.ts` (till and online charge the sale price; an ended sale charges the regular price at both, refuses an order priced at the old sale price, writes one audit row, is idempotent; customers cannot run the sweep), `src/test/sale-price.test.ts`, `src/test/inventory-logic.test.ts`, `src/test/inventory-panel.test.tsx`. Mutation checks: removing the staff check fails the sweep test; granting the function to `authenticated` fails the security audit.
+- Owner actions: none.
+- Rollback: apply the rollback SQL, then revert the PR.
