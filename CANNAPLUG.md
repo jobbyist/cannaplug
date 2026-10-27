@@ -1270,6 +1270,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Owner actions: none.
 - Rollback: apply the rollback SQL, then revert the PR.
 
+## 27 Oct 2026 — PayFast pending-activation notice (feat/mvp-payfast-notice)
+- Purpose: owner's request. Until PayFast credentials are configured, /admin → Payments shows "Payfast payment pending activation, contact your administrator or developer for details". The notice disappears by itself once PAYFAST_MERCHANT_ID and PAYFAST_MERCHANT_KEY are set in Vercel.
+- Files: `src/components/admin/PaymentsPanel.tsx` (`PayfastPendingNotice`), `src/test/payfast-notice.test.tsx`.
+- Migrations: none. Tests: the notice test plus `scripts/verify-release.sh`.
+- Owner actions: add the PayFast merchant ID, key and passphrase in Vercel and set the PayFast notify URL when activating.
+- Rollback: revert the PR.
 ## 27 Oct 2026 — ID-check credits (feat/mvp-id-credits)
 - Purpose: owner's decision. Every new member costs 3 credits, charged once at their first ID submission. Opening balance 400 credits for new sign-ups plus 558 reserved for the 186 members in the customer import (3 each). Sign-ups since 26 Oct 2026 00:00 SAST are charged from the opening balance. At 100 or fewer unreserved credits one email goes to admin@ and info@cannaplug012.co.za; it goes again after a top-up lifts the balance above 100, or daily while at or below zero. When unreserved credits cannot cover a check, the sign-up form shows "New sign-ups are paused for now: our ID-check credits are used up…" and the database refuses new ID submissions (`id_credits_depleted`). Imported members (auth app_metadata `source = customer_import`, set only by the server) are charged from the reserve and are not blocked while it lasts.
 - Files: migration `20261027002000_id_check_credits` (tables `id_credit_settings`, `id_credit_ledger` (append-only); trigger on `customer_verification`; `id_credits_summary` (staff), `id_credits_top_up` (any staff), `id_credits_set_reserve` (admin), `id_credits_open` (public yes/no)), `src/lib/id-credits.{server,functions}.ts`, `src/components/admin/IdCreditsCard.tsx` (ID checks tab: balance, reserve, use, alert status, recent activity, Record top-up and Reserve modals), `src/routes/account.tsx` (sign-up paused message), `src/lib/member-logic.ts`, template `id_credits_low` (balances only, no member data), `scripts/email-samples.ts`, `supabase/tests/local/bootstrap.sql` (auth.users.raw_app_meta_data, as on Supabase).
