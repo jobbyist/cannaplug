@@ -66,12 +66,9 @@ describe("<AgeGate />", () => {
     expect(screen.queryByRole("dialog", { name: "Are you 18 or older?" })).toBeNull();
   });
 
-  it("links to the responsible-consumption notice", async () => {
-    const user = userEvent.setup();
+  it("does not show a responsible-consumption link on the gate", async () => {
     render(<AgeGate />);
-    await user.click(await screen.findByRole("button", { name: "Responsible consumption" }));
-    expect(
-      await screen.findByText(/It follows the requirements of South African law and SAHPRA/),
-    ).toBeTruthy();
+    await screen.findByRole("dialog", { name: "Are you 18 or older?" });
+    expect(screen.queryByRole("button", { name: "Responsible consumption" })).toBeNull();
   });
 });

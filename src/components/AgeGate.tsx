@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { ResponsibleConsumptionDialog } from "@/components/ResponsibleConsumptionDialog";
 
 export const AGE_GATE_KEY = "cannaplug.age.v1";
 export const AGE_GATE_DAYS = 30;
@@ -41,7 +40,6 @@ export function AgeGate() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [declined, setDeclined] = useState(false);
-  const [responsibleOpen, setResponsibleOpen] = useState(false);
 
   useEffect(() => {
     setOpen(ageGateNeeded(path, navigator.userAgent, readStored(), Date.now()));
@@ -89,15 +87,7 @@ export function AgeGate() {
             No
           </Button>
         </div>
-        <button
-          type="button"
-          className="mt-4 text-xs underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          onClick={() => setResponsibleOpen(true)}
-        >
-          Responsible consumption
-        </button>
       </div>
-      <ResponsibleConsumptionDialog open={responsibleOpen} onOpenChange={setResponsibleOpen} />
     </div>
   );
 }

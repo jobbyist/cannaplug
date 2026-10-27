@@ -26,6 +26,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Store,
   TicketPercent,
   Truck,
@@ -195,10 +196,12 @@ function SectionHeading({
   eyebrow,
   title,
   action,
+  href = "/#shop",
 }: {
   eyebrow?: string;
   title: string;
   action?: string;
+  href?: string;
 }) {
   return (
     <div className="section-heading">
@@ -207,7 +210,7 @@ function SectionHeading({
         <h2>{title}</h2>
       </div>
       {action && (
-        <a href="/#shop" className="text-link">
+        <a href={href} className="text-link">
           {action}
           <ArrowRight size={15} />
         </a>
@@ -883,6 +886,7 @@ function Events() {
           eyebrow="Good vibes & great people"
           title="UPCOMING EVENTS"
           action="View calendar"
+          href="/calendar"
         />
         <div className="event-grid">
           {events.map(([day, month, title, location, copy, style]) => (
@@ -1197,6 +1201,22 @@ export function Footer() {
           <h3>Stay connected</h3>
           <p>Get the latest stories, events and CannaPlug news.</p>
           <NewsletterForm />
+          <ul className="app-badges" aria-label="Mobile apps">
+            <li>
+              <Smartphone aria-hidden="true" size={18} />
+              <span>
+                <small>Coming soon to the</small>
+                <strong>App Store</strong>
+              </span>
+            </li>
+            <li>
+              <Smartphone aria-hidden="true" size={18} />
+              <span>
+                <small>Coming soon to</small>
+                <strong>Google Play</strong>
+              </span>
+            </li>
+          </ul>
           <div className="socials">
             <a aria-label="Instagram" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
               <Instagram />
