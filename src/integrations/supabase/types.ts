@@ -2347,6 +2347,7 @@ export type Database = {
           price_rand: number;
           regular_price_rand: number | null;
           sale_ends_at: string | null;
+          sale_online_only: boolean;
           sell_online: boolean;
           sku: string | null;
           slug: string;
@@ -2375,6 +2376,7 @@ export type Database = {
           price_rand: number;
           regular_price_rand?: number | null;
           sale_ends_at?: string | null;
+          sale_online_only?: boolean;
           sell_online?: boolean;
           sku?: string | null;
           slug: string;
@@ -2403,6 +2405,7 @@ export type Database = {
           price_rand?: number;
           regular_price_rand?: number | null;
           sale_ends_at?: string | null;
+          sale_online_only?: boolean;
           sell_online?: boolean;
           sku?: string | null;
           slug?: string;

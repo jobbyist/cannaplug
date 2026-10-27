@@ -145,6 +145,7 @@ const productSchema = z.object({
   weight_step_g: z.union([z.literal(0.5), z.literal(1)]).optional(),
   sale_price_rand: z.number().nonnegative().max(1_000_000).nullish(),
   sale_ends_at: z.string().datetime({ offset: true }).nullish(),
+  sale_online_only: z.boolean().optional(),
   is_featured: z.boolean().optional(),
 });
 
@@ -165,6 +166,7 @@ export const setProductSaleFn = createServerFn({ method: "POST" })
         productId: z.string().uuid(),
         salePrice: z.number().positive().max(1_000_000).nullable(),
         endsAt: z.string().datetime({ offset: true }).nullable(),
+        onlineOnly: z.boolean().optional(),
       })
       .parse(data),
   )
@@ -172,6 +174,7 @@ export const setProductSaleFn = createServerFn({ method: "POST" })
     setProductSale(context.userId, data.productId, {
       sale_price_rand: data.salePrice,
       sale_ends_at: data.salePrice == null ? null : data.endsAt,
+      online_only: data.salePrice == null ? false : Boolean(data.onlineOnly),
     }),
   );
 
