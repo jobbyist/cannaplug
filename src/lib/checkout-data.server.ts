@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database, Json } from "@/integrations/supabase/types";
-import { friendlyMemberError } from "@/lib/member-logic";
+import { friendlyMemberError, MemberError } from "@/lib/member-logic";
 import { endExpiredSales } from "@/lib/sale-expiry.server";
+import { DELIVERY_PAUSED_MESSAGE, deliveryEnabled } from "@/lib/delivery-flag";
 
 /**
  * Checkout data layer. The browser supplies product ids + quantities, ONE of its own saved address
@@ -60,10 +61,25 @@ export async function listDeliveryOptions() {
     .eq("is_active", true)
     .order("sort_order");
   if (error) throw friendlyMemberError(error);
-  return data ?? [];
+  // Delivery paused: only the pickup option is offered.
+  return (data ?? []).filter((o) => deliveryEnabled() || o.is_pickup);
+}
+
+/** Refuses a delivery option while delivery is paused (pickup is always allowed). */
+async function assertMethodAllowed(code: string) {
+  if (deliveryEnabled()) return;
+  const { data, error } = await supabaseAdmin
+    .from("delivery_options")
+    .select("is_pickup")
+    .eq("code", code)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) throw friendlyMemberError(error);
+  if (!data?.is_pickup) throw new MemberError(DELIVERY_PAUSED_MESSAGE);
 }
 
 export async function quoteCheckout(items: CheckoutItem[], deliveryMethod: string) {
+  await assertMethodAllowed(deliveryMethod);
   await endExpiredSales(null);
   return unwrap(
     await supabaseAdmin.rpc("checkout_quote", {
@@ -108,6 +124,7 @@ export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput)
   const methods = await availableOnlineMethods();
   const ok = input.paymentMethod === "eft" ? methods.eft !== null : methods[input.paymentMethod];
   if (!ok) throw friendlyMemberError(new Error("payment_method_unsupported"));
+  await assertMethodAllowed(input.deliveryMethod);
   await endExpiredSales(null);
   return unwrap(
     await supabaseAdmin.rpc("checkout_place_order", {

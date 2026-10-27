@@ -578,7 +578,7 @@ function Hero() {
         {[
           [Leaf, "Premium quality"],
           [BadgeCheck, "Lab tested"],
-          [Truck, "Discreet delivery"],
+          [Truck, "Free in-store pickup"],
           [Headphones, "Expert support"],
         ].map(([I, label]) => {
           const C = I as typeof Leaf;

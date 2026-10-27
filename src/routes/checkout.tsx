@@ -283,7 +283,15 @@ function CheckoutPage() {
       .then((rows) => {
         const list = rows as DeliveryOption[];
         setOptions(list);
-        setDelivery((current) => current ?? list.find((o) => !o.is_pickup)?.code ?? null);
+        // Delivery is paused: when the server offers only pickup, start (and stay) on pickup.
+        const pickupOnly = !list.some((o) => !o.is_pickup);
+        if (pickupOnly) setFulfil("pickup");
+        setDelivery(
+          (current) =>
+            current ??
+            (pickupOnly ? list.find((o) => o.is_pickup) : list.find((o) => !o.is_pickup))?.code ??
+            null,
+        );
       })
       .catch((err) => setError(errorText(err)));
   }, []);
@@ -329,6 +337,7 @@ function CheckoutPage() {
 
   const deliveryFee = options.find((o) => o.code === delivery)?.fee_rand ?? null;
   const pickupOption = options.find((o) => o.is_pickup) ?? null;
+  const deliveryAvailable = options.some((o) => !o.is_pickup);
   const shownOptions = options.filter((o) => Boolean(o.is_pickup) === (fulfil === "pickup"));
   const chooseFulfil = (next: "delivery" | "pickup") => {
     setFulfil(next);
@@ -587,7 +596,17 @@ function CheckoutPage() {
                     </div>
                   </div>
 
-                  {pickupOption && (
+                  {pickupOption && !deliveryAvailable && (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+                    >
+                      <b>In-store pickup only for now.</b> Delivery is coming soon. Collect your
+                      order at {pickupOption.pickup_address ?? "the shop"} — free, and we email you
+                      when it's ready.
+                    </p>
+                  )}
+                  {pickupOption && deliveryAvailable && (
                     <fieldset className="grid gap-2 sm:grid-cols-2">
                       <legend className="mb-2 text-xs font-bold uppercase text-muted-foreground">
                         How would you like to get your order?
@@ -808,8 +827,8 @@ function CheckoutPage() {
                     {
                       id: "card" as const,
                       icon: CreditCard,
-                      title: "Card or Instant EFT (PayFast)",
-                      body: "Pay in rand on PayFast's secure page — card, Instant EFT and the other options PayFast offers. Your order is confirmed automatically once PayFast verifies the payment.",
+                      title: "Card, Instant EFT, Apple Pay or Google Pay (PayFast)",
+                      body: "Pay in rand on PayFast's secure page with your card, Instant EFT, Apple Pay or Google Pay. Your order is confirmed automatically once PayFast verifies the payment.",
                       show: !!methods?.card,
                     },
                     {

@@ -11,15 +11,12 @@ export const SITE_FACTS = {
   email: "info@cannaplug012.co.za",
   instagram: "@cannaplug_012",
   delivery: [
-    "Standard delivery: 2 to 3 working days, R80.",
-    "Discreet delivery: plain unbranded packaging handed directly to you, R120.",
-    "In-store collection: free, ready within 2 hours during trading hours.",
-    "Delivery areas: Pretoria, Johannesburg and Cape Town metro areas; the address is checked at checkout.",
-    "Every delivery needs an age and ID check on handover (18+, valid government photo ID); orders are never left unattended.",
+    "Online orders are in-store pickup only for now. Delivery is coming soon; do not promise a delivery date, fee or area.",
+    "In-store collection: free, ready within 2 hours during trading hours. Bring valid government photo ID: age (18+) and ID are checked on collection.",
   ],
   payments: [
     "Pay by EFT (bank transfer): the order is held for 2 hours and confirmed once the payment has been verified by the team.",
-    "Pay by card or Instant EFT on PayFast's secure page, when offered at checkout.",
+    "Pay on PayFast's secure page with card, Instant EFT, Apple Pay or Google Pay.",
     "Pay with PayPal, when available: PayPal charges in US dollars at a live exchange rate with a small conversion margin, shown on PayPal before paying.",
     "An order is only confirmed after the payment has been verified; returning from a payment page is not confirmation.",
   ],

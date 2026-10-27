@@ -1395,3 +1395,20 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   iPhone-sized screen.
 - **Owner actions:** none. Staff: when reviewing IDs, compare the date of birth against the document as usual.
 - **Rollback:** revert the PR.
+
+## 27 Oct 2026 — PayFast live in admin and checkout; online orders pickup-only (feat/mvp-payfast-live-pickup)
+
+- **Purpose:** PayFast credentials are now in Vercel, so the "pending activation" notice is gone. The Payments tab lists
+  what PayFast accepts (Card, Instant EFT, Apple Pay, Google Pay) and the checkout option says the same. Online
+  orders are in-store pickup only until the client approves delivery: the server offers only the pickup option and
+  refuses to quote or place any other (a browser asking for "standard" or "discreet" gets "Delivery is coming soon").
+  The chat assistant and the homepage strip say pickup only.
+- **To switch delivery back on:** set `DELIVERY_ENABLED=true` in Vercel and redeploy. Nothing else changes.
+- **Files:** `src/lib/delivery-flag.ts` (new), `src/lib/checkout-data.server.ts`, `src/routes/checkout.tsx`,
+  `src/components/admin/PaymentsPanel.tsx`, `src/lib/ai/chat-prompt.ts`, `src/components/CannaPlugHome.tsx`.
+- **Migrations:** none (the delivery rows stay active in the database; the switch is on the server).
+- **Tests:** `delivery-paused.test.ts` (new, with a mutation check: forcing the flag on fails 3 tests),
+  `payments-panel-providers.test.tsx` (replaces the notice test), `checkout-flow` (pickup-only case), `ai-chat`.
+- **Owner actions:** if Apple Pay or Google Pay do not appear on PayFast's page, switch them on in the PayFast
+  dashboard (they are PayFast account options). Set `DELIVERY_ENABLED=true` when delivery is approved.
+- **Rollback:** revert the PR.
