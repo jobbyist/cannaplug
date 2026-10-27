@@ -1269,3 +1269,10 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - Tests: `src/test/db/sale-pricing.test.ts` (till and online charge the sale price; an ended sale charges the regular price at both, refuses an order priced at the old sale price, writes one audit row, is idempotent; customers cannot run the sweep), `src/test/sale-price.test.ts`, `src/test/inventory-logic.test.ts`, `src/test/inventory-panel.test.tsx`. Mutation checks: removing the staff check fails the sweep test; granting the function to `authenticated` fails the security audit.
 - Owner actions: none.
 - Rollback: apply the rollback SQL, then revert the PR.
+
+## 27 Oct 2026 — PayFast pending-activation notice (feat/mvp-payfast-notice)
+- Purpose: owner's request. Until PayFast credentials are configured, /admin → Payments shows "Payfast payment pending activation, contact your administrator or developer for details". The notice disappears by itself once PAYFAST_MERCHANT_ID and PAYFAST_MERCHANT_KEY are set in Vercel.
+- Files: `src/components/admin/PaymentsPanel.tsx` (`PayfastPendingNotice`), `src/test/payfast-notice.test.tsx`.
+- Migrations: none. Tests: the notice test plus `scripts/verify-release.sh`.
+- Owner actions: add the PayFast merchant ID, key and passphrase in Vercel and set the PayFast notify URL when activating.
+- Rollback: revert the PR.
