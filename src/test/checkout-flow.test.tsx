@@ -202,6 +202,32 @@ describe("checkout end to end (server mocked)", () => {
     expect(JSON.parse(window.localStorage.getItem("cannaplug.cart.v1") ?? "[]")).toEqual([]);
   });
 
+  it("with delivery paused, only pickup is offered and no address is asked for", async () => {
+    const user = userEvent.setup();
+    mocks.listDeliveryOptionsFn.mockResolvedValue([
+      {
+        code: "collection",
+        label: "In-store pickup",
+        description: "Collect at the shop",
+        fee_rand: 0,
+        is_pickup: true,
+        pickup_address: "Shop 002, One On Mutual, Pretoria Central",
+      },
+    ]);
+    mocks.listCheckoutAddressesFn.mockResolvedValue([]);
+    renderPage();
+    await user.click(screen.getByText("seed"));
+    await user.click(await screen.findByRole("button", { name: /continue/i }));
+    await user.clear(await screen.findByLabelText("Full name"));
+    await user.type(screen.getByLabelText("Full name"), "Mia Member");
+    await user.type(screen.getByLabelText("Phone"), "+27 82 000 0000");
+    expect(await screen.findByText(/In-store pickup only for now/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^Delivery/)).toBeNull();
+    expect(screen.queryByText("Delivery address")).toBeNull();
+    const next = screen.getByRole("button", { name: /continue/i }) as HTMLButtonElement;
+    await waitFor(() => expect(next.disabled).toBe(false));
+  });
+
   it("in-store pickup needs no address and sends no address id", async () => {
     const user = userEvent.setup();
     mocks.listDeliveryOptionsFn.mockResolvedValue([
@@ -378,7 +404,9 @@ describe("checkout end to end (server mocked)", () => {
     });
     renderPage();
     await toPayment(user);
-    expect(await screen.findByText("Card or Instant EFT (PayFast)")).toBeTruthy();
+    expect(
+      await screen.findByText("Card, Instant EFT, Apple Pay or Google Pay (PayFast)"),
+    ).toBeTruthy();
     expect(screen.getByText("PayPal (US dollars)")).toBeTruthy();
     expect(screen.getByText(/About US\$20\.00 today/)).toBeTruthy(); // R320 / 16
     await user.click(await screen.findByRole("button", { name: /place order & pay · R320/i }));
