@@ -211,6 +211,30 @@ export function ProductCsv({ onSaved }: { onSaved: () => Promise<void> }) {
                 </div>
               )}
 
+              {preview.duplicates.length > 0 && (
+                <div
+                  role="alert"
+                  data-testid="product-csv-duplicates"
+                  className="rounded-md border border-gold/60 bg-gold/10 p-2"
+                >
+                  <p className="mb-1 font-semibold">
+                    {preview.duplicates.length} row{preview.duplicates.length === 1 ? "" : "s"} may
+                    duplicate a product you already have
+                  </p>
+                  <p className="mb-1 text-xs text-muted-foreground">
+                    Check them before saving. If a row is the same item, give it the existing
+                    product&apos;s SKU so it updates that product instead of adding a second one.
+                  </p>
+                  <ul className="list-disc pl-5 text-xs">
+                    {preview.duplicates.map((d) => (
+                      <li key={`${d.line}-${d.sku}`}>
+                        Line {d.line} ({d.sku}) {d.name}: {d.problems.join(" ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {preview.creates.length > 0 && (
                 <div>
                   <p className="font-semibold">New products</p>

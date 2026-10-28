@@ -10,6 +10,7 @@
 
 import { CATEGORY_ORDER } from "@/lib/home-catalogue";
 import { normaliseRand, parseCsv, slugify } from "@/lib/catalogue-import";
+import { describeDuplicate, findDuplicates, type DuplicatePool } from "@/lib/product-duplicates";
 
 export const PRODUCT_CSV_COLUMNS = [
   "sku",
@@ -363,8 +364,11 @@ export type PlannedCreate = {
   opening_qty: number;
 };
 export type PlannedUpdate = { line: number; sku: string; name: string; changes: FieldChange[] };
+export type CsvDuplicateWarning = { line: number; sku: string; name: string; problems: string[] };
 export type ProductCsvPlan = {
   creates: PlannedCreate[];
+  /** Rows that look like a product the shop already has (or another row in the file). Never blocks a save. */
+  duplicates: CsvDuplicateWarning[];
   updates: PlannedUpdate[];
   unchanged: number;
   issues: CsvIssue[];
@@ -396,6 +400,22 @@ export function planProductCsv(
   );
   const fileBarcodes = new Map<string, string>();
   const creates: PlannedCreate[] = [];
+  const duplicates: CsvDuplicateWarning[] = [];
+  const pool: DuplicatePool[] = existing.map((e) => ({
+    id: e.id,
+    name: e.name,
+    category: e.category,
+    sku: e.sku,
+    is_active: e.is_active,
+  }));
+  // Rows already in the file count too, so one file cannot add the same product twice under two SKUs.
+  const inFile: DuplicatePool[] = [];
+  const warn = (p: ProductPatch, name: string, category: string, id: string | null) => {
+    const found = findDuplicates({ id, name, category, sku: p.sku }, [...pool, ...inFile]);
+    inFile.push({ id: `line-${p.line}`, name, category, sku: p.sku, is_active: true });
+    if (found.length)
+      duplicates.push({ line: p.line, sku: p.sku, name, problems: found.map(describeDuplicate) });
+  };
   const updates: PlannedUpdate[] = [];
   const rpcRows: Record<string, unknown>[] = [];
   let unchanged = 0;
@@ -442,6 +462,7 @@ export function planProductCsv(
         price: pricing.price_rand,
         opening_qty: lounge ? 0 : (p.opening_qty ?? 0),
       });
+      warn(p, p.name!, p.category!, null);
       const { line: _l, ...rest } = p;
       rpcRows.push({
         ...rest,
@@ -508,6 +529,16 @@ export function planProductCsv(
       unchanged++;
       continue;
     }
+    if (changes.some((c) => c.field === "name" || c.field === "category"))
+      warn(p, p.name ?? ex.name, p.category ?? ex.category, ex.id);
+    else
+      inFile.push({
+        id: ex.id,
+        name: ex.name,
+        category: ex.category,
+        sku: ex.sku,
+        is_active: ex.is_active,
+      });
     updates.push({ line: p.line, sku: ex.sku!, name: p.name ?? ex.name, changes });
     const { line: _l, opening_qty: _q, ...rest } = p;
     rpcRows.push({ ...rest, ...(openingQty ? { opening_qty: openingQty } : {}) });
@@ -516,7 +547,7 @@ export function planProductCsv(
   const clean = rpcRows.map((r) =>
     Object.fromEntries(Object.entries(r).filter(([, v]) => v !== undefined)),
   );
-  return { creates, updates, unchanged, issues, notes, rpcRows: clean };
+  return { creates, duplicates, updates, unchanged, issues, notes, rpcRows: clean };
 }
 
 // ---------------------------------------------------------------- template + export

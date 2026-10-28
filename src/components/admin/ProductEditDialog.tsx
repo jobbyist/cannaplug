@@ -21,6 +21,7 @@ import {
   saveAdminProductFn,
 } from "@/lib/admin.functions";
 import type { AdminProductInput } from "@/lib/admin-data.server";
+import { describeDuplicate, findDuplicates } from "@/lib/product-duplicates";
 import {
   PRODUCT_IMAGE_ACCEPT,
   PRODUCT_IMAGE_BUCKET,
@@ -134,6 +135,8 @@ export function ProductEditDialog({
   const [form, setForm] = useState<AdminProductInput>(blank);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The warning the manager has already seen and chosen to save past (compared as text, so editing the name asks again).
+  const [acknowledged, setAcknowledged] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -151,9 +154,32 @@ export function ProductEditDialog({
     sale: form.sale_price_rand,
     endsAt: form.sale_ends_at,
   });
+  // An existing product is only checked when its name, category or SKU is being changed, so fixing a price on a
+  // product that is already a known duplicate does not nag.
+  const identityChanged =
+    !product ||
+    form.name !== product.name ||
+    form.category !== product.category ||
+    (form.sku ?? null) !== (product.sku ?? null);
+  const duplicates = identityChanged
+    ? findDuplicates(
+        {
+          id: editingProduct === "new" ? null : editingProduct,
+          name: form.name,
+          category: form.category,
+          sku: form.sku ?? null,
+        },
+        products,
+      )
+    : [];
+  const duplicateKey = duplicates.map((d) => `${d.id}:${d.reason}`).join("|");
   const save = async () => {
     if (saleIssue) {
       setMessage(saleIssue);
+      return;
+    }
+    if (duplicates.length && acknowledged !== duplicateKey) {
+      setAcknowledged(duplicateKey);
       return;
     }
     setBusy(true);
@@ -467,6 +493,25 @@ export function ProductEditDialog({
             )}
           </div>
 
+          {duplicates.length > 0 && (
+            <div
+              role="alert"
+              data-testid="product-duplicate-warning"
+              className="mt-3 rounded-md border border-gold/60 bg-gold/10 p-3 text-sm"
+            >
+              <p className="font-semibold">This looks like a product you already have</p>
+              <ul className="mt-1 list-disc pl-5 text-xs">
+                {duplicates.map((d) => (
+                  <li key={`${d.id}-${d.reason}`}>{describeDuplicate(d)}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Two products with one name split stock and sales between them. If it is the same
+                item, edit the existing product and use Receive stock instead.
+                {acknowledged === duplicateKey && " Press Save again to add it anyway."}
+              </p>
+            </div>
+          )}
           {message && (
             <p role="status" className="mt-3 text-sm">
               {message}
@@ -478,7 +523,7 @@ export function ProductEditDialog({
             Cancel
           </Button>
           <Button disabled={busy} onClick={() => void save()}>
-            Save
+            {duplicates.length && acknowledged === duplicateKey ? "Save anyway" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

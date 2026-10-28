@@ -1660,3 +1660,14 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `db/pos-free-sales` (11: every role at 0.01–99.99% and 100%, line, order, both, all lines at 100% with an order discount, amount equal to the base, over-100% and over-base refused, payments must equal the total, reason required, idempotent replay, void restocks, no refund, report, loyalty, mutation check), `pos-logic`, `pos-discounts` (incl. R0 receipt text and PDF), `pos-panel` (free sale end to end), older assertions of "a free sale is refused" updated.
 - **Not changed:** the catalogue sale price on the Products tab stays manager-only. A R0 public price would let members check out for free; at the till any staff member can discount any product.
 - **Rollback:** run the rollback SQL, then revert the PR.
+
+## 28 Oct 2026 — Warn about duplicate products (feat/mvp-duplicate-warning)
+
+- **Why:** the 28 Oct duplicate scan found products added twice (Mandarin Cookies under two SKUs, plus hidden seed leftovers) because imports match only on SKU and nothing compared names. Stock and sales split across the two, so one looked out of stock.
+- **What it does:** a warning, never a block. A product looks like a duplicate when another product has the same name and category (case, accents and punctuation ignored), or a SKU that is the same apart from case and punctuation (`OCS(001` vs `ocs-001`). The same exact SKU is an update, not a duplicate.
+  - **Add or edit product:** an amber notice names the matching product (SKU, category, hidden or not); the first Save press shows it, the button then reads "Save anyway". An existing product is only checked when its name, category or SKU is changed, so editing a price on a known duplicate does not nag.
+  - **CSV upload:** the preview lists rows that may duplicate a shop product, or another row in the same file, or a rename into another product. Saving stays allowed.
+- **Files:** `src/lib/product-duplicates.ts` (pure matching), `src/lib/product-csv.ts` (`duplicates` in the plan), `product-csv.server.ts`, `src/components/admin/{ProductEditDialog,ProductCsv}.tsx`.
+- **Migrations:** none. **Tests:** `product-duplicates` (matching and CSV planning), `product-edit-dialog`, `product-csv-dialog`.
+- **Not changed:** no product data was touched. The client is fixing Mandarin Cookies, Orange Cookies Stick, Orange Road Stick and never-stocked items by hand in the dashboard.
+- **Rollback:** revert the PR.

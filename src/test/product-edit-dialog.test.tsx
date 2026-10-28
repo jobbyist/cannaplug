@@ -118,4 +118,36 @@ describe("product editing popup", () => {
     );
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
+
+  it("warns about a duplicate name, then saves anyway on a second press", async () => {
+    mocks.save.mockResolvedValue({});
+    render(
+      <ProductEditDialog
+        products={[product()]}
+        editingProduct="new"
+        setEditingProduct={() => {}}
+        onSaved={async () => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText(/^Name/i), "sour og");
+    expect(within(dialog).getByTestId("product-duplicate-warning").textContent).toMatch(/Sour OG/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(mocks.save).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save anyway" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not warn when editing a product's price", async () => {
+    render(
+      <ProductEditDialog
+        products={[product(), product({ id: "22222222-2222-4222-8222-222222222222" })]}
+        editingProduct="11111111-1111-4111-8111-111111111111"
+        setEditingProduct={() => {}}
+        onSaved={async () => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByTestId("product-duplicate-warning")).toBeNull();
+  });
 });

@@ -49,6 +49,7 @@ export async function previewProductCsv(userId: string, csv: string) {
   const p = plan(csv, await loadExisting());
   return {
     creates: p.creates,
+    duplicates: p.duplicates,
     updates: p.updates,
     unchanged: p.unchanged,
     issues: p.issues,
