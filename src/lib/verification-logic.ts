@@ -217,6 +217,8 @@ export type VerificationRow = {
   rejection_note?: string | null;
   attempt_count?: number | null;
   document_expires_on?: string | null;
+  /** Staff accounts (budtender, manager, admin) do not need to verify an ID to order online. */
+  staff_exempt?: boolean;
 };
 
 export type VerificationView = {
@@ -231,6 +233,17 @@ export type VerificationView = {
 };
 
 export function verificationView(row: VerificationRow | null | undefined): VerificationView {
+  if (row?.staff_exempt)
+    return {
+      status: "verified",
+      canOrder: true,
+      label: "Staff",
+      tone: "success",
+      headline: "ID check not required for staff",
+      detail: "Staff accounts can place orders without verifying an ID, and get the staff rate.",
+      canSubmit: false,
+      attemptsLeft: ID_MAX_ATTEMPTS,
+    };
   const status: VerificationStatus = STATUSES.includes(row?.status as VerificationStatus)
     ? (row!.status as VerificationStatus)
     : "unverified";

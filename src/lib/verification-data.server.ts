@@ -50,8 +50,21 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
  * The member's own row, read through RLS + the column grant (no storage path, no declared DOB).
  * Filtered by user id as well: managers' RLS can read every member's row.
  */
+/** True for budtenders, managers and admins: they are exempt from the online ID check (the database enforces it). */
+export async function isStaffAccount(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["budtender", "manager", "admin"])
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+/** The member's verification row, with `staff_exempt` set for staff accounts (whether or not they have a row). */
 export async function getMyVerification(db: UserClient, userId: string) {
-  return unwrap(
+  const row = unwrap(
     await db
       .from("customer_verification")
       .select(
@@ -60,6 +73,9 @@ export async function getMyVerification(db: UserClient, userId: string) {
       .eq("user_id", userId)
       .maybeSingle(),
   );
+  return (await isStaffAccount(userId))
+    ? { ...(row ?? { status: "unverified" }), staff_exempt: true }
+    : row;
 }
 
 export async function createIdUpload(userId: string, mime: string) {
