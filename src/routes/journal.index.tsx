@@ -39,7 +39,13 @@ export const Route = createFileRoute("/journal/")({
 
 function Cover({ a, className }: { a: JournalListItem; className?: string }) {
   return a.cover_image_url ? (
-    <img src={a.cover_image_url} alt={a.title} loading="lazy" className={className} />
+    <img
+      src={a.cover_image_url}
+      alt={a.cover_alt ?? a.title}
+      loading="lazy"
+      decoding="async"
+      className={className}
+    />
   ) : (
     <div className={`journal-cover-fallback ${className ?? ""}`} />
   );
@@ -85,10 +91,12 @@ function JournalIndex() {
               <Cover a={lead} />
               <div>
                 <p className="eyebrow">
+                  {lead.featured && <span className="journal-featured-tag">Featured</span>}
                   {lead.category} · {formatJournalDate(lead.published_at)}
                 </p>
                 <h2>{lead.title}</h2>
                 <p>{lead.excerpt}</p>
+                {lead.author_name && <p className="journal-byline">By {lead.author_name}</p>}
                 <span className="journal-more">
                   Read story <ArrowRight size={15} />
                 </span>
@@ -106,10 +114,12 @@ function JournalIndex() {
                     <Cover a={a} />
                   </div>
                   <p className="eyebrow">
+                    {a.featured && <span className="journal-featured-tag">Featured</span>}
                     {a.category} · {formatJournalDate(a.published_at)}
                   </p>
                   <h3>{a.title}</h3>
                   <p>{a.excerpt}</p>
+                  {a.author_name && <p className="journal-byline">By {a.author_name}</p>}
                   <small>
                     <Clock3 size={13} /> {a.reading_minutes} min read
                   </small>

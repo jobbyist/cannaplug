@@ -1,4 +1,4 @@
-import { SITE_URL, canonical } from "@/lib/site";
+import { SITE_URL } from "@/lib/site";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode } from "react";
@@ -9,11 +9,17 @@ import { Header, Footer } from "@/components/CannaPlugHome";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, rand } from "@/lib/cart";
 import {
+  DEFAULT_AUTHOR,
   journalArticleQuery,
   journalListQuery,
   formatJournalDate,
   UNSPLASH_REF,
 } from "@/lib/journal";
+import { articleHead } from "@/lib/journal-seo";
+import { getJournalEngagementFn } from "@/lib/journal.functions";
+import { CommentSection } from "@/components/journal/CommentSection";
+import { LikeButton } from "@/components/journal/LikeButton";
+import { ShareButtons } from "@/components/journal/ShareButtons";
 
 export const Route = createFileRoute("/journal/$slug")({
   loader: async ({ context, params }) => {
@@ -25,71 +31,7 @@ export const Route = createFileRoute("/journal/$slug")({
   head: ({ loaderData }) => {
     const a = loaderData?.article;
     if (!a) return { meta: [{ title: "Story not found | The CannaPlug Journal" }] };
-    const schema = {
-      "@context": "https://schema.org",
-      "@type": "NewsArticle",
-      headline: a.title,
-      description: a.excerpt,
-      image: a.cover_image_url ? [a.cover_image_url] : undefined,
-      datePublished: a.published_at,
-      dateModified: a.published_at,
-      articleSection: a.category,
-      wordCount: a.body_md.split(/\s+/).length,
-      author: {
-        "@type": "Organization",
-        name: "The CannaPlug Journal",
-        url: `${SITE_URL}/journal`,
-      },
-      publisher: {
-        "@type": "Organization",
-        name: "CannaPlug",
-        url: `${SITE_URL}`,
-      },
-      mainEntityOfPage: {
-        "@type": "WebPage",
-        "@id": `${SITE_URL}/journal/${a.slug}`,
-      },
-      citation: a.sources?.map((s) => s.url),
-    };
-    const breadcrumbs = {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
-        {
-          "@type": "ListItem",
-          position: 2,
-          name: "Journal",
-          item: `${SITE_URL}/journal`,
-        },
-        { "@type": "ListItem", position: 3, name: a.title },
-      ],
-    };
-    const c = canonical(`/journal/${a.slug}`);
-    return {
-      links: c.links,
-      meta: [
-        ...c.meta,
-        { title: `${a.title} | The CannaPlug Journal` },
-        { name: "description", content: a.excerpt },
-        { property: "og:title", content: a.title },
-        { property: "og:description", content: a.excerpt },
-        { property: "og:type", content: "article" },
-        { property: "article:published_time", content: a.published_at },
-        { property: "article:section", content: a.category },
-        { name: "twitter:card", content: "summary_large_image" },
-        ...(a.cover_image_url
-          ? [
-              { property: "og:image", content: a.cover_image_url },
-              { name: "twitter:image", content: a.cover_image_url },
-            ]
-          : []),
-      ],
-      scripts: [
-        { type: "application/ld+json", children: JSON.stringify(schema) },
-        { type: "application/ld+json", children: JSON.stringify(breadcrumbs) },
-      ],
-    };
+    return articleHead(a);
   },
   notFoundComponent: () => (
     <div className="site">
@@ -161,6 +103,10 @@ function ArticlePage() {
       return (data ?? []) as ShopProduct[];
     },
   });
+  const { data: engagement } = useQuery({
+    queryKey: ["journal", "engagement", slug],
+    queryFn: () => getJournalEngagementFn({ data: { slug } }),
+  });
   if (!article) return null;
 
   const sections = article.body_md.split(/\n(?=## )/);
@@ -180,6 +126,23 @@ function ArticlePage() {
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ h1: "h2" }}>
         {section}
       </ReactMarkdown>
+      {(article.inline_images ?? [])
+        .filter((img) => img.after_section === i)
+        .map((img) => (
+          <figure key={img.url} className="journal-inline-figure">
+            <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
+            <figcaption>
+              Photo by{" "}
+              <a href={img.credit_url} target="_blank" rel="noreferrer">
+                {img.credit_name}
+              </a>{" "}
+              on{" "}
+              <a href={UNSPLASH_REF} target="_blank" rel="noreferrer">
+                Unsplash
+              </a>
+            </figcaption>
+          </figure>
+        ))}
       {i === 1 && picks[0] && <ProductCallout product={picks[0]} />}
       {i === 3 && picks[1] && <ProductCallout product={picks[1]} />}
     </Fragment>
@@ -199,9 +162,13 @@ function ArticlePage() {
           </p>
           <h1>{article.title}</h1>
           <p className="journal-standfirst">{article.excerpt}</p>
+          <p className="journal-byline">
+            By <span rel="author">{article.author_name ?? DEFAULT_AUTHOR}</span> ·{" "}
+            <time dateTime={article.published_at}>{formatJournalDate(article.published_at)}</time>
+          </p>
           {article.cover_image_url && (
             <figure className="journal-hero">
-              <img src={article.cover_image_url} alt={article.title} />
+              <img src={article.cover_image_url} alt={article.cover_alt ?? article.title} />
               {article.cover_credit_name && (
                 <figcaption>
                   Photo by{" "}
@@ -221,6 +188,16 @@ function ArticlePage() {
             </figure>
           )}
           <div className="journal-body">{blocks}</div>
+          <div className="journal-engage">
+            {engagement && (
+              <LikeButton articleId={engagement.articleId} initialCount={engagement.likeCount} />
+            )}
+            <ShareButtons
+              url={`${SITE_URL}/journal/${article.slug}`}
+              title={article.title}
+              text={article.excerpt}
+            />
+          </div>
           {article.sources?.length > 0 && (
             <section className="journal-sources">
               <h2>Sources &amp; Further Reading</h2>
@@ -236,6 +213,13 @@ function ArticlePage() {
             </section>
           )}
         </article>
+        {engagement && (
+          <CommentSection
+            articleId={engagement.articleId}
+            slug={article.slug}
+            comments={engagement.comments}
+          />
+        )}
         {related.length > 0 && (
           <section className="journal-related">
             <h2>RELATED STORIES</h2>

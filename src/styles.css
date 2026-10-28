@@ -70,6 +70,10 @@
 
 :root {
   --radius: 0.5rem;
+  /* Page widths in rem: they grow with the root size on large screens (see the html rules in @layer base). */
+  --shell: 73.75rem;
+  --content-w: 70.75rem;
+  color-scheme: light;
   --background: oklch(0.985 0.006 145);
   --foreground: oklch(0.18 0.018 145);
   --card: oklch(1 0 0);
@@ -108,26 +112,29 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.16 0.02 150);
   --foreground: oklch(0.95 0.01 140);
   --card: oklch(0.21 0.025 150);
   --card-foreground: oklch(0.95 0.01 140);
   --popover: oklch(0.21 0.025 150);
   --popover-foreground: oklch(0.95 0.01 140);
-  --primary: oklch(0.36 0.09 147);
-  --primary-foreground: oklch(0.98 0.005 140);
+  /* Leaf green with white text (about 5:1), so buttons stand out from the page instead of sinking into it. */
+  --primary: oklch(0.53 0.15 148);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.25 0.03 150);
   --secondary-foreground: oklch(0.9 0.04 140);
   --muted: oklch(0.25 0.025 150);
-  --muted-foreground: oklch(0.72 0.02 140);
+  --muted-foreground: oklch(0.76 0.02 140);
   --accent: oklch(0.7 0.17 145);
   --accent-foreground: oklch(0.16 0.02 150);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  --border: oklch(1 0 0 / 16%);
+  --input: oklch(1 0 0 / 20%);
   --ring: oklch(0.7 0.17 145);
   --charcoal: oklch(0.08 0 0);
+  --premium: oklch(0.8 0.14 88);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -153,12 +160,47 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
     letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   html {
     scroll-behavior: smooth;
+    /* Same proportions in every browser: no automatic text inflation on phones, and a root size that grows with
+       the screen so the whole design (rem-based) scales up on laptops, desktops and large monitors. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    font-size: 100%;
+  }
+  @media (min-width: 1200px) {
+    html {
+      font-size: 106.25%;
+    }
+  }
+  @media (min-width: 1600px) {
+    html {
+      font-size: 112.5%;
+    }
+  }
+  @media (min-width: 2200px) {
+    html {
+      font-size: 125%;
+    }
+  }
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
   button,
   a,
@@ -201,7 +243,7 @@
   border-bottom: 1px solid var(--border);
 }
 .stories {
-  width: min(1180px, 100%);
+  width: min(var(--shell), 100%);
   margin: auto;
   min-height: 108px;
   padding: 10px 22px;
@@ -342,8 +384,8 @@
   min-height: 62px;
 }
 .header-inner {
-  width: min(1180px, 100%);
-  min-height: 76px;
+  width: min(var(--shell), 100%);
+  min-height: 4.75rem;
   margin: auto;
   padding: 0 24px;
   display: grid;
@@ -359,7 +401,7 @@
   text-decoration: none;
 }
 .logo img {
-  height: 32px;
+  height: 2rem;
   width: auto;
   display: block;
 }
@@ -547,7 +589,7 @@
 }
 .hero {
   position: relative;
-  min-height: 630px;
+  min-height: clamp(39.4rem, 68vh, 62rem);
   overflow: hidden;
   background: var(--secondary);
 }
@@ -571,7 +613,7 @@
 .hero-content {
   position: relative;
   z-index: 2;
-  width: min(1180px, 100%);
+  width: min(var(--shell), 100%);
   margin: auto;
   padding: 108px 24px 130px;
 }
@@ -613,7 +655,7 @@
   left: 0;
   right: 0;
   min-height: 86px;
-  padding: 16px max(24px, calc((100% - 1132px) / 2));
+  padding: 16px max(24px, calc((100% - var(--content-w)) / 2));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
@@ -633,7 +675,7 @@
 }
 .page-section,
 .events {
-  padding: 76px max(24px, calc((100% - 1132px) / 2));
+  padding: 76px max(24px, calc((100% - var(--content-w)) / 2));
 }
 .section-heading {
   display: flex;
@@ -779,7 +821,7 @@
   font-size: 0.54rem;
 }
 .campaign-shell {
-  padding: 20px max(24px, calc((100% - 1132px) / 2)) 76px;
+  padding: 20px max(24px, calc((100% - var(--content-w)) / 2)) 76px;
   background: var(--card);
 }
 .campaign {
@@ -859,7 +901,7 @@
   color: color-mix(in oklab, var(--primary-foreground) 64%, transparent);
 }
 .experience {
-  padding: 110px max(24px, calc((100% - 1132px) / 2));
+  padding: 110px max(24px, calc((100% - var(--content-w)) / 2));
   background: var(--primary);
   color: var(--primary-foreground);
 }
@@ -908,7 +950,7 @@
 .news-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-auto-rows: minmax(190px, 1fr);
   gap: 16px;
 }
 .news-card {
@@ -920,7 +962,7 @@
   overflow: hidden;
 }
 .news-lead {
-  grid-row: 1/3;
+  grid-row: 1 / span 3;
   grid-template-columns: 1fr;
   grid-template-rows: 330px 1fr;
 }
@@ -929,6 +971,17 @@
 }
 .news-image img {
   width: 300%;
+}
+.news-image img.news-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: none;
+}
+.news-byline {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
 }
 .editorial-pos-1 {
   transform: translateX(0);
@@ -1042,7 +1095,7 @@
   color: var(--primary-foreground);
 }
 .contact {
-  padding: 110px max(24px, calc((100% - 1132px) / 2));
+  padding: 110px max(24px, calc((100% - var(--content-w)) / 2));
   background: var(--card);
 }
 .contact-grid {
@@ -1159,7 +1212,7 @@
   font-size: 0.65rem;
 }
 footer {
-  padding: 72px max(24px, calc((100% - 1132px) / 2)) 110px;
+  padding: 72px max(24px, calc((100% - var(--content-w)) / 2)) 110px;
   background: var(--primary);
   color: var(--primary-foreground);
 }
@@ -1911,4 +1964,31 @@ footer {
 }
 .dark .logo img {
   filter: brightness(0) invert(1);
+}
+
+/* ===== Dark mode polish ===== */
+.dark .floating-nav {
+  background: oklch(0.24 0.04 150);
+  border: 1px solid oklch(1 0 0 / 18%);
+  color: oklch(0.97 0.005 140);
+}
+.dark .footer-link-button,
+.dark .mobile-nav-primary a {
+  color: inherit;
+}
+.dark ::selection {
+  background: oklch(0.53 0.15 148);
+  color: #fff;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: oklch(0.68 0.02 140);
+}
+.dark .logo img {
+  filter: brightness(0) invert(1);
+}
+/* Large brand-green areas stay deep in dark mode; buttons and accents use the brighter Leaf green. */
+.dark .experience,
+.dark footer {
+  background: oklch(0.26 0.065 150);
 }

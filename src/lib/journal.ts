@@ -10,6 +10,14 @@ export const JOURNAL_CATEGORIES = [
 ] as const;
 
 export type JournalSource = { url: string; title: string };
+export type JournalInlineImage = {
+  url: string;
+  alt: string;
+  credit_name: string;
+  credit_url: string;
+  /** 0-based index of the section the photo follows. */
+  after_section: number;
+};
 export type JournalArticle = {
   id: string;
   slug: string;
@@ -23,12 +31,24 @@ export type JournalArticle = {
   cover_credit_url: string | null;
   sources: JournalSource[];
   published_at: string;
+  /** Null on older (generated) articles, which are credited to The CannaPlug Journal. */
+  author_name: string | null;
+  keywords: string[];
+  featured: boolean;
+  updated_at: string | null;
+  cover_alt: string | null;
+  inline_images: JournalInlineImage[];
 };
 
-const listColumns =
-  "id, slug, title, excerpt, category, reading_minutes, cover_image_url, cover_credit_name, cover_credit_url, published_at";
+export const DEFAULT_AUTHOR = "The CannaPlug Journal";
 
-export type JournalListItem = Omit<JournalArticle, "body_md" | "sources">;
+const listColumns =
+  "id, slug, title, excerpt, category, reading_minutes, cover_image_url, cover_credit_name, cover_credit_url, cover_alt, published_at, author_name, featured";
+
+export type JournalListItem = Omit<
+  JournalArticle,
+  "body_md" | "sources" | "keywords" | "updated_at" | "inline_images"
+>;
 
 export const journalListQuery = (limit = 60) =>
   queryOptions({
@@ -38,6 +58,7 @@ export const journalListQuery = (limit = 60) =>
         .from("articles")
         .select(listColumns)
         .lte("published_at", new Date().toISOString())
+        .order("featured", { ascending: false })
         .order("published_at", { ascending: false })
         .limit(limit);
       if (error) throw error;

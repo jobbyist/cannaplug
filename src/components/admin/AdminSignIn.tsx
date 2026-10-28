@@ -22,7 +22,7 @@ export function signInMessage(raw: string): string {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="site grid min-h-screen bg-[#F8FAF8] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="site grid min-h-screen bg-[#F8FAF8] dark:bg-background md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className="relative hidden overflow-hidden bg-[#0B3D20] p-10 text-white md:flex md:flex-col md:justify-between">
         <img src={logoWhite} alt="CannaPlug" className="h-8 w-auto self-start" />
         <div>
@@ -79,7 +79,7 @@ export function AdminSignIn() {
       ) : (
         <form onSubmit={submit} className="grid gap-4" aria-labelledby="admin-signin-title">
           <div>
-            <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-[#0B3D20] text-white">
+            <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-[#0B3D20] text-white dark:bg-primary">
               <LockKeyhole size={18} />
             </span>
             <h2 id="admin-signin-title" className="font-display text-2xl font-extrabold uppercase">
@@ -121,7 +121,7 @@ export function AdminSignIn() {
             <button
               type="button"
               onClick={() => setForgot(true)}
-              className="justify-self-end text-xs font-semibold text-[#0B3D20] underline-offset-2 hover:underline"
+              className="justify-self-end text-xs font-semibold text-[#0B3D20] dark:text-[#D4AF37] underline-offset-2 hover:underline"
             >
               Forgot password?
             </button>
@@ -131,7 +131,7 @@ export function AdminSignIn() {
           </Button>
           <p className="text-center text-xs text-muted-foreground">
             Shopping with us?{" "}
-            <Link to="/account" className="font-semibold text-[#0B3D20]">
+            <Link to="/account" className="font-semibold text-[#0B3D20] dark:text-[#D4AF37]">
               Member sign-in
             </Link>
           </p>
@@ -146,7 +146,7 @@ export function NoStaffAccess({ email, onSignOut }: { email: string; onSignOut: 
   return (
     <Shell>
       <div className="grid gap-4" role="status">
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-[#D4AF37]/20 text-[#0B3D20]">
+        <span className="grid h-11 w-11 place-items-center rounded-full bg-[#D4AF37]/20 text-[#0B3D20] dark:text-[#D4AF37]">
           <ShieldAlert size={18} />
         </span>
         <h2 className="font-display text-2xl font-extrabold uppercase">No staff access</h2>
@@ -156,7 +156,10 @@ export function NoStaffAccess({ email, onSignOut }: { email: string; onSignOut: 
           manager to give you access.
         </p>
         <Button onClick={onSignOut}>Sign out and use another account</Button>
-        <Link to="/account" className="text-center text-xs font-semibold text-[#0B3D20]">
+        <Link
+          to="/account"
+          className="text-center text-xs font-semibold text-[#0B3D20] dark:text-[#D4AF37]"
+        >
           Go to my member account
         </Link>
       </div>

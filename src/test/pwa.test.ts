@@ -134,7 +134,12 @@ describe("web app manifest and head", () => {
     expect(rootTsx).toContain(
       'PWA_ENABLED ? [{ rel: "manifest", href: "/manifest.webmanifest" }] : []',
     );
-    expect(rootTsx).toContain('{ name: "theme-color", content: "#0B3D20" }');
+    expect(rootTsx).toContain(
+      '{ name: "theme-color", content: "#0B3D20", media: "(prefers-color-scheme: light)" }',
+    );
+    expect(rootTsx).toContain(
+      '{ name: "theme-color", content: "#0F1A13", media: "(prefers-color-scheme: dark)" }',
+    );
     expect(rootTsx).toContain("/icons/apple-touch-icon.png");
   });
   it("CSP lets our own worker and manifest load, and nothing else", () => {

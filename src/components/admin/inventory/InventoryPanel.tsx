@@ -407,7 +407,7 @@ export function InventoryPanel({
                     {r.regular_price_rand != null && (
                       <Badge
                         variant="outline"
-                        className="border-[#D4AF37]/60 bg-[#D4AF37]/15 text-[#0B3D20]"
+                        className="border-[#D4AF37]/60 bg-[#D4AF37]/15 text-[#0B3D20] dark:text-[#D4AF37]"
                       >
                         Sale {rand(r.price_rand)}
                       </Badge>

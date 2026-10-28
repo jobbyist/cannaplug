@@ -65,6 +65,7 @@ import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
 import { LiveSales } from "@/components/admin/reports/LiveSales";
+import { NewsroomPanel } from "@/components/admin/NewsroomPanel";
 import { SalesReportsPanel } from "@/components/admin/reports/SalesReportsPanel";
 import {
   notifyAdminTabs,
@@ -572,7 +573,8 @@ function AdminPage() {
         </Dialog>
         {tab === "promotions" && <EmailCampaignsPanel />}
         {tab === "reports" && <SalesReportsPanel canEmail={atLeast(role, "manager")} />}
-        {["events", "newsroom"].includes(tab) && (
+        {tab === "newsroom" && atLeast(role, "manager") && <NewsroomPanel />}
+        {(tab === "events" || (tab === "newsroom" && !atLeast(role, "manager"))) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
               <p className="font-display text-sm font-bold uppercase">{tab}</p>
@@ -791,7 +793,7 @@ function OrderDelivery({
         {isPickup(order.delivery_method) ? "In-store pickup & contact" : "Delivery & contact"}
       </p>
       {isPickup(order.delivery_method) && (
-        <p className="rounded bg-[#D4AF37]/15 px-2 py-1 font-semibold text-[#0B3D20]">
+        <p className="rounded bg-[#D4AF37]/15 px-2 py-1 font-semibold text-[#0B3D20] dark:text-[#D4AF37]">
           Customer collects at the shop. Check 18+ ID on collection, then mark Completed.
         </p>
       )}

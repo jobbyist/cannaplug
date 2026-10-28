@@ -1035,7 +1035,7 @@ function CheckoutPage() {
                   </>
                 ) : (
                   <>
-                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#D4AF37]/15 text-[#0B3D20]">
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#D4AF37]/15 text-[#0B3D20] dark:text-[#D4AF37]">
                       <Lock size={24} />
                     </span>
                     <h2 className="font-display text-xl font-extrabold uppercase">
