@@ -13,6 +13,8 @@ export type StaffMember = {
   email: string;
   role: StaffRole;
   since: string;
+  /** When they last signed in (null if never). */
+  last_sign_in?: string | null;
 };
 
 /** The roles `actor` may hand out. */

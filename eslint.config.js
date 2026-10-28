@@ -37,6 +37,13 @@ export default tseslint.config(
     },
   },
   {
+    // shadcn/ui components export their style variants next to the component by design, and the auth and cart
+    // providers export their hooks next to the provider. Fast Refresh then reloads those modules instead of patching
+    // them, which only matters while developing.
+    files: ["src/components/ui/**/*.tsx", "src/hooks/useAuth.tsx", "src/lib/cart.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
     // Real-PostgreSQL tests assert on dynamic JSON returned by RPCs; `any` is deliberate there.
     files: ["src/test/db/**/*.ts"],
     rules: { "@typescript-eslint/no-explicit-any": "off" },

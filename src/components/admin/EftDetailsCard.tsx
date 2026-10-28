@@ -3,14 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setEftDetailsFn } from "@/lib/payments.functions";
 import type { EftDetails } from "@/lib/payments/eft";
+import { eftDraftValid, type Draft } from "@/components/admin/eft-draft";
 
-type Draft = {
-  bank: string;
-  account_holder: string;
-  account_type: string;
-  account_number: string;
-  branch_code: string;
-};
 const empty: Draft = {
   bank: "",
   account_holder: "",
@@ -25,12 +19,6 @@ const FIELDS: [keyof Draft, string, string][] = [
   ["account_number", "Account number", "digits only"],
   ["branch_code", "Branch code", "6 digits"],
 ];
-
-export const eftDraftValid = (d: Draft) =>
-  d.bank.trim().length >= 2 &&
-  d.account_holder.trim().length >= 2 &&
-  /^[0-9]{6,16}$/.test(d.account_number.replace(/\s/g, "")) &&
-  /^[0-9]{6}$/.test(d.branch_code.replace(/\s/g, ""));
 
 /**
  * Manager-only. Members are offered "Bank transfer (EFT)" only once these details are saved here AND the

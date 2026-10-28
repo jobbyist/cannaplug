@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 import { PWA_ENABLED } from "@/lib/pwa/flag";
-import { retireServiceWorkers } from "@/components/pwa/PwaRegister";
+import { retireServiceWorkers } from "@/components/pwa/retire-service-workers";
 
 const root = join(__dirname, "..", "..");
 

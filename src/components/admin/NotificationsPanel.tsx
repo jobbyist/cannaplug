@@ -292,6 +292,11 @@ export function NotificationsPanel({
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase">
                       {n.status}
                     </span>
+                    {n.source_key && (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase">
+                        Automatic
+                      </span>
+                    )}
                     <span className="text-[10px] text-muted-foreground">
                       {KIND_LABEL[n.kind]} · {AUDIENCE_LABEL[n.min_role]}
                     </span>
@@ -304,39 +309,41 @@ export function NotificationsPanel({
                     </p>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      key.current = null;
-                      setDraft(fromNotice(n));
-                      window.scrollTo?.({ top: 0, behavior: "smooth" });
-                    }}
-                  >
-                    <Pencil size={13} /> Edit
-                  </Button>
-                  {n.status === "published" ? (
+                {!n.source_key && (
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={busy}
-                      onClick={() => void quick(n, "archived")}
+                      onClick={() => {
+                        key.current = null;
+                        setDraft(fromNotice(n));
+                        window.scrollTo?.({ top: 0, behavior: "smooth" });
+                      }}
                     >
-                      <Archive size={13} /> Archive
+                      <Pencil size={13} /> Edit
                     </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void quick(n, "published")}
-                    >
-                      {n.status === "archived" ? <RotateCcw size={13} /> : <Send size={13} />}{" "}
-                      {n.status === "archived" ? "Restore" : "Publish"}
-                    </Button>
-                  )}
-                </div>
+                    {n.status === "published" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void quick(n, "archived")}
+                      >
+                        <Archive size={13} /> Archive
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void quick(n, "published")}
+                      >
+                        {n.status === "archived" ? <RotateCcw size={13} /> : <Send size={13} />}{" "}
+                        {n.status === "archived" ? "Restore" : "Publish"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

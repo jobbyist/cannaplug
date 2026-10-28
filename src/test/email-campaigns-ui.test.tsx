@@ -14,7 +14,8 @@ const fns = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/email-campaigns.functions", () => fns);
 
-import { EmailCampaignsPanel, campaignProblem } from "@/components/admin/EmailCampaignsPanel";
+import { EmailCampaignsPanel } from "@/components/admin/EmailCampaignsPanel";
+import { campaignProblem } from "@/components/admin/campaign-form";
 import { EmailPreferences } from "@/components/account/EmailPreferences";
 
 const ACTIVITY = {

@@ -28,14 +28,8 @@ import {
 } from "@/lib/clinical/logic";
 import { resolveLateBound } from "@/lib/clinical/template-engine";
 import type { DoctorView, SigningOption } from "@/lib/clinical/documents-data.server";
-import {
-  Notice,
-  StatusBadge,
-  errorText,
-  selectClass,
-  when,
-  whenTime,
-} from "@/components/clinical/shared";
+import { Notice, StatusBadge, selectClass } from "@/components/clinical/shared";
+import { errorText, when, whenTime } from "@/components/clinical/format";
 
 /**
  * The practitioner's review screen. It shows the EXACT frozen text that will be signed and the hash it

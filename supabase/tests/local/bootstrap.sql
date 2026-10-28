@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS auth.users (
   email text UNIQUE,
   raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
   raw_app_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_sign_in_at timestamptz
 );
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
 $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;

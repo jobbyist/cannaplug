@@ -87,7 +87,14 @@ describe("monitoring (Sentry) is optional and scrubbed", () => {
   it("an event carries no request data", () => {
     const e = sentryEvent(new Error("boom for a@b.co"), "staff server function", "abc");
     const json = JSON.stringify(e);
-    expect(json).not.toMatch(/a@b\.co|request|headers|cookies|user/);
+    // The stack trace holds file paths (which can include a folder called "user"), so check the event's
+    // field names rather than searching its text for the word.
+    const keys = (v: unknown): string[] =>
+      v && typeof v === "object"
+        ? Object.entries(v as Record<string, unknown>).flatMap(([k, x]) => [k, ...keys(x)])
+        : [];
+    expect(keys(e).filter((k) => /request|headers|cookies|user/i.test(k))).toEqual([]);
+    expect(json).not.toMatch(/a@b\.co/);
     expect(e.exception.values[0]!.value).toBe("boom for [email]");
   });
 });

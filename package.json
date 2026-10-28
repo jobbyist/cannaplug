@@ -5,15 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && eslint . --quiet && vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:db": "bash -c 'URL=$(scripts/test-db.sh reset 2>/dev/null | tail -1) && TEST_DATABASE_URL=$URL vitest run src/test/db'"
+    "test:db": "bash -c 'URL=$(scripts/test-db.sh reset 2>/dev/null | tail -1) && TEST_DATABASE_URL=$URL vitest run src/test/db --no-file-parallelism'"
   },
   "overrides": {
     "rolldown": "1.2.1",

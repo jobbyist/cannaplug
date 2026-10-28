@@ -115,7 +115,7 @@ describe.skipIf(!DB_URL)("audit coverage (real PostgreSQL)", () => {
     await sql`DELETE FROM public.user_roles WHERE user_id = ${user}`;
     const rows =
       await sql`SELECT action, metadata FROM public.audit_log WHERE entity_type = 'user_role' AND metadata->>'user_id' = ${user} AND created_at >= ${since}
-                    AND NOT (action = 'role_revoked' AND metadata->>'role' = 'customer') ORDER BY created_at, id`;
+                    AND NOT (action IN ('role_granted', 'role_revoked') AND metadata->>'role' = 'customer') ORDER BY created_at, id`;
     expect(
       rows.map((r) => r["action"]),
       JSON.stringify(rows),

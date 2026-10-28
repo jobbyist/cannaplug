@@ -10,7 +10,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { CartProvider } from "../lib/cart";
 import { AuthProvider } from "../hooks/useAuth";
 import { ChatWidget } from "../components/ChatWidget";
@@ -42,7 +42,10 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error: thrown, reset }: { error: unknown; reset: () => void }) {
   // The router types the thrown value as `unknown` (anything can be thrown).
-  const error = thrown instanceof Error ? thrown : new Error(String(thrown));
+  const error = useMemo(
+    () => (thrown instanceof Error ? thrown : new Error(String(thrown))),
+    [thrown],
+  );
   console.error(error);
   const router = useRouter();
   useEffect(() => {

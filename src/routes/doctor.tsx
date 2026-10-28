@@ -39,14 +39,8 @@ import { DashboardSidebar, type SidebarItem } from "@/components/dashboard/Sideb
 import { DocumentEditor, type EditorTarget } from "@/components/clinical/DocumentEditor";
 import { TemplatesPanel } from "@/components/clinical/TemplatesPanel";
 import { ReviewDialog } from "@/components/clinical/ReviewDialog";
-import {
-  Notice,
-  StatusBadge,
-  errorText,
-  selectClass,
-  when,
-  whenTime,
-} from "@/components/clinical/shared";
+import { Notice, StatusBadge, selectClass } from "@/components/clinical/shared";
+import { errorText, when, whenTime } from "@/components/clinical/format";
 import { useAuth } from "@/hooks/useAuth";
 import {
   declineRequestFn,

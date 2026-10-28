@@ -43,11 +43,11 @@ jobs:
           sudo systemctl stop postgresql || true
       - name: Database tests (real PostgreSQL, every migration)
         run: bun run test:db
-      - name: Migration + rollback rehearsals
+      - name: Migration + rollback rehearsals (every scripts/rollback-rehearsal-*.sh)
         run: |
           scripts/test-db.sh start >/dev/null
-          for s in rollback-rehearsal-m4 rollback-rehearsal-m5b rollback-rehearsal-payments rollback-rehearsal-m6; do
-            echo "::group::$s"; bash scripts/$s.sh; echo "::endgroup::"
+          for f in scripts/rollback-rehearsal-*.sh; do
+            echo "::group::$f"; bash "$f"; echo "::endgroup::"
           done
       - name: Build
         run: bun run build

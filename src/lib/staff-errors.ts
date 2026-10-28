@@ -66,6 +66,8 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   customer_not_found: "That customer could not be found",
   user_not_found: "That person could not be found",
   notification_not_found: "That notification could not be found",
+  alert_readonly: "Automatic alerts update themselves and can't be edited",
+  order_paid: "A paid order can't be archived",
   // Products and imports
   duplicate_sku_in_file: "The file repeats a SKU",
   barcode_in_use: "That barcode is already used by another product",

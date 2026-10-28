@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/admin.functions", () => ({ adminSearchFn: vi.fn() }));
 
-import { AdminSearch, toHits } from "@/components/admin/AdminSearch";
+import { AdminSearch } from "@/components/admin/AdminSearch";
+import { toHits } from "@/components/admin/admin-search-logic";
 import type { AdminSearchResults } from "@/lib/admin-search.server";
 
 const RESULTS: AdminSearchResults = {

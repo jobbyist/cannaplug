@@ -10,7 +10,8 @@ vi.mock("@/lib/id-credits.functions", () => ({
   idCreditsOpenFn: vi.fn(),
 }));
 
-import { IdCreditsCard, creditHealth, type IdCreditsApi } from "@/components/admin/IdCreditsCard";
+import { IdCreditsCard, type IdCreditsApi } from "@/components/admin/IdCreditsCard";
+import { creditHealth } from "@/components/admin/credit-health";
 import type { IdCreditSummary } from "@/lib/id-credits.server";
 import { renderTemplate } from "@/lib/notifications/templates";
 

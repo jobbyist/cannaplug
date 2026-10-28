@@ -63,6 +63,8 @@ const server = vi.hoisted(() => ({
   adjustStockFn: vi.fn(),
 }));
 vi.mock("@/lib/pos.functions", () => server);
+const customersApi = vi.hoisted(() => ({ listCustomersFn: vi.fn() }));
+vi.mock("@/lib/admin.functions", () => customersApi);
 
 import { PosPanel } from "@/components/admin/pos/PosPanel";
 
@@ -79,7 +81,7 @@ const saleResult = {
 
 async function ready() {
   const user = userEvent.setup();
-  render(<PosPanel customers={[{ id: "c1", full_name: "Thandi Ndlovu" }]} />);
+  render(<PosPanel />);
   const search = await screen.findByLabelText("Search products");
   return { user, search };
 }
@@ -310,7 +312,12 @@ describe("POS screen — multi-tender capture", () => {
       loyalty: { accrued: true, points: 5 },
     });
     const { user } = await withGelato();
-    await user.selectOptions(screen.getByLabelText(/Customer/), "c1");
+    customersApi.listCustomersFn.mockResolvedValue({
+      total: 1,
+      rows: [{ id: "c1", full_name: "Thandi Ndlovu", phone: "0821110001", email: "t@x.co" }],
+    });
+    await user.type(screen.getByLabelText("Find customer"), "Thandi");
+    await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));
     await user.click(completeButton());
     await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalled());
@@ -324,7 +331,12 @@ describe("POS screen — multi-tender capture", () => {
       loyalty: { accrued: false, pending: true },
     });
     const { user } = await withGelato();
-    await user.selectOptions(screen.getByLabelText(/Customer/), "c1");
+    customersApi.listCustomersFn.mockResolvedValue({
+      total: 1,
+      rows: [{ id: "c1", full_name: "Thandi Ndlovu", phone: "0821110001", email: "t@x.co" }],
+    });
+    await user.type(screen.getByLabelText("Find customer"), "Thandi");
+    await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));
     await user.click(completeButton());
     expect(await screen.findByText(/Loyalty points will be credited on retry/)).toBeTruthy();
@@ -342,13 +354,13 @@ describe("POS screen — till gating", () => {
         { id: "d1", name: "Front counter", location: null, is_active: true, in_use: false },
       ],
     });
-    render(<PosPanel customers={[]} />);
+    render(<PosPanel />);
     expect(await screen.findByRole("heading", { name: /Open till/i })).toBeTruthy();
     expect(screen.queryByLabelText("Search products")).toBeNull();
   });
 
   it("does not reveal expected cash while the till is open (blind count) and hides manager tools from cashiers", async () => {
-    render(<PosPanel customers={[]} />);
+    render(<PosPanel />);
     await screen.findByLabelText("Search products");
     expect(screen.queryByText(/^Expected cash$/i)).toBeNull(); // no figure is shown before the count
     expect(screen.getByText(/Expected cash is revealed after you submit the count/i)).toBeTruthy();
@@ -374,7 +386,7 @@ describe("POS screen — till gating", () => {
         },
       ],
     });
-    render(<PosPanel customers={[]} />);
+    render(<PosPanel />);
     expect(await screen.findByText(/Stock control/i)).toBeTruthy();
     expect(screen.getByText(/Cash variance approvals/i)).toBeTruthy();
   });

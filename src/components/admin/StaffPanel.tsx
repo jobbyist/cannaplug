@@ -130,9 +130,26 @@ export function StaffPanel({ role, myId }: { role: StaffRole | null; myId: strin
           </Button>
         </form>
         {found === "none" && (
-          <p role="status" className="mt-3 text-xs">
-            No member was found with that email. They need a Cannaplug account first.
-          </p>
+          <div role="status" className="mt-3 text-xs">
+            <p>No member was found with that email. They need a Cannaplug account first.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => {
+                const link = `${window.location.origin}/account`;
+                void navigator.clipboard
+                  ?.writeText(link)
+                  .then(() =>
+                    setMessage(
+                      "Sign-up link copied. Ask them to create an account, then find them here.",
+                    ),
+                  );
+              }}
+            >
+              Copy sign-up link
+            </Button>
+          </div>
         )}
         {target && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-xs">
@@ -210,6 +227,17 @@ export function StaffPanel({ role, myId }: { role: StaffRole | null; myId: strin
                       )}
                     </p>
                     <p className="truncate text-muted-foreground">{m.email}</p>
+                    <p className="text-[0.68rem] text-muted-foreground">
+                      {m.last_sign_in
+                        ? `Last signed in ${new Date(m.last_sign_in).toLocaleString("en-ZA", {
+                            timeZone: "Africa/Johannesburg",
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}`
+                        : "Has not signed in yet"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {editable ? (

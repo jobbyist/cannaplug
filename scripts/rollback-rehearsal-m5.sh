@@ -17,7 +17,8 @@ COLS="select string_agg(column_name, ',' order by column_name) from information_
 
 run "$P -d postgres -c 'DROP DATABASE IF EXISTS $DB WITH (FORCE)' -c 'CREATE DATABASE $DB'"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/tests/local/bootstrap.sql" >/dev/null 2>&1
-for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | grep -v "$MIG"); do
+# Only the migrations that come BEFORE the one under test: later ones depend on it and cannot be applied without it.
+for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | awk -v m="$MIG" '{ n=$0; sub(/.*\//, "", n); if (n < m ".sql") print }'); do
   run "$P -d $DB -v ON_ERROR_STOP=1 -f $f" >/dev/null 2>&1 || { echo "FAIL applying $f"; exit 1; }
 done
 fn0=$(run "$P -At -d $DB -c \"$FN\""); pol0=$(run "$P -At -d $DB -c \"$POLS\""); col0=$(run "$P -At -d $DB -c \"$COLS\"")

@@ -1,8 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { opensElsewhere } from "@/components/dashboard/links";
 
-export type SidebarItem = { id: string; icon: LucideIcon; label: string };
+export type SidebarItem = {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  /** A count that needs attention (shown as a badge when above zero). */
+  badge?: number | undefined;
+};
 
 export function DashboardSidebar({
   items,
@@ -33,8 +40,29 @@ export function DashboardSidebar({
           );
           const body = (
             <>
-              <item.icon size={17} />
-              <span>{item.label}</span>
+              <span className="relative">
+                <item.icon size={17} />
+                {item.badge ? (
+                  <span
+                    aria-hidden
+                    className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground md:hidden"
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                ) : null}
+              </span>
+              <span className="flex-1">{item.label}</span>
+              {item.badge ? (
+                <>
+                  <span
+                    aria-hidden
+                    className="hidden h-5 min-w-5 place-items-center rounded-full bg-destructive px-1.5 text-[11px] font-bold leading-none text-destructive-foreground md:grid"
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                  <span className="sr-only">{item.badge} need attention</span>
+                </>
+              ) : null}
             </>
           );
           return hrefFor ? (
@@ -62,15 +90,4 @@ export function DashboardSidebar({
       {footer && <div className="hidden border-t border-border p-3 md:block">{footer}</div>}
     </aside>
   );
-}
-
-/** Ctrl/⌘/Shift/Alt-click or a non-left button: let the browser open the link in a new tab or window. */
-export function opensElsewhere(e: {
-  button: number;
-  metaKey: boolean;
-  ctrlKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-}): boolean {
-  return e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
 }

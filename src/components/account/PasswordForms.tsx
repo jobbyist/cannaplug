@@ -4,17 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
-
-export const MIN_PASSWORD = 8;
-
-/** Rules a new password must meet before it is sent to Supabase Auth. */
-export function passwordProblem(next: string, confirm: string): string | null {
-  if (next.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters.`;
-  if (next.length > 72) return "Use 72 characters or fewer.";
-  if (!/[A-Za-z]/.test(next) || !/[0-9]/.test(next)) return "Use letters and at least one number.";
-  if (next !== confirm) return "The two passwords do not match.";
-  return null;
-}
+import { MIN_PASSWORD, passwordProblem } from "@/lib/password-rules";
 
 /** Signed in: choose a new password (also used after following a reset link). */
 export function ChangePasswordForm({ intro }: { intro?: string }) {

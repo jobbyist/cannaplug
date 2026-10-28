@@ -9,7 +9,8 @@ vi.mock("@tanstack/react-router", () => ({
     select({ location: { pathname: path.current } }),
 }));
 
-import { AGE_GATE_KEY, AgeGate, ageGateNeeded } from "@/components/AgeGate";
+import { AgeGate } from "@/components/AgeGate";
+import { AGE_GATE_KEY, ageGateNeeded } from "@/components/age-gate-logic";
 
 const DAY = 24 * 60 * 60 * 1000;
 const CHROME = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
