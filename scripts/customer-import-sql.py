@@ -8,12 +8,13 @@ Writes, to DIR (keep it outside the repository: the files hold names, emails and
   import-<batch>.sql        one statement: select public.import_customers(...) with the rows as JSON. Run it once in the
                             Supabase SQL editor (or with the service role). Needs migration 20261030001000_customer_import.
   remaining-members.xlsx    the export in the same layout, without the members that were put in the SQL, ready for the
-                            next batch. A member who could not be included (e.g. under 18 on file) stays here with a note.
+                            next batch. A member who could not be included (e.g. under 18 on file) stays here with a note
+                            unless --drop-members removes them for good.
 Prints a summary with member numbers only.
 
 Rules applied here (the database repeats the important ones): members are taken in member-number order; an email address
 with spaces inside (a transcription slip in the export) is closed up and the member's invitation is HELD until the owner
-confirms it; a member under 18 is never imported; usernames are used exactly as in the file.
+confirms it (--confirmed-emails lists the members the owner already confirmed); a member under 18 is never imported; usernames are used exactly as in the file.
 """
 import argparse, hashlib, json, re, sys, uuid
 from pathlib import Path
@@ -27,6 +28,8 @@ def main():
     ap.add_argument("--actor", required=True, help="user id of the admin who runs the import")
     ap.add_argument("--batch", required=True, help="batch name, a-z 0-9 _ - (3 to 60 characters)")
     ap.add_argument("--out-dir", required=True)
+    ap.add_argument("--confirmed-emails", default="", help="member numbers whose closed-up email the owner confirmed")
+    ap.add_argument("--drop-members", default="", help="member numbers removed for good (not imported, not in the remaining file)")
     a = ap.parse_args()
     if not re.fullmatch(r"[0-9a-f-]{36}", a.actor) or not re.fullmatch(r"[a-z0-9_-]{3,60}", a.batch):
         sys.exit("bad --actor or --batch")
@@ -40,6 +43,10 @@ def main():
     rows = [r for r in ws.iter_rows(min_row=3, values_only=True) if r[0] is not None]
     rows.sort(key=lambda r: r[0])
     batch_rows, rest = rows[: a.first], rows[a.first :]
+    dropped = {int(x) for x in a.drop_members.split(",") if x.strip()}
+    confirmed = {int(x) for x in a.confirmed_emails.split(",") if x.strip()}
+    batch_rows = [r for r in batch_rows if r[0] not in dropped]
+    rest = [r for r in rest if r[0] not in dropped]
 
     payload, held_minor, held_email = [], [], []
     for n, first, last, email, phone, age, username in batch_rows:
@@ -57,7 +64,7 @@ def main():
             "username": (username or "").strip().lower(),
             "age": age,
         }
-        if re.search(r"\s", email_raw):
+        if re.search(r"\s", email_raw) and n not in confirmed:
             item["hold"] = "email looked mistyped in the export: confirm before inviting"
             held_email.append(n)
         payload.append(item)
@@ -69,7 +76,7 @@ def main():
     assert f"${tag}$" not in body
     sql = (
         f"-- {a.batch}: {len(payload)} members from export sha256 {sha}. Contains personal data: do not commit or share.\n"
-        f"select public.import_customers('{a.actor}', '{a.batch}', '{sha}', ${tag}${body}${tag}$::jsonb, '{a.batch}-{sha[:12]}');\n"
+        f"select public.import_customers('{a.actor}'::uuid, '{a.batch}'::text, '{sha}'::text, ${tag}${body}${tag}$::jsonb, '{a.batch}-{sha[:12]}'::text);\n"
     )
     (out / f"import-{a.batch}.sql").write_text(sql, encoding="utf-8")
 
@@ -95,7 +102,7 @@ def main():
         ("Remaining members", len(todo)),
         ("Next member number to import", min((r[0] for r in todo), default=None)),
         ("Held back (needs a decision)", len(notes)),
-        ("Already imported (member numbers)", f"1 to {a.first}, except {', '.join(map(str, held_minor)) or 'none'}"),
+        ("Imported (member numbers)", f"1 to {a.first}" + (f", except {', '.join(map(str, sorted(dropped | set(held_minor))))}" if dropped or held_minor else "")),
         ("Source file sha256", sha),
         ("Min age / max age", f"{min(ages)} / {max(ages)}" if ages else ""),
     ]:
@@ -105,7 +112,7 @@ def main():
     rem.save(out / "remaining-members.xlsx")
 
     print(json.dumps({"title": title, "batch": a.batch, "sha256": sha, "in_sql": len(payload),
-                      "held_under_18": held_minor, "invitation_held_for_email": held_email,
+                      "dropped": sorted(dropped), "held_under_18": held_minor, "invitation_held_for_email": held_email,
                       "remaining_rows": len(todo)}, indent=2))
 
 

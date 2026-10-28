@@ -1,7 +1,7 @@
--- Rollback for 20261030001000_customer_import: no imported-member tables, no claim trigger, no daily invitations, no
--- 'provisional' status, usernames back to the 3-20 a-z 0-9 _ format. Imported accounts that already exist stay in
--- auth.users (they are people); their provisional status becomes 'unverified' and usernames the old format cannot hold
--- are cleared. Earlier function definitions are restored as they were.
+-- Rollback for 20261030001000_customer_import: no staged imported members, no daily invitations, no 'provisional' status,
+-- usernames back to the 3-20 a-z 0-9 _ format. Members who already signed up from the import stay as ordinary accounts:
+-- their provisional status becomes 'unverified' and usernames the old format cannot hold are cleared. Earlier function
+-- definitions are restored as they were.
 DO $$
 BEGIN
   IF to_regnamespace('cron') IS NOT NULL THEN
@@ -9,11 +9,8 @@ BEGIN
   END IF;
 END;
 $$;
-DROP TRIGGER IF EXISTS customer_import_claim ON auth.users;
-DROP FUNCTION IF EXISTS public._import_claim();
 DROP FUNCTION IF EXISTS public.import_invites_run(timestamptz, integer);
 DROP FUNCTION IF EXISTS public.import_customers(uuid, text, text, jsonb, text);
-DROP FUNCTION IF EXISTS public._import_insert_auth_user(text, jsonb);
 DROP FUNCTION IF EXISTS public.username_check_signup(text, text);
 DROP FUNCTION IF EXISTS public.member_username_change_state(uuid);
 DROP TABLE IF EXISTS public.imported_customers;
@@ -75,6 +72,20 @@ BEGIN
   IF v_id IS NULL THEN RETURN jsonb_build_object('valid', false, 'reason', 'not_found'); END IF;
   IF NOT public._referral_eligible(v_id) THEN RETURN jsonb_build_object('valid', false, 'reason', 'inactive'); END IF;
   RETURN jsonb_build_object('valid', true, 'code', v);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.username_check(p_username text)
+RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v text := lower(btrim(COALESCE(p_username, '')));
+BEGIN
+  IF v !~ '^[a-z0-9_]{3,20}$' THEN RETURN 'invalid'; END IF;
+  IF public._username_reserved(v) THEN RETURN 'reserved'; END IF;
+  IF EXISTS (SELECT 1 FROM public.profiles p WHERE p.username = v) THEN RETURN 'taken'; END IF;
+  RETURN 'ok';
 END;
 $$;
 
@@ -239,7 +250,7 @@ DECLARE
 BEGIN
   FOR f IN
     SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.proname = ANY (ARRAY['_require_verified_member', 'referral_code_check', 'handle_new_user',
+    WHERE n.nspname = 'public' AND p.proname = ANY (ARRAY['_require_verified_member', 'referral_code_check', 'handle_new_user', 'username_check',
       'member_set_username', '_email_tier', 'pos_customer_search'])
   LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', f.sig);

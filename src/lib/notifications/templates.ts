@@ -426,7 +426,7 @@ export const TEMPLATES: Record<string, Template> = {
           p("To get full access to the platform and the online store:") +
           `<ol style="margin:0 0 14px;padding-left:20px;font-size:15px;line-height:1.7">
 <li>Sign up with <b>this email address</b>.</li>
-<li>Enter your username: <b>${esc(d["username"])}</b>. It stays yours, and you can change it once after you submit your ID.</li>
+<li>Your username is <b>${esc(d["username"])}</b>. It is linked to your account when you sign up with this email address, and you can change it once after you submit your ID.</li>
 <li>Set your own password.</li>
 <li>Submit your ID or passport for verification (this is a POPIA requirement for online access).</li>
 </ol>` +

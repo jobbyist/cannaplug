@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Rehearses 20261030001000_customer_import: apply all -> import 2 members (1 minor refused) -> one signs up and is charged
-# from the reserve -> roll back -> re-apply. Needs scripts/test-db.sh start.
+# Rehearses 20261030001000_customer_import: apply all -> stage 2 members (1 minor refused) -> one signs up with the email
+# on file, is linked, provisional and charged from the reserve -> roll back -> re-apply. Needs scripts/test-db.sh start.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/16/bin}"
@@ -25,13 +25,17 @@ SQL
 chmod 644 "$TMPF"
 R=$(run "$P -At -d $DB -f $TMPF")
 echo "$R" | grep -q '"imported": 1' || { echo "FAIL: import result $R"; exit 1; }
-[ "$(q "select status from public.customer_verification cv join auth.users u on u.id = cv.user_id where u.email = 'ada@test.local'")" = provisional ] || { echo "FAIL: not provisional"; exit 1; }
+[ "$(q "select count(*) from public.imported_customers")" = 1 ] || { echo "FAIL: not staged"; exit 1; }
+[ "$(q "select count(*) from auth.users where email = 'ada@test.local'")" = 0 ] || { echo "FAIL: an account was created by the import"; exit 1; }
 [ "$(q "select has_function_privilege('authenticated','public.import_customers(uuid,text,text,jsonb,text)','execute')")" = f ] || { echo "FAIL: authenticated can execute"; exit 1; }
-q "update auth.users set raw_user_meta_data = raw_user_meta_data || jsonb_build_object('id_number', '9001015009087') where email = 'ada@test.local'" >/dev/null
+q "insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000b1', 'Ada@Test.local', jsonb_build_object('id_number', '9001015009087'))" >/dev/null
+[ "$(q "select status from public.customer_verification where user_id = '00000000-0000-0000-0000-0000000000b1'")" = provisional ] || { echo "FAIL: not provisional after sign-up"; exit 1; }
+[ "$(q "select username from public.profiles where id = '00000000-0000-0000-0000-0000000000b1'")" = ada.test ] || { echo "FAIL: username not linked"; exit 1; }
 [ "$(q "select available || '/' || reserved from public._id_credit_balance()")" = "400/555" ] || { echo "FAIL: sign-up not charged from the reserve"; exit 1; }
-echo "1. applied; 1 imported (minor refused), provisional, sign-up charged 3 from the reserve, service-role only"
+echo "1. applied; 1 staged (minor refused), sign-up links it: provisional, username kept, charged 3 from the reserve; service-role only"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/rollbacks/${M}_rollback.sql" >/dev/null 2>&1 || { echo "FAIL rolling back"; exit 1; }
 [ "$(q "select to_regclass('public.imported_customers') is null")" = t ] || { echo "FAIL: table still present"; exit 1; }
+[ "$(q "select username from public.profiles where id = '00000000-0000-0000-0000-0000000000b1'")" = "" ] || { echo "FAIL: dotted username kept"; exit 1; }
 [ "$(q "select count(*) from public.customer_verification where status = 'provisional'")" = 0 ] || { echo "FAIL: provisional left"; exit 1; }
 echo "2. rolled back"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/migrations/$M.sql" >/dev/null 2>&1 || { echo "FAIL re-applying"; exit 1; }
