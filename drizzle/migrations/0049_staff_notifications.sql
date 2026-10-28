@@ -146,7 +146,6 @@ REVOKE ALL ON public.team_notifications, public.team_notification_reads FROM PUB
 GRANT SELECT ON public.team_notifications, public.team_notification_reads TO authenticated;
 GRANT ALL ON public.team_notifications, public.team_notification_reads TO service_role;
 
-DROP POLICY IF EXISTS "staff read team notifications" ON public.team_notifications;
 CREATE POLICY "staff read team notifications" ON public.team_notifications FOR SELECT TO authenticated
 USING (
   (status = 'published' AND (SELECT public.has_at_least_role(min_role::public.app_role)))
@@ -154,7 +153,6 @@ USING (
   OR (SELECT public.has_at_least_role('admin'::public.app_role))
 );
 
-DROP POLICY IF EXISTS "own notification reads" ON public.team_notification_reads;
 CREATE POLICY "own notification reads" ON public.team_notification_reads FOR SELECT TO authenticated
 USING (user_id = (SELECT auth.uid()));
 
