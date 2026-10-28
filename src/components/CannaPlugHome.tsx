@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ReportBugDialog } from "@/components/ReportBugDialog";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { GetTheAppStory } from "@/components/pwa/GetTheAppStory";
 import { PWA_ENABLED } from "@/lib/pwa/flag";
 import { rand, useCart } from "@/lib/cart";
@@ -534,6 +535,7 @@ export function Header() {
           </motion.div>
         )}
       </header>
+      <Breadcrumbs />
       <MobileNav
         open={open}
         onClose={() => setOpen(false)}

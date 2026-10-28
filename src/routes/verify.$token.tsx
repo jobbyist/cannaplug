@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { verifyDocumentFn } from "@/lib/clinical/verify.functions";
 import { VerificationResult, VerificationShell } from "@/components/clinical/VerificationResult";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 /**
  * Public document verification (the QR code lands here). It answers only "is this a genuine, current
@@ -27,5 +28,10 @@ export const Route = createFileRoute("/verify/$token")({
 });
 
 function VerifyPage() {
-  return <VerificationResult result={Route.useLoaderData()} />;
+  return (
+    <>
+      <Breadcrumbs />
+      <VerificationResult result={Route.useLoaderData()} />
+    </>
+  );
 }
