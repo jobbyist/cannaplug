@@ -1788,3 +1788,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `shop-filter` (parsing, matching, counts, sorting, changing filters), `catalogue-taxonomy` (including the database back-fill reading the same grades as the code), `shop-view` (the page, including the slider handles and the debounce), `db/product-subcategories` (check, index, mutation check). Screenshots in `docs/shop/screens/`.
 - **Not changed:** the homepage tiles and the sitemap still link to `/shop?category=X`, which works as before. The product CSV has no subcategory column yet, so subcategories for other categories are set by editing a product.
 - **Rollback:** run the rollback SQL, then revert the PR.
+
+## 29 Oct 2026 — Header search opens the shop search (feat/mvp-shop-search)
+
+- **Purpose:** the header's search box did nothing. It now submits to `/shop?q=<text>`, so the shop's own search (name, category, subcategory and description, kept in the address) takes over. The shop search now also matches strain type (for example "sativa").
+- **Files:** `src/components/CannaPlugHome.tsx`, `src/lib/shop-filter.ts`, `src/test/shop-filter.test.ts`.
+- **Migrations:** none. **Tests:** `shop-filter` (strain match added); full unit suite.
+- **Owner actions:** none. The subcategory options were left as set up in the other session.
+- **Rollback:** revert the PR.
