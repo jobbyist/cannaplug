@@ -1,4 +1,5 @@
 import propagandaImage from "@/assets/event-propaganda.jpg";
+import plugCupImage from "@/assets/event-plug-cup.jpg";
 import weekendSpecialImage from "@/assets/promo-weekend-special.jpg";
 import plugBackAsset from "@/assets/plug-back-campaign.jpeg.asset.json";
 import halloweedImage from "@/assets/promo-halloweed.jpg";
@@ -30,6 +31,20 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
     imageAlt:
       "Are you loyal to the plug? Spend R300 in store in one sitting and get a free ticket. 26 September 2026, Propaganda.",
     width: 1024,
+    height: 1280,
+  },
+  {
+    slug: "plug-cup",
+    kind: "Event",
+    tag: "Past event",
+    title: "The Plug Cup",
+    when: "29 August 2026",
+    where: "CannaPlug, Pretoria Central",
+    copy: "A 16-player EA FC 26 knockout tournament. 16 players. 1 winner. The R150 entry fee included 1 free Greenhouse order and a dab hit.",
+    image: plugCupImage,
+    imageAlt:
+      "The Plug Cup: 16 players, 1 winner, EA Sports FC 26 knockout tournament, 29 August 2026, R150 entry including a free Greenhouse order and a dab hit.",
+    width: 854,
     height: 1280,
   },
   {
