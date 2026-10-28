@@ -6,6 +6,7 @@ import {
   adjustStock,
   findPosSale,
   getDemoTillCatalog,
+  getPosCustomerRewards,
   searchPosCustomers,
   getPosOverview,
   listBatches,
@@ -47,6 +48,11 @@ export const searchPosCustomersFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) => z.object({ search: z.string().trim().min(2).max(100) }).parse(d))
   .handler(({ context, data }) => searchPosCustomers(context.userId, data.search));
+
+export const getPosCustomerRewardsFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) => z.object({ customerId: uuid }).parse(d))
+  .handler(({ context, data }) => getPosCustomerRewards(context.userId, data.customerId));
 
 export const openPosSessionFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
@@ -157,6 +163,11 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
               product_id: uuid,
               quantity: z.number().int().min(1).max(9999),
               discount: discount.optional(),
+              // A loyalty reward code (one unit free, paid in points). The database checks everything.
+              reward: z
+                .string()
+                .regex(/^[a-z_]{3,40}$/)
+                .optional(),
             }),
           )
           .min(1)

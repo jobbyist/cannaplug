@@ -2819,6 +2819,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      loyalty_rewards: {
+        Row: {
+          categories: string[];
+          code: string;
+          description: string;
+          grade: string;
+          is_active: boolean;
+          name: string;
+          points_cost: number;
+          sort_order: number;
+        };
+        Insert: {
+          categories: string[];
+          code: string;
+          description: string;
+          grade: string;
+          is_active?: boolean;
+          name: string;
+          points_cost: number;
+          sort_order?: number;
+        };
+        Update: {
+          categories?: string[];
+          code?: string;
+          description?: string;
+          grade?: string;
+          is_active?: boolean;
+          name?: string;
+          points_cost?: number;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      referrals: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          qualified_at: string | null;
+          referee_id: string;
+          referrer_id: string;
+          spend_rand: number | null;
+          status: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          qualified_at?: string | null;
+          referee_id: string;
+          referrer_id: string;
+          spend_rand?: number | null;
+          status?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          qualified_at?: string | null;
+          referee_id?: string;
+          referrer_id?: string;
+          spend_rand?: number | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           address: string | null;
@@ -2830,6 +2896,7 @@ export type Database = {
           last_name: string | null;
           phone: string | null;
           updated_at: string;
+          username: string | null;
         };
         Insert: {
           address?: string | null;
@@ -2841,6 +2908,7 @@ export type Database = {
           last_name?: string | null;
           phone?: string | null;
           updated_at?: string;
+          username?: string | null;
         };
         Update: {
           address?: string | null;
@@ -2852,6 +2920,7 @@ export type Database = {
           last_name?: string | null;
           phone?: string | null;
           updated_at?: string;
+          username?: string | null;
         };
         Relationships: [];
       };
@@ -3465,6 +3534,14 @@ export type Database = {
         Returns: Json;
       };
       checkout_quote: { Args: { p_delivery_method: string; p_items: Json }; Returns: Json };
+      username_check: { Args: { p_username: string }; Returns: string };
+      referral_code_check: { Args: { p_code: string }; Returns: Json };
+      member_set_username: {
+        Args: { p_idempotency_key: string; p_user_id: string; p_username: string };
+        Returns: Json;
+      };
+      member_rewards_summary: { Args: { p_user_id: string }; Returns: Json };
+      pos_customer_rewards: { Args: { p_actor: string; p_customer: string }; Returns: Json };
       checkout_quote_for: {
         Args: { p_delivery_method: string; p_items: Json; p_user_id: string };
         Returns: Json;

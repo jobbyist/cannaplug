@@ -32,6 +32,10 @@ import { rand } from "@/lib/cart";
 import { VerificationBanner, VerificationPanel } from "@/components/account/VerificationPanel";
 import { dobProblem } from "@/lib/verification-logic";
 import { signupMetadata, signupProblem } from "@/lib/signup-logic";
+import { checkReferralCodeFn, checkUsernameFn } from "@/lib/rewards.functions";
+import { referralFromSearch } from "@/lib/rewards-logic";
+import { useUsernameCheck } from "@/components/account/use-username-check";
+import { LoyaltyPoster } from "@/components/rewards/LoyaltyPoster";
 import { DateOfBirthField } from "@/components/account/DateOfBirthField";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import { useMemberAccount } from "@/components/account/use-member-account";
@@ -65,7 +69,13 @@ function AccountPage() {
 }
 
 function AuthPanel() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(() =>
+    typeof window !== "undefined" &&
+    (referralFromSearch(window.location.search) ||
+      new URLSearchParams(window.location.search).get("mode") === "signup")
+      ? "signup"
+      : "signin",
+  );
   const [creditsOpen, setCreditsOpen] = useState<boolean | null>(null);
   useEffect(() => {
     if (mode !== "signup" || creditsOpen !== null) return;
@@ -81,7 +91,47 @@ function AuthPanel() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [idNumber, setIdNumber] = useState("");
-  const [referral, setReferral] = useState("");
+  // A referral link (/account?ref=username) opens sign-up with the code filled in.
+  const [referral, setReferral] = useState(() =>
+    typeof window !== "undefined" ? referralFromSearch(window.location.search) : "",
+  );
+  const [username, setUsername] = useState("");
+  const usernameCheck = useUsernameCheck(mode === "signup" ? username : "");
+  const [referralNote, setReferralNote] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    const code = referral.trim();
+    if (mode !== "signup" || !code) return setReferralNote(null);
+    if (!/^[A-Za-z0-9_-]{3,32}$/.test(code))
+      return setReferralNote({ ok: false, text: "A referral code is a member's username." });
+    let alive = true;
+    const t = setTimeout(() => {
+      checkReferralCodeFn({ data: { code } })
+        .then((r) => {
+          if (!alive) return;
+          setReferralNote(
+            r.valid
+              ? {
+                  ok: true,
+                  text: "Referral code applied. Your friend earns a point when you spend R50.",
+                }
+              : r.reason === "inactive"
+                ? {
+                    ok: false,
+                    text: "That member's referral code isn't active yet, so no points will be recorded. You can still sign up.",
+                  }
+                : {
+                    ok: false,
+                    text: "We couldn't find that referral code. Check the spelling or clear the box.",
+                  },
+          );
+        })
+        .catch(() => alive && setReferralNote(null));
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [referral, mode]);
   const [dob, setDob] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,9 +150,24 @@ function AuthPanel() {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
       } else {
-        const fields = { firstName, lastName, email, phone, dob, idNumber, referral };
+        const fields = { firstName, lastName, email, phone, dob, idNumber, referral, username };
         const issue = signupProblem(fields, dobProblem(dob));
         if (issue) throw new Error(issue);
+        // The username must be free, and a referral code must be one we know (typos would lose the referral).
+        const { status } = await checkUsernameFn({ data: { username } });
+        if (status !== "ok")
+          throw new Error(
+            status === "taken"
+              ? "That username is taken. Try another."
+              : "That username is not available. Try another.",
+          );
+        if (referral.trim()) {
+          const r = await checkReferralCodeFn({ data: { code: referral } });
+          if (!r.valid && r.reason !== "inactive")
+            throw new Error(
+              "We couldn't find that referral code. Check the spelling or clear the box.",
+            );
+        }
         // New members need an ID check; when the shop has no credits left, sign-up is paused.
         if (!(await idCreditsOpenFn())) {
           setCreditsOpen(false);
@@ -219,6 +284,39 @@ function AuthPanel() {
                   )}
                   {mode === "signup" && (
                     <div className="grid gap-1.5">
+                      <Label htmlFor="signup-username">Username</Label>
+                      <Input
+                        id="signup-username"
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        maxLength={20}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
+                        required
+                      />
+                      <p
+                        data-testid="username-status"
+                        aria-live="polite"
+                        className={
+                          "text-[0.7rem] " +
+                          (usernameCheck.state === "ok"
+                            ? "text-primary"
+                            : usernameCheck.state === "idle" || usernameCheck.state === "checking"
+                              ? "text-muted-foreground"
+                              : "text-destructive")
+                        }
+                      >
+                        {usernameCheck.state === "checking"
+                          ? "Checking…"
+                          : usernameCheck.state === "idle"
+                            ? "Unique to you: 3 to 20 letters, numbers or underscores. It becomes your referral code and can't be changed later."
+                            : usernameCheck.message}
+                      </p>
+                    </div>
+                  )}
+                  {mode === "signup" && (
+                    <div className="grid gap-1.5">
                       <DateOfBirthField
                         id="signup-dob"
                         label="Date of birth"
@@ -297,9 +395,35 @@ function AuthPanel() {
                       <Input
                         id="signup-referral"
                         autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         value={referral}
-                        onChange={(e) => setReferral(e.target.value)}
+                        onChange={(e) => setReferral(e.target.value.replace(/\s/g, ""))}
                       />
+                      <p
+                        data-testid="referral-status"
+                        aria-live="polite"
+                        className={
+                          "text-[0.7rem] " +
+                          (referralNote
+                            ? referralNote.ok
+                              ? "text-primary"
+                              : "text-destructive"
+                            : "text-muted-foreground")
+                        }
+                      >
+                        {referralNote?.text ??
+                          "A friend's username. They earn a loyalty point when you spend R50."}
+                      </p>
+                      <p className="text-[0.7rem] text-muted-foreground">
+                        Earn 1 loyalty point for every R50 you spend.{" "}
+                        <a
+                          className="font-semibold text-primary underline-offset-2 hover:underline"
+                          href="/rewards"
+                        >
+                          How rewards work
+                        </a>
+                      </p>
                     </div>
                   )}
                   {error && (
@@ -371,7 +495,13 @@ function MemberPortal() {
   const [resetting] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset"),
   );
-  const [tab, setTab] = useState(resetting ? "settings" : "dashboard");
+  const [tab, setTab] = useState(() =>
+    resetting
+      ? "settings"
+      : typeof window !== "undefined" && window.location.hash === "#rewards"
+        ? "rewards"
+        : "dashboard",
+  );
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
 
@@ -380,7 +510,7 @@ function MemberPortal() {
   useEffect(() => {
     if (!account || onboarded.current || resetting) return;
     onboarded.current = true;
-    if (!account.verification) setTab("verification");
+    if (!account.verification && window.location.hash !== "#rewards") setTab("verification");
   }, [account, resetting]);
 
   useEffect(() => {
@@ -476,6 +606,26 @@ function MemberPortal() {
               verification={account.verification}
               onOpen={() => setTab("verification")}
             />
+            {!account.rewards.username && (
+              <div
+                data-testid="username-banner"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/10 p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Sparkles size={18} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">Choose your username</p>
+                    <p className="text-xs text-muted-foreground">
+                      It&apos;s your unique name and your referral code: earn a loyalty point for
+                      every friend who joins and spends R50.
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => setTab("rewards")}>
+                  Choose username
+                </Button>
+              </div>
+            )}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-primary p-5 text-primary-foreground">
                 <p className="text-xs uppercase opacity-70">Orders</p>
@@ -546,7 +696,9 @@ function MemberPortal() {
           <OrdersPanel account={account} reload={reload} notify={setFlash} />
         )}
         {account && tab === "saved" && <SavedPanel account={account} reload={reload} />}
-        {account && tab === "rewards" && <RewardsPanel account={account} />}
+        {account && tab === "rewards" && (
+          <RewardsPanel account={account} reload={reload} onVerify={() => setTab("verification")} />
+        )}
         {account && tab === "addresses" && <AddressesPanel account={account} reload={reload} />}
         {tab === "payment" && (
           <div className="max-w-lg rounded-xl border border-border bg-card p-6">

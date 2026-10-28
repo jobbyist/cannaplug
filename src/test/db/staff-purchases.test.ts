@@ -5,7 +5,9 @@ import {
   cash,
   connect,
   earnPoints,
+  advanceOrder,
   key,
+  loyaltyOf,
   mkMember,
   mkProduct,
   mkSession,
@@ -352,10 +354,9 @@ describe.skipIf(!DB_URL)("staff purchases (real PostgreSQL)", () => {
       expect(m).toMatchObject({ total: 100, staff_purchase: false, staff_discount: 0 });
     });
 
-    it("loyalty points apply to what is left after the staff discount", async () => {
+    it("points are earned on what staff actually paid for goods (after the staff discount)", async () => {
       const staff = await staffMember("manager");
-      await earnPoints(sql, manager, staff, 500);
-      const p = await product(400);
+      const p = await product(1000);
       const addr = (
         await rpc(
           sql,
@@ -366,7 +367,6 @@ describe.skipIf(!DB_URL)("staff purchases (real PostgreSQL)", () => {
           false,
         )
       ).id as string;
-      // goods 400 - staff 80 = 320, + delivery 80 = 400
       const o = await rpc(
         sql,
         "checkout_place_order",
@@ -377,18 +377,12 @@ describe.skipIf(!DB_URL)("staff purchases (real PostgreSQL)", () => {
         "standard",
         addr,
         "eft",
-        400,
+        880, // R1000 less the 20% staff rate, plus R80 delivery
         null,
         key("co"),
       );
-      expect(Number(o.total)).toBe(400);
-      const red = await rpc(sql, "redeem_loyalty_points", staff, o.order_id, 200, key("r"));
-      expect(red).toMatchObject({ discount: 20, total: 380 }); // 320 + 80 - 20
-      const row = (
-        await sql`SELECT total_rand, staff_discount_rand FROM public.orders WHERE id = ${o.order_id}`
-      )[0]!;
-      expect(Number(row["total_rand"])).toBe(380);
-      expect(Number(row["staff_discount_rand"])).toBe(80); // the staff discount survives the redemption
+      await advanceOrder(sql, manager, o.order_id, "completed");
+      expect((await loyaltyOf(sql, staff))?.points_balance).toBe(16); // R800 of goods / R50
     });
   });
 

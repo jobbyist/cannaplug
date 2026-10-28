@@ -349,7 +349,7 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       await apply("payfast", "evt-L-1", f);
       await apply("payfast", "evt-L-2", f);
       const l = await loyaltyOf(sql, o.member);
-      expect(Number(l!.points_balance)).toBe(50); // R500 at 1 point per R10, once
+      expect(Number(l!.points_balance)).toBe(10); // R500 at 1 point per R50, once
     });
 
     it("cancels sibling attempts once an order is paid", async () => {

@@ -21,6 +21,7 @@ import { Route as FaqRouteImport } from './routes/faq'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
+import { Route as RewardsRouteImport } from './routes/rewards'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
@@ -104,6 +105,11 @@ const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
 const RefundPolicyRoute = RefundPolicyRouteImport.update({
   id: '/refund-policy',
   path: '/refund-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RewardsRoute = RewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
+  '/rewards': typeof RewardsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
+  '/rewards': typeof RewardsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
+  '/rewards': typeof RewardsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
+    | '/rewards'
     | '/shop'
     | '/sitemap.xml'
     | '/terms-of-service'
@@ -400,6 +410,7 @@ export interface FileRouteTypes {
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
+    | '/rewards'
     | '/shop'
     | '/sitemap.xml'
     | '/terms-of-service'
@@ -438,6 +449,7 @@ export interface FileRouteTypes {
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
+    | '/rewards'
     | '/shop'
     | '/sitemap.xml'
     | '/terms-of-service'
@@ -477,6 +489,7 @@ export interface RootRouteChildren {
   OfflineRoute: typeof OfflineRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
+  RewardsRoute: typeof RewardsRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
@@ -587,6 +600,13 @@ declare module '@tanstack/react-router' {
       path: '/refund-policy'
       fullPath: '/refund-policy'
       preLoaderRoute: typeof RefundPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rewards': {
+      id: '/rewards'
+      path: '/rewards'
+      fullPath: '/rewards'
+      preLoaderRoute: typeof RewardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -773,6 +793,7 @@ const rootRouteChildren: RootRouteChildren = {
   OfflineRoute: OfflineRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
+  RewardsRoute: RewardsRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,

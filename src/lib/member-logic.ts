@@ -34,7 +34,7 @@ export type LoyaltyTier = {
 };
 
 export const DEFAULT_RULES: LoyaltyRules = {
-  earnRandPerPoint: 10,
+  earnRandPerPoint: 50,
   redeemRandPerPoint: 0.1,
   minRedeemPoints: 100,
   maxRedeemPct: 50,
@@ -142,6 +142,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   below_minimum: "That is below the minimum redemption",
   exceeds_order_limit: "That is more than can be applied to this order",
   insufficient_points: "You do not have enough points",
+  redemption_unavailable:
+    "Online redemption of points is coming soon. Redeem your points for a free reward in store.",
+  username_taken: "That username is taken. Try another.",
+  username_invalid: "A username is 3 to 20 letters, numbers or underscores.",
+  username_reserved: "That username is not available. Try another.",
+  username_already_set: "Your username is your referral code, so it cannot be changed.",
   invalid_points: "Enter a whole number of points",
   idempotency_conflict:
     "This request was already submitted with different details — please refresh",
@@ -240,6 +246,10 @@ const LOYALTY_SOURCE_LABELS: Record<string, string> = {
   pos_sale: "Earned in store",
   pos_sale_void: "Points reversed — sale voided",
   pos_refund: "Points adjusted — refund",
+  pos_reward: "Redeemed for a free reward in store",
+  pos_reward_void: "Points returned — reward sale voided",
+  referral: "A friend you referred spent R50",
+  points_conversion: "Points converted to the new rate (1 point per R50)",
 };
 
 export const describeLoyaltyTxn = (sourceType: string) =>

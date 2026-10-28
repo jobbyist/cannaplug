@@ -1147,6 +1147,7 @@ const footerExploreLinks: [string, string][] = [
   ["Menu", "/#categories"],
   ["Events", "/#events"],
   ["Journal", "/journal"],
+  ["Rewards", "/rewards"],
   ["About", "/about"],
   ["Contact", "/#contact"],
 ];

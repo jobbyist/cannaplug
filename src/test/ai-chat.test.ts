@@ -288,7 +288,7 @@ describe("system prompt", () => {
       "PayPal",
       "5 to 10 business days",
       "Plug Back",
-      "1 point per R10",
+      "1 point per R50",
       "Sprout from 500 points",
       "Blue Gelato R50",
     ])

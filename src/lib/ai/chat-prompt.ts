@@ -29,7 +29,7 @@ export const SITE_FACTS = {
   members: [
     "Members create an account, then verify their ID once before ordering online (South African IDs do not expire; passports and driver's licences have an expiry date).",
     "The account shows orders and live status, saved products, delivery addresses and rewards.",
-    "Rewards: 1 point per R10 spent; points can be redeemed on an order.",
+    "Rewards: 1 point per R50 spent; 5 points = 1 free Greenhouse pre-roll or bud, 10 points = 1 free Indoor pre-roll or bud, redeemed in store at the till (online redemption is coming soon). Referral: a verified member's username is their referral code; they earn 1 point when a friend signs up with it and spends R50. Details: /rewards.",
     "Plug Back: bring 10 empty Cannaplug pre-roll tubes in store for 1 complimentary Greenhouse pre-roll, while stocks last.",
   ],
   compliance:

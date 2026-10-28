@@ -34,10 +34,28 @@ export type CatalogItem = {
 /** A discount the cashier typed: a percentage ("10") or a rand amount ("15.50"). The server works out the cents. */
 export type DiscountInput = { kind: "percent" | "amount"; value: string };
 
+/** The grade in brackets at the end of a product's name, e.g. "Orange Road Stick (Greenhouse)" -> "greenhouse". */
+export const gradeOf = (name: string): string | null =>
+  /\(([^)]*)\)\s*$/.exec(name)?.[1]?.trim().toLowerCase() ?? null;
+
+export type RewardOffer = {
+  code: string;
+  name: string;
+  points_cost: number;
+  grade: string;
+  categories: string[];
+};
+
+/** Display only (the database decides): does this reward cover this product? */
+export const rewardCovers = (r: RewardOffer, p: Pick<CatalogItem, "name" | "category">): boolean =>
+  r.categories.includes(p.category) && gradeOf(p.name) === r.grade.trim().toLowerCase();
+
 export type CartLine = {
   product: CatalogItem;
   quantity: number;
   discount?: DiscountInput | undefined;
+  /** A loyalty reward code: one unit of this line is free, paid for in the member's points. */
+  reward?: string | undefined;
 };
 
 export type TenderRow = { rowId: string; method: TenderMethod; amount: string; reference: string };
@@ -88,6 +106,8 @@ export type CartSummary = {
   orderDiscountCents: number;
   /** What the staff rate alone would take off (0 unless the customer is staff). */
   staffDiscountCents: number;
+  /** The value of free reward items (one unit per reward line); it needs no typed reason. */
+  rewardDiscountCents: number;
   /** What the customer pays. */
   totalCents: number;
   /** False when any typed discount is not valid yet. */
@@ -104,14 +124,21 @@ export function cartSummary(
 ): CartSummary {
   let gross = 0;
   let lineDisc = 0;
+  let rewardDisc = 0;
   let valid = true;
   for (const l of lines) {
     const base = priceCents(l.product.price_rand) * l.quantity;
     gross += base;
+    if (l.reward) {
+      // One unit is free; a reward line carries no other discount.
+      rewardDisc += priceCents(l.product.price_rand);
+      continue;
+    }
     const d = discountCents(l.discount, base);
     if (d === null) valid = false;
     else lineDisc += d;
   }
+  lineDisc += rewardDisc;
   const net = gross - lineDisc;
   const o = discountCents(orderDiscount, net);
   if (o === null) valid = false;
@@ -126,10 +153,11 @@ export function cartSummary(
     lineDiscountCents: lineDisc,
     orderDiscountCents: orderDisc,
     staffDiscountCents: staffDisc,
+    rewardDiscountCents: rewardDisc,
     totalCents: total,
     discountsValid: valid,
     hasDiscount: lineDisc + orderDisc > 0,
-    hasManualDiscount: lineDisc + manual > 0,
+    hasManualDiscount: lineDisc - rewardDisc + manual > 0,
   };
 }
 

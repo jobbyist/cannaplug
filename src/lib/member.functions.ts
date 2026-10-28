@@ -6,7 +6,6 @@ import {
   createReorder,
   deleteMemberAddress,
   getMemberAccount,
-  redeemLoyaltyPoints,
   saveMemberAddress,
   setDefaultMemberAddress,
   setStockAlert,
@@ -91,21 +90,6 @@ export const deleteAddressFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ addressId: uuid }).parse(d))
   .handler(({ context, data }) => run(() => deleteMemberAddress(context.userId, data.addressId)));
-
-export const redeemPointsFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator((d) =>
-    z
-      .object({
-        orderId: uuid,
-        points: z.number().int().min(1).max(10_000_000),
-        key: idempotencyKey,
-      })
-      .parse(d),
-  )
-  .handler(({ context, data }) =>
-    run(() => redeemLoyaltyPoints(context.userId, data.orderId, data.points, data.key)),
-  );
 
 export const reorderPreviewFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

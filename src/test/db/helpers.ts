@@ -241,14 +241,14 @@ export async function payOrder(sql: Sql, orderId: string, reference = key("pay")
   await rpc(sql, "confirm_order_payment", "manual", reference, orderId, Number(total));
 }
 
-/** Gives `customer` exactly `points` loyalty points by completing a real order (1 point per R10). */
+/** Gives `customer` exactly `points` loyalty points by completing a real order (1 point per R50). */
 export async function earnPoints(
   sql: Sql,
   manager: string,
   customer: string,
   points: number,
 ): Promise<string> {
-  const product = await mkProduct(sql, points * 10);
+  const product = await mkProduct(sql, points * 50);
   await receive(sql, manager, product, 1);
   const { orderId } = await placeOrder(sql, customer, [{ product_id: product, quantity: 1 }]);
   await advanceOrder(sql, manager, orderId, "completed");

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StaffBadge } from "@/components/StaffBadge";
+import type { PosCustomerRewards } from "@/lib/pos-data.server";
 import { CustomerPicker, type PickedCustomer } from "@/components/admin/pos/CustomerPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
   closePosSessionFn,
   completePosSaleFn,
   findPosSaleFn,
+  getPosCustomerRewardsFn,
   getPosOverviewFn,
   openPosSessionFn,
   refundPosSaleFn,
@@ -36,6 +38,7 @@ import {
   TENDER_METHODS,
   addToCart,
   STAFF_PERCENT,
+  rewardCovers,
   cartSummary,
   discountCents,
   refundLineCents,
@@ -332,6 +335,8 @@ export function SaleScreen({
   const [lines, setLines] = useState<CartLine[]>([]);
   const [tenders, setTenders] = useState<TenderRow[]>([]);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
+  // The attached member's points and the rewards on offer (loaded from the database, read-only).
+  const [memberRewards, setMemberRewards] = useState<PosCustomerRewards | null>(null);
   const [orderDiscount, setOrderDiscount] = useState<DiscountInput | undefined>();
   const [discountReason, setDiscountReason] = useState("");
   const [cashReceived, setCashReceived] = useState("");
@@ -363,6 +368,37 @@ export function SaleScreen({
       }),
     );
   }, [data.catalog]);
+
+  useEffect(() => {
+    setLines((cur) => (cur.some((l) => l.reward) ? cur.map(({ reward: _r, ...l }) => l) : cur));
+    setMemberRewards(null);
+    if (!customer) return;
+    let alive = true;
+    getPosCustomerRewardsFn({ data: { customerId: customer.id } })
+      .then((r) => alive && setMemberRewards(r))
+      .catch(() => alive && setMemberRewards(null));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when a different member is attached
+  }, [customer?.id]);
+
+  const offerFor = (p: CatalogItem) =>
+    memberRewards?.rewards.find((r) => rewardCovers(r, p)) ?? null;
+  const pointsUsed = lines.reduce(
+    (sum, l) =>
+      sum +
+      (l.reward ? (memberRewards?.rewards.find((r) => r.code === l.reward)?.points_cost ?? 0) : 0),
+    0,
+  );
+  const toggleReward = (productId: string, code: string | null) =>
+    setLines((cur) =>
+      cur.map((x) => {
+        if (x.product.id !== productId) return x;
+        const { reward: _r, discount: _d, ...rest } = x;
+        return code ? { ...rest, reward: code } : rest;
+      }),
+    );
 
   const summary = cartSummary(lines, orderDiscount, customer?.staff === true);
   const totalCents = summary.totalCents;
@@ -439,7 +475,12 @@ export function SaleScreen({
     setError(null);
     const items = lines.map((l) => {
       const discount = sendableDiscount(l.discount);
-      return { product_id: l.product.id, quantity: l.quantity, ...(discount ? { discount } : {}) };
+      return {
+        product_id: l.product.id,
+        quantity: l.quantity,
+        ...(discount ? { discount } : {}),
+        ...(l.reward ? { reward: l.reward } : {}),
+      };
     });
     const od = sendableDiscount(orderDiscount);
     const reason = summary.hasManualDiscount ? discountReason.trim() : null;
@@ -761,37 +802,77 @@ export function SaleScreen({
                     <p className="text-sm font-bold">
                       {money(
                         Math.round(l.product.price_rand * 100) * l.quantity -
-                          (discountCents(
-                            l.discount,
-                            Math.round(l.product.price_rand * 100) * l.quantity,
-                          ) ?? 0),
+                          (l.reward
+                            ? Math.round(l.product.price_rand * 100)
+                            : (discountCents(
+                                l.discount,
+                                Math.round(l.product.price_rand * 100) * l.quantity,
+                              ) ?? 0)),
                       )}
                     </p>
                   </div>
-                  <details className="mt-2" open={Boolean(l.discount)}>
-                    <summary className="cursor-pointer text-xs font-semibold text-primary">
-                      Discount this item
-                    </summary>
-                    <div className="mt-1.5">
-                      <DiscountEditor
-                        label={`Discount for ${l.product.name}`}
-                        value={l.discount}
-                        invalid={
-                          discountCents(
-                            l.discount,
-                            Math.round(l.product.price_rand * 100) * l.quantity,
-                          ) === null
-                        }
-                        onChange={(d) =>
-                          setLines((cur) =>
-                            cur.map((x) =>
-                              x.product.id === l.product.id ? { ...x, discount: d } : x,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-                  </details>
+                  {(() => {
+                    const offer = offerFor(l.product);
+                    if (!offer) return null;
+                    if (l.reward)
+                      return (
+                        <div
+                          data-testid="reward-applied"
+                          className="mt-2 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1.5 text-xs"
+                        >
+                          <span className="font-semibold text-primary">
+                            1 free ({offer.points_cost} points)
+                          </span>
+                          <button
+                            type="button"
+                            className="font-semibold text-muted-foreground hover:text-destructive"
+                            onClick={() => toggleReward(l.product.id, null)}
+                          >
+                            Remove reward
+                          </button>
+                        </div>
+                      );
+                    const left = (memberRewards?.points ?? 0) - pointsUsed;
+                    return (
+                      <button
+                        type="button"
+                        disabled={left < offer.points_cost}
+                        onClick={() => toggleReward(l.product.id, offer.code)}
+                        className="mt-2 w-full rounded-md border border-dashed border-primary/50 px-2 py-1.5 text-left text-xs font-semibold text-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
+                      >
+                        Use reward: 1 free for {offer.points_cost} points
+                        {left < offer.points_cost
+                          ? ` (needs ${offer.points_cost - left} more)`
+                          : ""}
+                      </button>
+                    );
+                  })()}
+                  {!l.reward && (
+                    <details className="mt-2" open={Boolean(l.discount)}>
+                      <summary className="cursor-pointer text-xs font-semibold text-primary">
+                        Discount this item
+                      </summary>
+                      <div className="mt-1.5">
+                        <DiscountEditor
+                          label={`Discount for ${l.product.name}`}
+                          value={l.discount}
+                          invalid={
+                            discountCents(
+                              l.discount,
+                              Math.round(l.product.price_rand * 100) * l.quantity,
+                            ) === null
+                          }
+                          onChange={(d) =>
+                            setLines((cur) =>
+                              cur.map((x) =>
+                                x.product.id === l.product.id ? { ...x, discount: d } : x,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
@@ -840,6 +921,17 @@ export function SaleScreen({
                       .
                     </p>
                   )}
+                  {summary.rewardDiscountCents > 0 && (
+                    <p
+                      data-testid="reward-note"
+                      className="flex items-center justify-between text-xs text-muted-foreground"
+                    >
+                      <span>
+                        Loyalty reward: {pointsUsed} of {memberRewards?.points ?? 0} points used
+                      </span>
+                      <span>−{money(summary.rewardDiscountCents)}</span>
+                    </p>
+                  )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Subtotal</span>
                     <span>{money(summary.grossCents)}</span>
@@ -872,6 +964,19 @@ export function SaleScreen({
             <div className="mb-3 grid gap-1.5 text-xs font-semibold">
               <span>Customer (earns loyalty points, optional)</span>
               <CustomerPicker value={customer} onChange={setCustomer} />
+              {customer && memberRewards && (
+                <p
+                  data-testid="member-points"
+                  className="text-[0.7rem] font-normal text-muted-foreground"
+                >
+                  {customer.name} has <b>{memberRewards.points}</b> loyalty point
+                  {memberRewards.points === 1 ? "" : "s"}
+                  {memberRewards.rewards.length
+                    ? ` · rewards from ${Math.min(...memberRewards.rewards.map((r) => r.points_cost))} points`
+                    : ""}
+                  . Earns 1 point per R50.
+                </p>
+              )}
             </div>
 
             {totalCents === 0 ? (

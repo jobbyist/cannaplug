@@ -1,4 +1,5 @@
 import { isStaffAccount } from "@/lib/verification-data.server";
+import { getRewardsSummary } from "@/lib/rewards-data.server";
 import { productImageUrl } from "@/lib/product-image-url.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -155,6 +156,7 @@ export async function getMemberAccount(db: UserClient, userId: string) {
       in_stock: inStock.has(p.id),
       image_url: productImageUrl(p.image_path),
     })),
+    rewards: await getRewardsSummary(userId),
     verification: (await isStaffAccount(userId))
       ? { ...(unwrap(verification) ?? { status: "unverified" }), staff_exempt: true }
       : unwrap(verification),
@@ -217,22 +219,6 @@ export async function deleteMemberAddress(userId: string, addressId: string) {
 // -------------------------------------------------------------------------------------------
 // Loyalty redemption, reorder
 // -------------------------------------------------------------------------------------------
-
-export async function redeemLoyaltyPoints(
-  userId: string,
-  orderId: string,
-  points: number,
-  key: string,
-) {
-  return unwrap(
-    await supabaseAdmin.rpc("redeem_loyalty_points", {
-      p_user_id: userId,
-      p_order_id: orderId,
-      p_points: points,
-      p_idempotency_key: key,
-    }),
-  );
-}
 
 export async function checkReorder(userId: string, orderId: string): Promise<ReorderCheck> {
   return unwrap(

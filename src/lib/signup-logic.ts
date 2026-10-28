@@ -1,3 +1,5 @@
+import { normaliseUsername, usernameProblem } from "@/lib/rewards-logic";
+
 /**
  * Sign-up form rules (browser side, so people get a clear message before anything is sent). The ID/passport
  * number is only ever stored in a locked table by the database trigger; it is never put in an email, a log or
@@ -51,13 +53,13 @@ export function phoneProblem(raw: string): string | null {
   return null;
 }
 
-/** Optional. null when empty or well formed. */
+/** Optional. null when empty or well formed. A referral code is the referring member's username. */
 export function referralProblem(raw: string): string | null {
   const code = raw.trim();
   if (!code) return null;
-  return /^[A-Za-z0-9-]{3,32}$/.test(code)
+  return /^[A-Za-z0-9_-]{3,32}$/.test(code)
     ? null
-    : "A referral code is 3 to 32 letters, numbers or dashes.";
+    : "A referral code is a member's username: 3 to 32 letters, numbers or underscores.";
 }
 
 export type SignupFields = {
@@ -68,6 +70,8 @@ export type SignupFields = {
   dob: string;
   idNumber: string;
   referral: string;
+  /** Required: it is the member's unique name and their own referral code. */
+  username: string;
 };
 
 /** First problem found, or null. Name, surname, email, phone, date of birth and ID/passport number are all required. */
@@ -79,6 +83,7 @@ export function signupProblem(f: SignupFields, dobIssue: string | null): string 
     phoneProblem(f.phone) ??
     dobIssue ??
     idNumberProblem(f.idNumber, f.dob) ??
+    usernameProblem(f.username) ??
     referralProblem(f.referral)
   );
 }
@@ -94,6 +99,7 @@ export function signupMetadata(f: SignupFields) {
     phone: f.phone.trim(),
     date_of_birth: f.dob,
     id_number: normaliseIdNumber(f.idNumber),
+    username: normaliseUsername(f.username),
     ...(f.referral.trim() ? { referral_code: f.referral.trim().toUpperCase() } : {}),
   };
 }

@@ -697,7 +697,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       });
       await rpc(sql, "accrue_pos_loyalty", sale.sale_id);
       const v = await rpc(sql, "pos_void_sale", manager, sale.sale_id, "wrong customer", key("vd"));
-      expect(v.loyalty_reversed).toBe(40);
+      expect(v.loyalty_reversed).toBe(8); // R400 at 1 point per R50
       const batches =
         await sql`SELECT batch_code, qty_on_hand FROM public.inventory_batches WHERE product_id = ${product} ORDER BY batch_code`;
       expect(batches.map((b) => b["qty_on_hand"])).toEqual([2, 3]);
@@ -895,7 +895,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       const pts = await val(
         sql`SELECT COALESCE(SUM(points),0)::int pts FROM public.loyalty_ledger WHERE user_id = ${customer}`,
       );
-      expect(pts).toBe(30);
+      expect(pts).toBe(6);
     });
 
     it("sale retries followed by accrual never double-credit", async () => {
@@ -915,7 +915,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       const pts = await val(
         sql`SELECT COALESCE(SUM(points),0)::int pts FROM public.loyalty_ledger WHERE user_id = ${customer}`,
       );
-      expect(pts).toBe(10);
+      expect(pts).toBe(2);
     });
 
     it("accrual is never part of the sale transaction: a rolled-back sale earns nothing", async () => {
@@ -975,7 +975,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       const pts = await val(
         sql`SELECT COALESCE(SUM(points),0)::int pts FROM public.loyalty_ledger WHERE user_id = ${customer}`,
       );
-      expect(pts).toBe(30);
+      expect(pts).toBe(6);
 
       const sale2 = await sell(sql, cashier, sessionId, oneOf(product, 4), [cash("400")], {
         customer,
@@ -995,7 +995,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
         key("rf"),
       );
       const acc = await rpc(sql, "accrue_pos_loyalty", sale2.sale_id);
-      expect(acc.points).toBe(30);
+      expect(acc.points).toBe(6);
     });
   });
 

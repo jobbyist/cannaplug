@@ -71,6 +71,9 @@ const PUBLIC_FNS: Record<string, string> = {
   unsubscribeNewsletterFn: "token in the email link",
   getJournalEngagementFn:
     "public like count and approved comments for a published article (first name + initial only, no user ids)",
+  checkUsernameFn: "sign-up form: is this username free (yes/no and a reason only; no member data)",
+  checkReferralCodeFn:
+    "sign-up form: is this referral code an active member (yes/no only, no names)",
   verifyDocumentFn: "public QR verification page; reveals only validity, never content",
 };
 

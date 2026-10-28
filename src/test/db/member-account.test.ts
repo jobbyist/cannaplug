@@ -270,7 +270,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
 
     it("does not accrue before the order is completed, and links the row to its order", async () => {
       const c = await mkUser(sql, "customer");
-      const product = await mkProduct(sql, 500);
+      const product = await mkProduct(sql, 2500); // R50 per point: 50 points
       await receive(sql, manager, product, 1);
       const { orderId } = await placeOrder(sql, c, [{ product_id: product, quantity: 1 }]);
       expect(await rpc(sql, "accrue_order_loyalty", orderId)).toMatchObject({
@@ -289,7 +289,7 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
 
     it("is idempotent when a status trigger and a manual retry race", async () => {
       const c = await mkUser(sql, "customer");
-      const product = await mkProduct(sql, 300);
+      const product = await mkProduct(sql, 1500); // 30 points
       await receive(sql, manager, product, 1);
       const { orderId } = await placeOrder(sql, c, [{ product_id: product, quantity: 1 }]);
       await advanceOrder(sql, manager, orderId, "completed");
@@ -299,22 +299,19 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
       expect((await loyaltyOf(sql, c))?.points_balance).toBe(30);
     });
 
-    it("promotes the tier from lifetime points and does not demote when points are spent", async () => {
+    it("promotes the tier from lifetime points (Sprout at 100, Bloom at 400, since 1 point is now R50)", async () => {
       const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 600);
+      await earnPoints(sql, manager, c, 150);
       expect(await loyaltyOf(sql, c)).toMatchObject({
-        points_balance: 600,
-        lifetime_points: 600,
+        points_balance: 150,
+        lifetime_points: 150,
         tier: "sprout",
       });
-      const product = await mkProduct(sql, 2000);
-      await receive(sql, manager, product, 1);
-      const { orderId } = await placeOrder(sql, c, [{ product_id: product, quantity: 1 }]);
-      await rpc(sql, "redeem_loyalty_points", c, orderId, 600, key("redeem"));
+      await earnPoints(sql, manager, c, 300);
       expect(await loyaltyOf(sql, c)).toMatchObject({
-        points_balance: 0,
-        lifetime_points: 600,
-        tier: "sprout",
+        points_balance: 450,
+        lifetime_points: 450,
+        tier: "bloom",
       });
     });
 
@@ -336,15 +333,15 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
       );
       expect(await rpc(sql, "accrue_pos_loyalty", sale.sale_id)).toMatchObject({
         accrued: true,
-        points: 50,
+        points: 10, // R500 at 1 point per R50
       });
       expect(await rpc(sql, "accrue_pos_loyalty", sale.sale_id)).toMatchObject({
         reason: "already_accrued",
       });
       const [t] =
         await sql`SELECT pos_sale_id, source_type, points FROM public.loyalty_transactions WHERE user_id = ${c}`;
-      expect(t).toMatchObject({ pos_sale_id: sale.sale_id, source_type: "pos_sale", points: 50 });
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(50);
+      expect(t).toMatchObject({ pos_sale_id: sale.sale_id, source_type: "pos_sale", points: 10 });
+      expect((await loyaltyOf(sql, c))?.points_balance).toBe(10);
 
       await rpc(sql, "pos_void_sale", manager, sale.sale_id, "customer changed mind", key("void"));
       expect((await loyaltyOf(sql, c))?.points_balance).toBe(0);
@@ -481,172 +478,23 @@ describe.skipIf(!DB_URL)("Milestone 4 member account (real PostgreSQL)", () => {
   });
 
   // -------------------------------------------------------------------------------------------
-  describe("loyalty redemption limits", () => {
-    async function orderOf(customer: string, price: number, qty = 1) {
-      const product = await mkProduct(sql, price);
-      await receive(sql, manager, product, qty);
-      return placeOrder(sql, customer, [{ product_id: product, quantity: qty }]);
-    }
-
-    it("applies a discount and keeps total_rand as the payable amount", async () => {
+  describe("online redemption of points (coming soon)", () => {
+    it("is refused: points are redeemed for free rewards at the till, and nothing is deducted", async () => {
       const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 300);
-      const { orderId } = await orderOf(c, 400);
-      const r = await rpc(sql, "redeem_loyalty_points", c, orderId, 200, key("r"));
-      expect(r).toMatchObject({ points: 200, discount: 20, total: 380, balance: 100 });
-      const [o] =
-        await sql`SELECT total_rand, loyalty_points_redeemed, loyalty_discount_rand FROM public.orders WHERE id = ${orderId}`;
-      expect(Number(o!["total_rand"])).toBe(380);
-      expect(o).toMatchObject({ loyalty_points_redeemed: 200 });
-      // The payment confirmation compares against the discounted amount.
+      await earnPoints(sql, manager, c, 20);
+      const product = await mkProduct(sql, 400);
+      await receive(sql, manager, product, 1);
+      const { orderId } = await placeOrder(sql, c, [{ product_id: product, quantity: 1 }]);
+      const r = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 10, key("redeem")));
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.message).toMatch(/redemption_unavailable/);
+      expect((await loyaltyOf(sql, c))?.points_balance).toBe(20);
       expect(
-        await rpc(sql, "confirm_order_payment", "manual", key("pay"), orderId, 400),
-      ).toMatchObject({
-        outcome: "amount_mismatch",
-      });
-      expect(
-        await rpc(sql, "confirm_order_payment", "manual", key("pay"), orderId, 380),
-      ).toMatchObject({
-        outcome: "confirmed",
-      });
-    });
-
-    it("enforces the minimum, the balance and the per-order share", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 700);
-      const { orderId } = await orderOf(c, 100); // max 50% = R50 = 500 points
-
-      const low = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 99, key("r")));
-      expect(failedWith(low, "below_minimum")).toBe(true);
-      const high = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 501, key("r")));
-      expect(failedWith(high, "exceeds_order_limit")).toBe(true);
-      const zero = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 0, key("r")));
-      expect(failedWith(zero, "invalid_points")).toBe(true);
-      const neg = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, -500, key("r")));
-      expect(failedWith(neg, "invalid_points")).toBe(true);
-
-      const ok = await rpc(sql, "redeem_loyalty_points", c, orderId, 500, key("r"));
-      expect(ok).toMatchObject({ discount: 50, total: 50, balance: 200 });
-
-      // Overspending the balance on a different order is refused by the ledger itself.
-      const big = await orderOf(c, 5000);
-      const over = await attempt(rpc(sql, "redeem_loyalty_points", c, big.orderId, 300, key("r")));
-      expect(failedWith(over, "insufficient_points")).toBe(true);
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(200);
-    });
-
-    it("allows only one redemption per order", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 500);
-      const { orderId } = await orderOf(c, 1000);
-      await rpc(sql, "redeem_loyalty_points", c, orderId, 100, key("r"));
-      const second = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 100, key("r")));
-      expect(failedWith(second, "redemption_exists")).toBe(true);
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(400);
-    });
-
-    it("is replay-safe: the same idempotency key deducts once", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 500);
-      const { orderId } = await orderOf(c, 1000);
-      const k = key("replay");
-      const first = await rpc(sql, "redeem_loyalty_points", c, orderId, 150, k);
-      const results = await Promise.all(
-        Array.from({ length: 6 }, () => rpc(sql, "redeem_loyalty_points", c, orderId, 150, k)),
-      );
-      for (const r of results) expect(r).toMatchObject({ points: 150, discount: first.discount });
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(350);
-      const reuse = await attempt(rpc(sql, "redeem_loyalty_points", c, orderId, 200, k));
-      expect(failedWith(reuse, "idempotency_conflict")).toBe(true);
-    });
-
-    it("cannot double-spend one balance across two orders under concurrency", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 100);
-      const orders = await Promise.all(Array.from({ length: 4 }, () => orderOf(c, 1000)));
-      const settled = await Promise.all(
-        orders.map((o) => attempt(rpc(sql, "redeem_loyalty_points", c, o.orderId, 100, key("r")))),
-      );
-      expect(settled.filter((s) => s.ok)).toHaveLength(1);
-      for (const s of settled.filter((s) => !s.ok))
-        expect(failedWith(s, "insufficient_points")).toBe(true);
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(0);
-    });
-
-    it("enforces ownership: a member cannot redeem against someone else's order", async () => {
-      const owner = await mkUser(sql, "customer");
-      const thief = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, thief, 500);
-      const { orderId } = await orderOf(owner, 1000);
-      const r = await attempt(rpc(sql, "redeem_loyalty_points", thief, orderId, 100, key("r")));
-      expect(failedWith(r, "order_not_found")).toBe(true);
-      expect((await loyaltyOf(sql, thief))?.points_balance).toBe(500);
-      const [o] =
-        await sql`SELECT loyalty_points_redeemed FROM public.orders WHERE id = ${orderId}`;
-      expect(o!["loyalty_points_redeemed"]).toBe(0);
-    });
-
-    it("refuses redemption once the order is paid, and gives points back on cancellation (once)", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 500);
-      const paid = await orderOf(c, 1000);
-      await advanceOrder(sql, manager, paid.orderId, "confirmed");
-      const late = await attempt(rpc(sql, "redeem_loyalty_points", c, paid.orderId, 100, key("r")));
-      expect(failedWith(late, "order_not_redeemable")).toBe(true);
-
-      const open = await orderOf(c, 1000);
-      await rpc(sql, "redeem_loyalty_points", c, open.orderId, 200, key("r"));
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(300);
-      await advanceOrder(sql, manager, open.orderId, "cancelled");
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(500);
-      expect(
-        await val(
-          sql`SELECT count(*)::int FROM public.loyalty_transactions WHERE source_type = 'order_redeem_release' AND source_id = ${open.orderId}`,
-        ),
-      ).toBe(1);
-      expect(await rpc(sql, "reverse_order_loyalty", open.orderId)).toMatchObject({
-        reversed: true,
-      });
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(500); // retry changes nothing
-    });
-
-    it("earns on the amount actually paid, after the redemption discount", async () => {
-      const c = await mkUser(sql, "customer");
-      await earnPoints(sql, manager, c, 500);
-      const { orderId } = await orderOf(c, 1000);
-      await rpc(sql, "redeem_loyalty_points", c, orderId, 500, key("r")); // R50 off -> R950 payable
-      await advanceOrder(sql, manager, orderId, "completed");
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(0 + 95);
-    });
-
-    it("lets a reversal take the balance below zero (clawback) but then blocks redemption", async () => {
-      const cashier = await mkUser(sql, "budtender");
-      const c = await mkUser(sql, "customer");
-      const product = await mkProduct(sql, 1000);
-      await receive(sql, manager, product, 2);
-      const { sessionId } = await mkSession(sql, manager, cashier);
-      const sale = await sell(
-        sql,
-        cashier,
-        sessionId,
-        [{ product_id: product, quantity: 1 }],
-        [cash(1000)],
-        { customer: c },
-      );
-      await rpc(sql, "accrue_pos_loyalty", sale.sale_id); // +100
-      const { orderId } = await orderOf(c, 1000);
-      await rpc(sql, "redeem_loyalty_points", c, orderId, 100, key("r")); // spend all 100
-      await rpc(sql, "pos_void_sale", manager, sale.sale_id, "fraud", key("void")); // -100
-      expect((await loyaltyOf(sql, c))?.points_balance).toBe(-100);
-      const next = await orderOf(c, 1000);
-      const blocked = await attempt(
-        rpc(sql, "redeem_loyalty_points", c, next.orderId, 100, key("r")),
-      );
-      expect(failedWith(blocked, "insufficient_points")).toBe(true);
+        Number(await val(sql`SELECT total_rand FROM public.orders WHERE id = ${orderId}`)),
+      ).toBe(400);
     });
   });
 
-  // -------------------------------------------------------------------------------------------
   describe("wishlist and back-in-stock (RLS)", () => {
     it("lets a member manage only their own wishlist", async () => {
       const a = await mkUser(sql, "customer");

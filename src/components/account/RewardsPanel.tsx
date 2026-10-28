@@ -1,13 +1,27 @@
+import { Sparkles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { rand } from "@/lib/cart";
 import type { MemberAccount } from "@/lib/member-data.server";
-import { describeLoyaltyTxn, pointsValueRand, tierProgress } from "@/lib/member-logic";
+import { describeLoyaltyTxn, tierProgress } from "@/lib/member-logic";
+import { EARN_RAND_PER_POINT, ONLINE_REDEMPTION_NOTICE, nextReward } from "@/lib/rewards-logic";
+import { LoyaltyPoster, SeeProgramLink } from "@/components/rewards/LoyaltyPoster";
+import { ReferralCard } from "./ReferralCard";
 
-export function RewardsPanel({ account }: { account: MemberAccount }) {
-  const { loyalty } = account;
+export function RewardsPanel({
+  account,
+  reload,
+  onVerify,
+}: {
+  account: MemberAccount;
+  reload?: () => Promise<void> | void;
+  onVerify?: () => void;
+}) {
+  const { loyalty, rewards } = account;
   const progress = tierProgress(loyalty.lifetime, loyalty.tiers);
-  const { rules } = loyalty;
+  const balance = Math.max(loyalty.balance, 0);
+  const catalogue = rewards.rewards.map((r) => ({ ...r, points: r.points_cost }));
+  const next = nextReward(balance, catalogue);
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <div className="rounded-xl border border-border bg-card p-6">
@@ -16,15 +30,23 @@ export function RewardsPanel({ account }: { account: MemberAccount }) {
           {progress.current && <Badge>{progress.current.name}</Badge>}
         </div>
         <p className="mb-4 text-sm text-muted-foreground">
-          Earn 1 point for every {rand(rules.earnRandPerPoint)} you spend. Points are credited when
-          an order is completed or a purchase is made in store, and can be redeemed against an
-          unpaid order (minimum {rules.minRedeemPoints} points, up to {rules.maxRedeemPct}% of the
-          order).
+          Earn 1 point for every {rand(EARN_RAND_PER_POINT)} you spend, online or in store. Points
+          are credited when an order is completed or a purchase is made in store.
         </p>
-        <p className="font-display text-3xl font-extrabold">{loyalty.balance}</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          points available · worth {rand(pointsValueRand(Math.max(loyalty.balance, 0), rules))}
+        <p className="font-display text-3xl font-extrabold" data-testid="points-balance">
+          {loyalty.balance}
         </p>
+        <p className="mb-4 text-xs text-muted-foreground">points available</p>
+        {next ? (
+          <p className="mb-2 text-sm" data-testid="next-reward">
+            <b>{next.pointsToGo}</b> more point{next.pointsToGo === 1 ? "" : "s"} to unlock a{" "}
+            {next.name.toLowerCase()}.
+          </p>
+        ) : (
+          <p className="mb-2 text-sm font-semibold text-primary">
+            You have enough points for every reward.
+          </p>
+        )}
         {progress.next ? (
           <>
             <div className="mb-2 flex justify-between text-xs font-semibold">
@@ -44,6 +66,62 @@ export function RewardsPanel({ account }: { account: MemberAccount }) {
             first clear this balance.
           </p>
         )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6" data-testid="rewards-list">
+        <h3 className="mb-3 font-display text-sm font-bold uppercase">Rewards you can unlock</h3>
+        <ul className="divide-y divide-border text-sm">
+          {rewards.rewards.map((r) => {
+            const ready = balance >= r.points_cost;
+            return (
+              <li key={r.code} className="flex items-start justify-between gap-3 py-3">
+                <div>
+                  <p className="font-semibold">{r.name}</p>
+                  <p className="text-xs text-muted-foreground">{r.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-lg font-extrabold">{r.points_cost} points</p>
+                  <p
+                    className={
+                      "text-xs font-semibold " + (ready ? "text-primary" : "text-muted-foreground")
+                    }
+                  >
+                    {ready ? "Ready to redeem" : `${r.points_cost - balance} to go`}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-3 rounded-lg bg-primary/5 p-3 text-xs">
+          <b>How to redeem:</b> in store, tell the team your username
+          {account.rewards.username ? (
+            <>
+              {" "}
+              (<span className="font-mono">{account.rewards.username}</span>)
+            </>
+          ) : null}{" "}
+          or phone number at the till. They apply the reward and the points come off straight away.
+        </p>
+        <p
+          data-testid="online-redemption-notice"
+          className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground"
+        >
+          <Sparkles size={13} className="mt-0.5 shrink-0 text-primary" /> {ONLINE_REDEMPTION_NOTICE}
+        </p>
+      </div>
+
+      <ReferralCard
+        summary={rewards}
+        onChanged={async () => void (await reload?.())}
+        {...(onVerify ? { onVerify } : {})}
+      />
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <LoyaltyPoster panel="both" />
+        <div className="mt-3 text-center">
+          <SeeProgramLink />
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">

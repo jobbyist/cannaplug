@@ -490,32 +490,22 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
   });
 
   // ---- loyalty + reorder interplay ------------------------------------------------------------
-  it("loyalty: redeem applies to goods only, delivery stays payable, and points are earned on goods only", async () => {
+  it("loyalty: points are earned on goods only (not delivery) at 1 point per R50, and online redemption is coming soon", async () => {
     const u = await mkMember(sql);
     const a = await addr(u);
-    // give 500 points: earn via a real completed order of R5000 with the same checkout path
     const big = await basket(5000, 1, 3);
     const first = await place(u, big.items, a, 5080);
     await advanceOrder(sql, manager, first.order_id, "completed");
-    expect((await loyaltyOf(sql, u))?.points_balance).toBe(500); // R5000 goods, delivery R80 excluded
+    expect((await loyaltyOf(sql, u))?.points_balance).toBe(100); // R5000 goods / R50, delivery R80 excluded
 
     const { items } = await basket(400, 1, 3);
     const o = await place(u, items, a, 480);
-    const red = await rpc(sql, "redeem_loyalty_points", u, o.order_id, 200, key("r"));
-    expect(red).toMatchObject({ discount: 20, total: 460, balance: 300 }); // 400 + 80 - 20
-    expect(
-      Number(
-        (await sql`SELECT total_rand FROM public.orders WHERE id = ${o.order_id}`)[0]![
-          "total_rand"
-        ],
-      ),
-    ).toBe(460);
-    // payment compares against the discounted payable total
+    const red = await attempt(rpc(sql, "redeem_loyalty_points", u, o.order_id, 20, key("r")));
+    expect(failedWith(red, "redemption_unavailable")).toBe(true);
+    // nothing was deducted and the payable total is unchanged
+    expect((await loyaltyOf(sql, u))?.points_balance).toBe(100);
     expect(
       await rpc(sql, "confirm_order_payment", "eft", key("EFT"), o.order_id, 480),
-    ).toMatchObject({ outcome: "amount_mismatch" });
-    expect(
-      await rpc(sql, "confirm_order_payment", "eft", key("EFT"), o.order_id, 460),
     ).toMatchObject({ outcome: "confirmed" });
     await advanceOrder(sql, manager, o.order_id, "completed").catch(() => {});
   });
