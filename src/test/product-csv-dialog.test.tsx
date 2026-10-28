@@ -23,6 +23,7 @@ describe("ProductCsv dialog", () => {
   it("previews changes and saves only after Confirm, sending the file and a key (never prices it computed)", async () => {
     fns.previewProductCsvFn.mockResolvedValue({
       creates: [],
+      duplicates: [],
       updates: [
         {
           line: 2,
@@ -64,6 +65,7 @@ describe("ProductCsv dialog", () => {
   it("blocks saving while the file has problem rows", async () => {
     fns.previewProductCsvFn.mockResolvedValue({
       creates: [],
+      duplicates: [],
       updates: [],
       unchanged: 0,
       issues: [{ line: 3, sku: "X-1", problem: 'Unknown category "Weed"' }],
@@ -77,5 +79,42 @@ describe("ProductCsv dialog", () => {
     expect(
       (screen.getByRole("button", { name: /Save 0 products/ }) as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+
+  it("shows a duplicate warning but still lets the manager save", async () => {
+    fns.previewProductCsvFn.mockResolvedValue({
+      creates: [
+        {
+          line: 2,
+          sku: "MC(001",
+          name: "Mandarin Cookies",
+          category: "Flower",
+          price: "120.00",
+          opening_qty: 25,
+        },
+      ],
+      duplicates: [
+        {
+          line: 2,
+          sku: "MC(001",
+          name: "Mandarin Cookies",
+          problems: ["Same name and category as Mandarin Cookies (GD-MC) in Flower."],
+        },
+      ],
+      updates: [],
+      unchanged: 0,
+      issues: [],
+      notes: [],
+    });
+    const user = userEvent.setup();
+    render(<ProductCsv onSaved={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /CSV upload/ }));
+    await user.upload(screen.getByLabelText("Product CSV"), file());
+    const warn = await screen.findByTestId("product-csv-duplicates");
+    expect(warn.textContent).toMatch(/1 row may duplicate/);
+    expect(warn.textContent).toMatch(/GD-MC/);
+    expect(
+      (screen.getByRole("button", { name: /Save 1 product/ }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 });
