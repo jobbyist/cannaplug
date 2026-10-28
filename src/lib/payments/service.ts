@@ -1,5 +1,7 @@
 import type {
+  CheckoutRequest,
   Mode,
+  OnsiteSession,
   PaymentProvider,
   ProviderId,
   RejectReason,
@@ -86,11 +88,23 @@ export interface StartedPayment {
   amount: number;
   currency: "ZAR" | "USD";
   fxRate: number | null;
+  /**
+   * Set when the provider's own payment window can open on our checkout page (PayFast onsite). The hosted
+   * `redirectUrl` is always prepared as well, so the page can fall back to it if the window cannot load.
+   */
+  onsite: OnsiteSession | null;
 }
 
 export async function startPayment(
   deps: PaymentsDeps,
-  a: { userId: string; orderId: string; provider: ProviderId; key: string },
+  a: {
+    userId: string;
+    orderId: string;
+    provider: ProviderId;
+    key: string;
+    /** From the verified session; PayFast onsite requires it. */
+    buyerEmail?: string | null;
+  },
 ): Promise<StartedPayment> {
   const provider = deps.providers[a.provider];
   if (!provider)
@@ -123,31 +137,47 @@ export async function startPayment(
   const tx = await deps.db.getTx(init.transaction_id);
   if (!tx) throw new PaymentError("payment_not_found", "Payment not found.");
 
-  const started = (url: string): StartedPayment => ({
+  const site = deps.siteUrl.replace(/\/+$/, "");
+  const ret = `${site}/payment/return?order=${encodeURIComponent(a.orderId)}&provider=${a.provider}`;
+  const checkout: CheckoutRequest = {
+    transactionId: tx.id,
+    orderNumber: init.order_number,
+    amount: Number(tx.expected_amount),
+    currency: tx.expected_currency,
+    successUrl: `${ret}&result=success`,
+    cancelUrl: `${ret}&result=cancelled`,
+    failureUrl: `${ret}&result=failed`,
+    notifyUrl: `${site}/api/public/payments/payfast-itn`,
+  };
+
+  // The onsite window is an optional upgrade: it can fail without failing the payment, because the hosted
+  // page for the very same transaction is always ready. Both carry the same m_payment_id, amount and
+  // notify URL, so whichever the member uses settles through the same verified ITN.
+  const onsite = async (): Promise<OnsiteSession | null> => {
+    if (!provider.onsite || !provider.createOnsitePayment) return null;
+    try {
+      return await provider.createOnsitePayment(checkout, { email: a.buyerEmail ?? null });
+    } catch (err) {
+      deps.warn?.("onsite payment unavailable, using the hosted page", err);
+      return null;
+    }
+  };
+  const started = async (url: string): Promise<StartedPayment> => ({
     transactionId: tx.id,
     provider: a.provider,
     redirectUrl: url,
     amount: Number(tx.expected_amount),
     currency: tx.expected_currency,
     fxRate: tx.fx_rate === null ? null : Number(tx.fx_rate),
+    onsite: await onsite(),
   });
   if (tx.provider_ref && tx.redirect_url && tx.status === "pending")
     return started(tx.redirect_url);
 
-  const ret = `${deps.siteUrl.replace(/\/+$/, "")}/payment/return?order=${encodeURIComponent(a.orderId)}&provider=${a.provider}`;
+  let session: Awaited<ReturnType<PaymentProvider["createCheckout"]>>;
   try {
-    const session = await provider.createCheckout({
-      transactionId: tx.id,
-      orderNumber: init.order_number,
-      amount: Number(tx.expected_amount),
-      currency: tx.expected_currency,
-      successUrl: `${ret}&result=success`,
-      cancelUrl: `${ret}&result=cancelled`,
-      failureUrl: `${ret}&result=failed`,
-      notifyUrl: `${deps.siteUrl.replace(/\/+$/, "")}/api/public/payments/payfast-itn`,
-    });
+    session = await provider.createCheckout(checkout);
     await deps.db.attach(tx.id, session.providerRef, session.redirectUrl);
-    return started(session.redirectUrl);
   } catch (err) {
     deps.warn?.("provider checkout failed", err);
     await deps.db.markFailed(tx.id, "provider_checkout_failed").catch(() => undefined);
@@ -156,6 +186,7 @@ export async function startPayment(
       "We could not start that payment. Please try again or choose another method.",
     );
   }
+  return started(session.redirectUrl);
 }
 
 export type WebhookResult = { status: 200 | 400 | 401 | 413 | 503; body: string };

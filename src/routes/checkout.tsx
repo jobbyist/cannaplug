@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   CreditCard,
   Landmark,
@@ -21,16 +22,21 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useIdempotencyKey } from "@/hooks/useIdempotencyKey";
 import { useCart } from "@/lib/cart";
-import { rand } from "@/lib/cart";
+import { rand, randCents } from "@/lib/cart";
 import { eftRows, type EftDetails } from "@/lib/payments/eft";
-import { goToCheckout } from "@/lib/payments/redirect";
+import {
+  clearPendingCheckout,
+  loadPendingCheckout,
+  savePendingCheckout,
+} from "@/lib/payments/pending-checkout";
+import { PaymentPanel } from "@/components/checkout/PaymentPanel";
 import {
   listCheckoutAddressesFn,
   listDeliveryOptionsFn,
   placeOrderFn,
   quoteCheckoutFn,
 } from "@/lib/checkout.functions";
-import { getOnlineMethodsFn, getPaypalRateFn, startPaymentFn } from "@/lib/payments.functions";
+import { getOnlineMethodsFn, getPaypalRateFn, paymentStatusFn } from "@/lib/payments.functions";
 import { saveAddressFn } from "@/lib/member.functions";
 import { getMyVerificationFn } from "@/lib/verification.functions";
 import { verificationView, type VerificationView } from "@/lib/verification-logic";
@@ -108,60 +114,88 @@ function OrderSummary({
   deliveryFee: number | null;
 }) {
   const { lines, total } = useCart();
+  const [open, setOpen] = useState(false);
   const estimate = quote === null;
   const grand = quote ? quote.total : total + (deliveryFee ?? 0);
+  const grandText = quote && quote.total === null ? "—" : rand(grand ?? 0);
   return (
-    <aside className="h-fit rounded-xl border border-border bg-card p-5">
-      <h2 className="mb-4 font-display text-sm font-bold uppercase">Order summary</h2>
-      <ul className="mb-4 flex flex-col gap-3">
-        {(quote
-          ? quote.lines.map((l) => ({
-              key: l.product_id,
-              name: l.name,
-              quantity: l.quantity,
-              amount: l.line_total,
-              problem: l.status !== "ok",
-            }))
-          : lines.map((l) => ({
-              key: l.productId,
-              name: l.name,
-              quantity: l.quantity,
-              amount: l.price * l.quantity,
-              problem: false,
-            }))
-        ).map((line) => (
-          <li key={line.key} className="flex items-center justify-between gap-3 text-xs">
-            <span className={line.problem ? "text-destructive" : "text-foreground"}>
-              {line.name} <span className="text-muted-foreground">× {line.quantity}</span>
-              {line.problem && " — unavailable"}
+    <aside
+      aria-label="Order summary"
+      className="order-first h-fit rounded-xl border border-border bg-card p-5 lg:order-none lg:sticky lg:top-24"
+    >
+      {/* Mobile: a one-line summary that expands; desktop: always open. */}
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 lg:hidden"
+        aria-expanded={open}
+        aria-controls="order-summary-body"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="flex items-center gap-2 font-display text-sm font-bold uppercase">
+          <ShoppingBag size={15} className="text-primary" /> {open ? "Hide" : "Show"} order summary
+          <ChevronDown size={15} className={"transition " + (open ? "rotate-180" : "")} />
+        </span>
+        <span className="text-sm font-bold">{grandText}</span>
+      </button>
+      <h2 className="mb-4 hidden font-display text-sm font-bold uppercase lg:block">
+        Order summary
+      </h2>
+      <div
+        id="order-summary-body"
+        className={(open ? "mt-4 block" : "hidden") + " lg:mt-0 lg:block"}
+      >
+        <ul className="mb-4 flex flex-col gap-3">
+          {(quote
+            ? quote.lines.map((l) => ({
+                key: l.product_id,
+                name: l.name,
+                quantity: l.quantity,
+                amount: l.line_total,
+                problem: l.status !== "ok",
+              }))
+            : lines.map((l) => ({
+                key: l.productId,
+                name: l.name,
+                quantity: l.quantity,
+                amount: l.price * l.quantity,
+                problem: false,
+              }))
+          ).map((line) => (
+            <li key={line.key} className="flex items-center justify-between gap-3 text-xs">
+              <span className={line.problem ? "text-destructive" : "text-foreground"}>
+                {line.name} <span className="text-muted-foreground">× {line.quantity}</span>
+                {line.problem && " — unavailable"}
+              </span>
+              <span className="font-semibold">
+                {line.amount === null ? "—" : rand(line.amount)}
+              </span>
+            </li>
+          ))}
+          {lines.length === 0 && (
+            <li className="text-xs text-muted-foreground">Your cart is empty.</li>
+          )}
+        </ul>
+        <div className="flex flex-col gap-2 border-t border-border pt-3 text-xs">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{rand(quote ? quote.subtotal : total)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Delivery</span>
+            <span>
+              {quote ? rand(quote.delivery_fee) : deliveryFee !== null ? rand(deliveryFee) : "—"}
             </span>
-            <span className="font-semibold">{line.amount === null ? "—" : rand(line.amount)}</span>
-          </li>
-        ))}
-        {lines.length === 0 && (
-          <li className="text-xs text-muted-foreground">Your cart is empty.</li>
-        )}
-      </ul>
-      <div className="flex flex-col gap-2 border-t border-border pt-3 text-xs">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span>{rand(quote ? quote.subtotal : total)}</span>
+          </div>
+          <div className="mt-1 flex justify-between border-t border-border pt-2 text-sm font-bold">
+            <span>Total{estimate ? " (estimate)" : ""}</span>
+            <span>{grandText}</span>
+          </div>
+          {estimate && (
+            <p className="text-[0.65rem] text-muted-foreground">
+              Final prices and stock are confirmed before you place the order.
+            </p>
+          )}
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Delivery</span>
-          <span>
-            {quote ? rand(quote.delivery_fee) : deliveryFee !== null ? rand(deliveryFee) : "—"}
-          </span>
-        </div>
-        <div className="mt-1 flex justify-between border-t border-border pt-2 text-sm font-bold">
-          <span>Total{estimate ? " (estimate)" : ""}</span>
-          <span>{quote && quote.total === null ? "—" : rand(grand ?? 0)}</span>
-        </div>
-        {estimate && (
-          <p className="text-[0.65rem] text-muted-foreground">
-            Final prices and stock are confirmed before you place the order.
-          </p>
-        )}
       </div>
     </aside>
   );
@@ -198,13 +232,14 @@ function CheckoutPage() {
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const [methods, setMethods] = useState<{
     card: boolean;
+    cardOnsite?: boolean;
     paypal: boolean;
     eft: EftDetails | null;
   } | null>(null);
   const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal" | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
-  const [payError, setPayError] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
+  // Starts the payment right after placing; false when resuming after a refresh (the member clicks Pay).
+  const [autoPay, setAutoPay] = useState(false);
   useEffect(() => {
     let live = true;
     getOnlineMethodsFn()
@@ -226,24 +261,38 @@ function CheckoutPage() {
     };
   }, []);
 
-  /** Sends the member to the provider's hosted page. The order is only marked paid after a verified webhook. */
-  const startOnlinePayment = async (orderId: string, method: "card" | "paypal") => {
-    setPaying(true);
-    setPayError(null);
-    try {
-      const started = await startPaymentFn({
-        data: {
-          orderId,
-          provider: method === "card" ? "payfast" : "paypal",
-          key: crypto.randomUUID(),
-        },
-      });
-      goToCheckout(started.redirectUrl);
-    } catch (err) {
-      setPayError(errorText(err));
-      setPaying(false);
-    }
-  };
+  const memberId = user?.id;
+  // A refresh, a closed tab or an interrupted payment window must not lose the order: if this tab placed an
+  // order that is still waiting for payment, reopen it. The server (owner-scoped) is the source of truth.
+  useEffect(() => {
+    const pending = loadPendingCheckout();
+    if (!pending || !memberId) return;
+    let live = true;
+    paymentStatusFn({ data: { orderId: pending.orderId } })
+      .then((s) => {
+        if (!live) return;
+        if (!s || s.paid || s.orderStatus !== "awaiting_payment") {
+          clearPendingCheckout();
+          return;
+        }
+        setPayMethod(pending.method);
+        setPlaced({
+          order_id: pending.orderId,
+          order_number: s.orderNumber,
+          status: s.orderStatus,
+          subtotal: s.total,
+          delivery_fee: 0,
+          total: s.total,
+          payment_method: pending.method,
+          hold_minutes: 0,
+        });
+        setStep("Confirmation");
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [memberId]);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const orderKey = useIdempotencyKey();
@@ -388,10 +437,16 @@ function CheckoutPage() {
       // The cart is only emptied once the server has confirmed the order exists.
       orderKey.reset();
       const order = result as PlacedOrder;
+      if (payMethod !== "eft")
+        savePendingCheckout({
+          orderId: order.order_id,
+          orderNumber: order.order_number,
+          method: payMethod,
+        });
       setPlaced(order);
       clear();
+      setAutoPay(payMethod !== "eft");
       setStep("Confirmation");
-      if (payMethod !== "eft") void startOnlinePayment(order.order_id, payMethod);
     } catch (err) {
       setError(errorText(err));
       // Price or stock moved while the member was reviewing: show the fresh numbers and a fresh intent.
@@ -824,13 +879,21 @@ function CheckoutPage() {
               <div className="flex flex-col gap-4">
                 {(
                   [
-                    {
-                      id: "card" as const,
-                      icon: CreditCard,
-                      title: "Card, Instant EFT, Apple Pay or Google Pay (PayFast)",
-                      body: "Pay in rand on PayFast's secure page with your card, Instant EFT, Apple Pay or Google Pay. Your order is confirmed automatically once PayFast verifies the payment.",
-                      show: !!methods?.card,
-                    },
+                    methods?.cardOnsite
+                      ? {
+                          id: "card" as const,
+                          icon: CreditCard,
+                          title: "Card, Instant EFT or Masterpass (PayFast)",
+                          body: "Pay in rand right here, in PayFast's secure payment window — you never leave Cannaplug. Your card details go straight to PayFast; we never see them. Your order is confirmed automatically once PayFast verifies the payment.",
+                          show: true,
+                        }
+                      : {
+                          id: "card" as const,
+                          icon: CreditCard,
+                          title: "Card, Instant EFT, Apple Pay or Google Pay (PayFast)",
+                          body: "Pay in rand on PayFast's secure page with your card, Instant EFT, Apple Pay or Google Pay. Your order is confirmed automatically once PayFast verifies the payment.",
+                          show: !!methods?.card,
+                        },
                     {
                       id: "eft" as const,
                       icon: Landmark,
@@ -886,7 +949,24 @@ function CheckoutPage() {
                     your cart to continue.
                   </p>
                 )}
-                <div className="flex justify-between">
+                {quote?.orderable && quote.total !== null && payMethod && (
+                  <p className="text-[0.7rem] text-muted-foreground">
+                    {payMethod === "eft"
+                      ? "Your order is held for you while we wait for the transfer."
+                      : `You will pay ${randCents(quote.total)}${payMethod === "paypal" ? " (charged by PayPal in US dollars)" : ""}. We reserve your order first, then open the secure payment.`}{" "}
+                    By placing this order you agree to our{" "}
+                    <Link to="/terms-of-service" className="underline">
+                      terms
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/refund-policy" className="underline">
+                      refund policy
+                    </Link>
+                    .
+                  </p>
+                )}
+                {/* On phones the total and the pay button stay in reach while scrolling the methods. */}
+                <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
                   <Button variant="outline" onClick={() => go("Delivery")}>
                     Back
                   </Button>
@@ -911,7 +991,9 @@ function CheckoutPage() {
                         ? "Placing order…"
                         : quoting
                           ? "Checking prices…"
-                          : `${payMethod === "eft" ? "Place order" : "Place order & pay"}${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`}{" "}
+                          : payMethod === "eft" || payMethod === null || quote?.total == null
+                            ? `Place order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`
+                            : `Pay ${randCents(quote.total)}`}{" "}
                       <ChevronRight size={15} />
                     </Button>
                   </div>
@@ -921,12 +1003,12 @@ function CheckoutPage() {
 
             {step === "Confirmation" && placed && (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <span className="grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground">
-                  <Check size={26} />
-                </span>
-                <h2 className="font-display text-xl font-extrabold uppercase">Order placed</h2>
                 {placed.payment_method === "eft" ? (
                   <>
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground">
+                      <Check size={26} />
+                    </span>
+                    <h2 className="font-display text-xl font-extrabold uppercase">Order placed</h2>
                     <p className="max-w-md text-sm text-muted-foreground">
                       Thanks{user?.email ? `, ${user.email}` : ""} — order{" "}
                       <b>{placed.order_number}</b> is reserved for you for{" "}
@@ -953,41 +1035,31 @@ function CheckoutPage() {
                   </>
                 ) : (
                   <>
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-[#D4AF37]/15 text-[#0B3D20]">
+                      <Lock size={24} />
+                    </span>
+                    <h2 className="font-display text-xl font-extrabold uppercase">
+                      Complete your payment
+                    </h2>
                     <p className="max-w-md text-sm text-muted-foreground">
-                      Order <b>{placed.order_number}</b> is reserved for you.{" "}
-                      {paying
-                        ? "Taking you to the secure payment page…"
-                        : "Complete your payment to confirm it."}
+                      Order <b>{placed.order_number}</b> is reserved for you. It is confirmed once
+                      your payment is verified.
                     </p>
-                    {payError && (
-                      <p
-                        role="alert"
-                        className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                      >
-                        {payError}
-                      </p>
-                    )}
-                    {!paying && (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          void startOnlinePayment(
-                            placed.order_id,
-                            payMethod === "paypal" ? "paypal" : "card",
-                          )
-                        }
-                      >
-                        Pay now
-                      </Button>
-                    )}
-                    <p className="max-w-sm text-xs text-muted-foreground">
-                      Your order is confirmed only after the payment provider verifies your payment
-                      — not when you return to this page.
-                    </p>
+                    <PaymentPanel
+                      key={placed.order_id}
+                      orderId={placed.order_id}
+                      orderNumber={placed.order_number}
+                      method={placed.payment_method === "paypal" ? "paypal" : "card"}
+                      total={placed.payment_method === "paypal" ? null : Number(placed.total)}
+                      onsite={!!methods?.cardOnsite}
+                      autoStart={autoPay}
+                    />
                   </>
                 )}
                 <Link to="/account">
-                  <Button size="sm">View your orders</Button>
+                  <Button size="sm" variant="outline">
+                    View your orders
+                  </Button>
                 </Link>
               </div>
             )}

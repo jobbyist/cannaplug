@@ -36,7 +36,8 @@ browser; nothing needs a developer.
 
 ## Online orders (only once payment is configured)
 
-- **PayFast:** place one real low-value order (R5 minimum) with card; check the order turns **Confirmed** by itself and
+- **PayFast:** place one real low-value order (R5 minimum) with card (with `PAYFAST_ONSITE=true`, the PayFast window should
+  open over the checkout; if PayFast's page opens instead, onsite is not yet enabled on the account); check the order turns **Confirmed** by itself and
   the payment shows under Admin → Payments. Refund it in the PayFast dashboard, then cancel the order.
 - **PayPal:** the same with a small order; the US-dollar amount follows the rate card in Admin → Payments.
 - **EFT:** once the bank details are confirmed, place an order, pay it by EFT, and record it with **Confirm EFT received**.

@@ -7,6 +7,7 @@ import {
   PAYFAST_FIELD_ORDER,
   createPayFastProvider,
   parseItn,
+  payfastConfigProblems,
   payfastFacts,
   payfastFromEnv,
   pfEncode,
@@ -223,6 +224,152 @@ describe("PayFast checkout", () => {
     expect(form.action).toBe("https://sandbox.payfast.co.za/eng/process");
     const posted = [...form.querySelectorAll("input")].map((i) => [i.name, i.value]);
     expect(posted).toEqual([...new URL(s.redirectUrl).searchParams.entries()]);
+  });
+});
+
+describe("PayFast configuration problems and onsite switch", () => {
+  const base = { PAYFAST_MERCHANT_ID: "10000100", PAYFAST_MERCHANT_KEY: "46f0cd694581a" };
+  it("onsite is off unless PAYFAST_ONSITE is explicitly true", () => {
+    expect(payfastFromEnv(base)!.onsite).toBe(false);
+    expect(payfastFromEnv({ ...base, PAYFAST_ONSITE: "false" })!.onsite).toBe(false);
+    expect(payfastFromEnv({ ...base, PAYFAST_ONSITE: "maybe" })!.onsite).toBe(false);
+    expect(payfastFromEnv({ ...base, PAYFAST_ONSITE: " TRUE " })!.onsite).toBe(true);
+  });
+  it("an unknown PAYFAST_ENV switches PayFast off instead of guessing live or sandbox", () => {
+    expect(payfastFromEnv({ ...base, PAYFAST_ENV: "sandbx" })).toBeNull();
+    expect(payfastFromEnv({ ...base, PAYFAST_ENV: "staging" })).toBeNull();
+    expect(payfastFromEnv({ ...base, PAYFAST_ENV: "Production" })!.sandbox).toBe(false);
+    expect(payfastFromEnv({ ...base, PAYFAST_ENV: "" })!.sandbox).toBe(false);
+    expect(payfastFromEnv({ ...base, PAYFAST_ENV: "live" })!.sandbox).toBe(false);
+  });
+  it("explains each misconfiguration by variable name, never by value", () => {
+    expect(payfastConfigProblems({})).toEqual([]);
+    expect(payfastConfigProblems({ ...base, PAYFAST_PASSPHRASE: "jt7NOE43FZPn" })).toEqual([]);
+    const p = payfastConfigProblems({
+      PAYFAST_MERCHANT_ID: "abc-secretish",
+      PAYFAST_PASSPHRASE: "jt7NOE43FZPn",
+      PAYFAST_ENV: "sandbx",
+      PAYFAST_ONSITE: "perhaps",
+    });
+    expect(p.join("\n")).toMatch(/PAYFAST_MERCHANT_ID must be the numeric/);
+    expect(p.join("\n")).toMatch(/PAYFAST_MERCHANT_KEY is missing/);
+    expect(p.join("\n")).toMatch(/PAYFAST_ENV must be "live" or "sandbox"/);
+    expect(p.join("\n")).toMatch(/PAYFAST_ONSITE must be/);
+    expect(p.join("\n")).not.toMatch(/jt7NOE43FZPn|abc-secretish|sandbx|perhaps/);
+    expect(payfastConfigProblems(base).join()).toMatch(/PAYFAST_PASSPHRASE is not set/);
+  });
+});
+
+describe("PayFast onsite (payment window on our page)", () => {
+  const req = {
+    transactionId: TX,
+    orderNumber: "CP-1001",
+    amount: 275,
+    currency: "ZAR" as const,
+    successUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=success",
+    cancelUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=cancelled",
+    failureUrl: "https://shop.example/payment/return?order=o&provider=payfast&result=failed",
+    notifyUrl: "https://shop.example/api/public/payments/payfast-itn",
+  };
+  const onsiteApi = (
+    answer: { status?: number; body?: string } = {},
+  ): FetchLike & { calls: { url: string; body?: string | undefined; headers?: unknown }[] } => {
+    const calls: { url: string; body?: string | undefined; headers?: unknown }[] = [];
+    const f = (async (url: string, init?: { body?: string; headers?: unknown }) => {
+      calls.push({ url, body: init?.body, headers: init?.headers });
+      const status = answer.status ?? 200;
+      return {
+        ok: status < 300,
+        status,
+        text: async () =>
+          answer.body ?? JSON.stringify({ uuid: "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0" }),
+      };
+    }) as FetchLike & { calls: typeof calls };
+    f.calls = calls;
+    return f;
+  };
+  const onsite = (f: FetchLike, over: Partial<PayFastConfig> = {}) =>
+    createPayFastProvider({ ...PF, onsite: true, ...over }, f, async () => [PF_IP]);
+
+  it("posts the signed fields (with the member's email) server-to-server and returns PayFast's uuid", async () => {
+    const f = onsiteApi();
+    const s = await onsite(f).createOnsitePayment(req, { email: "member@example.com" });
+    expect(s).toEqual({
+      uuid: "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0",
+      engineUrl: "https://sandbox.payfast.co.za/onsite/engine.js",
+    });
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]!.url).toBe("https://sandbox.payfast.co.za/onsite/process");
+    expect(f.calls[0]!.headers).toMatchObject({
+      "Content-Type": "application/x-www-form-urlencoded",
+    });
+    const pairs = [...new URLSearchParams(f.calls[0]!.body!).entries()];
+    const fields = Object.fromEntries(pairs);
+    expect(fields).toMatchObject({
+      merchant_id: PF.merchantId,
+      merchant_key: PF.merchantKey,
+      amount: "275.00",
+      m_payment_id: TX,
+      email_address: "member@example.com",
+      notify_url: req.notifyUrl,
+      item_name: "Cannaplug order CP-1001",
+    });
+    // Fields go in PayFast's documented order and the signature covers exactly what was posted.
+    const keys = pairs.map(([k]) => k).filter((k) => k !== "signature");
+    expect(keys).toEqual(PAYFAST_FIELD_ORDER.filter((k) => keys.includes(k)));
+    const unsigned = f.calls[0]!.body!.replace(/&signature=[a-f0-9]{32}$/, "");
+    expect(fields["signature"]).toBe(md5(`${unsigned}&passphrase=${pfEncode(PF.passphrase!)}`));
+    expect(f.calls[0]!.body).not.toContain("passphrase");
+    // Live uses the live engine and endpoint.
+    const live = onsiteApi();
+    const l = await onsite(live, { sandbox: false }).createOnsitePayment(req, {
+      email: "member@example.com",
+    });
+    expect(l.engineUrl).toBe("https://www.payfast.co.za/onsite/engine.js");
+    expect(live.calls[0]!.url).toBe("https://www.payfast.co.za/onsite/process");
+  });
+
+  it("is refused when switched off, without an email, or for amounts PayFast would refuse", async () => {
+    const f = onsiteApi();
+    const off = createPayFastProvider(PF, f, async () => [PF_IP]);
+    expect(off.onsite).toBe(false);
+    await expect(off.createOnsitePayment(req, { email: "m@example.com" })).rejects.toThrow(
+      "not enabled",
+    );
+    const p = onsite(f);
+    await expect(p.createOnsitePayment(req, { email: null })).rejects.toThrow("email");
+    await expect(p.createOnsitePayment(req, { email: "not-an-email" })).rejects.toThrow("email");
+    await expect(
+      p.createOnsitePayment({ ...req, currency: "USD" }, { email: "m@example.com" }),
+    ).rejects.toThrow("ZAR");
+    await expect(
+      p.createOnsitePayment({ ...req, amount: 4.99 }, { email: "m@example.com" }),
+    ).rejects.toThrow("R5.00");
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("a refusal, an outage, or an odd answer is an error that never echoes PayFast's body", async () => {
+    const email = { email: "member@example.com" };
+    const refused = onsite(onsiteApi({ status: 400, body: "merchant_key=46f0cd694581a invalid" }));
+    const err = await refused.createOnsitePayment(req, email).catch((e: Error) => e);
+    expect(String(err)).toMatch(/refused/);
+    expect(String(err)).not.toContain("46f0cd694581a");
+    await expect(
+      onsite(onsiteApi({ body: "<html>maintenance</html>" })).createOnsitePayment(req, email),
+    ).rejects.toThrow("unexpected");
+    await expect(
+      onsite(onsiteApi({ body: JSON.stringify({ uuid: 'x"><script>' }) })).createOnsitePayment(
+        req,
+        email,
+      ),
+    ).rejects.toThrow("identifier");
+    await expect(
+      onsite(onsiteApi({ body: JSON.stringify({}) })).createOnsitePayment(req, email),
+    ).rejects.toThrow("identifier");
+    const down = (async () => {
+      throw new Error("ECONNRESET");
+    }) as FetchLike;
+    await expect(onsite(down).createOnsitePayment(req, email)).rejects.toThrow("unreachable");
   });
 });
 

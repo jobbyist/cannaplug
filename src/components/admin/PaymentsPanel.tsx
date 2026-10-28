@@ -93,14 +93,29 @@ export function PaymentsPanel() {
           <p>
             PayFast: <b>{data.configured.card ? "live" : "not configured"}</b>
           </p>
+          {data.configured.card && (
+            <p className="text-muted-foreground">
+              {data.configured.cardOnsite
+                ? "Paid in a PayFast window on our checkout"
+                : "Paid on PayFast's own page"}
+            </p>
+          )}
           <ul
             className="my-1 ml-3 list-disc text-muted-foreground"
             aria-label="PayFast payment options"
           >
-            {["Card", "Instant EFT", "Apple Pay", "Google Pay"].map((m) => (
+            {(data.configured.cardOnsite
+              ? ["Card", "Instant EFT", "Masterpass"]
+              : ["Card", "Instant EFT", "Apple Pay", "Google Pay"]
+            ).map((m) => (
               <li key={m}>{m}</li>
             ))}
           </ul>
+          {(data.diagnostics ?? []).map((d) => (
+            <p key={d} role="alert" className="my-1 text-destructive">
+              {d}
+            </p>
+          ))}
           <p>
             PayPal: <b>{data.configured.paypal ? "configured" : "not configured"}</b>
           </p>

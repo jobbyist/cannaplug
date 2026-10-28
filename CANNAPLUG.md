@@ -1503,6 +1503,51 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 | GitHub CI on main                                                | Failing before any step runs (runner/account problem) |
 | Drop old 6-argument `pos_complete_sale` on hosted                | Optional clean-up                                     |
 
+## 27 Oct 2026 — PayFast payment window on our checkout (claude/pensive-noether-61h68k)
+
+- **Purpose:** card payments no longer have to leave the site. With `PAYFAST_ONSITE=true`, checkout opens PayFast's own
+  payment window over our page using PayFast's documented **Onsite Payments (Beta)** integration: the server posts the
+  signed fields to PayFast's `/onsite/process`, gets a one-time `uuid`, and the page runs PayFast's `engine.js`
+  (`window.payfast_do_onsite_payment({uuid}, callback)`). Card numbers are typed into PayFast's iframe, never into our
+  page. Verified against developers.payfast.co.za and PayFast's official PHP SDK. Onsite takes card, Instant EFT and
+  Masterpass only (no Apple/Google Pay), needs HTTPS and the buyer's email (taken from the signed-in session, never the
+  browser), and must be enabled on the merchant account. Any onsite failure (switched off, refused, down, engine
+  blocked) falls back to PayFast's hosted page **for the same transaction**, so nothing changes for settlement.
+- **Payment integrity (unchanged path):** the window's "done" callback and the return URL prove nothing. The page goes
+  to `/payment/return`, which polls the server; an order is paid only by a verified ITN (signature, PayFast source IP,
+  PayFast `validate` = VALID, then `payments_apply_verified_event` compares amount, merchant and transaction).
+- **Checkout UX:** collapsible order summary on phones (top of the page), sticky pay button on the Payment step,
+  "Pay R…" with the server's amount, terms/refund links before paying, accurate method copy per mode, a "Complete your
+  payment" panel (instead of "Order placed") with loading/closed/error states, double-click protection, "check status"
+  after closing the window, and a retry that first asks the server whether the earlier attempt was paid. A refresh
+  during payment reopens the same order (tab-only note, re-read from the server). The return page offers a safe retry
+  only after a cancelled/failed attempt, never after a slow "success". Account → Pay now uses the same window.
+- **Config & diagnostics:** new optional `PAYFAST_ONSITE` (off by default). An unknown `PAYFAST_ENV` (anything but empty, `live`, `production`, `prod` or `sandbox`) now switches PayFast
+  off instead of silently meaning live. Misconfigurations are logged once by variable name (never value) and shown in
+  Admin → Payments, which also shows which mode is live.
+- **CSP:** script-src allows exactly `https://www.payfast.co.za/onsite/engine.js` and the sandbox equivalent (file-pinned,
+  not host-wide); style-src PayFast's `engine.css`; frame-src `https://payment.payfast.io` and
+  `https://sandbox.payfast.co.za`. Clinical pages keep `frame-src 'none'` and no PayFast script.
+- **Files:** `src/lib/payments/payfast.ts`, `provider.ts`, `service.ts`, `service.server.ts`, `payments-data.server.ts`,
+  `onsite.ts` (new), `pending-checkout.ts` (new), `src/lib/payments.functions.ts`, `src/lib/cart.tsx`,
+  `src/lib/clinical/security-headers.ts`, `src/components/checkout/PaymentPanel.tsx` (new),
+  `src/components/account/PayNow.tsx`, `src/components/admin/PaymentsPanel.tsx`, `src/routes/checkout.tsx`,
+  `src/routes/payment.return.tsx`, `scripts/env-registry.ts`, `.env.example`, `docs/release/` (env-matrix, runbook,
+  go-live-runbook, staging, rollback); tests `payfast-onsite.test.tsx` (new), `payments-providers.test.ts`,
+  `checkout-flow.test.tsx`, `security-headers.test.ts`, `payments-panel-providers.test.tsx`,
+  `db/payments-service.suite.ts`.
+- **Migrations:** none (no schema or RPC change; the hosted project needs nothing applied).
+- **Tests:** typecheck, lint (0 errors), unit 728 passed; payments DB suite 74 passed against real PostgreSQL, including
+  onsite end to end (window charges the DB total, browser success pays nothing, ITN settles once, forged/short ITNs
+  refused, onsite outage falls back). All 24 rollback rehearsals pass; production build passes. Mutation checks: 9 new
+  rules (file-pinned CSP, clinical CSP, uuid charset, onsite switch, engine allowlist, onsite failure must not fail the
+  payment, retry-checks-status, double-click guard, unknown PAYFAST_ENV) each fail a test when broken. Pre-existing,
+  unrelated: the Sentry scrub test fails when the checkout path contains `/user/`, and the DB suites for email budget,
+  ID credits, ID verification and sales reports are order-dependent (different subsets fail on `main` too).
+- **Owner actions:** before deploying, check that `PAYFAST_ENV` in Vercel is empty, `live` or `sandbox` (any other value now turns PayFast off; Admin → Payments would say so). Ask PayFast to enable **Onsite Payments** on the merchant account, then set `PAYFAST_ONSITE=true` in
+  Vercel and redeploy; do one live R5 card payment (go-live runbook). Note onsite drops Apple Pay / Google Pay.
+- **Rollback:** set `PAYFAST_ONSITE=false` (instant, back to PayFast's page), or revert the PR. No data to undo.
+
 ## 28 Oct 2026 — PayFast balance and payouts; till cash-up with expenses and deposits; report downloads (feat/mvp-payouts-cashup)
 
 - **Purpose:** (1) Admin → Payments shows the live PayFast account for online orders: balance net of PayFast's fees (refreshed every

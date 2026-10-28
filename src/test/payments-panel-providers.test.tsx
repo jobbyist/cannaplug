@@ -45,6 +45,24 @@ describe("Payments tab", () => {
       "Google Pay",
     ]);
     expect(screen.getByText("live")).toBeTruthy();
+    expect(screen.getByText("Paid on PayFast's own page")).toBeTruthy();
     expect(screen.getByTestId("payfast-account")).toBeTruthy();
+  });
+
+  it("in onsite mode lists only what PayFast's window takes, and shows configuration problems", async () => {
+    mocks.overview.mockResolvedValue({
+      ...overview(true),
+      configured: { card: true, cardOnsite: true, paypal: false },
+      diagnostics: ['PAYFAST_ONSITE must be "true" or "false": the onsite payment window is off.'],
+    });
+    render(<PaymentsPanel />);
+    await screen.findByText("Paid in a PayFast window on our checkout");
+    const list = screen.getByLabelText("PayFast payment options");
+    expect(Array.from(list.querySelectorAll("li")).map((l) => l.textContent)).toEqual([
+      "Card",
+      "Instant EFT",
+      "Masterpass",
+    ]);
+    expect(screen.getByRole("alert").textContent).toMatch(/PAYFAST_ONSITE must be/);
   });
 });

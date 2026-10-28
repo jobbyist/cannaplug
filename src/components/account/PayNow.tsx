@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { CreditCard, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getOnlineMethodsFn, startPaymentFn } from "@/lib/payments.functions";
-import { goToCheckout } from "@/lib/payments/redirect";
+import { presentPayment, returnUrl } from "@/lib/payments/onsite";
 
 /** Lets a member pay an unpaid order online. Paid status only ever comes back from the server after verification. */
 export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
@@ -25,7 +25,10 @@ export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
     setError(null);
     try {
       const s = await startPaymentFn({ data: { orderId, provider, key: crypto.randomUUID() } });
-      goToCheckout(s.redirectUrl);
+      // PayFast's window opens on this page when available; otherwise the provider's page.
+      const outcome = await presentPayment(s);
+      if (outcome === "completed") window.location.assign(returnUrl(orderId, "card", "success"));
+      else if (outcome === "closed") setBusy(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "We could not start that payment.");
       setBusy(null);
@@ -39,7 +42,7 @@ export function PayNow({ orderId, hint }: { orderId: string; hint?: string }) {
         {methods.card && (
           <Button size="sm" disabled={busy !== null} onClick={() => void pay("payfast")}>
             <CreditCard size={13} className="mr-1.5" />{" "}
-            {busy === "payfast" ? "Opening…" : "Card / Instant EFT (PayFast)"}
+            {busy === "payfast" ? "Opening secure payment…" : "Card / Instant EFT (PayFast)"}
           </Button>
         )}
         {methods.paypal && (

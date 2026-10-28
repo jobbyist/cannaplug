@@ -100,3 +100,7 @@ export function useCart() {
 
 export const rand = (value: number) =>
   `R${value.toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+/** An amount to be charged, always with cents (the "Pay R…" button). */
+export const randCents = (value: number) =>
+  `R${value.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
