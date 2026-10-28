@@ -60,6 +60,10 @@ describe.skipIf(!DB_URL)("billing dates, alerts and PayPal history (real Postgre
       "godaddy-domain",
     ]);
     const by = (s: string) => rows.find((r) => r["slug"] === s)!;
+    const shopifyAmount = (
+      await sql`SELECT amount_text FROM public.billing_accounts WHERE slug = 'shopify-admin-api'`
+    )[0]!["amount_text"];
+    expect(shopifyAmount).toBe("$28.75 incl. 15% sales tax ($25.00 excl.), approx. R470.00");
     expect(by("shopify-admin-api")).toMatchObject({
       recur_kind: "every_days",
       recur_n: 30,

@@ -318,6 +318,11 @@ VALUES
    'yearly', NULL, DATE '2027-09-27')
 ON CONFLICT (slug) DO NOTHING;
 
+-- Shopify is $25.00 plus 15% sales tax.
+UPDATE public.billing_accounts
+   SET amount_text = '$28.75 incl. 15% sales tax ($25.00 excl.), approx. R470.00'
+ WHERE slug = 'shopify-admin-api' AND amount_text = '$28.75 (approx. R470.00)';
+
 UPDATE public.billing_accounts SET position = 5 WHERE slug = 'whatsapp';
 UPDATE public.billing_accounts SET position = 6 WHERE slug = 'payfast-gateway';
 UPDATE public.billing_accounts SET position = 7 WHERE slug = 'verifynow-id';

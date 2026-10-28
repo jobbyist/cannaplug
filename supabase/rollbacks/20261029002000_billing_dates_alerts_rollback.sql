@@ -35,6 +35,7 @@ DELETE FROM public.team_notification_reads WHERE notification_id IN
 DELETE FROM public.team_notifications WHERE source_key = 'alert:id-credits' OR source_key LIKE 'alert:bill-due:%';
 
 DELETE FROM public.billing_accounts WHERE slug IN ('supabase-platform', 'godaddy-domain');
+UPDATE public.billing_accounts SET amount_text = '$28.75 (approx. R470.00)' WHERE slug = 'shopify-admin-api';
 UPDATE public.billing_accounts SET position = 4 WHERE slug = 'whatsapp';
 UPDATE public.billing_accounts SET position = 5 WHERE slug = 'payfast-gateway';
 UPDATE public.billing_accounts SET position = 7 WHERE slug = 'verifynow-id';
