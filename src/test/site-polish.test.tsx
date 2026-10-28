@@ -42,3 +42,14 @@ describe("explore menu", () => {
     expect(STATIC_PAGES.some((p) => p.path === "/gallery")).toBe(true);
   });
 });
+
+describe("events data", () => {
+  it("lists The Plug Cup as a past event dated 29 August 2026 with its poster", async () => {
+    const { EVENTS_AND_PROMOTIONS } = await import("@/lib/events");
+    const cup = EVENTS_AND_PROMOTIONS.find((e) => e.slug === "plug-cup");
+    expect(cup?.when).toBe("29 August 2026");
+    expect(cup?.tag).toBe("Past event");
+    expect(cup?.copy).toContain("R150");
+    expect(cup?.image).toBeTruthy();
+  });
+});

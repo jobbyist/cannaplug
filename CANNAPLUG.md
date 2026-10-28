@@ -1806,3 +1806,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests run:** full `vitest run` (unit), `tsc --noEmit`, eslint, `vite build`. DB tests and `verify-release.sh` not run.
 - **Owner actions:** the Plug Back card uses the existing `plug-back-campaign.jpeg` asset already in the project; send the new image if it should be replaced. Add Instagram media to `/gallery` when ready.
 - **Rollback:** revert the PR.
+
+## 28 Oct 2026 — The Plug Cup event (feat/mvp-plug-cup)
+
+- **Purpose:** adds The Plug Cup, a past EA FC 26 gaming competition (29 August 2026, CannaPlug Pretoria Central, 16 players, R150 entry including 1 free Greenhouse order and a dab hit), with its poster, to the Events & Promotions page and the homepage section.
+- **Files:** `src/lib/events.ts`, `src/assets/event-plug-cup.jpg`, `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
+- **Owner actions:** none.
+- **Rollback:** revert the PR.
