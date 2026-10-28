@@ -1,8 +1,8 @@
 /* ========== THE CANNAPLUG JOURNAL ========== */
 .journal {
-  width: min(1180px, 100%);
+  width: min(var(--shell), 100%);
   margin: 0 auto;
-  padding: 48px max(24px, calc((100% - 1132px) / 2)) 100px;
+  padding: 48px max(24px, calc((100% - var(--content-w)) / 2)) 100px;
 }
 .journal-masthead {
   text-align: center;
@@ -421,4 +421,200 @@
 .dark .journal-sources a,
 .dark .journal-hero figcaption a {
   color: var(--accent);
+}
+
+/* ========== Journal: byline, featured, inline photos, likes, share, comments ========== */
+.journal-byline {
+  margin: 0 0 22px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.journal-byline [rel="author"] {
+  color: var(--foreground);
+}
+.journal-featured-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--premium);
+  color: var(--charcoal);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.journal-inline-figure {
+  margin: 30px 0;
+}
+.journal-inline-figure img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--muted);
+}
+.journal-inline-figure figcaption {
+  margin-top: 8px;
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+.journal-inline-figure figcaption a {
+  text-decoration: underline;
+}
+.journal-engage {
+  display: grid;
+  gap: 18px;
+  margin: 44px 0 12px;
+  padding: 22px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.journal-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  font: 700 0.86rem var(--font-sans);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.journal-like-btn:hover {
+  border-color: var(--accent);
+}
+.journal-like-btn.is-liked {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+.journal-like-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.journal-like-note {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+.journal-like-note a,
+.journal-comment-signin a {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.journal-like-note.is-error {
+  color: var(--destructive);
+}
+.journal-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.journal-share-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.journal-share-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--card);
+}
+.journal-share-link:hover {
+  border-color: var(--accent);
+}
+.journal-comments {
+  width: min(760px, 100%);
+  margin: 0 auto 56px;
+}
+.journal-comments h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font: 800 1.15rem var(--font-display);
+  text-transform: uppercase;
+}
+.journal-comment-list {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 26px;
+  padding: 0;
+  list-style: none;
+}
+.journal-comment-list li {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.journal-comment-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+.journal-comment-head time {
+  color: var(--muted-foreground);
+}
+.journal-comment-list p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.journal-comments-empty,
+.journal-comment-signin {
+  color: var(--muted-foreground);
+}
+.journal-comment-form {
+  display: grid;
+  gap: 8px;
+}
+.journal-comment-form label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.journal-comment-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--input);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  resize: vertical;
+}
+.journal-comment-form textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.journal-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.journal-comment-actions small {
+  color: var(--muted-foreground);
 }

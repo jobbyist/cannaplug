@@ -39,7 +39,15 @@ describe("sitemap and canonical URLs", () => {
       "journal.$slug",
       "privacy-policy",
     ])
-      expect(readFileSync(`src/routes/${f}.tsx`, "utf8"), f).toContain("canonical(");
+      // The article page builds its head (canonical, Open Graph, JSON-LD) in journal-seo.ts through canonical().
+      expect(
+        readFileSync(
+          f === "journal.$slug" ? "src/lib/journal-seo.ts" : `src/routes/${f}.tsx`,
+          "utf8",
+        ),
+        f,
+      ).toContain("canonical(");
+    expect(readFileSync("src/routes/journal.$slug.tsx", "utf8")).toContain("articleHead(");
     expect(readFileSync("src/routes/journal.$slug.tsx", "utf8")).not.toContain("lovable.app");
   });
 });

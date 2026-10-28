@@ -317,7 +317,7 @@ function AuthPanel() {
                   {signupPaused && (
                     <p
                       role="alert"
-                      className="rounded-md border border-[#D4AF37]/60 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#0B3D20]"
+                      className="rounded-md border border-[#D4AF37]/60 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#0B3D20] dark:text-[#D4AF37]"
                     >
                       {ID_CREDITS_DEPLETED_MESSAGE}
                     </p>

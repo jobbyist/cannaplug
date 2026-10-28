@@ -823,7 +823,7 @@ function ExperienceSection() {
 }
 
 function Newsroom() {
-  const { data: latest } = useQuery(journalListQuery(3));
+  const { data: latest } = useQuery(journalListQuery(4));
   return (
     <section className="page-section" id="newsroom">
       <Reveal>
@@ -840,7 +840,17 @@ function Newsroom() {
           {(latest?.length ? latest : []).map((a, i) => (
             <article className={i === 0 ? "news-card news-lead" : "news-card"} key={a.id}>
               <div className="news-image">
-                <img src={a.cover_image_url ?? editorialImage} alt={a.title} loading="lazy" />
+                {a.cover_image_url ? (
+                  <img
+                    src={a.cover_image_url}
+                    alt={a.cover_alt ?? a.title}
+                    className="news-photo"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <img src={editorialImage} alt={a.title} loading="lazy" />
+                )}
               </div>
               <div className="news-content">
                 <p className="eyebrow">
@@ -848,6 +858,7 @@ function Newsroom() {
                 </p>
                 <h3>{a.title}</h3>
                 <p>{a.excerpt}</p>
+                {a.author_name && <p className="news-byline">By {a.author_name}</p>}
                 <Link to="/journal/$slug" params={{ slug: a.slug }}>
                   Read more <ArrowRight size={15} />
                 </Link>

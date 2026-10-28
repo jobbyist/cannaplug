@@ -8,8 +8,94 @@ export type Database = {
   };
   public: {
     Tables: {
+      article_comments: {
+        Row: {
+          article_id: string;
+          body: string;
+          created_at: string;
+          display_name: string;
+          hidden_at: string | null;
+          hidden_by: string | null;
+          hide_reason: string | null;
+          id: string;
+          is_seed: boolean;
+          user_id: string | null;
+        };
+        Insert: {
+          article_id: string;
+          body: string;
+          created_at?: string;
+          display_name: string;
+          hidden_at?: string | null;
+          hidden_by?: string | null;
+          hide_reason?: string | null;
+          id?: string;
+          is_seed?: boolean;
+          user_id?: string | null;
+        };
+        Update: {
+          article_id?: string;
+          body?: string;
+          created_at?: string;
+          display_name?: string;
+          hidden_at?: string | null;
+          hidden_by?: string | null;
+          hide_reason?: string | null;
+          id?: string;
+          is_seed?: boolean;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "article_comments_article_id_fkey";
+            columns: ["article_id"];
+            isOneToOne: false;
+            referencedRelation: "articles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      article_likes: {
+        Row: {
+          article_id: string;
+          created_at: string;
+          liked: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          article_id: string;
+          created_at?: string;
+          liked?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          article_id?: string;
+          created_at?: string;
+          liked?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "article_likes_article_id_fkey";
+            columns: ["article_id"];
+            isOneToOne: false;
+            referencedRelation: "articles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       articles: {
         Row: {
+          author_name: string | null;
+          cover_alt: string | null;
+          featured: boolean;
+          image_queries: Json;
+          inline_images: Json;
+          keywords: string[];
+          updated_at: string | null;
           body_md: string;
           category: string;
           cover_credit_name: string | null;
@@ -25,6 +111,13 @@ export type Database = {
           title: string;
         };
         Insert: {
+          author_name?: string | null;
+          cover_alt?: string | null;
+          featured?: boolean;
+          image_queries?: Json;
+          inline_images?: Json;
+          keywords?: string[];
+          updated_at?: string | null;
           body_md: string;
           category?: string;
           cover_credit_name?: string | null;
@@ -40,6 +133,13 @@ export type Database = {
           title: string;
         };
         Update: {
+          author_name?: string | null;
+          cover_alt?: string | null;
+          featured?: boolean;
+          image_queries?: Json;
+          inline_images?: Json;
+          keywords?: string[];
+          updated_at?: string | null;
           body_md?: string;
           category?: string;
           cover_credit_name?: string | null;
@@ -3257,6 +3357,18 @@ export type Database = {
           p_notes: string | null;
           p_user_id: string;
         };
+        Returns: Json;
+      };
+      article_add_comment: {
+        Args: { p_actor: string; p_article_id: string; p_body: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      article_hide_comment: {
+        Args: { p_actor: string; p_comment_id: string; p_reason: string };
+        Returns: Json;
+      };
+      article_set_like: {
+        Args: { p_actor: string; p_article_id: string; p_liked: boolean };
         Returns: Json;
       };
       pos_add_expense: {
