@@ -15,6 +15,9 @@ export type ReferralCodeCheck = {
 };
 export type RewardsSummary = {
   username: string | null;
+  /** True while the username was generated for the member: they can replace or keep it once. */
+  username_auto: boolean;
+  can_change: boolean;
   can_refer: boolean;
   referral_points: number;
   referral_min_spend: number;
@@ -56,6 +59,9 @@ export async function setMemberUsername(userId: string, username: string, key: s
 }
 
 export async function getRewardsSummary(userId: string): Promise<RewardsSummary> {
+  // A member whose ID is verified (or who is staff) and has no username yet is given a generated one first.
+  const ensured = await supabaseAdmin.rpc("member_ensure_username", { p_user_id: userId });
+  if (ensured.error) console.error("member_ensure_username failed", ensured.error.message);
   const { data, error } = await supabaseAdmin.rpc("member_rewards_summary", { p_user_id: userId });
   if (error) throw new MemberError("Could not load your rewards. Please retry.");
   return data as unknown as RewardsSummary;

@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
+const setUsername = vi.hoisted(() => vi.fn().mockResolvedValue({ username: "thandi" }));
 vi.mock("@/lib/rewards.functions", () => ({
   checkUsernameFn: vi.fn().mockResolvedValue({ status: "available" }),
-  setUsernameFn: vi.fn(),
+  setUsernameFn: setUsername,
   checkReferralCodeFn: vi.fn(),
 }));
 
@@ -13,6 +15,8 @@ import type { RewardsSummary } from "@/lib/rewards-data.server";
 
 const base: RewardsSummary = {
   username: "thandi",
+  username_auto: false,
+  can_change: false,
   can_refer: true,
   referral_points: 1,
   referral_min_spend: 50,
@@ -51,5 +55,26 @@ describe("ReferralCard", () => {
       />,
     );
     expect(screen.getAllByText(/verif/i).length).toBeGreaterThan(0);
+  });
+
+  it("offers a generated username once: keep it or change it", async () => {
+    const onChanged = vi.fn();
+    render(
+      <ReferralCard
+        summary={{ ...base, username_auto: true, can_change: true }}
+        onChanged={onChanged}
+        origin="https://x.test"
+      />,
+    );
+    expect(screen.getByTestId("username-change").textContent).toMatch(/generated the username/);
+    await userEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    await waitFor(() => expect(setUsername).toHaveBeenCalled());
+    expect(setUsername.mock.calls[0]![0].data.username).toBe("thandi");
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("does not offer a change once the username is final", () => {
+    render(<ReferralCard summary={base} onChanged={() => {}} origin="https://x.test" />);
+    expect(screen.queryByTestId("username-change")).toBeNull();
   });
 });
