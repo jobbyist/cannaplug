@@ -1692,3 +1692,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `db/billing-dates-alerts`, `db/billing-accounts`, `billing-dates`, `billing-panel`, `billing-paypal-subscription`.
 - **Owner actions:** deploy the `paypal-subscription` edge function; register `PAYMENT.SALE.COMPLETED`, `PAYMENT.SALE.REFUNDED`, `PAYMENT.SALE.REVERSED` and `BILLING.SUBSCRIPTION.*` on the PayPal webhook for `/api/public/payments/paypal-webhook`; keep `SITE_URL=https://cannaplug012.co.za`; run one sandbox subscription end to end.
 - **Rollback:** run the rollback SQL (refused once PayPal or new-account payments exist), then revert the PR.
+
+### 29 Oct 2026 — Billing tab: hosted rollout notes
+
+- **Applied to the hosted project (khltynzzcjhlujxbgyod):** `20261029001000_billing_accounts` (through the Supabase tool) and `20261029002000_billing_dates_alerts` (the owner pasted the SQL into the Supabase SQL editor after the tool's confirmation prompt timed out). Verified afterwards: 8 billing accounts, recurrence columns, 7 billing functions, the two ID-credit triggers, the `billing-due-alerts` cron job (every 10 minutes) and RLS on both billing tables. The SQL editor does not write `schema_migrations`, so the hosted migration list does not show the second migration; the hosted migration versions already differ from the repo file names.
+- **Edge function:** `paypal-subscription` redeployed (version 4, JWT verification still off by the owner's choice, so anyone can call `create` or `confirm`; `confirm` only records real PayPal subscriptions of ours).
+- **pg_cron:** enabled on the hosted project (`select * from cron.job;` lists the jobs).
+- **Shopify amount:** $25.00 plus 15% sales tax is $28.75. The PayPal plan only charges $28.75 if `PAYPAL_TAX_PERCENTAGE=15` was set when the plan was created; otherwise PayPal logs $25.00.
+- **Owner follow-ups:** register the PayPal webhook events and add `RESEND_API_KEY` on Vercel (reminders set for 8:30 PM SAST on 28 Oct); WhatsApp payment link by Friday; one PayPal sandbox subscription end to end.
