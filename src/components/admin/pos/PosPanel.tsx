@@ -922,6 +922,13 @@ function SaleScreen({
               )}
               {status.ok && <span className="font-semibold text-primary">Balanced</span>}
             </div>
+            {status.duplicateReference && (
+              <div className={`mt-3 ${errorClass}`} role="alert">
+                The reference “{status.duplicateReference}” is on more than one payment. Each card
+                or EFT payment needs its own slip or bank reference (the one printed on its own
+                slip).
+              </div>
+            )}
             {error && (
               <div className={`mt-3 ${errorClass}`} role="alert">
                 {error}

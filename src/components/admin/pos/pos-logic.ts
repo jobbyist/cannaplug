@@ -221,6 +221,11 @@ export type TenderStatus = {
   remainingCents: number;
   overCents: number;
   allValid: boolean;
+  /**
+   * The first card or EFT reference typed on more than one payment in this sale, if any. Every payment needs its
+   * own slip or bank reference: the database refuses a reused one (so one slip cannot be counted twice).
+   */
+  duplicateReference: string | null;
   /** True only when every row is valid and the tenders equal the total exactly (server re-checks). */
   ok: boolean;
 };
@@ -228,11 +233,19 @@ export type TenderStatus = {
 export function tenderStatus(totalCents: number, tenders: TenderRow[]): TenderStatus {
   let sum = 0;
   let allValid = tenders.length > 0;
+  let duplicateReference: string | null = null;
+  const seen = new Set<string>();
   for (const t of tenders) {
     const cents = parseCents(t.amount);
     const needsRef = TENDER_METHODS.find((m) => m.id === t.method)?.needsReference ?? false;
     if (cents === null || cents <= 0 || (needsRef && t.reference.trim().length < 4))
       allValid = false;
+    const ref = t.reference.trim();
+    if (needsRef && ref) {
+      const k = `${t.method}\u0000${ref}`; // the database's rule: the same method and the same reference
+      if (seen.has(k) && !duplicateReference) duplicateReference = ref;
+      seen.add(k);
+    }
     sum += cents ?? 0;
   }
   return {
@@ -240,7 +253,8 @@ export function tenderStatus(totalCents: number, tenders: TenderRow[]): TenderSt
     remainingCents: Math.max(totalCents - sum, 0),
     overCents: Math.max(sum - totalCents, 0),
     allValid,
-    ok: allValid && totalCents > 0 && sum === totalCents,
+    duplicateReference,
+    ok: allValid && duplicateReference === null && totalCents > 0 && sum === totalCents,
   };
 }
 

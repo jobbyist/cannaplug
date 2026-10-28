@@ -204,6 +204,32 @@ describe("POS screen — multi-tender capture", () => {
     expect(completeButton().disabled).toBe(false);
   });
 
+  it("two payments with the same card reference are caught before sending, with a plain reason", async () => {
+    const { user } = await withGelato();
+    await user.click(screen.getByRole("button", { name: /Split tender/ }));
+    await user.click(screen.getByRole("button", { name: /Split tender/ }));
+    const methods = screen.getAllByLabelText("Tender method");
+    await user.selectOptions(methods[0]!, "card");
+    await user.selectOptions(methods[1]!, "card");
+    const amounts = screen.getAllByLabelText("Tender amount");
+    await user.clear(amounts[0]!);
+    await user.type(amounts[0]!, "25");
+    await user.clear(amounts[1]!);
+    await user.type(amounts[1]!, "25");
+    const refs = screen.getAllByLabelText("card reference");
+    await user.type(refs[0]!, "04YImt023013");
+    await user.type(refs[1]!, "04YImt023014");
+    expect(completeButton().disabled).toBe(false); // two different slips are fine
+    await user.clear(refs[1]!);
+    await user.type(refs[1]!, "04YImt023013");
+    expect(completeButton().disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/04YImt023013.*more than one payment/);
+    await user.clear(refs[1]!);
+    await user.type(refs[1]!, "04YImt023014");
+    expect(completeButton().disabled).toBe(false);
+    expect(screen.queryByText(/more than one payment/)).toBeNull();
+  });
+
   it("sends ONLY product ids, quantities, tender amounts and an idempotency key — never a price or total", async () => {
     const { user } = await withGelato();
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));
