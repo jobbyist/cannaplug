@@ -30,7 +30,10 @@ export type LaunchArticle = {
   comments: LaunchSeedComment[];
 };
 
+/** The byline the launch and scheduled articles were first inserted under (migrations 20261028003000 and 20261028007000). */
 export const AUTHOR_NAME = "Dithekgo M.";
+/** The byline they are published under now: migration 20261029003000 renames the author on all seven. */
+export const PUBLISHED_AUTHOR_NAME = "Michael C.";
 
 export const LAUNCH_ARTICLES: LaunchArticle[] = [
   {
