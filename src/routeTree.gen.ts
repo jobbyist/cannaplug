@@ -17,6 +17,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
 import { Route as DoctorRouteImport } from './routes/doctor'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
@@ -85,6 +86,11 @@ const DeliveryPolicyRoute = DeliveryPolicyRouteImport.update({
 const DoctorRoute = DoctorRouteImport.update({
   id: '/doctor',
   path: '/doctor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -326,6 +334,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
@@ -367,6 +376,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
     | '/offline'
     | '/privacy-policy'
@@ -406,6 +416,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
     | '/offline'
     | '/privacy-policy'
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
     | '/offline'
     | '/privacy-policy'
@@ -485,6 +497,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
   DoctorRoute: typeof DoctorRoute
+  EventsRoute: typeof EventsRoute
   FaqRoute: typeof FaqRoute
   OfflineRoute: typeof OfflineRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
@@ -572,6 +585,13 @@ declare module '@tanstack/react-router' {
       path: '/doctor'
       fullPath: '/doctor'
       preLoaderRoute: typeof DoctorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -789,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
   DoctorRoute: DoctorRoute,
+  EventsRoute: EventsRoute,
   FaqRoute: FaqRoute,
   OfflineRoute: OfflineRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,

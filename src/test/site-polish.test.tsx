@@ -11,10 +11,14 @@ describe("site polish", () => {
     expect(home).toContain("Coming soon to");
     expect(home).toContain("Google Play");
   });
-  it("the events 'View calendar' link goes to /calendar", () => {
-    expect(home).toMatch(/action="View calendar"\s+href="\/calendar"/);
+  it("the homepage section is 'Events & Promotions' and links to /events", () => {
+    expect(home).toContain('title="EVENTS & PROMOTIONS"');
+    expect(home).toMatch(/action="View all"\s+href="\/events"/);
   });
-  it("the calendar page is in the sitemap", () => {
-    expect(STATIC_PAGES.some((p) => p.path === "/calendar")).toBe(true);
+  it("event cards have no RSVP / View event links", () => {
+    expect(home).not.toMatch(/RSVP/);
+  });
+  it("the events page is in the sitemap", () => {
+    expect(STATIC_PAGES.some((p) => p.path === "/events")).toBe(true);
   });
 });

@@ -1,0 +1,58 @@
+import propagandaImage from "@/assets/event-propaganda.jpg";
+import weekendSpecialImage from "@/assets/promo-weekend-special.jpg";
+import halloweedImage from "@/assets/promo-halloweed.jpg";
+
+export type EventPromo = {
+  slug: string;
+  kind: "Event" | "Promotion";
+  tag: string;
+  title: string;
+  when: string;
+  where?: string;
+  copy: string;
+  image: string;
+  imageAlt: string;
+  width: number;
+  height: number;
+};
+
+export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
+  {
+    slug: "propaganda",
+    kind: "Event",
+    tag: "Past event",
+    title: "Propaganda: 25K The Plug x CannaPlug",
+    when: "26 September 2026",
+    where: "Propaganda",
+    copy: "Customers who spent R300 in store in one sitting got a free ticket to the event.",
+    image: propagandaImage,
+    imageAlt:
+      "Are you loyal to the plug? Spend R300 in store in one sitting and get a free ticket. 26 September 2026, Propaganda.",
+    width: 1024,
+    height: 1280,
+  },
+  {
+    slug: "weekend-special",
+    kind: "Promotion",
+    tag: "Every weekend",
+    title: "Weekend Special",
+    when: "Friday to Sunday only",
+    copy: "Indoor bud and pre-rolls on sale for R70.",
+    image: weekendSpecialImage,
+    imageAlt: "CannaPlug Weekend Special: indoor bud and pre-rolls for R70, Friday to Sunday only.",
+    width: 1024,
+    height: 1536,
+  },
+  {
+    slug: "halloweed",
+    kind: "Promotion",
+    tag: "25 – 31 Oct",
+    title: "Halloweed: Trick or Treat",
+    when: "25 October – 31 October 2026",
+    copy: "Get 30% off all edibles. Scary pricing, all week.",
+    image: halloweedImage,
+    imageAlt: "Halloweed: Trick or Treat. 30% off all edibles, 25 to 31 October.",
+    width: 1024,
+    height: 1536,
+  },
+];
