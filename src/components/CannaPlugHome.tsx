@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Gift,
   Images,
+  Bug,
   Check,
   ChevronDown,
   ChevronRight,
@@ -52,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ReportBugDialog } from "@/components/ReportBugDialog";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { GetTheAppStory } from "@/components/pwa/GetTheAppStory";
 import { PWA_ENABLED } from "@/lib/pwa/flag";
@@ -299,12 +301,15 @@ function MobileNav({
   user,
   primaryLinks,
   exploreLinks,
+  onReportBug,
 }: {
   open: boolean;
   onClose: () => void;
   user: unknown;
   primaryLinks: readonly NavIconEntry[];
   exploreLinks: readonly NavIconEntry[];
+  /** Opens the "Report a bug" popup (the menu closes first). */
+  onReportBug: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -378,6 +383,17 @@ function MobileNav({
                       <span>{label}</span>
                     </a>
                   ))}
+                  <button
+                    type="button"
+                    data-testid="report-bug-tile"
+                    onClick={() => {
+                      onClose();
+                      onReportBug();
+                    }}
+                  >
+                    <Bug size={25} />
+                    <span>Report a bug</span>
+                  </button>
                 </div>
               </div>
               <nav className="mobile-nav-secondary">
@@ -413,6 +429,7 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(false);
   const [term, setTerm] = useState("");
+  const [bugOpen, setBugOpen] = useState(false);
   const navigate = useNavigate();
   const { count } = useCart();
   const { user } = useAuth();
@@ -525,7 +542,9 @@ export function Header() {
         user={user}
         primaryLinks={primaryLinks}
         exploreLinks={exploreLinks}
+        onReportBug={() => setBugOpen(true)}
       />
+      <ReportBugDialog open={bugOpen} onOpenChange={setBugOpen} />
     </>
   );
 }

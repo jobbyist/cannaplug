@@ -260,6 +260,31 @@ export const TEMPLATES: Record<string, Template> = {
       footerNote: "Reply to this email to answer the sender directly.",
     }),
   }),
+  bug_report_staff: (d) => {
+    const kind =
+      { bug: "Bug report", feedback: "Feedback", idea: "Idea" }[String(d["kind"])] ?? "Report";
+    return {
+      subject: `${kind}: ${String(d["message"] ?? "")
+        .replace(/\s+/g, " ")
+        .slice(0, 80)}`,
+      ...(EMAIL_RE.test(String(d["email"] ?? "")) ? { replyTo: String(d["email"]) } : {}),
+      html: layout({
+        preheader: `${kind} from the website.`,
+        title: kind,
+        bodyHtml:
+          kv([
+            ["From", esc(d["name"] || "Not given")],
+            ["Email", esc(d["email"] || "Not given")],
+            ["Page", esc(d["page"] || "Not given")],
+            ["Browser", esc(d["user_agent"] || "Not given")],
+          ]) +
+          `<p style="margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap">${esc(d["message"])}</p>`,
+        footerNote: d["email"]
+          ? "Reply to this email to answer the sender directly."
+          : "The sender did not leave an email address, so this cannot be answered.",
+      }),
+    };
+  },
   contact_form_ack: (d, c) => ({
     subject: "We received your message",
     html: layout({

@@ -3553,6 +3553,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      bug_report_submit: {
+        Args: {
+          p_agent: string;
+          p_email: string;
+          p_idempotency_key: string;
+          p_inboxes: string[];
+          p_ip_hash: string;
+          p_kind: string;
+          p_message: string;
+          p_name: string;
+          p_page: string;
+        };
+        Returns: Json;
+      };
       member_ensure_username: {
         Args: { p_user_id: string };
         Returns: Json;

@@ -9,6 +9,15 @@ import { z } from "zod";
 /** Every website form submission is delivered here. Fixed in code on purpose: no environment setting can redirect it. */
 export const SITE_INBOX = "admin@cannaplug012.co.za";
 
+/**
+ * Where "Report a bug" reports are delivered. Fixed in code on purpose: no form field or environment setting can
+ * redirect them.
+ */
+export const BUG_REPORT_INBOXES = [
+  "webmaster@cannaplug012.co.za",
+  "cannaplug@gravitas.wtf",
+] as const;
+
 const email = z.string().trim().toLowerCase().email().max(254);
 
 async function clientIpHash(): Promise<string | null> {
@@ -22,6 +31,7 @@ async function clientIpHash(): Promise<string | null> {
 
 const FRIENDLY: Record<string, string> = {
   rate_limited: "You have sent a few messages already — please try again in an hour.",
+  invalid_input: "Please check the form and try again.",
 };
 function friendly(err: unknown): Error {
   const raw = err instanceof Error ? err.message : String(err);
@@ -54,6 +64,51 @@ export const submitContactFn = createServerFn({ method: "POST" })
       p_message: data.message,
       p_ip_hash: (await clientIpHash()) as string,
       p_inbox: SITE_INBOX,
+    });
+    if (error) throw friendly(error);
+    return { ok: true as const };
+  });
+
+/** The page address without its query or fragment, so no token or search text ever travels with a report. */
+export function cleanPageAddress(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw, "https://cannaplug012.co.za");
+    return u.pathname.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
+/** Public "Report a bug / send feedback" form: honeypot, validated, rate-limited by hashed IP in the database. */
+export const submitBugReportFn = createServerFn({ method: "POST" })
+  .validator((d) =>
+    z
+      .object({
+        kind: z.enum(["bug", "feedback", "idea"]),
+        message: z.string().trim().min(10).max(4000),
+        name: z.string().trim().max(120).optional(),
+        email: z.union([z.literal(""), email]).optional(),
+        page: z.string().max(500).optional(),
+        key: z.string().min(8).max(120),
+        website: z.string().max(200).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    if (data.website) return { ok: true as const }; // bot: pretend success, store nothing
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { error } = await supabaseAdmin.rpc("bug_report_submit", {
+      p_name: data.name ?? "",
+      p_email: data.email ?? "",
+      p_kind: data.kind,
+      p_message: data.message,
+      p_page: cleanPageAddress(data.page) ?? "",
+      p_agent: (getRequest().headers.get("user-agent") ?? "").slice(0, 300),
+      p_ip_hash: (await clientIpHash()) as string,
+      p_inboxes: [...BUG_REPORT_INBOXES],
+      p_idempotency_key: data.key,
     });
     if (error) throw friendly(error);
     return { ok: true as const };

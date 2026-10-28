@@ -1855,3 +1855,14 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Files:** `src/lib/breadcrumbs.ts`, `src/components/Breadcrumbs.tsx`, `src/components/CannaPlugHome.tsx`, `src/routes/{account,admin,doctor,member.documents,verify.$token}.tsx`.
 - **Migrations:** none. **Tests:** `breadcrumbs` (trails, JSON-LD), `breadcrumbs-ui` (links, current page, home empty, admin trail); the member documents tests now mock the router location.
 - **Owner actions:** none. **Rollback:** revert the PR.
+
+## 29 Oct 2026 — Report a bug in the Explore menu (feat/mvp-bug-report)
+
+- **Owner request:** a "Report a Bug" tab in the header menu under Explore that opens a popup form for feedback and bug reports, delivered to webmaster@cannaplug012.co.za and cannaplug@gravitas.wtf.
+- **What:** a "Report a bug" tile in the Explore section of the header menu opens a popup: type (something is broken / feedback / an idea), the message (10 to 4000 characters), optional name and email (so the team can reply), and the page the visitor was on (its address only, never the query). It warns not to include ID numbers, health details or passwords. A double click or a retry sends once (a request key). Works signed in or not.
+- **Delivery:** both addresses are fixed in the server code (`BUG_REPORT_INBOXES`), not in the form or an environment setting. Each report is stored in `public.bug_reports` and one email per recipient is queued through the existing notification dispatcher (template `bug_report_staff`; the reply-to is the visitor's email when given). Rate limit: 5 reports an hour per hashed IP address; a hidden field catches bots.
+- **Migration:** `20261029009000_bug_reports` (mirror `drizzle/migrations/0063_bug_reports.sql`; rollback `supabase/rollbacks/20261029009000_bug_reports_rollback.sql`, refused while reports are stored; rehearsal `scripts/rollback-rehearsal-bug-reports.sh`). New table with RLS and no browser access; `bug_report_submit` is service-only. No DROP and no DELETE in the migration.
+- **Files:** `src/components/ReportBugDialog.tsx`, `src/components/CannaPlugHome.tsx`, `src/lib/forms.functions.ts`, `src/lib/notifications/templates.ts`, `scripts/email-samples.ts`, `src/styles.css`, `src/integrations/supabase/types.ts`.
+- **Tests:** `db/bug-reports` (7: stored with one email per recipient, optional fields, idempotent, bad input, rate limit, browser lockout, mutation check on the rate limit), `report-bug-dialog` (3), `forms-inbox` (recipients fixed, page address cleaned), `security-audit` (the form is on the reviewed public list), the email template test renders the new template.
+- **Owner actions:** (1) the emails are sent by the existing dispatcher from the support address, so both inboxes must accept it (check spam on the first report); (2) there is no admin screen for reports yet, they are in the database and the two inboxes.
+- **Rollback:** export and clear `bug_reports`, run the rollback SQL, then revert the PR.
