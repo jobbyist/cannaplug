@@ -57,7 +57,8 @@ import {
   type TenderMethod,
   type TenderRow,
 } from "./pos-logic";
-import { PosSaleDialog } from "./PosSaleDialog";
+import { PosSaleDialog, type SetSale } from "./PosSaleDialog";
+import { simulateSale } from "./demo-logic";
 import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
@@ -291,14 +292,23 @@ type Receipt = {
   cashReceivedCents: number | null;
 };
 
-function SaleScreen({
+/** Demo till: the same screen, but completing a sale only works it out in the browser (nothing is saved). */
+export type DemoHooks = {
+  nextReceiptNumber: () => string;
+  onSold: (lines: CartLine[]) => void;
+  setSale: SetSale;
+};
+
+export function SaleScreen({
   data,
   session,
   onChanged,
+  demo,
 }: {
-  data: Overview;
-  session: NonNullable<Overview["mySession"]>;
+  data: { catalog: CatalogItem[] };
+  session: { id: string };
   onChanged: () => Promise<void>;
+  demo?: DemoHooks;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -428,6 +438,28 @@ function SaleScreen({
       salesSignature({ s: session.id, items, sendTenders, cid, od, reason }),
     );
     try {
+      if (demo) {
+        // Practice sale: worked out here, never sent anywhere.
+        setReceipt(
+          simulateSale({
+            lines,
+            orderDiscount,
+            tenders: activeTenders,
+            receiptNumber: demo.nextReceiptNumber(),
+            cashReceived,
+          }) as Receipt,
+        );
+        demo.onSold(lines);
+        keys.current.reset();
+        setLines([]);
+        setTenders([]);
+        setCashReceived("");
+        setCustomer(null);
+        setOrderDiscount(undefined);
+        setDiscountReason("");
+        focusSearch();
+        return;
+      }
       const res = await completePosSaleFn({
         data: {
           sessionId: session.id,
@@ -577,6 +609,7 @@ function SaleScreen({
           )}
         </ul>
         <PosSaleDialog
+          {...(demo ? { setSale: demo.setSale } : {})}
           product={saleFor}
           onOpenChange={(o) => !o && setSaleFor(null)}
           onDone={async (m) => {
@@ -595,6 +628,7 @@ function SaleScreen({
       <div className="flex flex-col gap-4">
         {receipt && (
           <ReceiptCard
+            demo={!!demo}
             receipt={receipt}
             onNew={() => {
               setReceipt(null);
@@ -983,7 +1017,15 @@ function SaleScreen({
   );
 }
 
-function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }) {
+function ReceiptCard({
+  receipt,
+  onNew,
+  demo = false,
+}: {
+  receipt: Receipt;
+  onNew: () => void;
+  demo?: boolean;
+}) {
   const { sale, loyalty } = receipt;
   const cashPaid = sale.tenders
     .filter((t) => t.method === "cash")
@@ -992,7 +1034,7 @@ function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-5" role="status">
       <div className="mb-2 flex items-center gap-2 text-primary">
         <CheckCircle2 size={18} />
-        <h2 className={headingClass}>Sale complete</h2>
+        <h2 className={headingClass}>{demo ? "Demo sale complete" : "Sale complete"}</h2>
       </div>
       <p className="font-display text-lg font-extrabold">{sale.receipt_number}</p>
       <ul className="mt-2 text-xs">
@@ -1032,7 +1074,13 @@ function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }
           Sale saved. Loyalty points will be credited on retry.
         </p>
       )}
-      <ReceiptActions saleId={sale.sale_id} />
+      {demo ? (
+        <p className="mt-2 rounded-md bg-gold/15 p-2 text-xs font-semibold">
+          Practice receipt only. Nothing was saved, printed or emailed.
+        </p>
+      ) : (
+        <ReceiptActions saleId={sale.sale_id} />
+      )}
       <Button type="button" className="mt-3" size="sm" onClick={onNew}>
         New sale (N)
       </Button>

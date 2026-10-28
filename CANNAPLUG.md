@@ -1671,3 +1671,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Migrations:** none. **Tests:** `product-duplicates` (matching and CSV planning), `product-edit-dialog`, `product-csv-dialog`.
 - **Not changed:** no product data was touched. The client is fixing Mandarin Cookies, Orange Cookies Stick, Orange Road Stick and never-stocked items by hand in the dashboard.
 - **Rollback:** revert the PR.
+
+## 28 Oct 2026 — Demo till for testing (feat/mvp-demo-till)
+
+- **Why:** managers and admins wanted to try the till without creating sales, stock movements or audit entries.
+- **What it is:** a new **Demo till** tab (managers and admins only) that shows the real till screen on a throwaway copy of the live catalogue. Basket, search, discounts (line and order, 0–100%, free sale), split payments, cash change and the receipt all behave like the real till, but completing a sale is worked out in the browser only. Receipts are numbered `DEMO-0001`… and say "Practice receipt only"; there is no print or email. Stock used by practice sales and any practice "put on sale" live only in that tab; **Reset demo** (or a reload) restores everything.
+- **What is never written:** no `pos_sales`, tenders, stock ledger, till session, cash-up, loyalty, receipt record, notification or `audit_log` row. The only server call is a read-only catalogue fetch (`getDemoTillCatalogFn` → `getDemoTillCatalog`, manager+, no sweep, no audit). The demo screen disables the real server calls by design: `SaleScreen` takes a `demo` prop and returns before `completePosSaleFn` / `recordCashReceivedFn`, and the sale-price dialog is given a local setter instead of `setProductSaleFn`.
+- **Not covered by the demo:** opening/closing a till, refunds and voids, cash-up and stock receiving (these need a real till session). Customer search is read-only, but a customer attached in the demo is ignored.
+- **Files:** `src/components/admin/pos/{DemoTill.tsx,demo-logic.ts,PosPanel.tsx}`, `src/lib/{pos-data.server.ts,pos.functions.ts,admin-nav.ts}`, `src/routes/admin.tsx`.
+- **Migrations:** none. **Tests:** `demo-till` (maths, free sale, local stock, reset, a spy on every write function proving none is called, access by role, a source guard that the demo files import only the read-only function, and the server function is manager-gated with no writes). Mutations checked: bypassing the demo branch fails 3 tests; importing a write function into the demo fails the guard.
+- **Rollback:** revert the PR.

@@ -114,6 +114,60 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
+const CATALOG_COLUMNS =
+  "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only";
+
+/** Active products as the till sees them, with live availability. */
+function toCatalog(
+  products: {
+    id: string;
+    slug: string;
+    name: string;
+    category: string;
+    subcategory: string | null;
+    strain_type: string | null;
+    unit: string | null;
+    price_rand: number | string;
+    regular_price_rand: number | string | null;
+    sale_ends_at: string | null;
+    sale_online_only: boolean;
+  }[],
+  availabilityRows: { product_id: string | null; available: number | null }[],
+): PosCatalogItem[] {
+  const availability = new Map(availabilityRows.map((a) => [a.product_id, a.available]));
+  return products.map(({ sale_online_only, ...p }) => {
+    // An online-only sale is not offered at the till: show (and charge) the regular price, with no sale.
+    const hidden = sale_online_only && p.regular_price_rand != null;
+    return {
+      ...p,
+      price_rand: Number(hidden ? p.regular_price_rand : p.price_rand),
+      regular_price_rand:
+        hidden || p.regular_price_rand == null ? null : Number(p.regular_price_rand),
+      sale_ends_at: hidden ? null : p.sale_ends_at,
+      available: availability.get(p.id) ?? 0,
+    };
+  });
+}
+
+/**
+ * Manager+: the catalogue for the Demo till. Read-only by design: no session, no expiry sweep, no audit row.
+ * The Demo till keeps its basket and "sales" in the browser only; nothing it does reaches the database.
+ */
+export async function getDemoTillCatalog(userId: string) {
+  await assertRole(userId, "manager");
+  const [availabilityRes, productsRes] = await Promise.all([
+    supabaseAdmin.from("inventory_availability").select("product_id,available"),
+    supabaseAdmin
+      .from("products")
+      .select(CATALOG_COLUMNS)
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name"),
+  ]);
+  for (const r of [availabilityRes, productsRes]) if (r.error) throw friendlyPosError(r.error);
+  return { catalog: toCatalog(productsRes.data ?? [], availabilityRes.data ?? []) };
+}
+
 export async function getPosOverview(userId: string) {
   const role = await assertRole(userId, "budtender");
   const isManager = role === "manager" || role === "admin";
@@ -128,9 +182,7 @@ export async function getPosOverview(userId: string) {
     supabaseAdmin.from("inventory_availability").select("product_id,available"),
     supabaseAdmin
       .from("products")
-      .select(
-        "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only",
-      )
+      .select(CATALOG_COLUMNS)
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),
@@ -138,21 +190,7 @@ export async function getPosOverview(userId: string) {
   for (const r of [drawersRes, openRes, availabilityRes, productsRes])
     if (r.error) throw friendlyPosError(r.error);
 
-  const availability = new Map(
-    (availabilityRes.data ?? []).map((a) => [a.product_id, a.available]),
-  );
-  const catalog: PosCatalogItem[] = (productsRes.data ?? []).map(({ sale_online_only, ...p }) => {
-    // An online-only sale is not offered at the till: show (and charge) the regular price, with no sale.
-    const hidden = sale_online_only && p.regular_price_rand != null;
-    return {
-      ...p,
-      price_rand: Number(hidden ? p.regular_price_rand : p.price_rand),
-      regular_price_rand:
-        hidden || p.regular_price_rand == null ? null : Number(p.regular_price_rand),
-      sale_ends_at: hidden ? null : p.sale_ends_at,
-      available: availability.get(p.id) ?? 0,
-    };
-  });
+  const catalog = toCatalog(productsRes.data ?? [], availabilityRes.data ?? []);
 
   const openSessions = openRes.data ?? [];
   const mySession = openSessions.find((s) => s.opened_by === userId) ?? null;
