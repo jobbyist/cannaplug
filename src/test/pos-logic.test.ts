@@ -107,6 +107,35 @@ describe("cart quantity controls", () => {
   });
 });
 
+describe("a card or EFT reference can be used on one payment only", () => {
+  const card = (reference: string, amount = "25.00") => row({ method: "card", amount, reference });
+  it("flags the same method and reference typed twice, and still balances otherwise", () => {
+    const s = tenderStatus(5000, [card("04YImt023013"), card(" 04YImt023013 ")]);
+    expect(s.duplicateReference).toBe("04YImt023013");
+    expect(s.allValid).toBe(true);
+    expect(s.sumCents).toBe(5000);
+    expect(s.ok).toBe(false); // would be refused by the database
+  });
+  it("allows different references, the same reference on a different method, and empty references", () => {
+    expect(tenderStatus(5000, [card("SLIP-0001"), card("SLIP-0002")])).toMatchObject({
+      duplicateReference: null,
+      ok: true,
+    });
+    const mixed = tenderStatus(5000, [
+      card("REF-12345"),
+      row({ method: "eft", amount: "25.00", reference: "REF-12345" }),
+    ]);
+    expect(mixed.duplicateReference).toBeNull();
+    expect(tenderStatus(5000, [card(""), card("")]).duplicateReference).toBeNull();
+  });
+  it("two cash payments never count as duplicates (cash has no reference)", () => {
+    expect(tenderStatus(5000, [row({ amount: "20" }), row({ amount: "30" })])).toMatchObject({
+      duplicateReference: null,
+      ok: true,
+    });
+  });
+});
+
 describe("tender reconciliation (client mirror of the server rule sum(tenders) == total)", () => {
   it("is ok only when tenders equal the total to the cent", () => {
     expect(tenderStatus(10000, [row({ amount: "100" })]).ok).toBe(true);
