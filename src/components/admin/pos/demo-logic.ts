@@ -11,6 +11,7 @@ import {
   type DiscountInput,
   type TenderRow,
 } from "./pos-logic";
+import type { CloseResult } from "./cashup-logic";
 
 export type DemoReceipt = {
   sale: {
@@ -100,4 +101,54 @@ export function applyDemoSale(
       ? { ...p, price_rand: regular, regular_price_rand: null, sale_ends_at: null }
       : { ...p, price_rand: input.salePrice, regular_price_rand: regular };
   });
+}
+
+/** Same tolerance the database uses to decide a variance needs a manager's approval (pos_variance_tolerance). */
+export const DEMO_VARIANCE_TOLERANCE_CENTS = 1000;
+
+export type DemoExpense = {
+  id: string;
+  amount: number;
+  category: string;
+  description: string;
+  created_at: string;
+  mine: boolean;
+};
+
+/**
+ * A practice cash-up, worked out the way pos_close_session does it:
+ *   expected = opening float + cash taken - cash refunds - till expenses
+ *   variance = counted - expected;  float carried = counted - bank deposit.
+ */
+export function simulateClose(input: {
+  openingFloat: number;
+  cashSalesCents: number;
+  expenses: DemoExpense[];
+  discountsCents: number;
+  salesCount: number;
+  actualCash: string;
+  cashDeposited: string;
+}): CloseResult {
+  const cents = (v: number) => Math.round(v * 100);
+  const expensesCents = input.expenses.reduce((s, e) => s + cents(e.amount), 0);
+  const actual = parseCents(input.actualCash) ?? 0;
+  const deposit = parseCents(input.cashDeposited) ?? 0;
+  const expected = cents(input.openingFloat) + input.cashSalesCents - expensesCents;
+  const variance = actual - expected;
+  const money = (c: number) => (c / 100).toFixed(2);
+  return {
+    opening_float: money(cents(input.openingFloat)),
+    cash_sales: money(input.cashSalesCents),
+    cash_refunds: "0.00",
+    expenses_total: money(expensesCents),
+    discounts_total: money(input.discountsCents),
+    expected_cash: money(expected),
+    actual_cash: money(actual),
+    variance: money(variance),
+    cash_deposited: money(deposit),
+    float_carried: money(actual - deposit),
+    approval_status:
+      Math.abs(variance) > DEMO_VARIANCE_TOLERANCE_CENTS ? "pending" : "not_required",
+    sales_count: input.salesCount,
+  };
 }

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Landmark, Plus, Receipt, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { rand } from "@/lib/cart";
+import { randCents as rand } from "@/lib/cart";
 import { addPosExpenseFn, closePosSessionFn, voidPosExpenseFn } from "@/lib/pos.functions";
 import { centsToAmount, createKeyStore, parseCents } from "./pos-logic";
 import { EXPENSE_CATEGORY_LABELS, cashupLines, reconciles, type CloseResult } from "./cashup-logic";
@@ -14,6 +14,30 @@ const errorClass =
 const selectClass = "h-9 rounded-md border border-input bg-background px-2 text-sm";
 const errMsg = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
+
+/** What the cash-up screens do when you press a button. The Demo till swaps these for in-browser versions. */
+export type ExpenseActions = {
+  add: (input: {
+    sessionId: string;
+    amount: string;
+    category: string;
+    description: string;
+    key: string;
+  }) => Promise<unknown>;
+  remove: (input: { expenseId: string; reason: string; key: string }) => Promise<unknown>;
+};
+const serverExpenses: ExpenseActions = {
+  add: (d) => addPosExpenseFn({ data: { ...d, category: d.category as "supplies" } }),
+  remove: (d) => voidPosExpenseFn({ data: d }),
+};
+export type CloseSession = (input: {
+  sessionId: string;
+  actualCash: string;
+  cashDeposited: string;
+  note?: string;
+  key: string;
+}) => Promise<CloseResult>;
+const serverClose: CloseSession = (d) => closePosSessionFn({ data: d }) as Promise<CloseResult>;
 
 export type SessionCashup = {
   expenses: {
@@ -34,11 +58,13 @@ export function TillExpenses({
   cashup,
   isManager,
   onChanged,
+  actions = serverExpenses,
 }: {
   sessionId: string;
   cashup: SessionCashup | null;
   isManager: boolean;
   onChanged: () => Promise<void>;
+  actions?: ExpenseActions;
 }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("supplies");
@@ -55,14 +81,12 @@ export function TillExpenses({
     setError(null);
     try {
       const a = centsToAmount(cents);
-      await addPosExpenseFn({
-        data: {
-          sessionId,
-          amount: a,
-          category: category as "supplies",
-          description: description.trim(),
-          key: keys.current.keyFor(`${sessionId}:${a}:${category}:${description.trim()}`),
-        },
+      await actions.add({
+        sessionId,
+        amount: a,
+        category,
+        description: description.trim(),
+        key: keys.current.keyFor(`${sessionId}:${a}:${category}:${description.trim()}`),
       });
       keys.current.reset();
       setAmount("");
@@ -80,8 +104,10 @@ export function TillExpenses({
     if (!reason || reason.trim().length < 3) return;
     setError(null);
     try {
-      await voidPosExpenseFn({
-        data: { expenseId: id, reason: reason.trim(), key: `void-${id}-${Date.now()}` },
+      await actions.remove({
+        expenseId: id,
+        reason: reason.trim(),
+        key: `void-${id}-${Date.now()}`,
       });
       await onChanged();
     } catch (e) {
@@ -175,10 +201,12 @@ export function CloseTill({
   session,
   cashup,
   onChanged,
+  closeSession = serverClose,
 }: {
   session: { id: string; opening_float: number };
   cashup: SessionCashup | null;
   onChanged: () => Promise<void>;
+  closeSession?: CloseSession;
 }) {
   const [counted, setCounted] = useState("");
   const [deposit, setDeposit] = useState("");
@@ -203,15 +231,13 @@ export function CloseTill({
     try {
       const a = centsToAmount(countedCents);
       const d = centsToAmount(depositCents);
-      const r = (await closePosSessionFn({
-        data: {
-          sessionId: session.id,
-          actualCash: a,
-          cashDeposited: d,
-          ...(note.trim() ? { note: note.trim() } : {}),
-          key: keys.current.keyFor(`${session.id}:${a}:${d}:${note}`),
-        },
-      })) as CloseResult;
+      const r = await closeSession({
+        sessionId: session.id,
+        actualCash: a,
+        cashDeposited: d,
+        ...(note.trim() ? { note: note.trim() } : {}),
+        key: keys.current.keyFor(`${session.id}:${a}:${d}:${note}`),
+      });
       setResult(r);
     } catch (e) {
       setError(errMsg(e));

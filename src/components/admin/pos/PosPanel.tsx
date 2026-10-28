@@ -58,7 +58,7 @@ import {
   type TenderRow,
 } from "./pos-logic";
 import { PosSaleDialog, type SetSale } from "./PosSaleDialog";
-import { simulateSale } from "./demo-logic";
+import { simulateSale, type DemoReceipt } from "./demo-logic";
 import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
@@ -155,7 +155,16 @@ export function PosPanel() {
 
 /* ----------------------------------------------------------------- open till */
 
-function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promise<void> }) {
+export function OpenTill({
+  data,
+  onChanged,
+  demoOpen,
+}: {
+  data: Pick<Overview, "drawers" | "isManager">;
+  onChanged: () => Promise<void>;
+  /** Demo till: opens a practice session in the browser instead of calling the server. */
+  demoOpen?: (drawerId: string, openingFloat: string) => void;
+}) {
   const free = data.drawers.filter((d) => d.is_active && !d.in_use);
   const [drawerId, setDrawerId] = useState("");
   const [float, setFloat] = useState("0");
@@ -172,6 +181,10 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
     setError(null);
     try {
       const amount = centsToAmount(cents);
+      if (demoOpen) {
+        demoOpen(drawerId, amount);
+        return;
+      }
       await openPosSessionFn({
         data: { drawerId, openingFloat: amount, key: keys.current.keyFor(`${drawerId}:${amount}`) },
       });
@@ -254,7 +267,7 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
       <Button className="mt-4" onClick={() => void open()} disabled={busy || !drawerId}>
         Open till
       </Button>
-      {data.isManager && (
+      {data.isManager && !demoOpen && (
         <div className="mt-6 border-t border-border pt-4">
           <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Add a drawer</p>
           <div className="flex gap-2">
@@ -295,7 +308,7 @@ type Receipt = {
 /** Demo till: the same screen, but completing a sale only works it out in the browser (nothing is saved). */
 export type DemoHooks = {
   nextReceiptNumber: () => string;
-  onSold: (lines: CartLine[]) => void;
+  onSold: (sale: { lines: CartLine[]; receipt: DemoReceipt; discountCents: number }) => void;
   setSale: SetSale;
 };
 
@@ -440,16 +453,19 @@ export function SaleScreen({
     try {
       if (demo) {
         // Practice sale: worked out here, never sent anywhere.
-        setReceipt(
-          simulateSale({
-            lines,
-            orderDiscount,
-            tenders: activeTenders,
-            receiptNumber: demo.nextReceiptNumber(),
-            cashReceived,
-          }) as Receipt,
-        );
-        demo.onSold(lines);
+        const practice = simulateSale({
+          lines,
+          orderDiscount,
+          tenders: activeTenders,
+          receiptNumber: demo.nextReceiptNumber(),
+          cashReceived,
+        });
+        setReceipt(practice as Receipt);
+        demo.onSold({
+          lines,
+          receipt: practice,
+          discountCents: summary.lineDiscountCents + summary.orderDiscountCents,
+        });
         keys.current.reset();
         setLines([]);
         setTenders([]);
