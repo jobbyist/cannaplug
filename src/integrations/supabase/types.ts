@@ -3543,6 +3543,16 @@ export type Database = {
         Args: { p_idempotency_key: string; p_user_id: string; p_username: string };
         Returns: Json;
       };
+      admin_set_username: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_reason: string;
+          p_user_id: string;
+          p_username: string;
+        };
+        Returns: Json;
+      };
       member_ensure_username: {
         Args: { p_user_id: string };
         Returns: Json;

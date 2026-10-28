@@ -1834,3 +1834,15 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Notice:** the "Refer-a-friend program" team notice already carried a scheduled change to "Refer-a-friend program is now live!" at 12 AM SAST on 29 Oct, which has passed, so no edit was needed.
 - **Owner notes:** (1) generated names come from real names, so they are visible to the person they refer; members can change them once; (2) there is still no admin tool to change a username.
 - **Rollback:** run the rollback SQL, then revert the PR.
+
+## 29 Oct 2026 — Admin username tool and an optional username at sign-up (feat/mvp-username-admin)
+
+- **Owner request:** managers and admins can change a member's username from the Customers tab; members with a generated username can customise it once in the portal; the username is optional at sign-up (or set after), with a note that setting it unlocks the referral code and link.
+- **Admin tool:** Customers tab shows each member's username (searchable) and a **Change** button for managers and admins. The dialog checks the name is free as you type and needs a reason (3-200 characters). `admin_set_username` (service-only, idempotent) refuses staff targets, taken, reserved and badly formed names, writes an audit row with the old name, new name and reason, and makes the name final for the member. Old referral links stop working.
+- **Portal:** already built last PR (Keep it / Save, once) and now also prompted from a dashboard banner "Your username is … Customise username". Members with no username see "Set your username to get your referral code".
+- **Sign-up:** the username field is optional ("Username (optional)") and explains that setting one unlocks the referral code and link so friends can be referred for loyalty points; blank is accepted and the account is created. If given it must be free. Members who verify later get a generated one automatically.
+- **Migration:** `20261029008000_admin_username` (mirror `drizzle/migrations/0062_admin_username.sql`; rollback `supabase/rollbacks/20261029008000_admin_username_rollback.sql`; rehearsal `scripts/rollback-rehearsal-admin-username.sh`). Replaces `admin_customers_page` to return and search by username. No DROP and no DELETE.
+- **Files:** `src/components/admin/{UsernameEditDialog,CustomersPanel}.tsx`, `src/routes/{admin,account}.tsx`, `src/lib/{admin.functions,admin-data.server,staff-errors,signup-logic}.ts`, `src/integrations/supabase/types.ts`.
+- **Tests:** `db/admin-username` (8: manager and admin change with audit, budtender/customer/browser refused, staff/reason/taken/reserved/invalid/unchanged refused, idempotent, page search, sign-up with and without a username, mutation check), `username-edit-dialog` (3), `signup-logic` (optional username).
+- **Owner notes:** staff change their own username once from the portal (the admin tool is for members); an admin change is final for that member.
+- **Rollback:** run the rollback SQL, then revert the PR.

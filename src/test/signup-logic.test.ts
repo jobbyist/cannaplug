@@ -30,12 +30,18 @@ describe("sign-up rules", () => {
     ["email", "nope"],
     ["phone", ""],
     ["idNumber", ""],
-    ["username", ""],
     ["username", "ab"],
     ["username", "has space"],
     ["username", "admin"],
   ] as const)("requires %s", (key, value) => {
     expect(signupProblem({ ...good, [key]: value }, null)).not.toBeNull();
+  });
+
+  it("the username is optional, but a bad one is still refused", () => {
+    expect(signupProblem({ ...good, username: "" }, null)).toBeNull();
+    expect(signupProblem({ ...good, username: "   " }, null)).toBeNull();
+    expect("username" in signupMetadata({ ...good, username: "" })).toBe(false);
+    expect(signupMetadata({ ...good, username: " Rae_H " })).toMatchObject({ username: "rae_h" });
   });
 
   it("passes on a date-of-birth problem", () => {

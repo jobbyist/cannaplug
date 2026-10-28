@@ -153,14 +153,17 @@ function AuthPanel() {
         const fields = { firstName, lastName, email, phone, dob, idNumber, referral, username };
         const issue = signupProblem(fields, dobProblem(dob));
         if (issue) throw new Error(issue);
-        // The username must be free, and a referral code must be one we know (typos would lose the referral).
-        const { status } = await checkUsernameFn({ data: { username } });
-        if (status !== "ok")
-          throw new Error(
-            status === "taken"
-              ? "That username is taken. Try another."
-              : "That username is not available. Try another.",
-          );
+        // A username is optional; when given it must be free. A referral code must be one we know (typos would
+        // lose the referral).
+        if (username.trim()) {
+          const { status } = await checkUsernameFn({ data: { username } });
+          if (status !== "ok")
+            throw new Error(
+              status === "taken"
+                ? "That username is taken. Try another."
+                : "That username is not available. Try another.",
+            );
+        }
         if (referral.trim()) {
           const r = await checkReferralCodeFn({ data: { code: referral } });
           if (!r.valid && r.reason !== "inactive")
@@ -284,7 +287,7 @@ function AuthPanel() {
                   )}
                   {mode === "signup" && (
                     <div className="grid gap-1.5">
-                      <Label htmlFor="signup-username">Username</Label>
+                      <Label htmlFor="signup-username">Username (optional)</Label>
                       <Input
                         id="signup-username"
                         autoComplete="username"
@@ -293,7 +296,6 @@ function AuthPanel() {
                         maxLength={20}
                         value={username}
                         onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
-                        required
                       />
                       <p
                         data-testid="username-status"
@@ -310,7 +312,7 @@ function AuthPanel() {
                         {usernameCheck.state === "checking"
                           ? "Checking…"
                           : usernameCheck.state === "idle"
-                            ? "Unique to you: 3 to 20 letters, numbers or underscores. It becomes your referral code and can't be changed later."
+                            ? "Optional. Set a username to get your own referral code and link: once it's set you can share it with friends and earn loyalty points when they join and spend R50. You can skip this now and set it in your account after you sign up. 3 to 20 letters, numbers or underscores; it becomes your referral code and can't be changed later."
                             : usernameCheck.message}
                       </p>
                     </div>
@@ -606,6 +608,28 @@ function MemberPortal() {
               verification={account.verification}
               onOpen={() => setTab("verification")}
             />
+            {account.rewards.can_change && (
+              <div
+                data-testid="username-generated-banner"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/5 p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Sparkles size={18} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Your username is <span className="font-mono">{account.rewards.username}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      We generated it for you. It&apos;s your referral code, and you can change it
+                      once. Share your code or link with friends to earn loyalty points.
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => setTab("rewards")}>
+                  Customise username
+                </Button>
+              </div>
+            )}
             {!account.rewards.username && (
               <div
                 data-testid="username-banner"
@@ -614,10 +638,12 @@ function MemberPortal() {
                 <div className="flex items-start gap-3">
                   <Sparkles size={18} className="mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-semibold">Choose your username</p>
+                    <p className="text-sm font-semibold">
+                      Set your username to get your referral code
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      It&apos;s your unique name and your referral code: earn a loyalty point for
-                      every friend who joins and spends R50.
+                      Once you set it, you can share your referral code and link with friends and
+                      earn a loyalty point for every friend who joins and spends R50.
                     </p>
                   </div>
                 </div>
