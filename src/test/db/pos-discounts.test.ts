@@ -152,28 +152,33 @@ describe.skipIf(!DB_URL)("POS discounts (real PostgreSQL)", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("cashiers can give up to 20% off; managers can give more", async () => {
+  it("cashiers can discount by any percentage without a manager, but a reason is still required and the sale must stay above R0", async () => {
     const a = await product(100);
     const off = (pct: string) => [
       { product_id: a, quantity: 1, discount: { kind: "percent", value: pct } },
     ];
+    const ok = async (pct: string, pay: number, reason: string | null) =>
+      (await attempt(sell(sql, cashier, sessionId, off(pct), [cash(pay)], { reason }))).ok;
+    expect(await ok("20.01", 79.99, "Over the old limit")).toBe(true);
+    expect(await ok("50", 50, "Half price clearance")).toBe(true);
+    expect(await ok("99.5", 0.5, "Almost free")).toBe(true);
+    // Still refused: no reason, and a free sale.
+    expect(await ok("60", 40, null)).toBe(false);
+    expect(await ok("100", 0, "Free")).toBe(false);
+    // A cashier's order-level discount has no limit either, and is audited.
+    const b = await product(200);
+    const s = await sell(sql, cashier, sessionId, [{ product_id: b, quantity: 1 }], [cash(40)], {
+      orderDiscount: { kind: "percent", value: "80" },
+      reason: "Owner approved offer",
+    });
+    expect(Number(s.discount)).toBe(160);
     expect(
-      (await attempt(sell(sql, cashier, sessionId, off("20"), [cash(80)], { reason: "Limit" }))).ok,
-    ).toBe(true);
-    expect(
-      (
-        await attempt(
-          sell(sql, cashier, sessionId, off("20.01"), [cash(79.99)], { reason: "Over" }),
-        )
-      ).ok,
-    ).toBe(false);
-    expect(
-      (
-        await attempt(
-          sell(sql, manager, sessionId, off("50"), [cash(50)], { reason: "Manager call" }),
-        )
-      ).ok,
-    ).toBe(true);
+      Number(
+        await val(
+          sql`SELECT count(*) FROM public.audit_log WHERE action = 'pos_sale_discount' AND entity_id = ${s.sale_id}`,
+        ),
+      ),
+    ).toBe(1);
   });
 
   it("a sale with no discount is unchanged and writes no discount audit row", async () => {
