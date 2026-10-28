@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { PayNow } from "@/components/account/PayNow";
 import { LinkPrescription } from "@/components/account/LinkPrescription";
 import { useState } from "react";
@@ -316,7 +317,10 @@ export function OrdersPanel({
           <div key={order.id} className="rounded-xl border border-border bg-card p-5">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="font-semibold">{order.order_number}</p>
+                <p className="flex items-center gap-2 font-semibold">
+                  {order.order_number}
+                  {order.staff_purchase && <StaffBadge />}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(order.created_at).toLocaleDateString("en-ZA")}
                 </p>
@@ -343,6 +347,11 @@ export function OrdersPanel({
             {Number(order.delivery_fee_rand) > 0 && (
               <p className="text-right text-xs text-muted-foreground">
                 Delivery {rand(Number(order.delivery_fee_rand))}
+              </p>
+            )}
+            {Number(order.staff_discount_rand) > 0 && (
+              <p className="text-right text-xs text-muted-foreground">
+                Staff rate −{rand(Number(order.staff_discount_rand))}
               </p>
             )}
             {Number(order.loyalty_discount_rand) > 0 && (

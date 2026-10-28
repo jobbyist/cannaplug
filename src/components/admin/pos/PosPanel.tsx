@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StaffBadge } from "@/components/StaffBadge";
 import { CustomerPicker, type PickedCustomer } from "@/components/admin/pos/CustomerPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import { recordCashReceivedFn } from "@/lib/receipts.functions";
 import {
   TENDER_METHODS,
   addToCart,
+  STAFF_PERCENT,
   cartSummary,
   discountCents,
   refundLineCents,
@@ -298,6 +300,7 @@ type Receipt = {
     receipt_number: string;
     total: number;
     replayed?: boolean;
+    staff_purchase?: boolean;
     items: { name: string; quantity: number; unit_price: number; line_total: number }[];
     tenders: { method: string; amount: number }[];
   };
@@ -361,9 +364,9 @@ export function SaleScreen({
     );
   }, [data.catalog]);
 
-  const summary = cartSummary(lines, orderDiscount);
+  const summary = cartSummary(lines, orderDiscount, customer?.staff === true);
   const totalCents = summary.totalCents;
-  const reasonOk = !summary.hasDiscount || discountReason.trim().length >= 3;
+  const reasonOk = !summary.hasManualDiscount || discountReason.trim().length >= 3;
   const discountsOk = summary.discountsValid && reasonOk;
   // A 100% discount makes a free (R0) sale: no payment is taken, whatever payment rows were typed before.
   const activeTenders = totalCents === 0 ? [] : tenders;
@@ -439,7 +442,7 @@ export function SaleScreen({
       return { product_id: l.product.id, quantity: l.quantity, ...(discount ? { discount } : {}) };
     });
     const od = sendableDiscount(orderDiscount);
-    const reason = summary.hasDiscount ? discountReason.trim() : null;
+    const reason = summary.hasManualDiscount ? discountReason.trim() : null;
     const sendTenders = activeTenders.map((t) => ({
       method: t.method,
       amount: centsToAmount(parseCents(t.amount) ?? 0),
@@ -459,6 +462,7 @@ export function SaleScreen({
           tenders: activeTenders,
           receiptNumber: demo.nextReceiptNumber(),
           cashReceived,
+          staff: customer?.staff === true,
         });
         setReceipt(practice as Receipt);
         demo.onSold({
@@ -808,20 +812,34 @@ export function SaleScreen({
               </div>
               {summary.hasDiscount && (
                 <>
-                  <label className="grid gap-1 text-xs font-semibold">
-                    Reason for discount (required)
-                    <Input
-                      aria-label="Discount reason"
-                      className="h-8 text-sm"
-                      maxLength={200}
-                      placeholder="e.g. Loyal customer, damaged packaging"
-                      value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                    />
-                    <span className="font-normal text-muted-foreground">
-                      Do not enter health or ID details.
-                    </span>
-                  </label>
+                  {summary.hasManualDiscount && (
+                    <label className="grid gap-1 text-xs font-semibold">
+                      Reason for discount (required)
+                      <Input
+                        aria-label="Discount reason"
+                        className="h-8 text-sm"
+                        maxLength={200}
+                        placeholder="e.g. Loyal customer, damaged packaging"
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                      />
+                      <span className="font-normal text-muted-foreground">
+                        Do not enter health or ID details.
+                      </span>
+                    </label>
+                  )}
+                  {summary.staffDiscountCents > 0 && (
+                    <p
+                      data-testid="staff-rate-note"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                      <StaffBadge /> Staff rate: {STAFF_PERCENT}% off is applied automatically
+                      {summary.orderDiscountCents > summary.staffDiscountCents
+                        ? " (the larger typed order discount applies instead)"
+                        : ""}
+                      .
+                    </p>
+                  )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Subtotal</span>
                     <span>{money(summary.grossCents)}</span>
@@ -1052,7 +1070,10 @@ function ReceiptCard({
         <CheckCircle2 size={18} />
         <h2 className={headingClass}>{demo ? "Demo sale complete" : "Sale complete"}</h2>
       </div>
-      <p className="font-display text-lg font-extrabold">{sale.receipt_number}</p>
+      <p className="flex items-center gap-2 font-display text-lg font-extrabold">
+        {sale.receipt_number}
+        {sale.staff_purchase && <StaffBadge />}
+      </p>
       <ul className="mt-2 text-xs">
         {sale.items.map((i) => (
           <li key={i.name} className="flex justify-between py-0.5">
@@ -1210,7 +1231,10 @@ function SaleCard({
     <li className="list-none rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div>
-          <p className="text-sm font-semibold">{sale.receipt_number}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            {sale.receipt_number}
+            {sale.staff_purchase && <StaffBadge />}
+          </p>
           <p className="text-muted-foreground">
             {new Date(sale.created_at).toLocaleString("en-ZA", {
               day: "2-digit",

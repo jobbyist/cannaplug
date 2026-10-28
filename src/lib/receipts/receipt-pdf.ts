@@ -154,6 +154,7 @@ export async function renderReceiptPdf(m: ReceiptModel, paper: PaperSize): Promi
     pair("Subtotal", formatRand(m.subtotal));
     pair("Discount", `-${formatRand(m.discount)}`);
   }
+  if (m.staffPurchase) pair("Staff purchase", "staff rate applied", regular, g.small, SLATE);
   pair("TOTAL", formatRand(m.total), bold, g.size + 2, FOREST);
   if (m.vat)
     pair(`Includes VAT @ ${m.vat.rate}%`, formatRand(m.vat.amount), regular, g.small, SLATE);

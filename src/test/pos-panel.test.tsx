@@ -51,6 +51,7 @@ const overview = {
 const server = vi.hoisted(() => ({
   getPosOverviewFn: vi.fn(),
   completePosSaleFn: vi.fn(),
+  searchPosCustomersFn: vi.fn(),
   openPosSessionFn: vi.fn(),
   closePosSessionFn: vi.fn(),
   reviewPosSessionFn: vi.fn(),
@@ -392,10 +393,15 @@ describe("POS screen — multi-tender capture", () => {
       loyalty: { accrued: true, points: 5 },
     });
     const { user } = await withGelato();
-    customersApi.listCustomersFn.mockResolvedValue({
-      total: 1,
-      rows: [{ id: "c1", full_name: "Thandi Ndlovu", phone: "0821110001", email: "t@x.co" }],
-    });
+    server.searchPosCustomersFn.mockResolvedValue([
+      {
+        id: "c1",
+        full_name: "Thandi Ndlovu",
+        phone: "0821110001",
+        email: "t@x.co",
+        is_staff: false,
+      },
+    ]);
     await user.type(screen.getByLabelText("Find customer"), "Thandi");
     await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));
@@ -405,16 +411,63 @@ describe("POS screen — multi-tender capture", () => {
     expect(await screen.findByText(/\+5 loyalty points credited/)).toBeTruthy();
   });
 
+  it("a staff member on the sale gets the staff rate automatically: 20% off, a Staff badge, no reason needed", async () => {
+    server.completePosSaleFn.mockResolvedValue({
+      ...saleResult,
+      sale: { ...saleResult.sale, total: 40, staff_purchase: true },
+      staff_purchase: true,
+    });
+    const { user } = await withGelato(); // R50
+    server.searchPosCustomersFn.mockResolvedValue([
+      { id: "s1", full_name: "Baatseba K", phone: null, email: "b@x.co", is_staff: true },
+    ]);
+    await user.type(screen.getByLabelText("Find customer"), "Baatseba");
+    const hit = await screen.findByRole("button", { name: /Baatseba K/ });
+    expect(within(hit).getByTestId("staff-badge")).toBeTruthy();
+    await user.click(hit);
+    expect((await screen.findByTestId("staff-rate-note")).textContent).toMatch(/20% off/);
+    // the total is the staff price: 50 - 10 = 40, so exact cash is R40.00 and no reason is asked for
+    expect(screen.queryByLabelText("Discount reason")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    expect((screen.getByLabelText("Tender amount") as HTMLInputElement).value).toBe("40.00");
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalled());
+    const sent = server.completePosSaleFn.mock.calls[0]![0].data;
+    expect(sent.customerId).toBe("s1");
+    expect(sent.discountReason).toBeNull();
+    expect(sent.orderDiscount).toBeNull();
+    // the browser sends ids and tenders only: never a price, a role or a staff flag
+    expect(JSON.stringify(sent)).not.toMatch(/staff|role|price/i);
+    expect((await screen.findAllByTestId("staff-badge")).length).toBeGreaterThan(0);
+  });
+
+  it("a member (not staff) pays full price and sees no staff note", async () => {
+    const { user } = await withGelato();
+    server.searchPosCustomersFn.mockResolvedValue([
+      { id: "c1", full_name: "Thandi Ndlovu", phone: null, email: null, is_staff: false },
+    ]);
+    await user.type(screen.getByLabelText("Find customer"), "Thandi");
+    await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
+    expect(screen.queryByTestId("staff-rate-note")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    expect((screen.getByLabelText("Tender amount") as HTMLInputElement).value).toBe("50.00");
+  });
+
   it("shows a retry note (not a failed sale) when loyalty accrual is pending after a committed sale", async () => {
     server.completePosSaleFn.mockResolvedValue({
       ...saleResult,
       loyalty: { accrued: false, pending: true },
     });
     const { user } = await withGelato();
-    customersApi.listCustomersFn.mockResolvedValue({
-      total: 1,
-      rows: [{ id: "c1", full_name: "Thandi Ndlovu", phone: "0821110001", email: "t@x.co" }],
-    });
+    server.searchPosCustomersFn.mockResolvedValue([
+      {
+        id: "c1",
+        full_name: "Thandi Ndlovu",
+        phone: "0821110001",
+        email: "t@x.co",
+        is_staff: false,
+      },
+    ]);
     await user.type(screen.getByLabelText("Find customer"), "Thandi");
     await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));

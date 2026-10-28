@@ -336,10 +336,8 @@ describe("demo till access and isolation", () => {
 
   it("the server function behind it is read-only and manager-gated", () => {
     const s = readFileSync("src/lib/pos-data.server.ts", "utf8");
-    const body = s.slice(
-      s.indexOf("export async function getDemoTillCatalog"),
-      s.indexOf("export async function getPosOverview"),
-    );
+    const start = s.indexOf("export async function getDemoTillCatalog");
+    const body = s.slice(start, s.indexOf("\nexport ", start + 10));
     expect(body).toContain('assertRole(userId, "manager")');
     expect(body).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(|_audit|audit_log/);
   });

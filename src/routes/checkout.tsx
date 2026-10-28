@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -180,6 +181,14 @@ function OrderSummary({
             <span className="text-muted-foreground">Subtotal</span>
             <span>{rand(quote ? quote.subtotal : total)}</span>
           </div>
+          {quote?.staff_purchase && (
+            <div className="flex justify-between" data-testid="staff-rate-row">
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                Staff rate ({quote.staff_percent ?? 20}% off) <StaffBadge />
+              </span>
+              <span className="font-semibold text-primary">−{rand(quote.staff_discount ?? 0)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Delivery</span>
             <span>

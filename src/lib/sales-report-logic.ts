@@ -51,11 +51,25 @@ export type SalesReport = {
     status: string;
     at: string;
     method: string | null;
+    /** A staff purchase (the staff rate was applied); absent on reports from before 28 Oct 2026. */
+    staff?: boolean;
   }[];
+  /** Purchases made at the staff rate, till and online (absent on reports from before 28 Oct 2026). */
+  staff?: StaffPurchases;
   /** Till cash-ups closed in the period (absent on reports from before 28 Oct 2026). */
   till?: TillTotals;
   till_sessions?: TillSession[];
   expenses?: TillExpense[];
+};
+
+export type StaffPurchases = {
+  percent: Money;
+  count: number;
+  /** What staff paid, and what the staff rate took off. */
+  total: Money;
+  discount: Money;
+  pos: { count: number; total: Money; discount: Money };
+  online: { count: number; total: Money; discount: Money };
 };
 
 export type TillTotals = {
@@ -225,6 +239,26 @@ export function salesReportCsv(r: SalesReport): string {
   out.push("");
   out.push(row(["Staff (till)", "Sales", "Total"]));
   for (const c of r.cashiers) out.push(row([c.name, c.count, n(c.total).toFixed(2)]));
+  if (r.staff) {
+    out.push("");
+    out.push(row(["Staff purchases", "Count", "Paid", "Staff discount"]));
+    out.push(
+      row([
+        "Till",
+        r.staff.pos.count,
+        n(r.staff.pos.total).toFixed(2),
+        n(r.staff.pos.discount).toFixed(2),
+      ]),
+    );
+    out.push(
+      row([
+        "Online",
+        r.staff.online.count,
+        n(r.staff.online.total).toFixed(2),
+        n(r.staff.online.discount).toFixed(2),
+      ]),
+    );
+  }
   if (r.till_sessions?.length) {
     out.push("");
     out.push(

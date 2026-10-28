@@ -78,18 +78,30 @@ export function discountCents(
   return cents === null || cents > baseCents ? null : cents;
 }
 
+/** The staff rate, for display only: the database applies the real one (staff_purchase_percent) to the sale. */
+export const STAFF_PERCENT = 20;
+
 export type CartSummary = {
   grossCents: number;
   lineDiscountCents: number;
+  /** The order-level discount that applies: the larger of a typed one and the staff rate (never both added). */
   orderDiscountCents: number;
+  /** What the staff rate alone would take off (0 unless the customer is staff). */
+  staffDiscountCents: number;
   /** What the customer pays. */
   totalCents: number;
   /** False when any typed discount is not valid yet. */
   discountsValid: boolean;
   hasDiscount: boolean;
+  /** A discount the cashier typed (needs a reason); the staff rate alone does not. */
+  hasManualDiscount: boolean;
 };
 
-export function cartSummary(lines: CartLine[], orderDiscount?: DiscountInput | null): CartSummary {
+export function cartSummary(
+  lines: CartLine[],
+  orderDiscount?: DiscountInput | null,
+  staff = false,
+): CartSummary {
   let gross = 0;
   let lineDisc = 0;
   let valid = true;
@@ -103,16 +115,21 @@ export function cartSummary(lines: CartLine[], orderDiscount?: DiscountInput | n
   const net = gross - lineDisc;
   const o = discountCents(orderDiscount, net);
   if (o === null) valid = false;
-  const orderDisc = o ?? 0;
+  const manual = o ?? 0;
+  // Staff rate: taken off what is left after line discounts, and not added to a typed order discount.
+  const staffDisc = staff ? Math.round((net * STAFF_PERCENT) / 100) : 0;
+  const orderDisc = Math.max(manual, staffDisc);
   // A 100% discount (a line, or the whole order) is allowed: the sale then totals R0 and takes no payment.
   const total = net - orderDisc;
   return {
     grossCents: gross,
     lineDiscountCents: lineDisc,
     orderDiscountCents: orderDisc,
+    staffDiscountCents: staffDisc,
     totalCents: total,
     discountsValid: valid,
     hasDiscount: lineDisc + orderDisc > 0,
+    hasManualDiscount: lineDisc + manual > 0,
   };
 }
 
