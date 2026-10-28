@@ -11,7 +11,7 @@ import {
 } from "./service";
 import { paymentsDeps } from "./service.server";
 import { ensureLiveFxRate } from "./fx.server";
-import { payfastFromEnv } from "./payfast";
+import { payfastConfigProblems, payfastFromEnv } from "./payfast";
 import { parseEftDetails, type EftDetails } from "./eft";
 import type { Json } from "@/integrations/supabase/types";
 import type { ProviderId } from "./provider";
@@ -19,6 +19,8 @@ import type { ProviderId } from "./provider";
 export type OnlineMethods = {
   /** PayFast: card, Instant EFT and the other methods on PayFast's hosted page (ZAR). */
   card: boolean;
+  /** PayFast's payment window opens on our checkout (card, Instant EFT, Masterpass) instead of PayFast's site. */
+  cardOnsite: boolean;
   paypal: boolean;
   /** Bank transfer details, once the owner has confirmed them; null hides the EFT option. */
   eft: EftDetails | null;
@@ -26,8 +28,10 @@ export type OnlineMethods = {
 
 /** Providers whose credentials are configured (no database read). */
 export function configuredOnlineProviders(env: Record<string, string | undefined> = process.env) {
+  const payfast = payfastFromEnv(env);
   return {
-    card: !!payfastFromEnv(env),
+    card: !!payfast,
+    cardOnsite: !!payfast?.onsite,
     paypal:
       !!env["PAYPAL_CLIENT_ID"] &&
       !!env["PAYPAL_CLIENT_SECRET"] &&
@@ -108,9 +112,16 @@ export async function startMemberPayment(
   provider: ProviderId,
   key: string,
   origin: string,
+  buyerEmail: string | null = null,
 ): Promise<StartedPayment> {
   try {
-    return await startPayment(paymentsDeps(origin), { userId, orderId, provider, key });
+    return await startPayment(paymentsDeps(origin), {
+      userId,
+      orderId,
+      provider,
+      key,
+      buyerEmail,
+    });
   } catch (err) {
     throw memberError(err);
   }
@@ -261,6 +272,8 @@ export async function getPaymentsOverview(userId: string) {
     eft: parseEftDetails(cfg.get("eft_bank_details") ?? null),
     rejectionsLast24h: rejections.count ?? 0,
     configured: { ...configuredOnlineProviders() },
+    /** PayFast misconfigurations, by variable name and rule only: never a value. */
+    diagnostics: payfastConfigProblems(process.env),
   };
 }
 

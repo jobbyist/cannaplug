@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   getOnlineMethodsFn: vi.fn(),
   getPaypalRateFn: vi.fn(),
   startPaymentFn: vi.fn(),
+  paymentStatusFn: vi.fn(),
   goToCheckout: vi.fn(),
 }));
 const EFT = {
@@ -39,6 +40,7 @@ vi.mock("@/lib/payments.functions", () => ({
   getOnlineMethodsFn: mocks.getOnlineMethodsFn,
   getPaypalRateFn: mocks.getPaypalRateFn,
   startPaymentFn: mocks.startPaymentFn,
+  paymentStatusFn: mocks.paymentStatusFn,
 }));
 vi.mock("@/lib/payments/redirect", () => ({ goToCheckout: mocks.goToCheckout }));
 vi.mock("@/components/CannaPlugHome", () => ({ Header: () => <header /> }));
@@ -116,6 +118,7 @@ async function toPayment(user: ReturnType<typeof userEvent.setup>) {
 describe("checkout end to end (server mocked)", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     Object.values(mocks).forEach((m) => m.mockReset());
     mocks.getOnlineMethodsFn.mockResolvedValue({ card: false, paypal: false, eft: EFT });
     mocks.getPaypalRateFn.mockResolvedValue(null);
@@ -401,6 +404,9 @@ describe("checkout end to end (server mocked)", () => {
     });
     mocks.startPaymentFn.mockResolvedValue({
       redirectUrl: "https://sandbox.payfast.co.za/eng/process?x=1",
+      amount: 320,
+      currency: "ZAR",
+      onsite: null,
     });
     renderPage();
     await toPayment(user);
@@ -409,7 +415,8 @@ describe("checkout end to end (server mocked)", () => {
     ).toBeTruthy();
     expect(screen.getByText("PayPal (US dollars)")).toBeTruthy();
     expect(screen.getByText(/About US\$20\.00 today/)).toBeTruthy(); // R320 / 16
-    await user.click(await screen.findByRole("button", { name: /place order & pay · R320/i }));
+    expect(screen.getByText(/You will pay R320[,.]00/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: /^pay R320[,.]00/i }));
     await waitFor(() => expect(mocks.goToCheckout).toHaveBeenCalled());
     expect(mocks.placeOrderFn.mock.calls[0]![0].data.paymentMethod).toBe("card");
     const start = mocks.startPaymentFn.mock.calls[0]![0].data;
@@ -418,6 +425,77 @@ describe("checkout end to end (server mocked)", () => {
     expect(mocks.goToCheckout).toHaveBeenCalledWith(
       "https://sandbox.payfast.co.za/eng/process?x=1",
     );
+    // Reserved, not "placed and paid": the page says payment still has to be verified.
+    expect(screen.getByText("Complete your payment")).toBeTruthy();
+    expect(screen.queryByText("Order placed")).toBeNull();
+  });
+
+  it("with PayFast onsite, describes paying in PayFast's window here and lists only its methods", async () => {
+    const user = userEvent.setup();
+    mocks.getOnlineMethodsFn.mockResolvedValue({
+      card: true,
+      cardOnsite: true,
+      paypal: false,
+      eft: null,
+    });
+    mocks.quoteCheckoutFn.mockResolvedValue(quote({ delivery_fee: 120, total: 320 }));
+    renderPage();
+    await toPayment(user);
+    expect(await screen.findByText("Card, Instant EFT or Masterpass (PayFast)")).toBeTruthy();
+    expect(screen.getByText(/you never leave Cannaplug/)).toBeTruthy();
+    expect(screen.queryByText(/Apple Pay/)).toBeNull();
+  });
+
+  it("after a refresh, reopens the unpaid order from the server instead of an empty cart", async () => {
+    const ORDER = "33333333-3333-4333-8333-333333333333";
+    window.sessionStorage.setItem(
+      "cannaplug.checkout.pending",
+      JSON.stringify({ orderId: ORDER, orderNumber: "CP-TAMPERED", method: "card" }),
+    );
+    mocks.getOnlineMethodsFn.mockResolvedValue({ card: true, paypal: false, eft: null });
+    mocks.paymentStatusFn.mockResolvedValue({
+      orderNumber: "CP-2609-0050",
+      orderStatus: "awaiting_payment",
+      paid: false,
+      total: 320,
+      payment: null,
+    });
+    render(
+      <CartProvider>
+        <Page />
+      </CartProvider>,
+    );
+    expect(await screen.findByText("Complete your payment")).toBeTruthy();
+    expect(mocks.paymentStatusFn).toHaveBeenCalledWith({ data: { orderId: ORDER } });
+    // The order number shown is the server's, not what the tab remembered.
+    expect(screen.getAllByText("CP-2609-0050").length).toBeGreaterThan(0);
+    expect(screen.queryByText("CP-TAMPERED")).toBeNull();
+    // A refresh never starts a payment by itself.
+    expect(mocks.startPaymentFn).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /^pay R320[,.]00/i })).toBeTruthy();
+  });
+
+  it("forgets a remembered order that is already paid", async () => {
+    window.sessionStorage.setItem(
+      "cannaplug.checkout.pending",
+      JSON.stringify({
+        orderId: "33333333-3333-4333-8333-333333333333",
+        orderNumber: "CP-1",
+        method: "card",
+      }),
+    );
+    mocks.paymentStatusFn.mockResolvedValue({
+      orderNumber: "CP-1",
+      orderStatus: "paid",
+      paid: true,
+      total: 320,
+      payment: null,
+    });
+    renderPage();
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem("cannaplug.checkout.pending")).toBeNull(),
+    );
+    expect(screen.queryByText("Complete your payment")).toBeNull();
   });
 
   it("requires contact details and a delivery address before continuing", async () => {

@@ -43,6 +43,8 @@ export const startPaymentFn = createServerFn({ method: "POST" })
       data.provider,
       data.key,
       await origin(),
+      // From the verified token, never the request body: PayFast's onsite window needs the buyer's email.
+      typeof context.claims["email"] === "string" ? context.claims["email"] : null,
     );
   });
 
