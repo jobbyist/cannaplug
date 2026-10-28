@@ -18,6 +18,7 @@ export type DemoReceipt = {
     sale_id: string;
     receipt_number: string;
     total: number;
+    staff_purchase: boolean;
     items: { name: string; quantity: number; unit_price: number; line_total: number }[];
     tenders: { method: string; amount: number }[];
   };
@@ -53,8 +54,10 @@ export function simulateSale(input: {
   tenders: TenderRow[];
   receiptNumber: string;
   cashReceived: string;
+  /** The customer on the sale is a staff member: the staff rate comes off automatically. */
+  staff?: boolean;
 }): DemoReceipt {
-  const summary = cartSummary(input.lines, input.orderDiscount);
+  const summary = cartSummary(input.lines, input.orderDiscount, input.staff === true);
   const nets = input.lines.map((l) => {
     const base = priceCents(l.product.price_rand) * l.quantity;
     return base - (discountCents(l.discount, base) ?? 0);
@@ -65,6 +68,7 @@ export function simulateSale(input: {
       sale_id: `demo-${input.receiptNumber}`,
       receipt_number: input.receiptNumber,
       total: summary.totalCents / 100,
+      staff_purchase: input.staff === true,
       items: input.lines.map((l, i) => ({
         name: l.product.name,
         quantity: l.quantity,

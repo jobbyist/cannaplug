@@ -168,6 +168,29 @@ export async function getDemoTillCatalog(userId: string) {
   return { catalog: toCatalog(productsRes.data ?? [], availabilityRes.data ?? []) };
 }
 
+export type PosCustomerHit = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  is_staff: boolean;
+};
+
+/** The till's customer search: members and staff (flagged), found in the database. Read-only. */
+export async function searchPosCustomers(
+  userId: string,
+  search: string,
+): Promise<PosCustomerHit[]> {
+  await assertRole(userId, "budtender");
+  const { data, error } = await supabaseAdmin.rpc("pos_customer_search", {
+    p_actor: userId,
+    p_search: search,
+    p_limit: 6,
+  });
+  if (error) throw friendlyPosError(error);
+  return (data ?? []) as unknown as PosCustomerHit[];
+}
+
 export async function getPosOverview(userId: string) {
   const role = await assertRole(userId, "budtender");
   const isManager = role === "manager" || role === "admin";
@@ -341,6 +364,8 @@ export type PosSaleView = {
   total: number;
   created_at: string;
   customer_id: string | null;
+  /** The staff rate was applied (the customer on the sale is a staff member). */
+  staff_purchase: boolean;
   items: {
     id: string;
     product_name: string;
@@ -362,6 +387,7 @@ async function loadSales(
           total: number;
           created_at: string;
           customer_id: string | null;
+          staff_purchase: boolean;
         }[]
       | null;
     error: { message: string } | null;
@@ -388,6 +414,7 @@ async function loadSales(
     total: Number(r.total),
     created_at: r.created_at,
     customer_id: r.customer_id,
+    staff_purchase: r.staff_purchase,
     items: (items.data ?? [])
       .filter((i) => i.sale_id === r.id)
       .map((i) => ({

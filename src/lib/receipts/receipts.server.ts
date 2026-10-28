@@ -60,7 +60,7 @@ async function buildModel(saleId: string): Promise<ReceiptModel> {
   const { data: sale, error } = await supabaseAdmin
     .from("pos_sales")
     .select(
-      "id,receipt_number,created_at,status,subtotal,discount_rand,total,cashier_id,customer_id",
+      "id,receipt_number,created_at,status,subtotal,discount_rand,total,cashier_id,customer_id,staff_purchase",
     )
     .eq("id", saleId)
     .maybeSingle();
@@ -101,6 +101,7 @@ async function buildModel(saleId: string): Promise<ReceiptModel> {
       status: sale.status,
       subtotal: Number(sale.subtotal),
       discount_rand: Number(sale.discount_rand),
+      staff_purchase: sale.staff_purchase,
       total: Number(sale.total),
     },
     items: (items.data ?? []).map((i) => ({

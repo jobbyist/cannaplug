@@ -6,6 +6,7 @@ import {
   adjustStock,
   findPosSale,
   getDemoTillCatalog,
+  searchPosCustomers,
   getPosOverview,
   listBatches,
   posAddExpense,
@@ -41,6 +42,11 @@ export const getPosOverviewFn = createServerFn({ method: "GET" })
 export const getDemoTillCatalogFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .handler(({ context }) => getDemoTillCatalog(context.userId));
+
+export const searchPosCustomersFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) => z.object({ search: z.string().trim().min(2).max(100) }).parse(d))
+  .handler(({ context, data }) => searchPosCustomers(context.userId, data.search));
 
 export const openPosSessionFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])

@@ -40,6 +40,10 @@ export type CheckoutQuote = {
   delivery_label: string;
   delivery_fee: number;
   total: number | null;
+  /** The staff rate (staff accounts only): taken off the goods, worked out by the database. */
+  staff_purchase?: boolean;
+  staff_percent?: number;
+  staff_discount?: number;
 };
 
 export type PlacedOrder = {
@@ -51,6 +55,8 @@ export type PlacedOrder = {
   total: number;
   payment_method: string;
   hold_minutes: number;
+  staff_purchase?: boolean;
+  staff_discount?: number;
   replayed?: boolean;
 };
 
@@ -78,11 +84,12 @@ async function assertMethodAllowed(code: string) {
   if (!data?.is_pickup) throw new MemberError(DELIVERY_PAUSED_MESSAGE);
 }
 
-export async function quoteCheckout(items: CheckoutItem[], deliveryMethod: string) {
+export async function quoteCheckout(userId: string, items: CheckoutItem[], deliveryMethod: string) {
   await assertMethodAllowed(deliveryMethod);
   await endExpiredSales(null);
   return unwrap(
-    await supabaseAdmin.rpc("checkout_quote", {
+    await supabaseAdmin.rpc("checkout_quote_for", {
+      p_user_id: userId,
       p_items: toRpcItems(items),
       p_delivery_method: deliveryMethod,
     }),

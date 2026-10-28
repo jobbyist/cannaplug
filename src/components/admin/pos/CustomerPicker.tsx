@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { listCustomersFn } from "@/lib/admin.functions";
+import { StaffBadge } from "@/components/StaffBadge";
+import { searchPosCustomersFn } from "@/lib/pos.functions";
 
-export type PickedCustomer = { id: string; name: string };
-type Hit = { id: string; full_name: string | null; phone: string | null; email: string | null };
+/** `staff` customers get the staff rate automatically (the database decides; this only shows it). */
+export type PickedCustomer = { id: string; name: string; staff: boolean };
+type Hit = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  is_staff: boolean;
+};
 
-/** Attach a member to a till sale: type a name, phone or email; the database searches (no list is loaded up front). */
+/** Attach a member or a staff member to a till sale: type a name, phone or email; the database searches (no list is loaded up front). */
 export function CustomerPicker({
   value,
   onChange,
@@ -28,10 +36,10 @@ export function CustomerPicker({
     let alive = true;
     setState("loading");
     const t = setTimeout(() => {
-      listCustomersFn({ data: { search: q, limit: 6 } })
+      searchPosCustomersFn({ data: { search: q } })
         .then((r) => {
           if (!alive) return;
-          setHits(r.rows);
+          setHits(r as Hit[]);
           setState("done");
         })
         .catch(() => alive && setState("error"));
@@ -45,7 +53,10 @@ export function CustomerPicker({
   if (value)
     return (
       <div className="flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm">
-        <span className="font-medium">{value.name}</span>
+        <span className="flex items-center gap-2 font-medium">
+          {value.name}
+          {value.staff && <StaffBadge />}
+        </span>
         <button
           type="button"
           aria-label="Remove customer from this sale"
@@ -61,7 +72,7 @@ export function CustomerPicker({
     <div className="grid gap-1">
       <Input
         aria-label="Find customer"
-        placeholder="Walk-in customer. Type a name, phone or email to attach a member"
+        placeholder="Walk-in customer. Type a name, phone or email to attach a member or staff member"
         value={text}
         maxLength={100}
         onChange={(e) => setText(e.target.value)}
@@ -72,7 +83,7 @@ export function CustomerPicker({
         </p>
       )}
       {state === "done" && hits.length === 0 && (
-        <p className="text-[0.68rem] text-muted-foreground">No member found.</p>
+        <p className="text-[0.68rem] text-muted-foreground">No member or staff member found.</p>
       )}
       {hits.length > 0 && (
         <ul className="overflow-hidden rounded-md border border-border bg-card text-sm">
@@ -82,12 +93,19 @@ export function CustomerPicker({
                 type="button"
                 className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted"
                 onClick={() => {
-                  onChange({ id: h.id, name: h.full_name?.trim() || h.email || h.id.slice(0, 8) });
+                  onChange({
+                    id: h.id,
+                    name: h.full_name?.trim() || h.email || h.id.slice(0, 8),
+                    staff: h.is_staff,
+                  });
                   setText("");
                   setHits([]);
                 }}
               >
-                <span className="font-medium">{h.full_name ?? "Unnamed"}</span>
+                <span className="flex items-center gap-2 font-medium">
+                  {h.full_name ?? "Unnamed"}
+                  {h.is_staff && <StaffBadge />}
+                </span>
                 <span className="text-xs text-muted-foreground">{h.phone ?? h.email ?? ""}</span>
               </button>
             </li>
