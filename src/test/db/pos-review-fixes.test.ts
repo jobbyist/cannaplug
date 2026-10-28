@@ -201,7 +201,7 @@ describe.skipIf(!DB_URL)("Amazon Q review triage (real PostgreSQL)", () => {
         Array.from({ length: 6 }, () => rpc<number>(sql, "accrue_missing_pos_loyalty")),
       );
       expect(runs.reduce((a, b) => a + Number(b), 0)).toBe(1);
-      expect(await points(customer)).toBe(30);
+      expect(await points(customer)).toBe(6);
       expect(await rpc<number>(sql, "accrue_missing_pos_loyalty")).toBe(0); // nothing left to do
     });
 
@@ -248,7 +248,7 @@ describe.skipIf(!DB_URL)("Amazon Q review triage (real PostgreSQL)", () => {
           rpc(sql, "accrue_missing_pos_loyalty"),
           rpc(sql, "accrue_pos_loyalty", sale.sale_id),
         ]);
-        expect(await points(customer)).toBe(10);
+        expect(await points(customer)).toBe(2);
       }
     });
   });
