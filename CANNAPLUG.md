@@ -1547,3 +1547,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Owner actions:** before deploying, check that `PAYFAST_ENV` in Vercel is empty, `live` or `sandbox` (any other value now turns PayFast off; Admin → Payments would say so). Ask PayFast to enable **Onsite Payments** on the merchant account, then set `PAYFAST_ONSITE=true` in
   Vercel and redeploy; do one live R5 card payment (go-live runbook). Note onsite drops Apple Pay / Google Pay.
 - **Rollback:** set `PAYFAST_ONSITE=false` (instant, back to PayFast's page), or revert the PR. No data to undo.
+
+## 28 Oct 2026 — Cashiers can discount any percentage (feat/mvp-cashier-discounts)
+
+- **Purpose:** owner decision: budtenders/cashiers may discount any percentage at the till without a manager. The 20%-of-sale limit in `pos_complete_sale` is removed. Unchanged safeguards: a reason (3–200 characters) is required for any discount, every discounted sale is audited (`pos_sale_discount`), discounts are worked out in whole cents from the database price, and a sale must still total more than R0.
+- **Files:** `supabase/migrations/20261028002000_cashier_discount_limit.sql` (mirror `drizzle/migrations/0046_cashier_discount_limit.sql`, rollback `supabase/rollbacks/20261028002000_cashier_discount_limit_rollback.sql`, rehearsal `scripts/rollback-rehearsal-cashier-discount.sh`), `src/lib/pos-data.server.ts` (unused message removed), `src/test/db/pos-discounts.test.ts`, `scripts/verify-release.sh`.
+- **Migration:** replaces `pos_complete_sale` in place (same signature, service role only). Safe to apply before or after the code; no code change is needed for it to take effect. **Applied to the hosted project:** see the PR description.
+- **Tests:** DB test (cashier at 20.01%, 50%, 99.5% and an 80% order discount succeed; no reason and a free sale are refused), mutation check (restoring the limit fails it), rehearsal (apply → limit gone → rollback restores it → re-apply).
+- **Owner note:** with no cap, the reason and the audit log are the controls. Discounts appear in Reports (discounts total and discounted-sale count) so unusual ones can be reviewed.
+- **Rollback:** run the rollback SQL; the 20% rule returns.

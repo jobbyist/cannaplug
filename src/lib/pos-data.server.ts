@@ -59,7 +59,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_items: "Invalid basket",
   invalid_discount: "That discount is not valid",
   discount_too_large: "The discount is too large: the sale must still total more than R0",
-  discount_limit: "Cashiers can discount up to 20% of a sale. Ask a manager for more",
   discount_reason_required: "Give a reason for the discount",
   invalid_amount: "Invalid amount",
   forbidden: "You do not have permission for this action",
