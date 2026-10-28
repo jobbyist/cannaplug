@@ -1,6 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Link2, Pause, Play, TriangleAlert, XCircle } from "lucide-react";
+import {
+  CalendarClock,
+  ExternalLink,
+  Link2,
+  Pause,
+  Play,
+  Settings2,
+  TriangleAlert,
+  XCircle,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -26,7 +35,15 @@ import { atLeast, type StaffRole } from "@/lib/admin-nav";
 import { notifyAdminTabs } from "@/lib/admin-sync";
 import {
   DEACTIVATE_WARNING,
+  DOMAIN_MANAGE_MESSAGE,
   VERIFYNOW_PAYFAST as VN,
+  daysUntil,
+  dueLabel,
+  formatDay,
+  formatMoney,
+  isPaidStatus,
+  nextBillingDate,
+  todaySast,
   type BillingAccount,
   type BillingPaymentRow,
   type BillingStatus,
@@ -37,6 +54,10 @@ type Data = { accounts: BillingAccount[]; payments: BillingPaymentRow[] };
 type Change = { account: BillingAccount; to: "paused" | "cancelled" | "active" };
 
 const LOGOS: Record<string, string> = {
+  whatsapp: "/billing/meta-whatsapp.png",
+  "email-push": "/billing/resend.png",
+  "supabase-platform": "/billing/supabase.png",
+  "godaddy-domain": "/billing/godaddy.png",
   "shopify-admin-api": "/billing/shopify.png",
   "payfast-gateway": "/billing/payfast.png",
   "verifynow-id": "/billing/verifynow.png",
@@ -56,16 +77,14 @@ const STATUS_CLASS: Record<BillingStatus, string> = {
 };
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
-const rand = (cents: number | null) => (cents == null ? "" : `R${(cents / 100).toFixed(2)}`);
-const when = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+const when = (iso: string) => formatDay(todaySast(new Date(iso)));
 
 function AccountLogo({ account }: { account: BillingAccount }) {
   const src = LOGOS[account.slug];
   return (
-    <div className="grid h-14 w-24 shrink-0 place-items-center rounded-lg border border-border bg-white p-1.5">
+    <div className="grid h-14 w-28 shrink-0 place-items-center rounded-lg border border-border bg-white p-1.5">
       {src ? (
-        <img src={src} alt={account.provider} className="max-h-11 max-w-[5.25rem] object-contain" />
+        <img src={src} alt={account.provider} className="max-h-11 max-w-[6.25rem] object-contain" />
       ) : (
         <span className="text-center text-[0.65rem] font-bold leading-tight text-muted-foreground">
           {account.provider}
@@ -119,9 +138,15 @@ function VerifyNowPayForm({ disabled }: { disabled: boolean }) {
   );
 }
 
-function PayControl({ account }: { account: BillingAccount }) {
+function PayControl({ account, onManage }: { account: BillingAccount; onManage: () => void }) {
   const off = account.status === "paused" || account.status === "cancelled";
   if (account.payment_kind === "payfast_form") return <VerifyNowPayForm disabled={off} />;
+  if (account.payment_kind === "manage")
+    return (
+      <Button size="sm" variant="outline" onClick={onManage}>
+        <Settings2 size={14} /> Manage
+      </Button>
+    );
   if (account.payment_kind === "link" && account.payment_url) {
     if (off)
       return (
@@ -155,9 +180,17 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
   const [ack, setAck] = useState(false);
   const [reason, setReason] = useState("");
   const [linkFor, setLinkFor] = useState<BillingAccount | null>(null);
+  const [manage, setManage] = useState<BillingAccount | null>(null);
+  const [paypal, setPaypal] = useState<string | null>(null);
+  const today = todaySast();
   const [linkUrl, setLinkUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    // Back from PayPal: /admin?paypal=pending#billing (or cancelled).
+    const v = new URLSearchParams(window.location.search).get("paypal");
+    setPaypal(v === "pending" || v === "cancelled" ? v : null);
+  }, []);
   const keys = useRef(new Map<string, string>());
   const keyFor = (k: string) => {
     if (!keys.current.has(k)) keys.current.set(k, crypto.randomUUID());
@@ -220,7 +253,13 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
   };
   const deactivating = change && change.to !== "active";
   const lastPaid = (id: string) =>
-    q.data?.payments.find((p) => p.account_id === id && p.status === "COMPLETE");
+    q.data?.payments.find((p) => p.account_id === id && isPaidStatus(p.status));
+  const nextDue = (a: BillingAccount) => (a.status === "active" ? nextBillingDate(a, today) : null);
+  const dueTomorrow = (q.data?.accounts ?? []).filter((a) => {
+    const d = nextDue(a);
+    return d !== null && daysUntil(d, today) === 1;
+  });
+  const nameOf = (id: string) => q.data?.accounts.find((a) => a.id === id)?.name ?? "Service";
 
   return (
     <div className="grid gap-5">
@@ -241,6 +280,26 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
         </p>
       )}
 
+      {paypal === "pending" && (
+        <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-xs">
+          Thanks, your PayPal subscription is being confirmed. The payment appears in the billing
+          history below once PayPal confirms it.
+        </p>
+      )}
+      {paypal === "cancelled" && (
+        <p role="status" className="rounded-md bg-muted px-3 py-2 text-xs">
+          The PayPal subscription was cancelled before it was approved. Nothing was charged.
+        </p>
+      )}
+      {dueTomorrow.length > 0 && (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-md bg-accent/25 px-3 py-2 text-xs font-semibold"
+        >
+          <CalendarClock size={14} className="mt-0.5 shrink-0" />
+          Due tomorrow: {dueTomorrow.map((a) => a.name).join(", ")}
+        </p>
+      )}
       {q.isLoading && <p className="text-sm text-muted-foreground">Loading billing accounts…</p>}
       {q.isError && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -251,6 +310,7 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
       <ul className="grid gap-4 lg:grid-cols-2">
         {q.data?.accounts.map((a) => {
           const paid = lastPaid(a.id);
+          const next = nextDue(a);
           const canChange = a.status !== "pending";
           return (
             <li
@@ -282,11 +342,26 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
                   <dt className="font-semibold text-muted-foreground">Billing schedule</dt>
                   <dd className="mt-0.5">{a.schedule_text || "—"}</dd>
                 </div>
+                {next && (
+                  <div className="col-span-2">
+                    <dt className="font-semibold text-muted-foreground">Next billing</dt>
+                    <dd className="mt-0.5 flex flex-wrap items-center gap-2">
+                      <span data-testid={`next-${a.slug}`}>
+                        {formatDay(next)} ({dueLabel(daysUntil(next, today))})
+                      </span>
+                      {daysUntil(next, today) === 1 && (
+                        <Badge className="border-transparent bg-accent/30 text-foreground">
+                          Due tomorrow
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                )}
                 {paid && (
                   <div className="col-span-2">
                     <dt className="font-semibold text-muted-foreground">Last confirmed payment</dt>
                     <dd className="mt-0.5">
-                      {rand(paid.amount_cents)} on {when(paid.created_at)}
+                      {formatMoney(paid.amount_cents, paid.currency)} on {when(paid.created_at)}
                     </dd>
                   </div>
                 )}
@@ -299,9 +374,9 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
               </dl>
 
               <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
-                <PayControl account={a} />
+                <PayControl account={a} onManage={() => setManage(a)} />
                 <div className="flex flex-wrap gap-2">
-                  {isAdmin && a.payment_kind !== "payfast_form" && (
+                  {isAdmin && a.payment_kind !== "payfast_form" && a.payment_kind !== "manage" && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -314,7 +389,7 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
                       <Link2 size={14} /> Link
                     </Button>
                   )}
-                  {canChange && a.status === "active" && (
+                  {canChange && a.payment_kind !== "manage" && a.status === "active" && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => open(a, "paused")}>
                         <Pause size={14} /> Pause
@@ -324,7 +399,7 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
                       </Button>
                     </>
                   )}
-                  {canChange && a.status === "paused" && (
+                  {canChange && a.payment_kind !== "manage" && a.status === "paused" && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => open(a, "active")}>
                         <Play size={14} /> Resume
@@ -334,7 +409,7 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
                       </Button>
                     </>
                   )}
-                  {canChange && a.status === "cancelled" && (
+                  {canChange && a.payment_kind !== "manage" && a.status === "cancelled" && (
                     <Button size="sm" variant="outline" onClick={() => open(a, "active")}>
                       <Play size={14} /> Reactivate
                     </Button>
@@ -345,6 +420,51 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
           );
         })}
       </ul>
+
+      <section
+        className="rounded-xl border border-border bg-card p-4 sm:p-5"
+        aria-label="Billing history"
+      >
+        <h2 className="mb-3 font-display text-sm font-bold uppercase">Billing history</h2>
+        {q.data && q.data.payments.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No payments yet. Payments appear here once Payfast or PayPal confirms them.
+          </p>
+        )}
+        {q.data && q.data.payments.length > 0 && (
+          <ul className="divide-y divide-border text-xs">
+            {q.data.payments.slice(0, 25).map((p) => (
+              <li
+                key={p.id}
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2"
+              >
+                <span className="min-w-0 flex-1 font-semibold">{nameOf(p.account_id)}</span>
+                <span className="text-muted-foreground">
+                  {when(p.created_at)} · {p.provider === "paypal" ? "PayPal" : "Payfast"}
+                </span>
+                <span className="font-semibold">{formatMoney(p.amount_cents, p.currency)}</span>
+                <Badge
+                  className={isPaidStatus(p.status) ? STATUS_CLASS.active : STATUS_CLASS.paused}
+                >
+                  {isPaidStatus(p.status) ? "Paid" : p.status.toLowerCase()}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <Dialog open={!!manage} onOpenChange={(v) => !v && setManage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{manage?.name}</DialogTitle>
+            <DialogDescription>{DOMAIN_MANAGE_MESSAGE}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setManage(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!change} onOpenChange={(v) => !v && setChange(null)}>
         <AlertDialogContent>

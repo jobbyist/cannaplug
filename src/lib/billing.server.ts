@@ -26,7 +26,7 @@ export async function listBilling(
     supabaseAdmin.from("billing_accounts").select("*").order("position"),
     supabaseAdmin
       .from("billing_payments")
-      .select("id,account_id,status,amount_cents,created_at")
+      .select("id,account_id,provider,currency,status,amount_cents,created_at")
       .order("created_at", { ascending: false })
       .limit(100),
   ]);

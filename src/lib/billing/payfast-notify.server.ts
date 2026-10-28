@@ -21,9 +21,11 @@ export function processBillingNotify(
       async recordPayment(a) {
         const { data, error } = await supabaseAdmin.rpc("billing_record_payment", {
           p_slug: a.slug,
+          p_provider: "payfast",
           p_provider_payment_id: a.paymentId,
           p_status: a.status,
           p_amount_cents: a.amountCents,
+          p_currency: "ZAR",
           p_item_name: a.itemName,
         });
         if (error) throw new Error(error.message);

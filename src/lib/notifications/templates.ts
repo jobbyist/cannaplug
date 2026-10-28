@@ -727,7 +727,16 @@ export const TEMPLATES: Record<string, Template> = {
         kv([
           ["Service", esc(d["account"] ?? "")],
           ["Provider", esc(d["provider"] ?? "")],
-          ["Amount", esc(d["amount_cents"] == null ? "" : rand(Number(d["amount_cents"]) / 100))],
+          [
+            "Amount",
+            esc(
+              d["amount_cents"] == null
+                ? ""
+                : d["currency"] === "USD"
+                  ? `$${(Number(d["amount_cents"]) / 100).toFixed(2)}`
+                  : rand(Number(d["amount_cents"]) / 100),
+            ),
+          ],
         ]),
       cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
     }),

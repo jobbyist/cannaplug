@@ -86,8 +86,14 @@ export type Database = {
           status_reason: string | null;
           updated_at: string;
           updated_by: string | null;
+          recur_kind: string | null;
+          recur_n: number | null;
+          anchor_date: string | null;
         };
         Insert: {
+          recur_kind?: string | null;
+          recur_n?: number | null;
+          anchor_date?: string | null;
           amount_text?: string;
           beneficiary?: string;
           id?: string;
@@ -105,6 +111,9 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          recur_kind?: string | null;
+          recur_n?: number | null;
+          anchor_date?: string | null;
           amount_text?: string;
           beneficiary?: string;
           id?: string;
@@ -3566,6 +3575,21 @@ export type Database = {
       };
       team_alerts_refresh: { Args: Record<PropertyKey, never>; Returns: number };
       staff_directory: { Args: { p_actor: string }; Returns: Json };
+      billing_paypal_sale: {
+        Args: {
+          p_event: string;
+          p_subscription_id: string;
+          p_payment_id: string;
+          p_sale_id: string;
+          p_amount_cents: number | null;
+          p_currency: string;
+        };
+        Returns: Json;
+      };
+      billing_paypal_subscription_event: {
+        Args: { p_subscription_id: string; p_event: string; p_event_id: string };
+        Returns: Json;
+      };
       billing_set_status: {
         Args: {
           p_actor: string;
@@ -3583,9 +3607,11 @@ export type Database = {
       billing_record_payment: {
         Args: {
           p_slug: string;
+          p_provider: string;
           p_provider_payment_id: string;
           p_status: string;
           p_amount_cents: number | null;
+          p_currency: string;
           p_item_name: string | null;
         };
         Returns: Json;

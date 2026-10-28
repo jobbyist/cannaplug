@@ -13,7 +13,11 @@ const h = vi.hoisted(() => ({
 vi.mock("@/lib/billing.functions", () => h);
 
 import { BillingPanel } from "@/components/admin/BillingPanel";
-import { DEACTIVATE_WARNING } from "@/lib/billing";
+import { DEACTIVATE_WARNING, DOMAIN_MANAGE_MESSAGE, todaySast } from "@/lib/billing";
+
+const addDays = (isoDate: string, n: number) =>
+  new Date(Date.parse(`${isoDate}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const TODAY = todaySast();
 
 const acc = (o: Partial<BillingAccount>): BillingAccount => ({
   id: o.slug ?? "x",
@@ -29,6 +33,9 @@ const acc = (o: Partial<BillingAccount>): BillingAccount => ({
   payment_url: null,
   payment_note: "",
   status_reason: null,
+  recur_kind: null,
+  recur_n: null,
+  anchor_date: null,
   updated_at: "2026-10-29T00:00:00Z",
   ...o,
 });
@@ -40,6 +47,9 @@ const ACCOUNTS = [
     provider: "Shopify",
     payment_kind: "link",
     payment_url: "https://cannaplug012.co.za/subscribe/admin-api",
+    recur_kind: "every_days",
+    recur_n: 30,
+    anchor_date: addDays(TODAY, 2),
   }),
   acc({
     id: "a5",
@@ -48,6 +58,9 @@ const ACCOUNTS = [
     provider: "Payfast",
     payment_kind: "link",
     payment_url: "https://payf.st/rl53i",
+    recur_kind: "every_days",
+    recur_n: 30,
+    anchor_date: addDays(TODAY, 1),
   }),
   acc({
     id: "a7",
@@ -63,6 +76,22 @@ const ACCOUNTS = [
     provider: "Meta",
     status: "pending",
     payment_note: "Stripe or PayPal (coming soon)",
+  }),
+  acc({
+    id: "a8",
+    slug: "godaddy-domain",
+    name: "Domain Registration and DNS Management Services",
+    provider: "GoDaddy",
+    payment_kind: "manage",
+    recur_kind: "yearly",
+    anchor_date: "2027-09-27",
+  }),
+  acc({
+    id: "a4s",
+    slug: "supabase-platform",
+    name: "Database, User Authentication, Storage & Real-Time Notifications",
+    provider: "Supabase",
+    amount_text: "Free plan",
   }),
   acc({ id: "a3", slug: "email-push", name: "Email & Push", provider: "Resend", status: "paused" }),
 ];
@@ -138,7 +167,7 @@ describe("BillingPanel", () => {
       slug: "shopify-admin-api",
       status: "paused",
     });
-    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(await screen.findByText(/is now paused/)).toBeTruthy();
   });
 
   it("cancelling shows the same warning; keeping the account as is changes nothing", async () => {
@@ -198,5 +227,83 @@ describe("BillingPanel", () => {
     renderPanel("admin");
     await card("payfast-gateway");
     expect(screen.getAllByRole("button", { name: /link/i }).length).toBeGreaterThan(0);
+  });
+
+  it("shows the next billing date, and flags a bill due tomorrow", async () => {
+    renderPanel();
+    const shopify = await card("shopify-admin-api");
+    expect(within(shopify).getByTestId("next-shopify-admin-api").textContent).toMatch(
+      /\(in 2 days\)/,
+    );
+    const gateway = await card("payfast-gateway");
+    expect(within(gateway).getByTestId("next-payfast-gateway").textContent).toMatch(/\(tomorrow\)/);
+    expect(within(gateway).getByText("Due tomorrow")).toBeTruthy();
+    expect(screen.getByText(/Due tomorrow: Gateway/)).toBeTruthy();
+    // the domain renews yearly
+    expect(
+      within(await card("godaddy-domain")).getByTestId("next-godaddy-domain").textContent,
+    ).toMatch(/27 Sep 2027/);
+  });
+
+  it("the domain's Manage button opens the contact-your-developer message; the domain has no pause or cancel", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const domain = await card("godaddy-domain");
+    expect(within(domain).queryByRole("button", { name: /pause|cancel/i })).toBeNull();
+    await user.click(within(domain).getByRole("button", { name: /manage/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(DOMAIN_MANAGE_MESSAGE)).toBeTruthy();
+    expect(DOMAIN_MANAGE_MESSAGE).toBe(
+      "Your domain is still active. Contact your developer if you wish to extend your domain registration term, register a new domain or cancel/delete your domain.",
+    );
+  });
+
+  it("shows the Supabase service as a free plan with no payment button", async () => {
+    renderPanel();
+    const sb = await card("supabase-platform");
+    expect(within(sb).getByText("Free plan")).toBeTruthy();
+    expect(within(sb).queryByRole("link", { name: /pay now/i })).toBeNull();
+    expect(within(sb).getByRole("button", { name: /pause/i })).toBeTruthy();
+  });
+
+  it("lists confirmed payments in the billing history with the right currency, newest first", async () => {
+    h.listBillingFn.mockResolvedValue({
+      accounts: ACCOUNTS,
+      payments: [
+        {
+          id: "p2",
+          account_id: "a1",
+          provider: "paypal",
+          currency: "USD",
+          status: "COMPLETED",
+          amount_cents: 2500,
+          created_at: "2026-10-28T08:00:00Z",
+        },
+        {
+          id: "p1",
+          account_id: "a5",
+          provider: "payfast",
+          currency: "ZAR",
+          status: "COMPLETE",
+          amount_cents: 18000,
+          created_at: "2026-10-27T08:00:00Z",
+        },
+      ],
+    });
+    renderPanel();
+    const history = await screen.findByRole("region", { name: /billing history/i });
+    const rows = await within(history).findAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.textContent).toMatch(/Shopify API.*PayPal.*\$25\.00.*Paid/);
+    expect(rows[1]!.textContent).toMatch(/Gateway.*Payfast.*R180\.00.*Paid/);
+    expect(within(await card("shopify-admin-api")).getByText(/\$25\.00 on/)).toBeTruthy();
+  });
+
+  it("says so when there are no payments yet, and when the admin comes back from PayPal", async () => {
+    window.history.replaceState({}, "", "/?paypal=pending");
+    renderPanel();
+    expect(await screen.findByText(/No payments yet/)).toBeTruthy();
+    expect(screen.getByText(/PayPal subscription is being confirmed/)).toBeTruthy();
+    window.history.replaceState({}, "", "/");
   });
 });

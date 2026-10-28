@@ -45,16 +45,18 @@ describe.skipIf(!DB_URL)("billing accounts (real PostgreSQL)", () => {
     await sql.end();
   });
 
-  it("seeds the schedule's six accounts with the supplied payment links", async () => {
+  it("seeds the billing accounts in order with the supplied payment links", async () => {
     const rows =
       await sql`SELECT slug, status, payment_kind, payment_url FROM public.billing_accounts ORDER BY position`;
     expect(rows.map((r) => r["slug"])).toEqual([
       "shopify-admin-api",
       "clinical-documents",
       "email-push",
+      "supabase-platform",
       "whatsapp",
       "payfast-gateway",
       "verifynow-id",
+      "godaddy-domain",
     ]);
     const by = (s: string) => rows.find((r) => r["slug"] === s)!;
     expect(by("payfast-gateway")).toMatchObject({
@@ -226,7 +228,7 @@ describe.skipIf(!DB_URL)("billing accounts (real PostgreSQL)", () => {
   it("browser roles can read as manager+ only and can never write or call the functions", async () => {
     expect(
       (await asUser(sql, manager, (tx) => tx`SELECT id FROM public.billing_accounts`)).length,
-    ).toBe(6);
+    ).toBe(8);
     expect(
       (await asUser(sql, budtender, (tx) => tx`SELECT id FROM public.billing_accounts`)).length,
     ).toBe(0);
@@ -326,7 +328,7 @@ describe.skipIf(!DB_URL)("billing accounts (real PostgreSQL)", () => {
       await tx`SELECT set_config('request.jwt.claim.sub', ${budtender}, true)`;
       return (await tx`SELECT id FROM public.billing_accounts`).length;
     });
-    expect(exposed).toBe(6);
+    expect(exposed).toBe(8);
     expect(
       (await asUser(sql, budtender, (tx) => tx`SELECT id FROM public.billing_accounts`)).length,
     ).toBe(0);
