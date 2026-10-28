@@ -95,6 +95,7 @@ import { AdminSearch, type SearchHit } from "@/components/admin/AdminSearch";
 import { EmailCampaignsPanel } from "@/components/admin/EmailCampaignsPanel";
 import { ReceiptActions } from "@/components/admin/receipts/ReceiptActions";
 import type { SearchSale } from "@/lib/admin-search.server";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import {
   Dialog,
   DialogContent,
@@ -354,6 +355,16 @@ function AdminPage() {
         }
       />
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
+        <Breadcrumbs
+          bare
+          trail={[
+            { label: "Home", to: "/" },
+            { label: "Admin" },
+            ...(navItems.find((i) => i.id === tab)
+              ? [{ label: navItems.find((i) => i.id === tab)!.label }]
+              : []),
+          ]}
+        />
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <AdminSearch
             tabs={navItems.map((i) => ({

@@ -51,6 +51,7 @@ import { idCreditsOpenFn } from "@/lib/id-credits.functions";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import logoImage from "@/assets/cannaplug-logo.png";
 import logoImageWhite from "@/assets/cannaplug-logo-white.png";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/account")({
   head: () => ({ meta: [{ title: "My Account | CannaPlug" }] }),
@@ -241,6 +242,7 @@ function AuthPanel() {
         </div>
         <div className="flex items-center justify-center px-6 py-16">
           <div className="w-full max-w-sm">
+            <Breadcrumbs bare />
             <Link to="/" className="mb-8 block lg:hidden">
               <img src={logoImage} alt="CannaPlug" className="h-7 w-auto" />
             </Link>
@@ -564,6 +566,7 @@ function MemberPortal() {
         }
       />
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
+        <Breadcrumbs bare />
         <header className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Good to see you</p>

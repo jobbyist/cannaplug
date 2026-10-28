@@ -1846,3 +1846,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `db/admin-username` (8: manager and admin change with audit, budtender/customer/browser refused, staff/reason/taken/reserved/invalid/unchanged refused, idempotent, page search, sign-up with and without a username, mutation check), `username-edit-dialog` (3), `signup-logic` (optional username).
 - **Owner notes:** staff change their own username once from the portal (the admin tool is for members); an admin change is final for that member.
 - **Rollback:** run the rollback SQL, then revert the PR.
+
+## 29 Oct 2026 — Breadcrumbs across the site (feat/mvp-breadcrumbs)
+
+- **Owner request:** add breadcrumbs to the entire application for easier navigation.
+- **What:** a `Breadcrumbs` bar ("Home › Catalog › Flower") under the site header, so every page that uses the shared header has it (shop, journal and articles, events, rewards, FAQ, about, gallery, checkout, policies, payment return). Pages with their own layout have it too: the account portal and sign-in, My documents (under Account), the practitioner portal, the document verification page, and the admin dashboard (Home › Admin › the open tab). The home page, the offline page, receipts and payment webhooks have none.
+- **Details:** the catalog shows its category or Specials; an article shows the Journal and a readable title made from its address; the last crumb is the current page (not a link, `aria-current="page"`); long titles are cut with an ellipsis on small screens. It also publishes a schema.org BreadcrumbList (using the canonical site address) so search engines can show the trail.
+- **Files:** `src/lib/breadcrumbs.ts`, `src/components/Breadcrumbs.tsx`, `src/components/CannaPlugHome.tsx`, `src/routes/{account,admin,doctor,member.documents,verify.$token}.tsx`.
+- **Migrations:** none. **Tests:** `breadcrumbs` (trails, JSON-LD), `breadcrumbs-ui` (links, current page, home empty, admin trail); the member documents tests now mock the router location.
+- **Owner actions:** none. **Rollback:** revert the PR.
