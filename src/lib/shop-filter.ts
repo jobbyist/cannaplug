@@ -139,7 +139,9 @@ export function matches(p: ShopProduct, s: ShopSearch, skip: Facet[] = []): bool
     if (s.max !== undefined && priceOf(p) > s.max) return false;
   }
   if (!skip.includes("q") && s.q) {
-    const hay = normKey(`${p.name} ${p.category} ${p.subcategory ?? ""} ${p.description ?? ""}`);
+    const hay = normKey(
+      `${p.name} ${p.category} ${p.subcategory ?? ""} ${p.strain_type ?? ""} ${p.description ?? ""}`,
+    );
     if (
       !normKey(s.q)
         .split(" ")
