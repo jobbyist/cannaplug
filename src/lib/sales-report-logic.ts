@@ -11,6 +11,10 @@ export type SalesReport = {
   pos: {
     count: number;
     gross: Money;
+    /** Before discounts (sum of subtotals) and the discounts taken off; absent on reports from before 28 Oct 2026. */
+    before_discounts?: Money;
+    discounts?: Money;
+    discounted_count?: number;
     refunds: Money;
     refund_count: number;
     voided_count: number;
@@ -48,6 +52,51 @@ export type SalesReport = {
     at: string;
     method: string | null;
   }[];
+  /** Till cash-ups closed in the period (absent on reports from before 28 Oct 2026). */
+  till?: TillTotals;
+  till_sessions?: TillSession[];
+  expenses?: TillExpense[];
+};
+
+export type TillTotals = {
+  sessions_closed: number;
+  opening_floats: Money;
+  cash_sales: Money;
+  cash_refunds: Money;
+  expenses: Money;
+  expected: Money;
+  counted: Money;
+  variance: Money;
+  deposited: Money;
+  float_carried: Money;
+  variances_pending: number;
+  expenses_recorded: Money;
+};
+export type TillSession = {
+  drawer: string;
+  cashier: string;
+  opened_at: string;
+  closed_at: string;
+  opening_float: Money;
+  cash_sales: Money | null;
+  cash_refunds: Money | null;
+  expenses: Money | null;
+  discounts: Money | null;
+  expected: Money;
+  counted: Money;
+  variance: Money;
+  deposited: Money | null;
+  float_carried: Money | null;
+  approval: string;
+  approval_note: string | null;
+  close_note: string | null;
+};
+export type TillExpense = {
+  at: string;
+  category: string;
+  description: string;
+  amount: Money;
+  by: string;
 };
 
 export const n = (v: Money | null | undefined) => Number(v ?? 0);
@@ -135,6 +184,13 @@ export function salesReportCsv(r: SalesReport): string {
   out.push(row(["Till refunds", n(r.pos.refunds).toFixed(2)]));
   out.push(row(["Till net", n(r.pos.net).toFixed(2)]));
   out.push(row(["Online paid", n(r.online.total).toFixed(2)]));
+  if (r.pos.discounts != null) out.push(row(["Till discounts", n(r.pos.discounts).toFixed(2)]));
+  if (r.till) {
+    out.push(row(["Till expenses", n(r.till.expenses).toFixed(2)]));
+    out.push(row(["Cash deposited", n(r.till.deposited).toFixed(2)]));
+    out.push(row(["Cash variance", n(r.till.variance).toFixed(2)]));
+    out.push(row(["Float carried", n(r.till.float_carried).toFixed(2)]));
+  }
   for (const [k, v] of Object.entries(r.pos_tenders))
     out.push(row([`Till ${methodLabel(k)}`, n(v).toFixed(2)]));
   for (const [k, v] of Object.entries(r.online_methods))
@@ -169,5 +225,53 @@ export function salesReportCsv(r: SalesReport): string {
   out.push("");
   out.push(row(["Staff (till)", "Sales", "Total"]));
   for (const c of r.cashiers) out.push(row([c.name, c.count, n(c.total).toFixed(2)]));
+  if (r.till_sessions?.length) {
+    out.push("");
+    out.push(
+      row([
+        "Till cash-up",
+        "Cashier",
+        "Closed",
+        "Float",
+        "Cash sales",
+        "Cash refunds",
+        "Expenses",
+        "Discounts",
+        "Expected",
+        "Counted",
+        "Variance",
+        "Deposited",
+        "Float carried",
+        "Approval",
+        "Reason",
+      ]),
+    );
+    for (const t of r.till_sessions)
+      out.push(
+        row([
+          t.drawer,
+          t.cashier,
+          t.closed_at,
+          n(t.opening_float).toFixed(2),
+          n(t.cash_sales).toFixed(2),
+          n(t.cash_refunds).toFixed(2),
+          n(t.expenses).toFixed(2),
+          n(t.discounts).toFixed(2),
+          n(t.expected).toFixed(2),
+          n(t.counted).toFixed(2),
+          n(t.variance).toFixed(2),
+          n(t.deposited).toFixed(2),
+          n(t.float_carried).toFixed(2),
+          t.approval,
+          t.approval_note ?? "",
+        ]),
+      );
+  }
+  if (r.expenses?.length) {
+    out.push("");
+    out.push(row(["Till expense", "Category", "When", "By", "Amount"]));
+    for (const e of r.expenses)
+      out.push(row([e.description, e.category, e.at, e.by, n(e.amount).toFixed(2)]));
+  }
   return out.join("\n");
 }

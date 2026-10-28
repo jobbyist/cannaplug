@@ -57,6 +57,7 @@ import {
   type TenderRow,
 } from "./pos-logic";
 import { PosSaleDialog } from "./PosSaleDialog";
+import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 
@@ -138,7 +139,13 @@ export function PosPanel({ customers }: { customers: CustomerOption[] }) {
             onChanged={changed}
           />
           <RecentSales data={data} session={data.mySession} onChanged={changed} />
-          <CloseTill session={data.mySession} onChanged={changed} />
+          <TillExpenses
+            sessionId={data.mySession.id}
+            cashup={data.sessionCashup}
+            isManager={data.isManager}
+            onChanged={changed}
+          />
+          <CloseTill session={data.mySession} cashup={data.sessionCashup} onChanged={changed} />
         </>
       )}
 
@@ -217,7 +224,12 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
           <select
             className={selectClass}
             value={drawerId}
-            onChange={(e) => setDrawerId(e.target.value)}
+            onChange={(e) => {
+              setDrawerId(e.target.value);
+              // Start from the float left in this drawer after the last close's bank deposit.
+              const carried = free.find((d) => d.id === e.target.value)?.carried_float;
+              if (carried != null) setFloat(carried.toFixed(2));
+            }}
           >
             <option value="">Select drawer…</option>
             {free.map((d) => (
@@ -233,6 +245,15 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
           <Input inputMode="decimal" value={float} onChange={(e) => setFloat(e.target.value)} />
         </label>
       </div>
+      {(() => {
+        const carried = free.find((d) => d.id === drawerId)?.carried_float;
+        return carried != null ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Float left in this drawer at the last close: <b>{rand(carried)}</b>. Count it and
+            correct the amount if it differs.
+          </p>
+        ) : null;
+      })()}
       {error && <div className={`mt-3 ${errorClass}`}>{error}</div>}
       <Button className="mt-4" onClick={() => void open()} disabled={busy || !drawerId}>
         Open till
@@ -1376,111 +1397,6 @@ function RefundForm({
       {error && <div className={errorClass}>{error}</div>}
       <Button size="sm" disabled={!ready || busy} onClick={() => void submit()}>
         Confirm refund
-      </Button>
-    </div>
-  );
-}
-
-/* --------------------------------------------------------------- close till */
-
-function CloseTill({
-  session,
-  onChanged,
-}: {
-  session: NonNullable<Overview["mySession"]>;
-  onChanged: () => Promise<void>;
-}) {
-  const [counted, setCounted] = useState("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    expected_cash: number;
-    actual_cash: number;
-    variance: number;
-    approval_status: string;
-    sales_count: number;
-  } | null>(null);
-  const keys = useRef(createKeyStore());
-
-  const close = async () => {
-    const cents = parseCents(counted);
-    if (cents === null) return setError("Enter the counted cash as a valid amount.");
-    setBusy(true);
-    setError(null);
-    try {
-      const amount = centsToAmount(cents);
-      const r = (await closePosSessionFn({
-        data: {
-          sessionId: session.id,
-          actualCash: amount,
-          ...(note.trim() ? { note: note.trim() } : {}),
-          key: keys.current.keyFor(`${session.id}:${amount}:${note}`),
-        },
-      })) as typeof result;
-      setResult(r);
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (result) {
-    return (
-      <div className={cardClass} role="status">
-        <h2 className={`mb-3 ${headingClass}`}>Till closed</h2>
-        <dl className="grid max-w-sm grid-cols-2 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Expected cash</dt>
-          <dd className="text-right font-semibold">{rand(Number(result.expected_cash))}</dd>
-          <dt className="text-muted-foreground">Counted cash</dt>
-          <dd className="text-right font-semibold">{rand(Number(result.actual_cash))}</dd>
-          <dt className="text-muted-foreground">Variance</dt>
-          <dd
-            className={`text-right font-bold ${Number(result.variance) === 0 ? "" : "text-destructive"}`}
-          >
-            {rand(Number(result.variance))}
-          </dd>
-        </dl>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {result.approval_status === "pending"
-            ? "Variance is outside tolerance and needs manager approval."
-            : "Within tolerance — no approval needed."}
-        </p>
-        <Button className="mt-3" size="sm" onClick={() => void onChanged()}>
-          Done
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${cardClass} max-w-xl`}>
-      <h2 className={`mb-1 ${headingClass}`}>
-        <Wallet size={14} className="mr-1 inline" /> Close till
-      </h2>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Count the cash in the drawer (including the float). Expected cash is revealed after you
-        submit the count.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-xs font-semibold">
-          Counted cash (R)
-          <Input inputMode="decimal" value={counted} onChange={(e) => setCounted(e.target.value)} />
-        </label>
-        <label className="grid gap-1.5 text-xs font-semibold">
-          Note (optional)
-          <Input value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-      </div>
-      {error && <div className={`mt-3 ${errorClass}`}>{error}</div>}
-      <Button
-        className="mt-3"
-        variant="outline"
-        disabled={busy || counted.trim() === ""}
-        onClick={() => void close()}
-      >
-        Close till
       </Button>
     </div>
   );

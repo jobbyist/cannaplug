@@ -7,11 +7,13 @@ import {
   findPosSale,
   getPosOverview,
   listBatches,
+  posAddExpense,
   posCloseSession,
   posCompleteSale,
   posOpenSession,
   posRefundSale,
   posReviewSession,
+  posVoidExpense,
   posVoidSale,
   receiveStock,
   upsertDrawer,
@@ -49,13 +51,68 @@ export const closePosSessionFn = createServerFn({ method: "POST" })
       .object({
         sessionId: uuid,
         actualCash: money,
+        cashDeposited: money,
         note: z.string().max(500).optional(),
+        key: idempotencyKey,
+      })
+      .refine((v) => Number(v.cashDeposited) <= Number(v.actualCash), {
+        message: "The deposit cannot be more than the cash counted",
+      })
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    posCloseSession(
+      context.userId,
+      data.sessionId,
+      data.actualCash,
+      data.cashDeposited,
+      data.note,
+      data.key,
+    ),
+  );
+
+/** Cash paid out of the till for a store expense. Descriptions must never hold customer, ID or health details. */
+export const addPosExpenseFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        sessionId: uuid,
+        amount: money,
+        category: z.enum([
+          "supplies",
+          "cleaning",
+          "transport",
+          "food",
+          "maintenance",
+          "stock",
+          "other",
+        ]),
+        description: z.string().trim().min(3).max(200),
         key: idempotencyKey,
       })
       .parse(d),
   )
   .handler(({ context, data }) =>
-    posCloseSession(context.userId, data.sessionId, data.actualCash, data.note, data.key),
+    posAddExpense(
+      context.userId,
+      data.sessionId,
+      data.amount,
+      data.category,
+      data.description,
+      data.key,
+    ),
+  );
+
+export const voidPosExpenseFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({ expenseId: uuid, reason: z.string().trim().min(3).max(200), key: idempotencyKey })
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    posVoidExpense(context.userId, data.expenseId, data.reason, data.key),
   );
 
 export const reviewPosSessionFn = createServerFn({ method: "POST" })

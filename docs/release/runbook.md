@@ -93,6 +93,15 @@ additive; the code tolerates the old schema for the minutes in between except th
 - **Chatbot limits**: visitors see friendly messages; counters live in `ai_usage_counters` (purged hourly). Raise `GEMINI_*` only after upgrading the Google tier.
 - **Journal paused**: a rejected Gemini key trips `newsroom_job_state.paused_at`. Fix the key, then `update newsroom_job_state set paused_at=null, paused_reason=null where id='daily-article'`.
 - **Audit log**: `/admin → Audit log` (manager+). Append-only in the database.
+- **Till cash-up (POS)**: record every cash expense paid from the till under **Till expenses** as it happens (category, what for, amount;
+  no customer, ID or health details) and give every discount through the till. At close, count all cash, enter the **cash for the bank deposit**;
+  the rest is the float for the next session (suggested when that drawer is next opened). Expected cash = opening float + cash taken (after
+  discounts) − cash refunds − till expenses; the full reconciliation is shown after the count and stored, unchangeable, on the session. Variances
+  over R10 still need a manager (not the cashier) to approve with a reason. Everything appears in **Reports** (PDF, Word, Excel, CSV downloads).
+- **PayFast balance and payouts** (Payments tab, manager+): read live from PayFast's Transaction History API with the merchant id and
+  `PAYFAST_PASSPHRASE` (no new settings). Shows the balance net of PayFast fees, today's online payments and fees, the automated daily payout
+  (pending once the balance reaches R100; completed once PayFast has paid it), and PayFast's fees. Buyer names from PayFast are never stored or
+  shown. If it says "unavailable", check the passphrase and that API access is allowed on the PayFast account.
 - **Rotating the cron secret**: set `LOVABLE_CRON_SECRET_PREVIOUS` = old, `LOVABLE_CRON_SECRET` = new, update GitHub `CRON_SECRET`, redeploy, then remove `_PREVIOUS`.
 
 ## 7. Smoke test

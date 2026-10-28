@@ -1548,6 +1548,40 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   Vercel and redeploy; do one live R5 card payment (go-live runbook). Note onsite drops Apple Pay / Google Pay.
 - **Rollback:** set `PAYFAST_ONSITE=false` (instant, back to PayFast's page), or revert the PR. No data to undo.
 
+## 28 Oct 2026 — PayFast balance and payouts; till cash-up with expenses and deposits; report downloads (feat/mvp-payouts-cashup)
+
+- **Purpose:** (1) Admin → Payments shows the live PayFast account for online orders: balance net of PayFast's fees (refreshed every
+  minute), today's online payments and fees, fees by payment method, the automated payout schedule the owner set in PayFast (daily once
+  the balance reaches R100, R8.70 excl. VAT per payout) with the next payout as **pending** and past payouts as **completed**, the latest
+  movements with our order numbers, and a **PayFast fees** dialog (card, Instant EFT, Apple Pay, Google Pay, refunds, payouts, immediate
+  payout; source payfast.io/fees, checked 27 Oct 2026). (2) The till records **expenses paid from the till**, the close takes them off
+  expected cash, shows **discounts**, records the **cash deposited** and carries the rest as the next opening float (suggested when the
+  drawer is next opened). (3) Sales reports add discounts, till expenses, deposits, variances and each closed till, product revenue is now
+  what was really paid (after discounts), and the report downloads as **PDF, Word and Excel** (CSV kept).
+- **How the balance is read:** PayFast's documented Transaction History API (`GET api.payfast.co.za/transactions/history`), signed as
+  PayFast's SDK does (headers + query + passphrase, sorted, MD5). Its running `Balance` column is the balance net of fees; payout lines are
+  recognised by type/description (PayFast does not document the payout type name). Buyer names and free text are dropped on the server.
+  Manager+ only; PayFast is asked at most every 30 s per server instance. PayFast does not publish bank clearing times, so "completed" means
+  PayFast has paid out.
+- **Files:** `src/lib/payments/payfast-api.ts`, `payfast-account.ts`, `payfast-account.server.ts`, `src/lib/payfast-account.functions.ts`,
+  `src/components/admin/PayfastAccountCard.tsx`, `PaymentsPanel.tsx`; `src/components/admin/pos/TillCashup.tsx`, `cashup-logic.ts`,
+  `PosPanel.tsx`, `src/lib/pos.functions.ts`, `src/lib/pos-data.server.ts`; `src/lib/sales-report-logic.ts`, `sales-report-export.ts`,
+  `sales-report-files.ts`, `src/components/admin/reports/SalesReportsPanel.tsx`; `src/integrations/supabase/types.ts`; `package.json`
+  (`docx` 9.5.1, `jszip` 3.10.1 — `exceljs` was rejected because it adds high-severity transitive advisories); `docs/release/runbook.md`.
+- **Migration:** `20261028001000_till_cashup` (mirror `drizzle/migrations/0046_till_cashup.sql`, rollback
+  `supabase/rollbacks/20261028001000_till_cashup_rollback.sql`, rehearsal `scripts/rollback-rehearsal-till-cashup.sh`). New table
+  `pos_session_expenses` (RLS: staff read, no browser writes; a trigger allows changes only while the till is open and only as a void);
+  `pos_add_expense` / `pos_void_expense` (actor, idempotency key, audit, service role only); six-argument `pos_close_session` with the
+  deposit (the five-argument one is kept as a wrapper, deposit 0, so code and migration can land in either order); the cash-up figures are
+  immutable after close; `_sales_report` adds `till`, `till_sessions`, `expenses` and discounts.
+- **Tests:** `db/till-cashup.test.ts` (7), `payfast-account.test.tsx` (9), `till-cashup-ui.test.tsx` (7), `sales-report-files.test.ts` (6;
+  the generated files were also opened with openpyxl, python-docx, poppler and LibreOffice), reports and payments panel tests. Mutation
+  checks: deposit above the count, expense edits, closed figures, expenses on another cashier's till, browser write grant, expenses ignored
+  at close, manager-only account, buyer text kept — each fails a test.
+- **Owner actions:** approve yesterday's R1 736 variance under POS → Cash variance approvals (it must be someone other than the cashier who
+  closed it) with your reason. From tomorrow, record till expenses as they happen and enter the deposit at close.
+- **Rollback:** run the rollback SQL (refused once expenses or deposits exist), then revert the PR. The PayFast card has no data to undo.
+
 ## 28 Oct 2026 — Cashiers can discount any percentage (feat/mvp-cashier-discounts)
 
 - **Purpose:** owner decision: budtenders/cashiers may discount any percentage at the till without a manager. The 20%-of-sale limit in `pos_complete_sale` is removed. Unchanged safeguards: a reason (3–200 characters) is required for any discount, every discounted sale is audited (`pos_sale_discount`), discounts are worked out in whole cents from the database price, and a sale must still total more than R0.

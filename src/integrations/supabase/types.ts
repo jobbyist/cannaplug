@@ -696,11 +696,64 @@ export type Database = {
         };
         Relationships: [];
       };
+      pos_session_expenses: {
+        Row: {
+          amount: number;
+          category: string;
+          created_at: string;
+          created_by: string;
+          description: string;
+          id: string;
+          session_id: string;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          amount: number;
+          category: string;
+          created_at?: string;
+          created_by: string;
+          description: string;
+          id?: string;
+          session_id: string;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          amount?: number;
+          category?: string;
+          created_at?: string;
+          created_by?: string;
+          description?: string;
+          id?: string;
+          session_id?: string;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pos_session_expenses_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "pos_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pos_sessions: {
         Row: {
           actual_cash: number | null;
           approval_note: string | null;
           approval_status: string;
+          cash_deposited: number | null;
+          cash_refunds: number | null;
+          cash_sales: number | null;
+          discounts_total: number | null;
+          expenses_total: number | null;
+          float_carried: number | null;
           approved_at: string | null;
           approved_by: string | null;
           close_note: string | null;
@@ -721,6 +774,12 @@ export type Database = {
           actual_cash?: number | null;
           approval_note?: string | null;
           approval_status?: string;
+          cash_deposited?: number | null;
+          cash_refunds?: number | null;
+          cash_sales?: number | null;
+          discounts_total?: number | null;
+          expenses_total?: number | null;
+          float_carried?: number | null;
           approved_at?: string | null;
           approved_by?: string | null;
           close_note?: string | null;
@@ -741,6 +800,12 @@ export type Database = {
           actual_cash?: number | null;
           approval_note?: string | null;
           approval_status?: string;
+          cash_deposited?: number | null;
+          cash_refunds?: number | null;
+          cash_sales?: number | null;
+          discounts_total?: number | null;
+          expenses_total?: number | null;
+          float_carried?: number | null;
           approved_at?: string | null;
           approved_by?: string | null;
           close_note?: string | null;
@@ -3194,13 +3259,45 @@ export type Database = {
         };
         Returns: Json;
       };
-      pos_close_session: {
+      pos_add_expense: {
         Args: {
           p_actor: string;
-          p_actual_cash: number;
+          p_amount: number;
+          p_category: string;
+          p_description: string;
           p_idempotency_key: string;
-          p_note: string | null;
           p_session_id: string;
+        };
+        Returns: Json;
+      };
+      pos_close_session:
+        | {
+            Args: {
+              p_actor: string;
+              p_actual_cash: number;
+              p_idempotency_key: string;
+              p_note: string | null;
+              p_session_id: string;
+            };
+            Returns: Json;
+          }
+        | {
+            Args: {
+              p_actor: string;
+              p_actual_cash: number;
+              p_cash_deposited: number;
+              p_idempotency_key: string;
+              p_note: string | null;
+              p_session_id: string;
+            };
+            Returns: Json;
+          };
+      pos_void_expense: {
+        Args: {
+          p_actor: string;
+          p_expense_id: string;
+          p_idempotency_key: string;
+          p_reason: string;
         };
         Returns: Json;
       };
