@@ -1,9 +1,12 @@
 name: CI
 
+# PAUSED (28 Oct 2026): the GitHub account is locked over billing, so every run failed within seconds and showed a
+# red check on every PR. Quality gates run in Vercel instead (`bun run build` = typecheck + lint + build) and
+# locally with scripts/verify-release.sh. To turn CI back on once billing is fixed, restore the two triggers:
+#   pull_request:
+#   push:
+#     branches: [main]
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       live:

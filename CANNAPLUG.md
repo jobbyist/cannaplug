@@ -1613,3 +1613,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `pos-logic` (duplicates, different method, empty, cash), `pos-panel` (caught before sending, clears when fixed), `pos-error-mapping` (fails with the old mapper with exactly the screenshot's message), `db/pos-duplicate-reference` (the real error and constraint name the mapper depends on, all-or-nothing, an earlier sale's reference, cash twice).
 - **Owner note:** for a split card payment, each card machine slip has its own reference; type the one printed on each slip. If the machine really gives one reference for both parts, take it as a single card payment for the full amount.
 - **Rollback:** revert the PR.
+
+## 28 Oct 2026 — GitHub Actions CI paused (chore/pause-github-ci)
+
+- **Why:** the GitHub account is locked over billing, so every CI run failed in about three seconds and put a red check on every PR. Owner decision: stop requiring it and rely on Vercel and Supabase instead.
+- **What changed:** `.github/workflows/ci.yml` now runs only when started by hand (`workflow_dispatch`). The scheduled-jobs workflow is untouched (the database scheduler, pg_cron, already runs those jobs).
+- **Gates now:** Vercel's build (`bun run build` = typecheck, lint, production build; it blocks a deploy on any failure) and `scripts/verify-release.sh` before a PR (lint, typecheck, unit and database tests, every rollback rehearsal). Supabase changes are rehearsed locally and applied through the Supabase connector.
+- **Owner action:** if GitHub still lists "CI" as a _required_ check under Settings → Branches → branch protection for `main`, remove it there (repository settings can't be changed from code).
+- **To undo:** restore the two commented triggers in `ci.yml`.
