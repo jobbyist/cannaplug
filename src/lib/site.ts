@@ -27,6 +27,7 @@ export const STATIC_PAGES: SitemapEntry[] = [
   { path: "/rewards", priority: 0.6 },
   { path: "/about", priority: 0.5 },
   { path: "/events", priority: 0.6 },
+  { path: "/gallery", priority: 0.4 },
   { path: "/faq", priority: 0.5 },
   { path: "/delivery-policy", priority: 0.3 },
   { path: "/refund-policy", priority: 0.3 },
