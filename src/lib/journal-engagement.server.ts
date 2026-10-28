@@ -167,7 +167,8 @@ export async function fetchArticleImages(
   const { data, error } = await supabaseAdmin
     .from("articles")
     .select("id,slug,cover_image_url,inline_images,image_queries")
-    .lte("published_at", new Date().toISOString());
+    // Published articles and the ones scheduled for the next few days, so photos are ready when they go live.
+    .lte("published_at", new Date(Date.now() + 4 * 86_400_000).toISOString());
   if (error) throw error;
   const used = new Set<string>();
   const report: ImageFetchReport = { articles: [] };
