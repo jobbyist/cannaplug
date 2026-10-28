@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { AUTHOR_NAME, LAUNCH_ARTICLES } from "@/lib/journal-launch-articles";
+import { AUTHOR_NAME, LAUNCH_ARTICLES, PUBLISHED_AUTHOR_NAME } from "@/lib/journal-launch-articles";
 import { complianceViolations } from "@/lib/newsroom/pipeline";
 import { buildJournalMigration, MIGRATION_NAME } from "../../scripts/journal-migration";
 
 const root = new URL("../../", import.meta.url).pathname;
 
 describe("launch articles", () => {
-  it("are four, by Dithekgo M., published 25, 26, 27 and 28 October 2026", () => {
+  it("are four, published 25, 26, 27 and 28 October 2026, inserted under Dithekgo M. and published as Michael C.", () => {
     expect(AUTHOR_NAME).toBe("Dithekgo M.");
+    expect(PUBLISHED_AUTHOR_NAME).toBe("Michael C.");
     expect(LAUNCH_ARTICLES).toHaveLength(4);
     expect(LAUNCH_ARTICLES.map((a) => a.published_at.slice(0, 10))).toEqual([
       "2026-10-25",

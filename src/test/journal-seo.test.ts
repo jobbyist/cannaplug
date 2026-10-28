@@ -16,7 +16,7 @@ const article = (over: Partial<JournalArticle> = {}): JournalArticle => ({
   cover_alt: "Citrus peel",
   sources: [{ title: "Source", url: "https://example.org/s" }],
   published_at: "2026-10-28T04:00:00Z",
-  author_name: "Dithekgo M.",
+  author_name: "Michael C.",
   keywords: ["terpenes", "aroma"],
   featured: true,
   updated_at: "2026-10-28T05:00:00Z",
@@ -36,7 +36,7 @@ describe("article structured data and meta", () => {
   it("describes a schema.org Article by a Person with dates, images, keywords and publisher", () => {
     const s = articleSchema(article());
     expect(s["@type"]).toBe("Article");
-    expect(s.author).toMatchObject({ "@type": "Person", name: "Dithekgo M." });
+    expect(s.author).toMatchObject({ "@type": "Person", name: "Michael C." });
     expect(s.publisher).toMatchObject({ "@type": "Organization", name: "Cannaplug" });
     expect(s.publisher.logo.url).toMatch(/^https:\/\/cannaplug012\.co\.za\//);
     expect(s.datePublished).toBe("2026-10-28T04:00:00Z");
@@ -78,10 +78,10 @@ describe("article structured data and meta", () => {
     expect(meta("og:type", "property")).toEqual(["article"]);
     expect(meta("og:site_name", "property")).toEqual(["Cannaplug"]);
     expect(meta("og:image:alt", "property")).toEqual(["Citrus peel"]);
-    expect(meta("article:author", "property")).toEqual(["Dithekgo M."]);
+    expect(meta("article:author", "property")).toEqual(["Michael C."]);
     expect(meta("article:tag", "property")).toEqual(["terpenes", "aroma"]);
     expect(meta("twitter:title")).toEqual(["Terpenes Explained"]);
-    expect(meta("author")).toEqual(["Dithekgo M."]);
+    expect(meta("author")).toEqual(["Michael C."]);
     expect(h.scripts.map((s) => JSON.parse(s.children)["@type"])).toEqual([
       "Article",
       "BreadcrumbList",
