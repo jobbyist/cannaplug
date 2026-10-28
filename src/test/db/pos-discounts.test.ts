@@ -129,7 +129,7 @@ describe.skipIf(!DB_URL)("POS discounts (real PostgreSQL)", () => {
     expect((await tryIt({ kind: "percent", value: "101" }, 0.01)).ok).toBe(false);
     expect((await tryIt({ kind: "amount", value: "-5" }, 105)).ok).toBe(false);
     expect((await tryIt({ kind: "amount", value: "100.01" }, 0.01)).ok).toBe(false);
-    // The whole sale must stay above zero.
+    // A 100% discount is a free sale and takes no payment, so tendering money against it is refused.
     expect((await tryIt({ kind: "percent", value: "100" }, 0.01)).ok).toBe(false);
     // A correct one passes.
     expect((await tryIt({ kind: "percent", value: "10" }, 90)).ok).toBe(true);
@@ -152,7 +152,7 @@ describe.skipIf(!DB_URL)("POS discounts (real PostgreSQL)", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("cashiers can discount by any percentage without a manager, but a reason is still required and the sale must stay above R0", async () => {
+  it("cashiers can discount by any percentage (up to a free sale) without a manager, but a reason is still required", async () => {
     const a = await product(100);
     const off = (pct: string) => [
       { product_id: a, quantity: 1, discount: { kind: "percent", value: pct } },
@@ -162,9 +162,11 @@ describe.skipIf(!DB_URL)("POS discounts (real PostgreSQL)", () => {
     expect(await ok("20.01", 79.99, "Over the old limit")).toBe(true);
     expect(await ok("50", 50, "Half price clearance")).toBe(true);
     expect(await ok("99.5", 0.5, "Almost free")).toBe(true);
-    // Still refused: no reason, and a free sale.
+    // Still refused: no reason. A free sale (100%) goes through with no payment (see pos-free-sales.test.ts).
     expect(await ok("60", 40, null)).toBe(false);
-    expect(await ok("100", 0, "Free")).toBe(false);
+    expect(
+      (await attempt(sell(sql, cashier, sessionId, off("100"), [], { reason: "Free" }))).ok,
+    ).toBe(true);
     // A cashier's order-level discount has no limit either, and is audited.
     const b = await product(200);
     const s = await sell(sql, cashier, sessionId, [{ product_id: b, quantity: 1 }], [cash(40)], {

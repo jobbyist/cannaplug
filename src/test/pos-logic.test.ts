@@ -107,6 +107,17 @@ describe("cart quantity controls", () => {
   });
 });
 
+describe("a free sale (total R0) takes no payment", () => {
+  it("is ready with no payment rows, and not ready if a payment is still typed", () => {
+    expect(tenderStatus(0, [])).toMatchObject({ ok: true, sumCents: 0, remainingCents: 0 });
+    expect(tenderStatus(0, [row({ amount: "10" })]).ok).toBe(false);
+  });
+  it("a sale above R0 still needs payments that equal the total", () => {
+    expect(tenderStatus(5000, []).ok).toBe(false);
+    expect(tenderStatus(5000, [row({ amount: "50" })]).ok).toBe(true);
+  });
+});
+
 describe("a card or EFT reference can be used on one payment only", () => {
   const card = (reference: string, amount = "25.00") => row({ method: "card", amount, reference });
   it("flags the same method and reference typed twice, and still balances otherwise", () => {

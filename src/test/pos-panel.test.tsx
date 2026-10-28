@@ -230,6 +230,60 @@ describe("POS screen — multi-tender capture", () => {
     expect(screen.queryByText(/more than one payment/)).toBeNull();
   });
 
+  it("a 100% discount on the whole order completes as a free sale with no payment", async () => {
+    server.completePosSaleFn.mockResolvedValue({
+      ...saleResult,
+      sale: { ...saleResult.sale, total: 0, tenders: [] },
+    });
+    const { user } = await withGelato();
+    await user.click(screen.getByRole("button", { name: /Exact cash/ })); // a payment row typed first
+    expect(completeButton().disabled).toBe(false);
+    await user.type(screen.getByLabelText("Order discount"), "100");
+    expect(screen.getByText(/This sale is free \(100% discount\)/)).toBeTruthy();
+    expect(screen.queryByLabelText("Tender amount")).toBeNull(); // payment rows are gone
+    expect(completeButton().textContent).toMatch(/Complete free sale · R0/);
+    expect(completeButton().disabled).toBe(true); // the reason is still required
+    await user.type(screen.getByLabelText("Discount reason"), "Damaged packaging");
+    expect(completeButton().disabled).toBe(false);
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalledTimes(1));
+    expect(server.completePosSaleFn.mock.calls[0]![0].data).toMatchObject({
+      tenders: [],
+      orderDiscount: { kind: "percent", value: "100" },
+      discountReason: "Damaged packaging",
+    });
+  });
+
+  it("a 100% discount on the only item works too, and over 100% is still refused on screen", async () => {
+    server.completePosSaleFn.mockResolvedValue(saleResult);
+    const { user } = await withGelato();
+    await user.click(screen.getByText("Discount this item"));
+    const line = screen.getAllByLabelText(/Discount for/)[1]!; // [0] is the type menu
+    await user.type(line, "100.5");
+    expect(screen.getByRole("alert").textContent).toMatch(/Check the discount/);
+    expect(completeButton().disabled).toBe(true);
+    await user.clear(line);
+    await user.type(line, "100");
+    await user.type(screen.getByLabelText("Discount reason"), "Free sample");
+    expect(completeButton().textContent).toMatch(/Complete free sale/);
+    expect(completeButton().disabled).toBe(false);
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalled());
+    const data = server.completePosSaleFn.mock.calls[0]![0].data;
+    expect(data.tenders).toEqual([]);
+    expect(data.items[0].discount).toEqual({ kind: "percent", value: "100" });
+  });
+
+  it("any other discount still needs payments that equal the discounted total", async () => {
+    const { user } = await withGelato();
+    await user.type(screen.getByLabelText("Order discount"), "50");
+    await user.type(screen.getByLabelText("Discount reason"), "Half price");
+    expect(completeButton().disabled).toBe(true); // nothing tendered yet
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    expect(screen.getByLabelText("Tender amount")).toHaveProperty("value", "25.00");
+    expect(completeButton().disabled).toBe(false);
+  });
+
   it("sends ONLY product ids, quantities, tender amounts and an idempotency key — never a price or total", async () => {
     const { user } = await withGelato();
     await user.click(screen.getByRole("button", { name: /Exact cash/ }));

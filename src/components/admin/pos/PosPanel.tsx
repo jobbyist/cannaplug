@@ -342,7 +342,9 @@ function SaleScreen({
   const totalCents = summary.totalCents;
   const reasonOk = !summary.hasDiscount || discountReason.trim().length >= 3;
   const discountsOk = summary.discountsValid && reasonOk;
-  const status = tenderStatus(totalCents, tenders);
+  // A 100% discount makes a free (R0) sale: no payment is taken, whatever payment rows were typed before.
+  const activeTenders = totalCents === 0 ? [] : tenders;
+  const status = tenderStatus(totalCents, activeTenders);
   const cashTender = tenders
     .filter((t) => t.method === "cash")
     .reduce((s, t) => s + (parseCents(t.amount) ?? 0), 0);
@@ -415,7 +417,7 @@ function SaleScreen({
     });
     const od = sendableDiscount(orderDiscount);
     const reason = summary.hasDiscount ? discountReason.trim() : null;
-    const sendTenders = tenders.map((t) => ({
+    const sendTenders = activeTenders.map((t) => ({
       method: t.method,
       amount: centsToAmount(parseCents(t.amount) ?? 0),
       ...(t.reference.trim() ? { reference: t.reference.trim() } : {}),
@@ -804,108 +806,137 @@ function SaleScreen({
               <CustomerPicker value={customer} onChange={setCustomer} />
             </div>
 
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => quickTender("cash")}>
-                <Banknote size={14} className="mr-1" /> Exact cash
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => quickTender("card")}>
-                <CreditCard size={14} className="mr-1" /> Exact card
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setTenders((cur) => [
-                    ...cur,
-                    {
-                      rowId: uidRow(),
-                      method: "cash",
-                      amount: status.remainingCents ? centsToAmount(status.remainingCents) : "",
-                      reference: "",
-                    },
-                  ])
-                }
+            {totalCents === 0 ? (
+              <p
+                role="status"
+                className="mb-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs"
               >
-                <Plus size={14} className="mr-1" /> Split tender
-              </Button>
-            </div>
+                This sale is free (100% discount), so there is nothing to pay. Complete it to record
+                the stock going out and the discount reason.
+              </p>
+            ) : (
+              <>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => quickTender("cash")}
+                  >
+                    <Banknote size={14} className="mr-1" /> Exact cash
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => quickTender("card")}
+                  >
+                    <CreditCard size={14} className="mr-1" /> Exact card
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setTenders((cur) => [
+                        ...cur,
+                        {
+                          rowId: uidRow(),
+                          method: "cash",
+                          amount: status.remainingCents ? centsToAmount(status.remainingCents) : "",
+                          reference: "",
+                        },
+                      ])
+                    }
+                  >
+                    <Plus size={14} className="mr-1" /> Split tender
+                  </Button>
+                </div>
 
-            <ul className="grid gap-2">
-              {tenders.map((t) => {
-                const needsRef = TENDER_METHODS.find((m) => m.id === t.method)!.needsReference;
-                const update = (patch: Partial<TenderRow>) =>
-                  setTenders((cur) =>
-                    cur.map((r) => (r.rowId === t.rowId ? { ...r, ...patch } : r)),
-                  );
-                return (
-                  <li key={t.rowId} className="grid grid-cols-[92px_1fr_auto] items-center gap-2">
-                    <select
-                      aria-label="Tender method"
-                      className={selectClass}
-                      value={t.method}
-                      onChange={(e) =>
-                        update({ method: e.target.value as TenderMethod, reference: "" })
-                      }
-                    >
-                      {TENDER_METHODS.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
+                <ul className="grid gap-2">
+                  {tenders.map((t) => {
+                    const needsRef = TENDER_METHODS.find((m) => m.id === t.method)!.needsReference;
+                    const update = (patch: Partial<TenderRow>) =>
+                      setTenders((cur) =>
+                        cur.map((r) => (r.rowId === t.rowId ? { ...r, ...patch } : r)),
+                      );
+                    return (
+                      <li
+                        key={t.rowId}
+                        className="grid grid-cols-[92px_1fr_auto] items-center gap-2"
+                      >
+                        <select
+                          aria-label="Tender method"
+                          className={selectClass}
+                          value={t.method}
+                          onChange={(e) =>
+                            update({ method: e.target.value as TenderMethod, reference: "" })
+                          }
+                        >
+                          {TENDER_METHODS.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Input
+                          aria-label="Tender amount"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={t.amount}
+                          onChange={(e) => update({ amount: e.target.value })}
+                          className="h-9"
+                        />
+                        <button
+                          type="button"
+                          aria-label="Remove tender"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            setTenders((cur) => cur.filter((r) => r.rowId !== t.rowId))
+                          }
+                        >
+                          <X size={15} />
+                        </button>
+                        {needsRef && (
+                          <Input
+                            aria-label={`${t.method} reference`}
+                            className="col-span-3 h-9"
+                            placeholder={
+                              t.method === "card"
+                                ? "Card slip / RRN reference"
+                                : t.method === "eft"
+                                  ? "EFT proof / bank reference"
+                                  : "PayPal transaction ID"
+                            }
+                            value={t.reference}
+                            onChange={(e) => update({ reference: e.target.value })}
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {cashTender > 0 && (
+                  <label className="mt-3 grid gap-1.5 text-xs font-semibold">
+                    Cash received (for change)
                     <Input
-                      aria-label="Tender amount"
                       inputMode="decimal"
                       placeholder="0.00"
-                      value={t.amount}
-                      onChange={(e) => update({ amount: e.target.value })}
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
                       className="h-9"
                     />
-                    <button
-                      type="button"
-                      aria-label="Remove tender"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setTenders((cur) => cur.filter((r) => r.rowId !== t.rowId))}
-                    >
-                      <X size={15} />
-                    </button>
-                    {needsRef && (
-                      <Input
-                        aria-label={`${t.method} reference`}
-                        className="col-span-3 h-9"
-                        placeholder={
-                          t.method === "card"
-                            ? "Card slip / RRN reference"
-                            : t.method === "eft"
-                              ? "EFT proof / bank reference"
-                              : "PayPal transaction ID"
-                        }
-                        value={t.reference}
-                        onChange={(e) => update({ reference: e.target.value })}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-
-            {cashTender > 0 && (
-              <label className="mt-3 grid gap-1.5 text-xs font-semibold">
-                Cash received (for change)
-                <Input
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value)}
-                  className="h-9"
-                />
-                {parseCents(cashReceived) !== null && parseCents(cashReceived)! >= cashTender && (
-                  <span className="text-sm font-bold text-primary">
-                    Change due: {money(cashChangeCents(parseCents(cashReceived)!, cashTender))}
-                  </span>
+                    {parseCents(cashReceived) !== null &&
+                      parseCents(cashReceived)! >= cashTender && (
+                        <span className="text-sm font-bold text-primary">
+                          Change due:{" "}
+                          {money(cashChangeCents(parseCents(cashReceived)!, cashTender))}
+                        </span>
+                      )}
+                  </label>
                 )}
-              </label>
+              </>
             )}
 
             <div className="mt-3 flex justify-between text-xs">
@@ -941,7 +972,9 @@ function SaleScreen({
               disabled={!status.ok || !discountsOk || busy}
               onClick={() => void completeSale()}
             >
-              {busy ? "Completing…" : `Complete sale · ${money(totalCents)} (F9)`}
+              {busy
+                ? "Completing…"
+                : `${totalCents === 0 ? "Complete free sale" : "Complete sale"} · ${money(totalCents)} (F9)`}
             </Button>
           </div>
         )}
@@ -1104,8 +1137,11 @@ function SaleCard({
 }) {
   const [mode, setMode] = useState<null | "void" | "refund" | "receipt">(null);
   const canVoid = isManager && sale.status === "completed";
+  // A free (R0) sale has nothing to pay back: to put the stock back, void it.
   const canRefund =
-    isManager && (sale.status === "completed" || sale.status === "partially_refunded");
+    isManager &&
+    Number(sale.total) > 0 &&
+    (sale.status === "completed" || sale.status === "partially_refunded");
   return (
     <li className="list-none rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">

@@ -104,8 +104,8 @@ export function cartSummary(lines: CartLine[], orderDiscount?: DiscountInput | n
   const o = discountCents(orderDiscount, net);
   if (o === null) valid = false;
   const orderDisc = o ?? 0;
+  // A 100% discount (a line, or the whole order) is allowed: the sale then totals R0 and takes no payment.
   const total = net - orderDisc;
-  if (net > 0 && total <= 0) valid = false;
   return {
     grossCents: gross,
     lineDiscountCents: lineDisc,
@@ -232,7 +232,8 @@ export type TenderStatus = {
 
 export function tenderStatus(totalCents: number, tenders: TenderRow[]): TenderStatus {
   let sum = 0;
-  let allValid = tenders.length > 0;
+  // A free sale (total R0) takes no payment at all; any other sale needs at least one.
+  let allValid = totalCents === 0 ? tenders.length === 0 : tenders.length > 0;
   let duplicateReference: string | null = null;
   const seen = new Set<string>();
   for (const t of tenders) {
@@ -254,7 +255,7 @@ export function tenderStatus(totalCents: number, tenders: TenderRow[]): TenderSt
     overCents: Math.max(sum - totalCents, 0),
     allValid,
     duplicateReference,
-    ok: allValid && duplicateReference === null && totalCents > 0 && sum === totalCents,
+    ok: allValid && duplicateReference === null && totalCents >= 0 && sum === totalCents,
   };
 }
 

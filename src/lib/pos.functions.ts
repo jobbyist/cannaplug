@@ -150,10 +150,8 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
           )
           .min(1)
           .max(100),
-        tenders: z
-          .array(z.object({ method, amount: money, reference }))
-          .min(1)
-          .max(8),
+        // A sale with a 100% discount totals R0 and takes no payment; the database checks the payments equal the total.
+        tenders: z.array(z.object({ method, amount: money, reference })).max(8),
         customerId: uuid.nullable(),
         // Only the kind and the typed value: the database works out the cents.
         orderDiscount: discount.nullable().default(null),
