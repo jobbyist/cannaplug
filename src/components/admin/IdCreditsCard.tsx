@@ -16,6 +16,7 @@ import { QuantityStepper } from "@/components/admin/inventory/QuantityStepper";
 import { createKeyStore } from "@/components/admin/pos/pos-logic";
 import { getIdCreditsFn, setIdCreditReserveFn, topUpIdCreditsFn } from "@/lib/id-credits.functions";
 import type { IdCreditMovement, IdCreditSummary } from "@/lib/id-credits.server";
+import { creditHealth } from "@/components/admin/credit-health";
 
 export type IdCreditsApi = {
   summary: () => Promise<IdCreditSummary>;
@@ -37,15 +38,6 @@ const KIND_LABEL: Record<IdCreditMovement["kind"], string> = {
   release: "Reserve released",
   adjustment: "Adjustment",
 };
-
-export type CreditHealth = "ok" | "low" | "depleted";
-export function creditHealth(
-  s: Pick<IdCreditSummary, "available" | "cost_per_check" | "low_balance_threshold">,
-): CreditHealth {
-  if (s.available < Math.max(s.cost_per_check, 1)) return "depleted";
-  if (s.available <= s.low_balance_threshold) return "low";
-  return "ok";
-}
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 const when = (iso: string) =>

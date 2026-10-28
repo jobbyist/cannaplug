@@ -19,6 +19,8 @@ export type TeamNotice = {
   change_at: string | null;
   change_title: string | null;
   change_body: string | null;
+  /** Set on automatic alerts (they update themselves from live counts). */
+  source_key?: string | null;
   created_at: string;
   updated_at: string;
 };

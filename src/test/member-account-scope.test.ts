@@ -19,6 +19,10 @@ function chain(table: string, filters: [string, unknown][]) {
       Promise.resolve(result).then(ok, bad),
   };
   for (const m of ["select", "order", "limit", "in", "maybeSingle"]) q[m] = () => q;
+  q["is"] = (col: string, v: unknown) => {
+    filters.push([col, v]);
+    return q;
+  };
   q["eq"] = (col: string, v: unknown) => {
     filters.push([col, v]);
     return q;
@@ -46,6 +50,8 @@ describe("a signed-in person's own account", () => {
       expect(c, t).toBeTruthy();
       expect(c!.filters, t).toContainEqual(["user_id", "me-123"]);
     }
+    // Orders the team archived (test or abandoned) never show in the member's account.
+    expect(calls.find((x) => x.table === "orders")!.filters).toContainEqual(["archived_at", null]);
   });
 });
 

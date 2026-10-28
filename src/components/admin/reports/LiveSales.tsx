@@ -13,6 +13,7 @@ import {
 import { rand } from "@/lib/cart";
 import { addDays, methodLabel, n, sastDay, type SalesReport } from "@/lib/sales-report-logic";
 import { useSalesReport, type ReportLoader } from "./useSalesReport";
+import { STATUS_LABEL } from "@/components/admin/reports/status-labels";
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-ZA", {
@@ -22,19 +23,6 @@ const time = (iso: string) =>
   });
 const weekday = (day: string) =>
   new Date(`${day}T12:00:00Z`).toLocaleDateString("en-ZA", { weekday: "short", timeZone: "UTC" });
-
-export const STATUS_LABEL: Record<string, string> = {
-  completed: "Completed",
-  voided: "Voided",
-  partially_refunded: "Part refunded",
-  refunded: "Refunded",
-  awaiting_payment: "Awaiting payment",
-  confirmed: "Paid",
-  packing: "Packing",
-  ready: "Ready",
-  out_for_delivery: "Out for delivery",
-  cancelled: "Cancelled",
-};
 
 function Kpi({
   icon: Icon,

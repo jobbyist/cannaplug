@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { CustomerPicker, type PickedCustomer } from "@/components/admin/pos/CustomerPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { rand } from "@/lib/cart";
@@ -63,7 +64,6 @@ import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 
 type Overview = Awaited<ReturnType<typeof getPosOverviewFn>>;
 type SaleView = Overview["sales"][number];
-type CustomerOption = { id: string; full_name: string | null };
 
 const selectClass = "h-9 rounded-md border border-input bg-background px-2 text-sm";
 const cardClass = "rounded-xl border border-border bg-card p-5";
@@ -77,7 +77,7 @@ const uidRow = () => Math.random().toString(36).slice(2, 9);
 const statusVariant = (s: string) =>
   s === "completed" ? "default" : s === "voided" ? "destructive" : "secondary";
 
-export function PosPanel({ customers }: { customers: CustomerOption[] }) {
+export function PosPanel() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,12 +132,7 @@ export function PosPanel({ customers }: { customers: CustomerOption[] }) {
         <OpenTill data={data} onChanged={changed} />
       ) : (
         <>
-          <SaleScreen
-            data={data}
-            session={data.mySession}
-            customers={customers}
-            onChanged={changed}
-          />
+          <SaleScreen data={data} session={data.mySession} onChanged={changed} />
           <RecentSales data={data} session={data.mySession} onChanged={changed} />
           <TillExpenses
             sessionId={data.mySession.id}
@@ -299,12 +294,10 @@ type Receipt = {
 function SaleScreen({
   data,
   session,
-  customers,
   onChanged,
 }: {
   data: Overview;
   session: NonNullable<Overview["mySession"]>;
-  customers: CustomerOption[];
   onChanged: () => Promise<void>;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
@@ -312,7 +305,7 @@ function SaleScreen({
   const [highlight, setHighlight] = useState(0);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [tenders, setTenders] = useState<TenderRow[]>([]);
-  const [customerId, setCustomerId] = useState("");
+  const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [orderDiscount, setOrderDiscount] = useState<DiscountInput | undefined>();
   const [discountReason, setDiscountReason] = useState("");
   const [cashReceived, setCashReceived] = useState("");
@@ -427,7 +420,7 @@ function SaleScreen({
       amount: centsToAmount(parseCents(t.amount) ?? 0),
       ...(t.reference.trim() ? { reference: t.reference.trim() } : {}),
     }));
-    const cid = customerId || null;
+    const cid = customer?.id ?? null;
     // Same payload => same key (safe retry after a network failure); changed payload => new key.
     const key = keys.current.keyFor(
       salesSignature({ s: session.id, items, sendTenders, cid, od, reason }),
@@ -455,7 +448,7 @@ function SaleScreen({
       setLines([]);
       setTenders([]);
       setCashReceived("");
-      setCustomerId("");
+      setCustomer(null);
       setOrderDiscount(undefined);
       setDiscountReason("");
       await onChanged();
@@ -806,21 +799,10 @@ function SaleScreen({
         {lines.length > 0 && (
           <div className={cardClass}>
             <h2 className={`mb-3 ${headingClass}`}>Payment</h2>
-            <label className="mb-3 grid gap-1.5 text-xs font-semibold">
-              Customer (earns loyalty points, optional)
-              <select
-                className={selectClass}
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-              >
-                <option value="">Walk-in customer</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.full_name ?? c.id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="mb-3 grid gap-1.5 text-xs font-semibold">
+              <span>Customer (earns loyalty points, optional)</span>
+              <CustomerPicker value={customer} onChange={setCustomer} />
+            </div>
 
             <div className="mb-3 flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => quickTender("cash")}>

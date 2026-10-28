@@ -36,7 +36,8 @@ import {
   defaultSchemaFor,
   validateTemplate,
 } from "@/lib/clinical/template-engine";
-import { Notice, errorText, selectClass, whenTime } from "@/components/clinical/shared";
+import { Notice, selectClass } from "@/components/clinical/shared";
+import { errorText, whenTime } from "@/components/clinical/format";
 
 /**
  * Template management for both the practitioner and the administrator. Templates are versioned: an active

@@ -270,6 +270,23 @@ describe("Notifications tab", () => {
     );
   });
 
+  it("marks automatic alerts and offers no edit or archive for them", () => {
+    const auto = row({
+      id: "n9",
+      title: "Low stock",
+      body: "3 products are at or below the low-stock level.",
+      kind: "alert",
+      pinned: false,
+      source_key: "alert:low-stock",
+    }) as never;
+    const t = { ...team(), all: [auto] } as TeamNotifications;
+    render(<NotificationsPanel team={t} role="admin" />);
+    const li = screen.getByText("Low stock").closest("li")!;
+    expect(within(li).getByText("Automatic")).toBeTruthy();
+    expect(within(li).queryByRole("button", { name: /Edit/ })).toBeNull();
+    expect(within(li).queryByRole("button", { name: /Archive/ })).toBeNull();
+  });
+
   it("shows the server's reason when saving fails", async () => {
     h.saveTeamNoticeFn.mockRejectedValue(new Error("Your role can't do this. Ask a manager."));
     render(<NotificationsPanel team={team()} role="manager" />);
@@ -411,5 +428,22 @@ describe("Staff tab", () => {
     await screen.findByText("Bongani Budtender");
     await userEvent.selectOptions(screen.getByLabelText("Role for Bongani Budtender"), "manager");
     expect((await screen.findByRole("alert")).textContent).toMatch(/Only an admin/);
+  });
+
+  it("shows when each person last signed in, and offers a sign-up link for someone with no account", async () => {
+    h.listStaffFn.mockResolvedValue([
+      { ...staff[1], last_sign_in: "2026-10-27T08:00:00Z" },
+      { ...staff[2], last_sign_in: null },
+    ]);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    h.findStaffMemberFn.mockResolvedValueOnce(null);
+    render(wrap(<StaffPanel role="admin" myId="a1" />));
+    expect(await screen.findByText(/Last signed in 27 Oct/)).toBeTruthy();
+    expect(screen.getByText("Has not signed in yet")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Member's email"), "new@x.co");
+    await userEvent.click(screen.getByRole("button", { name: /Find/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Copy sign-up link" }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/account`);
   });
 });

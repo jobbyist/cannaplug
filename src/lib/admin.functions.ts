@@ -8,7 +8,9 @@ import {
   listAdminOrders,
   confirmOrderPayment,
   listAdminProducts,
-  listCustomers,
+  listCustomersPage,
+  getAttentionCounts,
+  setOrderArchived,
   listFulfilmentQueue,
   listMemberOrders,
   listStoreProducts,
@@ -59,6 +61,7 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
       .object({
         limit: z.number().int().min(1).max(100).optional(),
         before: z.string().datetime().optional(),
+        includeArchived: z.boolean().optional(),
       })
       .default({})
       .parse(data),
@@ -67,6 +70,7 @@ export const listAdminOrdersFn = createServerFn({ method: "GET" })
     listAdminOrders(context.userId, {
       ...(data.limit ? { limit: data.limit } : {}),
       ...(data.before ? { before: data.before } : {}),
+      ...(data.includeArchived ? { includeArchived: true } : {}),
     }),
   );
 
@@ -185,7 +189,43 @@ export const deactivateAdminProductFn = createServerFn({ method: "POST" })
 
 export const listCustomersFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
-  .handler(({ context }) => listCustomers(context.userId));
+  .validator((d) =>
+    z
+      .object({
+        search: z.string().trim().max(100).nullish(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).max(100000).optional(),
+      })
+      .default({})
+      .parse(d ?? {}),
+  )
+  .handler(({ context, data }) =>
+    listCustomersPage(context.userId, {
+      search: data.search ?? null,
+      ...(data.limit !== undefined ? { limit: data.limit } : {}),
+      ...(data.offset !== undefined ? { offset: data.offset } : {}),
+    }),
+  );
+
+export const getAttentionCountsFn = createServerFn({ method: "GET" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .handler(({ context }) => getAttentionCounts(context.userId));
+
+export const setOrderArchivedFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        archived: z.boolean(),
+        reason: z.string().trim().min(3).max(200),
+        key: z.string().min(8).max(100),
+      })
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    setOrderArchived(context.userId, data.orderId, data.archived, data.reason, data.key),
+  );
 
 export const listFulfilmentQueueFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])

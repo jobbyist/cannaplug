@@ -24,14 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TemplatesPanel } from "@/components/clinical/TemplatesPanel";
-import {
-  Notice,
-  StatusBadge,
-  errorText,
-  selectClass,
-  when,
-  whenTime,
-} from "@/components/clinical/shared";
+import { Notice, StatusBadge, selectClass } from "@/components/clinical/shared";
+import { errorText, when, whenTime } from "@/components/clinical/format";
 import {
   adminAssignPatientFn,
   adminAssignRequestFn,

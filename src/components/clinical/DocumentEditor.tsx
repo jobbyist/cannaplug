@@ -27,13 +27,8 @@ import {
   type PrescriptionInput,
 } from "@/lib/clinical/logic";
 import type { DoctorView, PatientRow, TemplateRow } from "@/lib/clinical/documents-data.server";
-import {
-  Notice,
-  dateInputValue,
-  endOfDaySast,
-  errorText,
-  selectClass,
-} from "@/components/clinical/shared";
+import { Notice, selectClass } from "@/components/clinical/shared";
+import { dateInputValue, endOfDaySast, errorText } from "@/components/clinical/format";
 
 /**
  * Create or edit a draft. Every clinical value here is typed by the practitioner: there are no defaults,

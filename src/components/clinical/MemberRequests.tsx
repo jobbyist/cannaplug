@@ -11,22 +11,15 @@ import {
 } from "@/lib/clinical/clinical.functions";
 import type { MemberRequestRow, RequestStatus } from "@/lib/clinical/documents-data.server";
 import { documentTypeLabel, type DocumentType } from "@/lib/clinical/logic";
-import { Notice, errorText, selectClass, when } from "@/components/clinical/shared";
+import { Notice, selectClass } from "@/components/clinical/shared";
+import { errorText, when } from "@/components/clinical/format";
+import { REQUEST_STATUS_LABELS } from "@/components/clinical/request-labels";
 
 /**
  * A member asks for a medical letter or a prescription/order. A request is only a request: it is triaged by
  * CannaPlug and then assessed by a practitioner, who decides whether anything is issued and what it says.
  * The optional note is seen by the member and the assigned practitioner only, never by administrators.
  */
-
-export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
-  REQUESTED: "Waiting to be assigned",
-  ASSIGNED: "With your practitioner",
-  IN_PROGRESS: "Being prepared",
-  FULFILLED: "Completed",
-  DECLINED: "Not going ahead",
-  CANCELLED: "Cancelled",
-};
 
 const VARIANT: Record<RequestStatus, "default" | "secondary" | "outline" | "destructive"> = {
   REQUESTED: "secondary",

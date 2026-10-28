@@ -82,6 +82,8 @@ export type Database = {
           min_role: string;
           pinned: boolean;
           published_at: string | null;
+          source_key: string | null;
+          alert_count: number | null;
           status: string;
           title: string;
           updated_at: string;
@@ -99,6 +101,8 @@ export type Database = {
           min_role?: string;
           pinned?: boolean;
           published_at?: string | null;
+          source_key?: string | null;
+          alert_count?: number | null;
           status?: string;
           title: string;
           updated_at?: string;
@@ -116,6 +120,8 @@ export type Database = {
           min_role?: string;
           pinned?: boolean;
           published_at?: string | null;
+          source_key?: string | null;
+          alert_count?: number | null;
           status?: string;
           title?: string;
           updated_at?: string;
@@ -2499,6 +2505,9 @@ export type Database = {
       orders: {
         Row: {
           payment_method: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
+          archive_reason: string | null;
           delivery_method: string | null;
           delivery_fee_rand: number;
           delivery_address: Json | null;
@@ -2516,6 +2525,9 @@ export type Database = {
         };
         Insert: {
           payment_method?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          archive_reason?: string | null;
           delivery_method?: string | null;
           delivery_fee_rand?: number;
           delivery_address?: Json | null;
@@ -2533,6 +2545,9 @@ export type Database = {
         };
         Update: {
           payment_method?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          archive_reason?: string | null;
           delivery_method?: string | null;
           delivery_fee_rand?: number;
           delivery_address?: Json | null;
@@ -3435,6 +3450,23 @@ export type Database = {
         Args: { p_actor: string; p_comment_id: string; p_reason: string };
         Returns: Json;
       };
+      admin_overview: { Args: { p_actor: string }; Returns: Json };
+      admin_attention_counts: { Args: { p_actor: string }; Returns: Json };
+      admin_customers_page: {
+        Args: { p_actor: string; p_search: string | null; p_limit: number; p_offset: number };
+        Returns: Json;
+      };
+      admin_set_order_archived: {
+        Args: {
+          p_actor: string;
+          p_order_id: string;
+          p_archived: boolean;
+          p_reason: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      team_alerts_refresh: { Args: Record<PropertyKey, never>; Returns: number };
       staff_directory: { Args: { p_actor: string }; Returns: Json };
       staff_find_member: { Args: { p_actor: string; p_email: string }; Returns: Json };
       staff_set_role: {

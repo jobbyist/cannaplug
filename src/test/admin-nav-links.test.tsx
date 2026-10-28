@@ -2,7 +2,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LayoutGrid, ShieldCheck } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DashboardSidebar, opensElsewhere } from "@/components/dashboard/Sidebar";
+import { DashboardSidebar } from "@/components/dashboard/Sidebar";
+import { opensElsewhere } from "@/components/dashboard/links";
 
 afterEach(cleanup);
 

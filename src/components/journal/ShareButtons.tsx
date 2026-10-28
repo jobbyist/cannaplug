@@ -1,21 +1,7 @@
 import { useState } from "react";
 import { Check, Link2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-export const shareLinks = (url: string, title: string) => {
-  const u = encodeURIComponent(url);
-  const t = encodeURIComponent(title);
-  return [
-    { id: "whatsapp", label: "WhatsApp", href: `https://wa.me/?text=${t}%20${u}` },
-    { id: "x", label: "X", href: `https://twitter.com/intent/tweet?text=${t}&url=${u}` },
-    {
-      id: "facebook",
-      label: "Facebook",
-      href: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
-    },
-    { id: "email", label: "Email", href: `mailto:?subject=${t}&body=${u}` },
-  ];
-};
+import { shareLinks } from "@/components/journal/share-links";
 
 /** Share this story: the device's share sheet where there is one, copy-link, and the main networks. */
 export function ShareButtons({ url, title, text }: { url: string; title: string; text: string }) {

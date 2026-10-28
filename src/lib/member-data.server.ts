@@ -46,6 +46,7 @@ export async function getMemberAccount(db: UserClient, userId: string) {
       .from("orders")
       .select("*")
       .eq("user_id", userId)
+      .is("archived_at", null) // test or abandoned orders the team has archived
       .order("created_at", { ascending: false })
       .limit(ORDER_LIMIT),
     db

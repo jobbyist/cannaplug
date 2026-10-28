@@ -380,7 +380,7 @@ function MemberPortal() {
     if (!account || onboarded.current || resetting) return;
     onboarded.current = true;
     if (!account.verification) setTab("verification");
-  }, [account]);
+  }, [account, resetting]);
 
   useEffect(() => {
     if (!flash) return;

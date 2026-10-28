@@ -11,7 +11,8 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }));
 
-import { AdminSignIn, NoStaffAccess, signInMessage } from "@/components/admin/AdminSignIn";
+import { AdminSignIn, NoStaffAccess } from "@/components/admin/AdminSignIn";
+import { signInMessage } from "@/lib/sign-in-message";
 
 afterEach(() => {
   cleanup();

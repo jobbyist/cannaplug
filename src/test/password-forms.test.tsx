@@ -6,11 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const auth = vi.hoisted(() => ({ updateUser: vi.fn(), resetPasswordForEmail: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth } }));
 
-import {
-  ChangePasswordForm,
-  ForgotPasswordForm,
-  passwordProblem,
-} from "@/components/account/PasswordForms";
+import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
+import { passwordProblem } from "@/lib/password-rules";
 
 afterEach(() => {
   cleanup();

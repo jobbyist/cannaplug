@@ -24,7 +24,8 @@ vi.mock("@tanstack/react-router", () => ({
 
 import { CommentSection } from "@/components/journal/CommentSection";
 import { LikeButton } from "@/components/journal/LikeButton";
-import { ShareButtons, shareLinks } from "@/components/journal/ShareButtons";
+import { ShareButtons } from "@/components/journal/ShareButtons";
+import { shareLinks } from "@/components/journal/share-links";
 
 beforeEach(() => {
   h.user = null;

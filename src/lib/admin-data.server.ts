@@ -111,15 +111,23 @@ export type InventorySummary = {
   batches: number;
 };
 
+export type Money = { pos: number; online: number; total: number };
+
 export type AdminDashboard = {
   stats: {
-    totalOrders: number;
-    revenueRand: number;
+    /** Paid online orders plus till sales net of refunds, by South African day (same rule as Reports). */
+    revenue: { today: Money; week: Money; month: Money; allTime: Money };
+    /** Paid online orders and till sales that were not voided. */
+    totalSales: number;
+    paidOnline: number;
+    tillSales: number;
     inventoryAlerts: number;
+    /** Members only: staff are not counted. */
     totalCustomers: number;
   };
-  salesOverview: { day: string; value: number }[];
-  topProducts: { name: string; sold: number }[];
+  salesOverview: { day: string; label: string; pos: number; online: number; total: number }[];
+  /** Best sellers of the last 30 days across both channels. */
+  topProducts: { name: string; sold: number; revenue: number }[];
   recentOrders: AdminOrder[];
   inventory: InventorySummary[];
   activity: { label: string; time: string }[];
@@ -216,9 +224,16 @@ export type OrderPage = {
   /** ISO created_at of the last row already loaded; returns the next (older) page. */
   before?: string;
   statuses?: AdminOrderStatus[];
+  /** Archived orders (test or abandoned) are hidden unless asked for. */
+  includeArchived?: boolean;
 };
 
-async function loadOrders({ limit = 50, before, statuses }: OrderPage = {}): Promise<AdminOrder[]> {
+async function loadOrders({
+  limit = 50,
+  before,
+  statuses,
+  includeArchived = false,
+}: OrderPage = {}): Promise<AdminOrder[]> {
   let query = supabaseAdmin
     .from("orders")
     .select("*")
@@ -226,6 +241,7 @@ async function loadOrders({ limit = 50, before, statuses }: OrderPage = {}): Pro
     .limit(Math.min(Math.max(limit, 1), MAX_PAGE_SIZE));
   if (before) query = query.lt("created_at", before);
   if (statuses?.length) query = query.in("status", statuses);
+  if (!includeArchived) query = query.is("archived_at", null);
   const { data, error } = await query;
   if (error) throw error;
   return hydrateOrders(data ?? []);
@@ -288,90 +304,99 @@ async function loadActivity(limit = 8) {
   }));
 }
 
+const money = (v: { pos?: unknown; online?: unknown } | undefined): Money => {
+  const pos = Number(v?.pos ?? 0);
+  const online = Number(v?.online ?? 0);
+  return { pos, online, total: Math.round((pos + online) * 100) / 100 };
+};
+
+type OverviewJson = {
+  today?: { pos?: unknown; online?: unknown };
+  week?: { pos?: unknown; online?: unknown };
+  month?: { pos?: unknown; online?: unknown };
+  all_time?: { pos?: unknown; online?: unknown };
+  daily?: { day: string; pos: unknown; online: unknown }[];
+  top_products?: { name: string; qty: unknown; revenue: unknown }[];
+  counts?: Record<string, unknown>;
+};
+
 export async function getAdminDashboard(userId: string): Promise<AdminDashboard> {
   await assertRole(userId, "budtender");
-  const [orders, inventory, activity] = await Promise.all([
+  // All sums, days and rankings are worked out inside the database (no row caps, South African days).
+  const [orders, inventory, activity, overview, attention] = await Promise.all([
     loadOrders({ limit: 8 }),
     loadInventory(),
     loadActivity(),
+    supabaseAdmin.rpc("admin_overview", { p_actor: userId }),
+    supabaseAdmin.rpc("admin_attention_counts", { p_actor: userId }),
   ]);
-
-  const { count: totalOrders } = await supabaseAdmin
-    .from("orders")
-    .select("id", { count: "exact", head: true });
-  const { data: revenueRows } = await supabaseAdmin
-    .from("orders")
-    .select("total_rand")
-    .eq("status", "completed");
-  const { count: totalCustomers } = await supabaseAdmin
-    .from("user_roles")
-    .select("user_id", { count: "exact", head: true })
-    .eq("role", "customer");
-
-  const lastSeven = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    return date;
-  });
-  const { data: recentSales } = await supabaseAdmin
-    .from("orders")
-    .select("total_rand,created_at")
-    .eq("status", "completed")
-    .gte("created_at", lastSeven[0]!.toISOString());
-
-  const salesOverview = lastSeven.map((date) => {
-    const key = date.toISOString().slice(0, 10);
-    return {
-      day: date.toLocaleDateString("en-ZA", { weekday: "short" }),
-      value: (recentSales ?? [])
-        .filter((row) => row.created_at.slice(0, 10) === key)
-        .reduce((sum, row) => sum + Number(row.total_rand), 0),
-    };
-  });
-
-  // Each product's own low-stock level (default 5); Lounge services carry no stock and are left out.
-  const { data: thresholdRows } = await supabaseAdmin
-    .from("products")
-    .select("id,low_stock_threshold,track_stock")
-    .eq("is_active", true);
-  const thresholds = new Map(
-    (thresholdRows ?? []).map((p) => [p.id, p.track_stock ? p.low_stock_threshold : -1]),
-  );
-
-  const { data: topRows } = await supabaseAdmin
-    .from("order_items")
-    .select("product_name,quantity")
-    .order("quantity", { ascending: false })
-    .limit(100);
-  const topMap = new Map<string, number>();
-  for (const row of topRows ?? [])
-    topMap.set(row.product_name, (topMap.get(row.product_name) ?? 0) + row.quantity);
-  const topProducts = [...topMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, sold]) => ({ name, sold }));
+  if (overview.error) throw overview.error;
+  if (attention.error) throw attention.error;
+  const o = (overview.data ?? {}) as OverviewJson;
+  const counts = o.counts ?? {};
+  const alerts = (attention.data ?? {}) as Record<string, unknown>;
 
   return {
     stats: {
-      totalOrders: totalOrders ?? 0,
-      revenueRand: (revenueRows ?? []).reduce((sum, row) => sum + Number(row.total_rand), 0),
-      inventoryAlerts: inventory.filter(
-        (item) => item.available <= (thresholds.get(item.product_id) ?? 5),
-      ).length,
-      totalCustomers: totalCustomers ?? 0,
+      revenue: {
+        today: money(o.today),
+        week: money(o.week),
+        month: money(o.month),
+        allTime: money(o.all_time),
+      },
+      paidOnline: Number(counts["paid_online"] ?? 0),
+      tillSales: Number(counts["till_sales"] ?? 0),
+      totalSales: Number(counts["paid_online"] ?? 0) + Number(counts["till_sales"] ?? 0),
+      inventoryAlerts: Number(alerts["low_stock"] ?? 0),
+      totalCustomers: Number(counts["customers"] ?? 0),
     },
-    salesOverview,
-    topProducts,
+    salesOverview: (o.daily ?? []).map((d) => {
+      const m = money(d);
+      return {
+        day: d.day,
+        label: new Date(`${d.day}T12:00:00Z`).toLocaleDateString("en-ZA", {
+          weekday: "short",
+          timeZone: "UTC",
+        }),
+        ...m,
+      };
+    }),
+    topProducts: (o.top_products ?? []).map((p) => ({
+      name: p.name,
+      sold: Number(p.qty),
+      revenue: Number(p.revenue),
+    })),
     recentOrders: orders,
     inventory,
     activity,
   };
 }
 
+export type AttentionCounts = {
+  orders_to_pack: number;
+  id_checks: number;
+  variances: number;
+  low_stock: number;
+  eft_waiting: number;
+};
+
+export async function getAttentionCounts(userId: string): Promise<AttentionCounts> {
+  await assertRole(userId, "budtender");
+  const { data, error } = await supabaseAdmin.rpc("admin_attention_counts", { p_actor: userId });
+  if (error) throw error;
+  const c = (data ?? {}) as Record<string, unknown>;
+  return {
+    orders_to_pack: Number(c["orders_to_pack"] ?? 0),
+    id_checks: Number(c["id_checks"] ?? 0),
+    variances: Number(c["variances"] ?? 0),
+    low_stock: Number(c["low_stock"] ?? 0),
+    eft_waiting: Number(c["eft_waiting"] ?? 0),
+  };
+}
+
 export async function listAdminOrders(
   userId: string,
-  page: Pick<OrderPage, "limit" | "before"> = {},
+  page: Pick<OrderPage, "limit" | "before" | "includeArchived"> = {},
 ) {
   await assertRole(userId, "budtender");
   return withPrescriptions(userId, await loadOrders({ limit: MAX_PAGE_SIZE, ...page }));
@@ -567,31 +592,58 @@ export async function deactivateAdminProduct(userId: string, productId: string) 
   return data;
 }
 
-export async function listCustomers(userId: string) {
+export type CustomerRow = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  member_since: string;
+  order_count: number;
+  spend_rand: number;
+};
+
+/** Members (not staff), newest first, with search and paging done in the database. */
+export async function listCustomersPage(
+  userId: string,
+  opts: { search?: string | null; limit?: number; offset?: number } = {},
+): Promise<{ total: number; rows: CustomerRow[] }> {
   await assertRole(userId, "budtender");
-  const { data: roles, error } = await supabaseAdmin
-    .from("user_roles")
-    .select("user_id,role,created_at")
-    .eq("role", "customer")
-    .order("created_at", { ascending: false })
-    .limit(250);
+  const { data, error } = await supabaseAdmin.rpc("admin_customers_page", {
+    p_actor: userId,
+    p_search: opts.search?.trim() ? opts.search.trim() : null,
+    p_limit: opts.limit ?? 25,
+    p_offset: opts.offset ?? 0,
+  });
   if (error) throw error;
-  const ids = [...new Set((roles ?? []).map((r) => r.user_id))];
-  const profiles = ids.length
-    ? ((await supabaseAdmin.from("profiles").select("id,full_name,phone,created_at").in("id", ids))
-        .data ?? [])
-    : [];
-  const counts = ids.length
-    ? ((await supabaseAdmin.from("orders").select("user_id,total_rand").in("user_id", ids)).data ??
-      [])
-    : [];
-  return profiles.map((profile) => ({
-    ...profile,
-    orderCount: counts.filter((row) => row.user_id === profile.id).length,
-    spendRand: counts
-      .filter((row) => row.user_id === profile.id)
-      .reduce((sum, row) => sum + Number(row.total_rand), 0),
-  }));
+  const d = (data ?? { total: 0, rows: [] }) as { total: number; rows: CustomerRow[] };
+  return {
+    total: Number(d.total),
+    rows: (d.rows ?? []).map((r) => ({
+      ...r,
+      order_count: Number(r.order_count),
+      spend_rand: Number(r.spend_rand),
+    })),
+  };
+}
+
+/** Hide (or restore) a cancelled or unpaid order. A paid order can never be archived. */
+export async function setOrderArchived(
+  userId: string,
+  orderId: string,
+  archived: boolean,
+  reason: string,
+  key: string,
+) {
+  await assertRole(userId, "manager");
+  const { data, error } = await supabaseAdmin.rpc("admin_set_order_archived", {
+    p_actor: userId,
+    p_order_id: orderId,
+    p_archived: archived,
+    p_reason: reason,
+    p_idempotency_key: key,
+  });
+  if (error) throw error;
+  return data as unknown as { changed: boolean; archived: boolean };
 }
 
 export type EftConfirmOutcome =
