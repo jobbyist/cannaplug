@@ -60,12 +60,26 @@ describe("till discount maths (display only; the database has the final say)", (
     expect(s.hasDiscount).toBe(false);
   });
 
-  it("a discount that would take the sale to zero is flagged", () => {
-    const s = cartSummary([{ product: item("a", 10), quantity: 1 }], {
+  it("a 100% discount is allowed: the sale totals R0 and takes no payment", () => {
+    const whole = cartSummary([{ product: item("a", 10), quantity: 1 }], {
       kind: "percent",
       value: "100",
     });
-    expect(s.discountsValid).toBe(false);
+    expect(whole).toMatchObject({ totalCents: 0, discountsValid: true, hasDiscount: true });
+    const line = cartSummary([
+      { product: item("a", 10), quantity: 2, discount: { kind: "percent", value: "100" } },
+      { product: item("b", 5), quantity: 1, discount: { kind: "amount", value: "5" } },
+    ]);
+    expect(line).toMatchObject({ totalCents: 0, discountsValid: true });
+    // more than 100%, or more than the amount it applies to, is still not valid
+    expect(
+      cartSummary([{ product: item("a", 10), quantity: 1 }], { kind: "percent", value: "100.01" })
+        .discountsValid,
+    ).toBe(false);
+    expect(
+      cartSummary([{ product: item("a", 10), quantity: 1 }], { kind: "amount", value: "10.01" })
+        .discountsValid,
+    ).toBe(false);
   });
 
   it("sends only a non-empty, trimmed discount", () => {
@@ -130,6 +144,42 @@ describe("receipts show the discount", () => {
     expect(text).toContain("Subtotal R100,00");
     expect(text).toContain("Discount -R10,00");
     expect(text).toContain("Total R90,00");
+  });
+
+  it("a free sale (100% off, no payment) prints a clean R0 receipt, as text and PDF", async () => {
+    const free = buildReceiptModel({
+      sale: {
+        receipt_number: "POS-2",
+        created_at: "2026-10-28T10:00:00Z",
+        status: "completed",
+        subtotal: 100,
+        discount_rand: 100,
+        total: 0,
+      },
+      items: [
+        {
+          product_name: "Item",
+          quantity: 1,
+          unit_price_rand: 100,
+          line_discount_rand: 100,
+          order_discount_rand: 0,
+          line_total: 0,
+        },
+      ],
+      tenders: [],
+      settings,
+      cashierName: "Baatseba",
+      customerName: null,
+      cashReceived: null,
+      loyaltyPoints: null,
+    });
+    expect(free.tenders).toEqual([]);
+    const text = receiptText(free);
+    expect(text).toContain("Discount -R100,00");
+    expect(text).toContain("Total R0,00");
+    expect(text).not.toContain("NaN");
+    const pdf = await (await import("@/lib/receipts/receipt-pdf")).renderReceiptPdf(free, "80mm");
+    expect(pdf.byteLength).toBeGreaterThan(500);
   });
 
   it("prints nothing extra when there is none", () => {
