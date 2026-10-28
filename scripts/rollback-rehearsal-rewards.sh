@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rehearses the rewards and referral migrations (20261029003000 + 20261029004000):
+# Rehearses the rewards and referral migrations (20261029005000 + 20261029006000):
 #   old data: apply everything before them, give members points at the OLD rate (R10 per point)
 #   -> apply both: balances and lifetime points are converted (divided by 5, rounded down), tiers rescaled
 #   -> re-apply: nothing is converted twice
@@ -10,8 +10,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/16/bin}"
 PORT="${TEST_PGPORT:-54329}"
 DB="rollback_rehearsal_rewards"
-A=20261029003000_loyalty_sources
-B=20261029004000_rewards_referrals
+A=20261029005000_loyalty_sources
+B=20261029006000_rewards_referrals
 run() { if [ "$(id -u)" = 0 ]; then su postgres -s /bin/bash -c "$*"; else bash -c "$*"; fi; }
 P="$PG_BIN/psql -X -q -h 127.0.0.1 -p $PORT -U postgres"
 q() { run "$P -At -d $DB -c \"$1\""; }

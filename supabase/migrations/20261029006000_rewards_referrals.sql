@@ -10,7 +10,7 @@
 --   members. A verified member's (or staff member's) username is their referral code and link.
 --   Referrals: a new member who enters a referral code at sign-up is recorded as a pending referral. When that friend
 --   has spent R50 (paid online orders and till sales together) the referrer earns 1 point, once per friend.
---   Needs 20261029003000_loyalty_sources (new ledger source types). No DROP and no DELETE in this file.
+--   Needs 20261029005000_loyalty_sources (new ledger source types). No DROP and no DELETE in this file.
 
 -- ---------------------------------------------------------------------------------------------------------------
 -- 1. Rates, tiers and the one-off conversion of existing points

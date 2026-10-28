@@ -22,6 +22,8 @@ export type PosItemInput = {
   product_id: string;
   quantity: number;
   discount?: PosDiscountInput | undefined;
+  /** A loyalty reward code: one unit of this product is free, paid for in points. */
+  reward?: string | undefined;
 };
 
 export type PosCatalogItem = {
@@ -61,6 +63,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_discount: "That discount is not valid",
   discount_too_large: "That discount is more than the amount it applies to",
   discount_reason_required: "Give a reason for the discount",
+  reward_needs_member: "Attach the member to use a reward",
+  reward_not_eligible: "That product is not covered by the reward",
+  reward_unavailable: "That reward is not available",
+  insufficient_points: "The member does not have enough points for that reward",
   staff_attach_not_allowed:
     "You cannot attach that staff member. Managers and admins can attach any staff member; a budtender can attach other budtenders, but not themselves",
   invalid_amount: "Invalid amount",
@@ -193,6 +199,31 @@ export async function searchPosCustomers(
   });
   if (error) throw friendlyPosError(error);
   return (data ?? []) as unknown as PosCustomerHit[];
+}
+
+export type PosCustomerRewards = {
+  points: number;
+  rewards: {
+    code: string;
+    name: string;
+    points_cost: number;
+    grade: string;
+    categories: string[];
+  }[];
+};
+
+/** A member's points and the rewards on offer, for the till. Read-only. */
+export async function getPosCustomerRewards(
+  userId: string,
+  customerId: string,
+): Promise<PosCustomerRewards> {
+  await assertRole(userId, "budtender");
+  const { data, error } = await supabaseAdmin.rpc("pos_customer_rewards", {
+    p_actor: userId,
+    p_customer: customerId,
+  });
+  if (error) throw friendlyPosError(error);
+  return data as unknown as PosCustomerRewards;
 }
 
 export async function getPosOverview(userId: string) {
@@ -595,6 +626,7 @@ export async function posCompleteSale(
         product_id: i.product_id,
         quantity: i.quantity,
         ...(i.discount ? { discount: i.discount } : {}),
+        ...(i.reward ? { reward: i.reward } : {}),
       })),
       p_tenders: input.tenders.map((t) => ({
         method: t.method,

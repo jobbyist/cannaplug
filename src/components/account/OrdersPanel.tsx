@@ -15,15 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { rand } from "@/lib/cart";
-import { redeemPointsFn, reorderFn, reorderPreviewFn } from "@/lib/member.functions";
+import { reorderFn, reorderPreviewFn } from "@/lib/member.functions";
+import { ONLINE_REDEMPTION_NOTICE } from "@/lib/rewards-logic";
 import type { MemberAccount } from "@/lib/member-data.server";
-import {
-  maxRedeemablePoints,
-  pointsValueRand,
-  statusLabel,
-  summariseReorder,
-  type ReorderCheck,
-} from "@/lib/member-logic";
+import { statusLabel, summariseReorder, type ReorderCheck } from "@/lib/member-logic";
 import { useIdempotencyKey } from "./use-member-account";
 
 type Order = MemberAccount["orders"][number];
@@ -64,23 +59,7 @@ export function OrderTimeline({ order }: { order: Order }) {
   );
 }
 
-function RedeemPoints({
-  order,
-  account,
-  onDone,
-}: {
-  order: Order;
-  account: MemberAccount;
-  onDone: () => Promise<void>;
-}) {
-  const { loyalty } = account;
-  const subtotal = order.items.reduce((sum, i) => sum + Number(i.unit_price_rand) * i.quantity, 0);
-  const max = maxRedeemablePoints(subtotal, loyalty.balance, loyalty.rules);
-  const [points, setPoints] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const key = useIdempotencyKey();
-
+function RedeemPoints({ order, account }: { order: Order; account: MemberAccount }) {
   if (order.loyalty_points_redeemed > 0)
     return (
       <p className="mt-2 flex items-center gap-1.5 text-xs text-primary">
@@ -88,57 +67,15 @@ function RedeemPoints({
         {rand(Number(order.loyalty_discount_rand))} off
       </p>
     );
-  if (max === 0) return null;
-
-  const requested = Number.parseInt(points, 10);
-  const valid =
-    Number.isInteger(requested) && requested >= loyalty.rules.minRedeemPoints && requested <= max;
-
-  const apply = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await redeemPointsFn({ data: { orderId: order.id, points: requested, key: key.get() } });
-      key.reset();
-      setPoints("");
-      await onDone();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  // Free rewards start at 5 points. Online redemption is not open yet.
+  if (account.loyalty.balance < 5) return null;
   return (
-    <div className="mt-3 rounded-lg border border-dashed border-border p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-        <Sparkles size={13} className="text-primary" /> Use points on this order
-      </p>
-      <div className="flex items-center gap-2">
-        <Input
-          inputMode="numeric"
-          className="h-9 max-w-[8rem]"
-          placeholder={`${loyalty.rules.minRedeemPoints}–${max}`}
-          value={points}
-          onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))}
-          aria-label="Points to redeem"
-        />
-        <Button size="sm" disabled={!valid || busy} onClick={() => void apply()}>
-          {busy ? "Applying…" : "Apply"}
-        </Button>
-        <button
-          type="button"
-          className="text-xs font-semibold text-primary"
-          onClick={() => setPoints(String(max))}
-        >
-          Max
-        </button>
-      </div>
-      <p className="mt-1.5 text-[0.65rem] text-muted-foreground">
-        Up to {max} points ({rand(pointsValueRand(max, loyalty.rules))}). Applied once per order.
-      </p>
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
-    </div>
+    <p
+      data-testid="online-redemption-notice"
+      className="mt-3 flex items-start gap-1.5 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground"
+    >
+      <Sparkles size={13} className="mt-0.5 shrink-0 text-primary" /> {ONLINE_REDEMPTION_NOTICE}
+    </p>
   );
 }
 
@@ -375,7 +312,7 @@ export function OrdersPanel({
             </div>
 
             {order.status === "awaiting_payment" && (
-              <RedeemPoints order={order} account={account} onDone={reload} />
+              <RedeemPoints order={order} account={account} />
             )}
             {active && (
               <LinkPrescription

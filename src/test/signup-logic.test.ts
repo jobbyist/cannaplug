@@ -18,6 +18,7 @@ const good: SignupFields = {
   dob: "1990-01-01",
   idNumber: "AB123456",
   referral: "",
+  username: "rae_h",
 };
 
 describe("sign-up rules", () => {
@@ -29,6 +30,10 @@ describe("sign-up rules", () => {
     ["email", "nope"],
     ["phone", ""],
     ["idNumber", ""],
+    ["username", ""],
+    ["username", "ab"],
+    ["username", "has space"],
+    ["username", "admin"],
   ] as const)("requires %s", (key, value) => {
     expect(signupProblem({ ...good, [key]: value }, null)).not.toBeNull();
   });
@@ -55,17 +60,24 @@ describe("sign-up rules", () => {
     expect(phoneProblem("abc")).not.toBeNull();
     expect(referralProblem("")).toBeNull();
     expect(referralProblem("friend-1")).toBeNull();
+    expect(referralProblem("friend_1")).toBeNull(); // a username can contain an underscore
     expect(referralProblem("a!")).not.toBeNull();
   });
 
   it("builds metadata with a normalised ID and optional referral", () => {
-    const m = signupMetadata({ ...good, idNumber: "ab 123456", referral: " friend1 " });
+    const m = signupMetadata({
+      ...good,
+      idNumber: "ab 123456",
+      referral: " friend1 ",
+      username: " Rae_H ",
+    });
     expect(m).toMatchObject({
       full_name: "Rae Hearsal",
       first_name: "Rae",
       last_name: "Hearsal",
       id_number: "AB123456",
       referral_code: "FRIEND1",
+      username: "rae_h",
     });
     expect("referral_code" in signupMetadata(good)).toBe(false);
   });

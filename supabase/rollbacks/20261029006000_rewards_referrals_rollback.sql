@@ -1,4 +1,4 @@
--- Rollback for 20261029004000_rewards_referrals: puts back the previous functions, the old earning rate (R10 per point)
+-- Rollback for 20261029006000_rewards_referrals: puts back the previous functions, the old earning rate (R10 per point)
 -- and tier thresholds, and removes usernames, referrals and the rewards catalogue. Refused once any of it has been used
 -- (a reward redeemed, a referral recorded, a point conversion, or a username chosen): that data would be lost, and
 -- the points conversion cannot be undone. Revert the code and keep the migration instead.

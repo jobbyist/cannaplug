@@ -87,7 +87,7 @@ const FAQ_GROUPS: FaqGroup[] = [
       {
         question: "How does the CannaPlug Rewards programme work?",
         answer:
-          "You earn 1 point for every R10 spent. Points can be redeemed for products and exclusive drops — track your balance any time from your Account dashboard.",
+          "You earn 1 point for every R50 spent, online or in store. 5 points unlock a free Greenhouse pre-roll or bud and 10 points a free Indoor pre-roll or bud, redeemed in store (online redemption is coming soon). You also earn 1 point for every friend who signs up with your referral code and spends R50. Track your balance from your Account dashboard, and see the full details on our Rewards page.",
       },
       {
         question: "I forgot my password — what do I do?",

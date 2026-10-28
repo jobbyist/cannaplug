@@ -11,6 +11,7 @@ type Hit = {
   full_name: string | null;
   phone: string | null;
   email: string | null;
+  username?: string | null;
   is_staff: boolean;
   /** False when this staff member cannot be attached by the person at the till (the database decides). */
   can_attach?: boolean;
@@ -118,7 +119,9 @@ export function CustomerPicker({
                     </span>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">{h.phone ?? h.email ?? ""}</span>
+                <span className="text-xs text-muted-foreground">
+                  {h.username ? `@${h.username}` : (h.phone ?? h.email ?? "")}
+                </span>
               </button>
             </li>
           ))}

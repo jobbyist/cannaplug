@@ -1,4 +1,4 @@
--- Rollback for 20261029003000_loyalty_sources: restores the old constraints. Refused while any ledger row uses a new
+-- Rollback for 20261029005000_loyalty_sources: restores the old constraints. Refused while any ledger row uses a new
 -- source type, or a referral code contains an underscore (they would no longer pass).
 DO $$
 BEGIN
