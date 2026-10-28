@@ -1815,3 +1815,15 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
 - **Owner actions:** none.
 - **Rollback:** revert the PR.
+
+## 29 Oct 2026 — Generated usernames for verified members, with one change (feat/mvp-usernames)
+
+- **Owner request:** give every existing member with a verified account a generated username (their referral code and link), and let them customise it once. The owner also asked to mark the Refer-a-friend notice live as it stands.
+- **Generated names:** first name plus the first letter of the surname, lower case, letters and digits only (for example `thandin`), with two digits added if it is taken (four after many clashes); a name that is too short falls back to `member…`; reserved words are never handed out. Verified members and staff get one in the migration (`member_ensure_username` does the same the first time the rewards page loads for someone who verifies later). Unverified members get none until they choose one or verify.
+- **One change:** `profiles.username_auto` is true while the name is generated. The member can replace it, or keep it, once; after that it is final (the same rule as a name they chose themselves). The portal shows "We've generated the username … Keep it / Save". Links that used the old name stop working once it is changed.
+- **Migration:** `20261029007000_username_autogen` (mirror `drizzle/migrations/0061_username_autogen.sql`; rollback `supabase/rollbacks/20261029007000_username_autogen_rollback.sql` clears generated names nobody confirmed, keeps chosen ones, restores the previous functions; rehearsal `scripts/rollback-rehearsal-usernames.sh`). No DROP and no DELETE in the migration. `member_ensure_username` has no idempotency key because it only writes while the username is empty and audits when it does.
+- **Files:** `src/lib/rewards-data.server.ts`, `src/components/account/{UsernameForm,ReferralCard}.tsx`, `src/integrations/supabase/types.ts`.
+- **Tests:** `db/username-autogen` (9: generation, duplicates and reserved words, unverified vs staff, change once, keep, refusals, browser grants, mutation check), `referral-card` (change offered once, none when final). Also fixed `db/admin-overview`, which failed on the day before a bill was due because the bill reminder text does not match the "counts only" pattern meant for member alerts.
+- **Notice:** the "Refer-a-friend program" team notice already carried a scheduled change to "Refer-a-friend program is now live!" at 12 AM SAST on 29 Oct, which has passed, so no edit was needed.
+- **Owner notes:** (1) generated names come from real names, so they are visible to the person they refer; members can change them once; (2) there is still no admin tool to change a username.
+- **Rollback:** run the rollback SQL, then revert the PR.
