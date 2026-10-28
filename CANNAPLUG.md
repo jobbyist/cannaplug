@@ -1789,6 +1789,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Not changed:** the homepage tiles and the sitemap still link to `/shop?category=X`, which works as before. The product CSV has no subcategory column yet, so subcategories for other categories are set by editing a product.
 - **Rollback:** run the rollback SQL, then revert the PR.
 
+## 29 Oct 2026 — Header search opens the shop search (feat/mvp-shop-search)
+
+- **Purpose:** the header's search box did nothing. It now submits to `/shop?q=<text>`, so the shop's own search (name, category, subcategory and description, kept in the address) takes over. The shop search now also matches strain type (for example "sativa").
+- **Files:** `src/components/CannaPlugHome.tsx`, `src/lib/shop-filter.ts`, `src/test/shop-filter.test.ts`.
+- **Migrations:** none. **Tests:** `shop-filter` (strain match added); full unit suite.
+- **Owner actions:** none. The subcategory options were left as set up in the other session.
+
 ## 28 Oct 2026 — Events & Promotions (claude/keen-goodall-imvyxl)
 
 - **Purpose:** the homepage Events section is now **Events & Promotions** and shows three posters: Propaganda: 25K The Plug x CannaPlug (past event, 26 Sep 2026, free ticket for R300 spent in store), the Weekend Special (Friday to Sunday, indoor bud and pre-rolls R70) and Halloweed: Trick or Treat (30% off all edibles, 25 to 31 Oct 2026). A dedicated `/events` page lists the same three. The RSVP / View event links are gone. Posters are shown at their natural aspect ratio, so they are never cropped.

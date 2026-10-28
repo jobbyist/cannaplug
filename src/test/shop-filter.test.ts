@@ -149,6 +149,8 @@ describe("which products match", () => {
       "Runtz Stick (Top Shelf)",
     ]);
     expect(names(filterProducts(PRODUCTS, { q: "sweets" }))).toEqual(["Gummy Bears"]);
+    const withStrain = [p({ name: "Plain Name", category: "Flower", strain_type: "Sativa" })];
+    expect(names(filterProducts(withStrain, { q: "sativa" }))).toEqual(["Plain Name"]);
     expect(names(filterProducts(PRODUCTS, { q: "top shelf" }))).toEqual([
       "Zaza (Top Shelf)",
       "Runtz Stick (Top Shelf)",
