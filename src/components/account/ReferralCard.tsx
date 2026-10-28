@@ -78,6 +78,21 @@ export function ReferralCard({
         </div>
       )}
 
+      {username && summary.username_change === "needs_id" && (
+        <p className="mb-3 text-xs text-muted-foreground" data-testid="username-change-locked">
+          Your username <span className="font-mono">{username}</span> came with your membership.
+          Submit your ID for verification and you can change it once.
+        </p>
+      )}
+      {username && summary.username_change === "available" && (
+        <div
+          className="mb-4 rounded-lg border border-dashed border-border p-4"
+          data-testid="username-change"
+        >
+          <UsernameForm mode="change" onSaved={onChanged} />
+        </div>
+      )}
+
       {username && canRefer && (
         <div className="grid gap-3">
           <div className="grid gap-1">

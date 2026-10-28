@@ -57,7 +57,7 @@ export function phoneProblem(raw: string): string | null {
 export function referralProblem(raw: string): string | null {
   const code = raw.trim();
   if (!code) return null;
-  return /^[A-Za-z0-9_-]{3,32}$/.test(code)
+  return /^[A-Za-z0-9_.-]{3,32}$/.test(code)
     ? null
     : "A referral code is a member's username: 3 to 32 letters, numbers or underscores.";
 }
@@ -83,7 +83,7 @@ export function signupProblem(f: SignupFields, dobIssue: string | null): string 
     phoneProblem(f.phone) ??
     dobIssue ??
     idNumberProblem(f.idNumber, f.dob) ??
-    usernameProblem(f.username) ??
+    usernameProblem(f.username, { allowImported: true }) ??
     referralProblem(f.referral)
   );
 }

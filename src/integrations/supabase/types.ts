@@ -3535,6 +3535,19 @@ export type Database = {
       };
       checkout_quote: { Args: { p_delivery_method: string; p_items: Json }; Returns: Json };
       username_check: { Args: { p_username: string }; Returns: string };
+      username_check_signup: { Args: { p_email: string; p_username: string }; Returns: string };
+      member_username_change_state: { Args: { p_user_id: string }; Returns: string };
+      import_customers: {
+        Args: {
+          p_actor: string;
+          p_batch: string;
+          p_file_sha256: string;
+          p_idempotency_key: string;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
+      import_invites_run: { Args: { p_limit?: number; p_now?: string }; Returns: Json };
       referral_code_check: { Args: { p_code: string }; Returns: Json };
       member_set_username: {
         Args: { p_idempotency_key: string; p_user_id: string; p_username: string };

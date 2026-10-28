@@ -13,6 +13,7 @@ import type { RewardsSummary } from "@/lib/rewards-data.server";
 
 const base: RewardsSummary = {
   username: "thandi",
+  username_change: "none",
   can_refer: true,
   referral_points: 1,
   referral_min_spend: 50,

@@ -4,8 +4,22 @@
  * presentation or an early, friendly version of a check the database repeats.
  */
 
-export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected" | "expired";
-const STATUSES: VerificationStatus[] = ["unverified", "pending", "verified", "rejected", "expired"];
+export type VerificationStatus =
+  | "unverified"
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "expired"
+  /** Imported from the previous platform, where the member already submitted their ID: in-store only until they verify here. */
+  | "provisional";
+const STATUSES: VerificationStatus[] = [
+  "unverified",
+  "pending",
+  "verified",
+  "rejected",
+  "expired",
+  "provisional",
+];
 export type DocumentType = "sa_id" | "passport" | "drivers_licence";
 export type RejectionCode =
   "unreadable" | "expired_document" | "name_mismatch" | "dob_mismatch" | "underage" | "other";
@@ -248,7 +262,11 @@ export function verificationView(row: VerificationRow | null | undefined): Verif
     ? (row!.status as VerificationStatus)
     : "unverified";
   const attemptsLeft = Math.max(0, ID_MAX_ATTEMPTS - (row?.attempt_count ?? 0));
-  const open = status === "unverified" || status === "rejected" || status === "expired";
+  const open =
+    status === "unverified" ||
+    status === "rejected" ||
+    status === "expired" ||
+    status === "provisional";
   const base = { status, canOrder: status === "verified", attemptsLeft };
   // A verified member whose passport / driver's licence has expired cannot order (the database enforces
   // it at the gate); show them that, and let them upload a current document.
@@ -276,6 +294,16 @@ export function verificationView(row: VerificationRow | null | undefined): Verif
           ? `You can place orders. Valid until ${row.document_expires_on}.`
           : "You can place orders.",
         canSubmit: false,
+      };
+    case "provisional":
+      return {
+        ...base,
+        label: "Provisionally approved",
+        tone: "warning",
+        headline: "You're provisionally approved",
+        detail:
+          "You submitted your ID on our previous system, so you can shop in store. To use the online store, upload your ID or passport here for review.",
+        canSubmit: attemptsLeft > 0,
       };
     case "pending":
       return {

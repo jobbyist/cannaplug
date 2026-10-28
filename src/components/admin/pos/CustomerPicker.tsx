@@ -12,6 +12,7 @@ type Hit = {
   phone: string | null;
   email: string | null;
   username?: string | null;
+  id_status?: string | null;
   is_staff: boolean;
   /** False when this staff member cannot be attached by the person at the till (the database decides). */
   can_attach?: boolean;
@@ -112,6 +113,11 @@ export function CustomerPicker({
                   <span className="flex items-center gap-2 font-medium">
                     {h.full_name ?? "Unnamed"}
                     {h.is_staff && <StaffBadge />}
+                    {h.id_status === "provisional" && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase text-amber-700">
+                        ID provisionally approved
+                      </span>
+                    )}
                   </span>
                   {h.can_attach === false && h.blocked_reason && (
                     <span className="text-[0.65rem] font-normal text-muted-foreground">

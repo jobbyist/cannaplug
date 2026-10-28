@@ -7,8 +7,17 @@ import { normaliseUsername } from "@/lib/rewards-logic";
 import { useIdempotencyKey } from "./use-member-account";
 import { useUsernameCheck } from "./use-username-check";
 
-/** Choose a username (once). It is the member's unique name and their referral code. */
-export function UsernameForm({ onSaved }: { onSaved: () => Promise<void> | void }) {
+/**
+ * Choose a username (once). It is the member's unique name and their referral code. An imported member already has
+ * the username from the previous platform and may change it once (`mode="change"`), after submitting their ID.
+ */
+export function UsernameForm({
+  onSaved,
+  mode = "choose",
+}: {
+  onSaved: () => Promise<void> | void;
+  mode?: "choose" | "change";
+}) {
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +46,9 @@ export function UsernameForm({ onSaved }: { onSaved: () => Promise<void> | void 
         if (check.state === "ok") void save();
       }}
     >
-      <Label htmlFor="member-username">Choose your username</Label>
+      <Label htmlFor="member-username">
+        {mode === "change" ? "Change your username (one time only)" : "Choose your username"}
+      </Label>
       <div className="flex gap-2">
         <Input
           id="member-username"
@@ -50,7 +61,7 @@ export function UsernameForm({ onSaved }: { onSaved: () => Promise<void> | void 
           onChange={(e) => setValue(e.target.value.replace(/\s/g, ""))}
         />
         <Button type="submit" disabled={busy || check.state !== "ok"}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : mode === "change" ? "Change" : "Save"}
         </Button>
       </div>
       <p
@@ -68,7 +79,9 @@ export function UsernameForm({ onSaved }: { onSaved: () => Promise<void> | void 
         {check.state === "checking"
           ? "Checking…"
           : check.state === "idle"
-            ? "3 to 20 letters, numbers or underscores. It becomes your referral code, so it can't be changed later."
+            ? mode === "change"
+              ? "3 to 20 letters, numbers or underscores. You can only do this once, and it becomes your referral code."
+              : "3 to 20 letters, numbers or underscores. It becomes your referral code, so it can't be changed later."
             : check.message}
       </p>
       {error && (

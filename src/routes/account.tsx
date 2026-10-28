@@ -96,12 +96,12 @@ function AuthPanel() {
     typeof window !== "undefined" ? referralFromSearch(window.location.search) : "",
   );
   const [username, setUsername] = useState("");
-  const usernameCheck = useUsernameCheck(mode === "signup" ? username : "");
+  const usernameCheck = useUsernameCheck(mode === "signup" ? username : "", { email });
   const [referralNote, setReferralNote] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
     const code = referral.trim();
     if (mode !== "signup" || !code) return setReferralNote(null);
-    if (!/^[A-Za-z0-9_-]{3,32}$/.test(code))
+    if (!/^[A-Za-z0-9_.-]{3,32}$/.test(code))
       return setReferralNote({ ok: false, text: "A referral code is a member's username." });
     let alive = true;
     const t = setTimeout(() => {
@@ -154,7 +154,7 @@ function AuthPanel() {
         const issue = signupProblem(fields, dobProblem(dob));
         if (issue) throw new Error(issue);
         // The username must be free, and a referral code must be one we know (typos would lose the referral).
-        const { status } = await checkUsernameFn({ data: { username } });
+        const { status } = await checkUsernameFn({ data: { username, email } });
         if (status !== "ok")
           throw new Error(
             status === "taken"
@@ -290,7 +290,7 @@ function AuthPanel() {
                         autoComplete="username"
                         autoCapitalize="none"
                         spellCheck={false}
-                        maxLength={20}
+                        maxLength={32}
                         value={username}
                         onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
                         required
