@@ -11,6 +11,8 @@ vi.mock("@/integrations/supabase/client", () => {
   };
   return { supabase: { channel: () => channel, removeChannel: async () => {} } };
 });
+const files = vi.hoisted(() => ({ downloadReport: vi.fn(async () => {}) }));
+vi.mock("@/lib/sales-report-files", () => files);
 vi.mock("@/lib/sales-report.functions", () => ({
   getSalesReportFn: vi.fn(),
   emailSalesReportFn: vi.fn(),
@@ -118,6 +120,79 @@ describe("Reports tab", () => {
     await user.click(screen.getByRole("button", { name: /Email to managers/ }));
     await waitFor(() => expect(email).toHaveBeenCalled());
     expect(await screen.findByText(/to 3 managers and admins/)).toBeTruthy();
+  });
+
+  it("shows discounts, till expenses, deposits and each cash-up, and downloads PDF, Word and Excel", async () => {
+    const user = userEvent.setup();
+    const r = report({
+      pos: { ...report().pos, before_discounts: 450, discounts: 50, discounted_count: 2 },
+      till: {
+        sessions_closed: 1,
+        opening_floats: 500,
+        cash_sales: 300,
+        cash_refunds: 0,
+        expenses: 1736,
+        expected: -936,
+        counted: 0,
+        variance: 936,
+        deposited: 0,
+        float_carried: 0,
+        variances_pending: 1,
+        expenses_recorded: 1736,
+      },
+      till_sessions: [
+        {
+          drawer: "Front till",
+          cashier: "Aidan",
+          opened_at: "2026-10-27T07:00:00Z",
+          closed_at: "2026-10-27T17:00:00Z",
+          opening_float: 500,
+          cash_sales: 300,
+          cash_refunds: 0,
+          expenses: 1736,
+          discounts: 50,
+          expected: -936,
+          counted: 0,
+          variance: 936,
+          deposited: 0,
+          float_carried: 0,
+          approval: "pending",
+          approval_note: null,
+          close_note: null,
+        },
+      ],
+      expenses: [
+        {
+          at: "2026-10-27T09:00:00Z",
+          category: "supplies",
+          description: "Shop supplies",
+          amount: 1736,
+          by: "Aidan",
+        },
+      ],
+    });
+    render(<SalesReportsPanel canEmail load={vi.fn(async () => r)} />);
+    expect(await screen.findByText("Till discounts")).toBeTruthy();
+    expect(screen.getByText("Till cash-up")).toBeTruthy();
+    expect(screen.getByText("Front till")).toBeTruthy();
+    expect(screen.getByText(/Shop supplies/)).toBeTruthy();
+    expect(screen.getByLabelText("Till cash-up totals").textContent).toMatch(
+      /Deposited to the bank/,
+    );
+    for (const [name, fmt, ext] of [
+      ["PDF", "pdf", "pdf"],
+      ["Word", "docx", "docx"],
+      ["Excel", "xlsx", "xlsx"],
+    ] as const) {
+      await user.click(screen.getByRole("button", { name: new RegExp(`^${name}$`) }));
+      await waitFor(() =>
+        expect(files.downloadReport).toHaveBeenCalledWith(
+          r,
+          fmt,
+          `cannaplug-sales-2026-10-27.${ext}`,
+        ),
+      );
+    }
   });
 
   it("budtenders cannot email the report", async () => {

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Download, Mail, RefreshCw } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, FileType2, Mail, RefreshCw } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -38,6 +38,7 @@ import {
   sastDay,
   type RangeKey,
 } from "@/lib/sales-report-logic";
+import { reportFileName } from "@/lib/sales-report-export";
 import { SalesFeed } from "./LiveSales";
 import { useSalesReport, type ReportLoader } from "./useSalesReport";
 
@@ -166,6 +167,20 @@ export function SalesReportsPanel({
       : "—";
   }, [r]);
 
+  const [exporting, setExporting] = useState<string | null>(null);
+  const exportAs = async (format: "pdf" | "docx" | "xlsx") => {
+    if (!r || exporting) return;
+    setExporting(format);
+    setNote(null);
+    try {
+      const { downloadReport } = await import("@/lib/sales-report-files");
+      await downloadReport(r, format, reportFileName(r, format));
+    } catch {
+      setNote("Could not create that file. Please try again or use another format.");
+    } finally {
+      setExporting(null);
+    }
+  };
   const download = () => {
     if (!r) return;
     const blob = new Blob([salesReportCsv(r)], { type: "text/csv" });
@@ -238,9 +253,35 @@ export function SalesReportsPanel({
           <Button variant="outline" size="sm" onClick={() => void refresh()}>
             <RefreshCw size={14} /> Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={download} disabled={!r}>
-            <Download size={14} /> CSV
-          </Button>
+          <div role="group" aria-label="Download report" className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportAs("pdf")}
+              disabled={!r || !!exporting}
+            >
+              <FileText size={14} /> {exporting === "pdf" ? "Making PDF…" : "PDF"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportAs("docx")}
+              disabled={!r || !!exporting}
+            >
+              <FileType2 size={14} /> {exporting === "docx" ? "Making Word…" : "Word"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportAs("xlsx")}
+              disabled={!r || !!exporting}
+            >
+              <FileSpreadsheet size={14} /> {exporting === "xlsx" ? "Making Excel…" : "Excel"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={download} disabled={!r}>
+              <Download size={14} /> CSV
+            </Button>
+          </div>
           {canEmail && singleDay && (
             <Button size="sm" onClick={() => void sendEmail()} disabled={sending || !r}>
               <Mail size={14} /> Email to managers
@@ -291,6 +332,34 @@ export function SalesReportsPanel({
               value={rand(n(r.online.awaiting_total))}
               hint={`${r.online.awaiting_count} awaiting · ${r.online.cancelled_count} cancelled`}
             />
+            {r.pos.discounts != null && (
+              <Stat
+                label="Till discounts"
+                value={rand(n(r.pos.discounts))}
+                hint={`${r.pos.discounted_count ?? 0} discounted sales · before discounts ${rand(n(r.pos.before_discounts))}`}
+              />
+            )}
+            {r.till && (
+              <Stat
+                label="Till expenses"
+                value={rand(n(r.till.expenses_recorded))}
+                hint={`${r.expenses?.length ?? 0} paid from the till`}
+              />
+            )}
+            {r.till && (
+              <Stat
+                label="Cash deposited"
+                value={rand(n(r.till.deposited))}
+                hint={`Float carried ${rand(n(r.till.float_carried))}`}
+              />
+            )}
+            {r.till && (
+              <Stat
+                label="Cash variance"
+                value={rand(n(r.till.variance))}
+                hint={`${r.till.sessions_closed} tills closed · ${r.till.variances_pending} awaiting approval`}
+              />
+            )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -399,12 +468,130 @@ export function SalesReportsPanel({
                 </ul>
               )}
             </Card>
+            {r.till && (
+              <Card title="Till cash-up" className="lg:col-span-2">
+                <TillCashupSection report={r} />
+              </Card>
+            )}
             <Card title="Latest transactions" className="lg:col-span-2">
               <SalesFeed report={r} />
             </Card>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Closed tills in the period, reconciled line by line, and the expenses paid from them. */
+function TillCashupSection({
+  report: r,
+}: {
+  report: import("@/lib/sales-report-logic").SalesReport;
+}) {
+  const t = r.till!;
+  const lines: [string, number, boolean?][] = [
+    ["Opening floats", n(t.opening_floats)],
+    ["+ Cash taken from sales (after discounts)", n(t.cash_sales)],
+    ["− Cash refunds", n(t.cash_refunds)],
+    ["− Till expenses", n(t.expenses)],
+    ["= Expected cash", n(t.expected), true],
+    ["Counted cash", n(t.counted)],
+    ["Variance", n(t.variance), true],
+    ["Deposited to the bank", n(t.deposited)],
+    ["Float carried forward", n(t.float_carried), true],
+  ];
+  return (
+    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      <dl className="grid gap-1 text-xs" aria-label="Till cash-up totals">
+        {lines.map(([label, v, strong]) => (
+          <div
+            key={label}
+            className={
+              "flex justify-between " + (strong ? "border-t border-border pt-1 font-bold" : "")
+            }
+          >
+            <dt className={strong ? "" : "text-muted-foreground"}>{label}</dt>
+            <dd className={label === "Variance" && v !== 0 ? "text-destructive" : ""}>{rand(v)}</dd>
+          </div>
+        ))}
+        <p className="mt-1 text-[0.65rem] text-muted-foreground">
+          Discounts are already off the sales. Expenses are recorded at the till as they happen.
+        </p>
+      </dl>
+      <div className="grid gap-4 overflow-x-auto">
+        {(r.till_sessions ?? []).length === 0 ? (
+          <p className="text-xs text-muted-foreground">No tills were closed in this period.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Till</TableHead>
+                <TableHead className="text-right">Float</TableHead>
+                <TableHead className="text-right">Cash sales</TableHead>
+                <TableHead className="text-right">Expenses</TableHead>
+                <TableHead className="text-right">Discounts</TableHead>
+                <TableHead className="text-right">Expected</TableHead>
+                <TableHead className="text-right">Counted</TableHead>
+                <TableHead className="text-right">Variance</TableHead>
+                <TableHead className="text-right">Deposited</TableHead>
+                <TableHead>Approval</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(r.till_sessions ?? []).map((s) => (
+                <TableRow key={`${s.drawer}-${s.closed_at}`}>
+                  <TableCell>
+                    <b>{s.drawer}</b>
+                    <br />
+                    <span className="text-muted-foreground">{s.cashier}</span>
+                  </TableCell>
+                  <TableCell className="text-right">{rand(n(s.opening_float))}</TableCell>
+                  <TableCell className="text-right">{rand(n(s.cash_sales))}</TableCell>
+                  <TableCell className="text-right">{rand(n(s.expenses))}</TableCell>
+                  <TableCell className="text-right">{rand(n(s.discounts))}</TableCell>
+                  <TableCell className="text-right">{rand(n(s.expected))}</TableCell>
+                  <TableCell className="text-right">{rand(n(s.counted))}</TableCell>
+                  <TableCell
+                    className={
+                      "text-right font-semibold " + (n(s.variance) !== 0 ? "text-destructive" : "")
+                    }
+                  >
+                    {rand(n(s.variance))}
+                  </TableCell>
+                  <TableCell className="text-right">{rand(n(s.deposited))}</TableCell>
+                  <TableCell>
+                    {s.approval.replace("_", " ")}
+                    {s.approval_note && (
+                      <span className="block text-[0.65rem] text-muted-foreground">
+                        {s.approval_note}
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        {(r.expenses ?? []).length > 0 && (
+          <div>
+            <p className="mb-1 text-[0.65rem] font-bold uppercase text-muted-foreground">
+              Till expenses
+            </p>
+            <ul className="divide-y divide-border text-xs">
+              {(r.expenses ?? []).map((e, i) => (
+                <li key={`${e.at}-${i}`} className="flex justify-between gap-3 py-1.5">
+                  <span>
+                    <b className="capitalize">{e.category}</b> · {e.description}{" "}
+                    <span className="text-muted-foreground">({e.by})</span>
+                  </span>
+                  <b>{rand(n(e.amount))}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

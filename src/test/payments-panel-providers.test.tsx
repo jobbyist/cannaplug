@@ -11,6 +11,9 @@ vi.mock("@/lib/payments.functions", () => ({
   updateFxSettingsFn: vi.fn(),
 }));
 vi.mock("@/components/admin/EftDetailsCard", () => ({ EftDetailsCard: () => null }));
+vi.mock("@/components/admin/PayfastAccountCard", () => ({
+  PayfastAccountCard: () => <div data-testid="payfast-account" />,
+}));
 
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 
@@ -43,6 +46,7 @@ describe("Payments tab", () => {
     ]);
     expect(screen.getByText("live")).toBeTruthy();
     expect(screen.getByText("Paid on PayFast's own page")).toBeTruthy();
+    expect(screen.getByTestId("payfast-account")).toBeTruthy();
   });
 
   it("in onsite mode lists only what PayFast's window takes, and shows configuration problems", async () => {
