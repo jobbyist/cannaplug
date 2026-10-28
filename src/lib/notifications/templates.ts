@@ -697,6 +697,50 @@ export const TEMPLATES: Record<string, Template> = {
       footerNote: CLINICAL_NOTE,
     }),
   }),
+  // Billing: an admin or manager paused, cancelled or resumed a service. Names and statuses only.
+  staff_billing_change: (d, c) => ({
+    subject: `Billing: ${String(d["account"] ?? "service")} is now ${String(d["to"] ?? "changed")}`,
+    html: layout({
+      preheader: "Please action this with the provider.",
+      title: "Billing account changed",
+      bodyHtml:
+        p(
+          `${esc(d["actor_name"] ?? "A staff member")} changed a recurring billing account in Cannaplug. Cannaplug can't change anything at the provider, so please action it there.`,
+        ) +
+        kv([
+          ["Service", esc(d["account"] ?? "")],
+          ["Provider", esc(d["provider"] ?? "")],
+          ["Status", `${esc(d["from"] ?? "")} → ${esc(d["to"] ?? "")}`],
+          ...(d["reason"] ? ([["Reason", esc(d["reason"])]] as [string, string][]) : []),
+        ]),
+      cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
+    }),
+  }),
+  // Billing: a Payfast payment for a service was confirmed.
+  staff_billing_payment: (d, c) => ({
+    subject: `Billing payment received: ${String(d["account"] ?? "service")}`,
+    html: layout({
+      preheader: "Payfast confirmed a service payment.",
+      title: "Billing payment confirmed",
+      bodyHtml:
+        p("Payfast confirmed a payment for a Cannaplug service.") +
+        kv([
+          ["Service", esc(d["account"] ?? "")],
+          ["Provider", esc(d["provider"] ?? "")],
+          [
+            "Amount",
+            esc(
+              d["amount_cents"] == null
+                ? ""
+                : d["currency"] === "USD"
+                  ? `$${(Number(d["amount_cents"]) / 100).toFixed(2)}`
+                  : rand(Number(d["amount_cents"]) / 100),
+            ),
+          ],
+        ]),
+      cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
+    }),
+  }),
   staff_prescription_revoked: (d, c) => ({
     subject: `Check order ${String(d["order_number"] ?? "")} before packing`.trim(),
     html: layout({

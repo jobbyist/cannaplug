@@ -25,6 +25,7 @@ const PRIVATE_PREFIXES = [
   "/verify",
   "/unsubscribe",
   "/subscribe",
+  "/billing",
   "/api/",
   "/_serverFn",
   "/_server",

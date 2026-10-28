@@ -190,7 +190,8 @@ async function handle(req: Request): Promise<Response> {
             user_action: "SUBSCRIBE_NOW",
             shipping_preference: "NO_SHIPPING",
             return_url: `${origin}/subscribe/admin-api?interval=${interval}`,
-            cancel_url: `${origin}/subscribe/admin-api?cancelled=1`,
+            // PayPal appends subscription_id to the return URL; that page then sends the admin on to /admin#billing.
+            cancel_url: `${origin}/admin?paypal=cancelled#billing`,
           },
         }),
       });
@@ -233,6 +234,33 @@ async function handle(req: Request): Promise<Response> {
       if (error) {
         console.error("[paypal-subscription] db", error.message);
         return json({ error: "Could not record subscription" }, 500);
+      }
+      // Log the payments PayPal has already taken (the first charge happens on approval) into the Billing tab's
+      // history. Renewals arrive through the PayPal webhook. Each sale is logged once per PayPal sale id.
+      try {
+        const start = new Date(
+          sub.start_time ?? sub.create_time ?? Date.now() - 86_400_000,
+        ).toISOString();
+        const end = new Date(Date.now() + 86_400_000).toISOString();
+        const tx = await paypal(
+          token,
+          `/v1/billing/subscriptions/${id}/transactions?start_time=${encodeURIComponent(start)}&end_time=${encodeURIComponent(end)}`,
+        );
+        for (const t of tx.transactions ?? []) {
+          const gross = t.amount_with_breakdown?.gross_amount;
+          if (t.status !== "COMPLETED" || typeof t.id !== "string" || !gross) continue;
+          const { error: payErr } = await supabase.rpc("billing_paypal_sale", {
+            p_event: "COMPLETED",
+            p_subscription_id: sub.id,
+            p_payment_id: t.id,
+            p_sale_id: t.id,
+            p_amount_cents: Math.round(Number(gross.value) * 100),
+            p_currency: gross.currency_code,
+          });
+          if (payErr) console.error("[paypal-subscription] billing history", payErr.message);
+        }
+      } catch (e) {
+        console.error("[paypal-subscription] transactions", e);
       }
       return json({ status: sub.status, interval });
     }

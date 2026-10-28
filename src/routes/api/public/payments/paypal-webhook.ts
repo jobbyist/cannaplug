@@ -17,6 +17,11 @@ export const Route = createFileRoute("/api/public/payments/paypal-webhook")({
         const raw = await request.text();
         const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
         try {
+          // The Shopify subscription (Billing tab) sends sale and subscription events to this same URL.
+          const { processPayPalSubscriptionEvent } =
+            await import("@/lib/billing/paypal-subscription.server");
+          const billing = await processPayPalSubscriptionEvent(raw, request.headers);
+          if (billing) return new Response(billing.body, { status: billing.status });
           const r = await handleWebhook(
             paymentsDeps(new URL(request.url).origin),
             "paypal",

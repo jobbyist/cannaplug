@@ -69,6 +69,113 @@ export type Database = {
           },
         ];
       };
+      billing_accounts: {
+        Row: {
+          amount_text: string;
+          beneficiary: string;
+          id: string;
+          name: string;
+          payment_kind: string;
+          payment_note: string;
+          payment_url: string | null;
+          position: number;
+          provider: string;
+          schedule_text: string;
+          slug: string;
+          status: string;
+          status_reason: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          recur_kind: string | null;
+          recur_n: number | null;
+          anchor_date: string | null;
+        };
+        Insert: {
+          recur_kind?: string | null;
+          recur_n?: number | null;
+          anchor_date?: string | null;
+          amount_text?: string;
+          beneficiary?: string;
+          id?: string;
+          name: string;
+          payment_kind?: string;
+          payment_note?: string;
+          payment_url?: string | null;
+          position?: number;
+          provider: string;
+          schedule_text?: string;
+          slug: string;
+          status?: string;
+          status_reason?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          recur_kind?: string | null;
+          recur_n?: number | null;
+          anchor_date?: string | null;
+          amount_text?: string;
+          beneficiary?: string;
+          id?: string;
+          name?: string;
+          payment_kind?: string;
+          payment_note?: string;
+          payment_url?: string | null;
+          position?: number;
+          provider?: string;
+          schedule_text?: string;
+          slug?: string;
+          status?: string;
+          status_reason?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      billing_payments: {
+        Row: {
+          account_id: string;
+          amount_cents: number | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          item_name: string | null;
+          provider: string;
+          provider_payment_id: string;
+          status: string;
+        };
+        Insert: {
+          account_id: string;
+          amount_cents?: number | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          item_name?: string | null;
+          provider?: string;
+          provider_payment_id: string;
+          status: string;
+        };
+        Update: {
+          account_id?: string;
+          amount_cents?: number | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          item_name?: string | null;
+          provider?: string;
+          provider_payment_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "billing_payments_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "billing_accounts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       team_notifications: {
         Row: {
           body: string;
@@ -3488,6 +3595,47 @@ export type Database = {
       };
       team_alerts_refresh: { Args: Record<PropertyKey, never>; Returns: number };
       staff_directory: { Args: { p_actor: string }; Returns: Json };
+      billing_paypal_sale: {
+        Args: {
+          p_event: string;
+          p_subscription_id: string;
+          p_payment_id: string;
+          p_sale_id: string;
+          p_amount_cents: number | null;
+          p_currency: string;
+        };
+        Returns: Json;
+      };
+      billing_paypal_subscription_event: {
+        Args: { p_subscription_id: string; p_event: string; p_event_id: string };
+        Returns: Json;
+      };
+      billing_set_status: {
+        Args: {
+          p_actor: string;
+          p_slug: string;
+          p_status: string;
+          p_reason: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      billing_set_payment_link: {
+        Args: { p_actor: string; p_slug: string; p_url: string | null; p_idempotency_key: string };
+        Returns: Json;
+      };
+      billing_record_payment: {
+        Args: {
+          p_slug: string;
+          p_provider: string;
+          p_provider_payment_id: string;
+          p_status: string;
+          p_amount_cents: number | null;
+          p_currency: string;
+          p_item_name: string | null;
+        };
+        Returns: Json;
+      };
       staff_find_member: { Args: { p_actor: string; p_email: string }; Returns: Json };
       staff_set_role: {
         Args: { p_actor: string; p_target: string; p_role: string; p_idempotency_key: string };

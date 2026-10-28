@@ -131,7 +131,13 @@ function AdminApiLanding() {
         if (!live) return;
         if (err || !data?.status)
           setError("We couldn't confirm your subscription yet. Please contact us.");
-        else setConfirmed(data.status as string);
+        else {
+          setConfirmed(data.status as string);
+          // Send the admin back to the Billing tab; the payment appears in the billing history once PayPal confirms.
+          window.setTimeout(() => {
+            if (live) window.location.assign("/admin?paypal=pending#billing");
+          }, 2500);
+        }
       });
     return () => {
       live = false;
