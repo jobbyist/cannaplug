@@ -19,6 +19,8 @@ export const TAB_MIN_ROLE: Record<string, StaffRole> = {
   newsroom: "manager",
   reports: "manager",
   settings: "manager",
+  staff: "manager",
+  notifications: "manager",
   clinical: "admin",
 };
 

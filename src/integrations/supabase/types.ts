@@ -55,6 +55,74 @@ export type Database = {
           },
         ];
       };
+      team_notification_reads: {
+        Row: { notification_id: string; read_at: string; user_id: string };
+        Insert: { notification_id: string; read_at?: string; user_id: string };
+        Update: { notification_id?: string; read_at?: string; user_id?: string };
+        Relationships: [
+          {
+            foreignKeyName: "team_notification_reads_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "team_notifications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      team_notifications: {
+        Row: {
+          body: string;
+          change_at: string | null;
+          change_body: string | null;
+          change_title: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          kind: string;
+          min_role: string;
+          pinned: boolean;
+          published_at: string | null;
+          status: string;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          body: string;
+          change_at?: string | null;
+          change_body?: string | null;
+          change_title?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          kind?: string;
+          min_role?: string;
+          pinned?: boolean;
+          published_at?: string | null;
+          status?: string;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          body?: string;
+          change_at?: string | null;
+          change_body?: string | null;
+          change_title?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          kind?: string;
+          min_role?: string;
+          pinned?: boolean;
+          published_at?: string | null;
+          status?: string;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       article_likes: {
         Row: {
           article_id: string;
@@ -3367,6 +3435,30 @@ export type Database = {
         Args: { p_actor: string; p_comment_id: string; p_reason: string };
         Returns: Json;
       };
+      staff_directory: { Args: { p_actor: string }; Returns: Json };
+      staff_find_member: { Args: { p_actor: string; p_email: string }; Returns: Json };
+      staff_set_role: {
+        Args: { p_actor: string; p_target: string; p_role: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      team_notification_save: {
+        Args: {
+          p_actor: string;
+          p_id: string | null;
+          p_title: string;
+          p_body: string;
+          p_kind: string;
+          p_min_role: string;
+          p_status: string;
+          p_pinned: boolean;
+          p_change_at: string | null;
+          p_change_title: string | null;
+          p_change_body: string | null;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      team_notification_mark_read: { Args: { p_actor: string; p_ids: string[] }; Returns: number };
       article_set_like: {
         Args: { p_actor: string; p_article_id: string; p_liked: boolean };
         Returns: Json;

@@ -4,7 +4,6 @@ import { ROLE_LABEL, atLeast, canSee, type StaffRole } from "@/lib/admin-nav";
 import {
   type LucideIcon,
   AlertTriangle,
-  Bell,
   Boxes,
   Calendar,
   CircleUserRound,
@@ -23,6 +22,7 @@ import {
   Stethoscope,
   Store,
   Truck,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -66,6 +66,10 @@ import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
 import { LiveSales } from "@/components/admin/reports/LiveSales";
 import { NewsroomPanel } from "@/components/admin/NewsroomPanel";
+import { NotificationsBell } from "@/components/admin/NotificationsBell";
+import { NotificationsPanel } from "@/components/admin/NotificationsPanel";
+import { StaffPanel } from "@/components/admin/StaffPanel";
+import { useTeamNotifications } from "@/hooks/useTeamNotifications";
 import { SalesReportsPanel } from "@/components/admin/reports/SalesReportsPanel";
 import {
   notifyAdminTabs,
@@ -109,6 +113,8 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "events", icon: Calendar, label: "Events" },
   { id: "newsroom", icon: Newspaper, label: "Newsroom" },
   { id: "reports", icon: Wallet, label: "Reports" },
+  { id: "staff", icon: UserCog, label: "Staff" },
+  { id: "notifications", icon: Megaphone, label: "Notifications" },
   { id: "settings", icon: Cog, label: "Settings" },
 ];
 
@@ -123,6 +129,8 @@ const TAB_KEYWORDS: Record<string, string> = {
   deliveries: "driver delivery pickup collection",
   inventory: "stock available",
   promotions: "email campaign newsletter marketing subscribers",
+  staff: "roles team budtender manager admin permissions access",
+  notifications: "bell updates messages announcements reminders team",
 };
 
 const transitions: Record<AdminOrderStatus, AdminOrderStatus[]> = {
@@ -153,6 +161,8 @@ function AdminPage() {
   const [access, setAccess] = useState<StaffRole | "none" | null>(null);
   const [tab, setTab] = useState("overview");
   const [role, setRole] = useState<StaffRole | null>(null);
+  // Live team notices for the bell and the Notifications tab; only staff subscribe.
+  const team = useTeamNotifications(role ? user?.id : undefined);
   const [dashboard, setDashboard] = useState<Awaited<
     ReturnType<typeof getAdminDashboardFn>
   > | null>(null);
@@ -321,12 +331,10 @@ function AdminPage() {
             onOpen={openHit}
           />
           <div className="flex items-center gap-3">
-            <button
-              aria-label="Notifications"
-              className="grid h-9 w-9 place-items-center rounded-full border border-border"
-            >
-              <Bell size={16} />
-            </button>
+            <NotificationsBell
+              team={team}
+              onManage={atLeast(role, "manager") ? () => goTab("notifications") : undefined}
+            />
             <div className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground">
                 <CircleUserRound size={18} />
@@ -574,6 +582,10 @@ function AdminPage() {
         {tab === "promotions" && <EmailCampaignsPanel />}
         {tab === "reports" && <SalesReportsPanel canEmail={atLeast(role, "manager")} />}
         {tab === "newsroom" && atLeast(role, "manager") && <NewsroomPanel />}
+        {tab === "staff" && atLeast(role, "manager") && <StaffPanel role={role} myId={user.id} />}
+        {tab === "notifications" && atLeast(role, "manager") && (
+          <NotificationsPanel team={team} role={role} />
+        )}
         {(tab === "events" || (tab === "newsroom" && !atLeast(role, "manager"))) && (
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-border text-center">
             <div>
