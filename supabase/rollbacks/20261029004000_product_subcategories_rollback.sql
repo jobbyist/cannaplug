@@ -12,10 +12,12 @@ UPDATE public.products p
              WHEN 'outdoor' THEN 'Outdoor'
              WHEN 'greenhouse' THEN 'Greenhouse'
              WHEN 'greendoor' THEN 'Greendoor'
-             WHEN 'entry indoor' THEN 'Premium Indoor'
+             WHEN 'greendoor 2-in-1' THEN 'Greendoor 2-in-1'
+             WHEN 'entry indoor' THEN 'Entry Indoor'
+             WHEN 'indoor' THEN 'Indoor'
              WHEN 'premium indoor' THEN 'Premium Indoor'
-             WHEN 'top shelf' THEN 'Top Shelf'
-             WHEN 'greendoor 2-in-1' THEN 'Greendoor 2-in-1' END AS grade
+             WHEN 'hydro' THEN 'Hydro'
+             WHEN 'top shelf' THEN 'Top Shelf' END AS grade
       FROM public.products
      WHERE category IN ('Flower', 'Pre-rolls')
   ) g

@@ -22,11 +22,15 @@ q "insert into public.products (slug, name, category, price_rand, subcategory) v
   ('rh-d', 'Test D', 'Flower', 50, null),
   ('rh-e', 'Test E (Top Shelf)', 'Flower', 120, ' top   shelf '),
   ('rh-f', 'Test F (Outdoor)', 'Flower', 24, 'Hand picked'),
-  ('rh-g', 'Test G Stick (Greendoor 2-in-1)', 'Pre-rolls', 150, null)" >/dev/null
+  ('rh-g', 'Test G Stick (Greendoor 2-in-1)', 'Pre-rolls', 150, null),
+  ('rh-h', 'Test H (Indoor)', 'Flower', 110, null),
+  ('rh-i', 'Test I (Hydro)', 'Flower', 130, null),
+  ('rh-j', 'Test J (Premium Indoor)', 'Flower', 130, null)" >/dev/null
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/migrations/$M.sql" >/dev/null 2>&1 || { echo "FAIL applying $M"; exit 1; }
 sub() { q "select coalesce(subcategory,'-') from public.products where slug='$1'"; }
 [ "$(sub rh-a)" = "Greenhouse" ] || { echo "FAIL: Greenhouse not filled"; exit 1; }
-[ "$(sub rh-b)" = "Premium Indoor" ] || { echo "FAIL: Entry Indoor not named Premium Indoor"; exit 1; }
+[ "$(sub rh-b)" = "Entry Indoor" ] || { echo "FAIL: Entry Indoor was renamed"; exit 1; }
+[ "$(sub rh-h)" = "Indoor" ] && [ "$(sub rh-i)" = "Hydro" ] && [ "$(sub rh-j)" = "Premium Indoor" ] || { echo "FAIL: Indoor, Hydro or Premium Indoor not filled"; exit 1; }
 [ "$(sub rh-c)" = "-" ] || { echo "FAIL: accessory got a grade"; exit 1; }
 [ "$(sub rh-d)" = "-" ] || { echo "FAIL: product with no grade got one"; exit 1; }
 [ "$(sub rh-e)" = "Top Shelf" ] || { echo "FAIL: spelling not tidied"; exit 1; }
@@ -34,7 +38,7 @@ sub() { q "select coalesce(subcategory,'-') from public.products where slug='$1'
 [ "$(sub rh-g)" = "Greendoor 2-in-1" ] || { echo "FAIL: 2-in-1 not filled"; exit 1; }
 echo "1. applied; grades filled from names, spellings tidied, others untouched"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/rollbacks/${M}_rollback.sql" >/dev/null 2>&1 || { echo "FAIL rolling back"; exit 1; }
-[ "$(sub rh-a)" = "-" ] && [ "$(sub rh-b)" = "-" ] && [ "$(sub rh-g)" = "-" ] || { echo "FAIL: filled grades remain"; exit 1; }
+[ "$(sub rh-a)" = "-" ] && [ "$(sub rh-b)" = "-" ] && [ "$(sub rh-g)" = "-" ] && [ "$(sub rh-h)" = "-" ] && [ "$(sub rh-i)" = "-" ] || { echo "FAIL: filled grades remain"; exit 1; }
 [ "$(sub rh-f)" = "Hand picked" ] || { echo "FAIL: rollback touched a chosen subcategory"; exit 1; }
 [ "$(q "select count(*) from pg_constraint where conname='products_subcategory_chk'")" = 0 ] || { echo "FAIL: check remains"; exit 1; }
 echo "2. rolled back"
