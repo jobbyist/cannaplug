@@ -8,6 +8,8 @@ import {
   ArrowRight,
   BadgeCheck,
   CalendarDays,
+  Gift,
+  Images,
   Check,
   ChevronDown,
   ChevronRight,
@@ -288,7 +290,7 @@ function StoryNavigation() {
   );
 }
 
-type NavIconEntry = readonly [typeof Store, string, string];
+type NavIconEntry = readonly [typeof Store, string, string, string?];
 
 function MobileNav({
   open,
@@ -368,8 +370,9 @@ function MobileNav({
                   <ChevronDown size={18} />
                 </div>
                 <div className="mobile-explore-grid">
-                  {exploreLinks.map(([Icon, label, href]) => (
+                  {exploreLinks.map(([Icon, label, href, badge]) => (
                     <a key={href} href={href} onClick={onClose}>
+                      {badge && <em className="nav-badge">{badge}</em>}
                       <Icon size={25} />
                       <span>{label}</span>
                     </a>
@@ -413,8 +416,8 @@ export function Header() {
   useEffect(() => scrollY.on("change", (value) => setCompact(value > 80)), [scrollY]);
   const links: [string, string][] = [
     ["Home", "/"],
-    ["Shop", "/shop"],
-    ["Menu", "/#categories"],
+    ["Catalog", "/shop"],
+    ["Specials", "/shop?sale=true"],
     ["Events & Promotions", "/events"],
     ["Journal", "/journal"],
     ["About", "/about"],
@@ -422,16 +425,18 @@ export function Header() {
   ];
   const primaryLinks = [
     [Store, "Home", "/"],
-    [ShoppingBag, "Shop products", "/shop"],
-    [Menu, "Explore menu", "/#categories"],
-    [CalendarDays, "Events & Promotions", "/events"],
+    [ShoppingBag, "Catalog", "/shop"],
+    [Menu, "Specials", "/shop?sale=true"],
+    [CalendarDays, "Events", "/events"],
   ] as const;
   const exploreLinks = [
-    [Newspaper, "Newsroom", "/journal"],
     [Leaf, "Our story", "/about"],
-    [TicketPercent, "Plug Back", "/#plug-back"],
+    [Gift, "Rewards", "/rewards", "New"],
+    [Images, "Gallery", "/gallery"],
+    [Newspaper, "Newsroom", "/journal"],
+    [TicketPercent, "Promotions", "/events"],
     [MapPin, "Visit Pretoria", "/#contact"],
-  ] as const;
+  ] as const satisfies readonly NavIconEntry[];
   return (
     <>
       <header className={compact ? "header compact" : "header"}>

@@ -1,5 +1,6 @@
 import propagandaImage from "@/assets/event-propaganda.jpg";
 import weekendSpecialImage from "@/assets/promo-weekend-special.jpg";
+import plugBackAsset from "@/assets/plug-back-campaign.jpeg.asset.json";
 import halloweedImage from "@/assets/promo-halloweed.jpg";
 
 export type EventPromo = {
@@ -12,8 +13,8 @@ export type EventPromo = {
   copy: string;
   image: string;
   imageAlt: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
 };
 
 export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
@@ -54,5 +55,16 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
     imageAlt: "Halloweed: Trick or Treat. 30% off all edibles, 25 to 31 October.",
     width: 1024,
     height: 1536,
+  },
+  {
+    slug: "plug-back",
+    kind: "Promotion",
+    tag: "Now on",
+    title: "Plug Back",
+    when: "In store while stocks last",
+    copy: "Bring 10 empty CannaPlug pre-roll tubes in store and get 1 complimentary Greenhouse pre-roll. Original CannaPlug tubes only.",
+    image: plugBackAsset.url,
+    imageAlt:
+      "Plug Back: bring 10 empty CannaPlug pre-roll tubes and get 1 free Greenhouse pre-roll.",
   },
 ];

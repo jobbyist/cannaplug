@@ -1797,3 +1797,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
 - **Owner actions:** none. Update `src/lib/events.ts` when promotions change.
 - **Rollback:** revert the PR.
+
+## 28 Oct 2026 — Explore menu, Gallery and Promotions (feat/mvp-explore-nav)
+
+- **Purpose:** the menu's Explore section now reads Our story, Rewards (with a "New" badge), Gallery, Newsroom, Promotions, Visit Pretoria. Plug Back is replaced by **Promotions**, which links to `/events`. Main links renamed: Catalog (`/shop`), Specials (`/shop?sale=true`, the shop's existing on-sale filter), Events (`/events`). The desktop header links follow the same names. New `/gallery` page saying Coming soon. Plug Back is now a card on the Events & Promotions page and the homepage section.
+- **Files:** `src/components/CannaPlugHome.tsx`, `src/styles.css` (`.nav-badge`), `src/routes/gallery.tsx`, `src/lib/events.ts`, `src/lib/site.ts`, `src/routeTree.gen.ts`, `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** full `vitest run` (unit), `tsc --noEmit`, eslint, `vite build`. DB tests and `verify-release.sh` not run.
+- **Owner actions:** the Plug Back card uses the existing `plug-back-campaign.jpeg` asset already in the project; send the new image if it should be replaced. Add Instagram media to `/gallery` when ready.
+- **Rollback:** revert the PR.

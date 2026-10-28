@@ -22,3 +22,23 @@ describe("site polish", () => {
     expect(STATIC_PAGES.some((p) => p.path === "/events")).toBe(true);
   });
 });
+
+describe("explore menu", () => {
+  it("lists Our story and Rewards (New) above Gallery and Newsroom, with Promotions linking to /events", () => {
+    const i = (s: string) => home.indexOf(s);
+    expect(i('"Our story", "/about"')).toBeLessThan(i('"Rewards", "/rewards", "New"'));
+    expect(i('"Rewards", "/rewards", "New"')).toBeLessThan(i('"Gallery", "/gallery"'));
+    expect(i('"Gallery", "/gallery"')).toBeLessThan(i('"Newsroom", "/journal"'));
+    expect(home).toContain('"Promotions", "/events"');
+    expect(home).not.toContain('Plug Back", "/#plug-back"');
+  });
+  it("renames Shop products and Explore menu to Catalog and Specials", () => {
+    expect(home).toContain('"Catalog", "/shop"');
+    expect(home).toContain('"Specials", "/shop?sale=true"');
+    expect(home).not.toContain('"Shop products", "/shop"');
+    expect(home).not.toContain('"Explore menu"');
+  });
+  it("the gallery page is in the sitemap", () => {
+    expect(STATIC_PAGES.some((p) => p.path === "/gallery")).toBe(true);
+  });
+});
