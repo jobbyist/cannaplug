@@ -17,7 +17,9 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
 import { Route as DoctorRouteImport } from './routes/doctor'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
@@ -87,9 +89,19 @@ const DoctorRoute = DoctorRouteImport.update({
   path: '/doctor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -247,7 +259,9 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
+  '/gallery': typeof GalleryRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -286,7 +300,9 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
+  '/gallery': typeof GalleryRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -326,7 +342,9 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
   '/doctor': typeof DoctorRoute
+  '/events': typeof EventsRoute
   '/faq': typeof FaqRoute
+  '/gallery': typeof GalleryRoute
   '/offline': typeof OfflineRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -367,7 +385,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
+    | '/gallery'
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
@@ -406,7 +426,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
+    | '/gallery'
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
@@ -445,7 +467,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-policy'
     | '/doctor'
+    | '/events'
     | '/faq'
+    | '/gallery'
     | '/offline'
     | '/privacy-policy'
     | '/refund-policy'
@@ -485,7 +509,9 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
   DoctorRoute: typeof DoctorRoute
+  EventsRoute: typeof EventsRoute
   FaqRoute: typeof FaqRoute
+  GalleryRoute: typeof GalleryRoute
   OfflineRoute: typeof OfflineRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
@@ -574,11 +600,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/faq': {
       id: '/faq'
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -789,7 +829,9 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
   DoctorRoute: DoctorRoute,
+  EventsRoute: EventsRoute,
   FaqRoute: FaqRoute,
+  GalleryRoute: GalleryRoute,
   OfflineRoute: OfflineRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,

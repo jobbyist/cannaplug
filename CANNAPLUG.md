@@ -1795,4 +1795,30 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Files:** `src/components/CannaPlugHome.tsx`, `src/lib/shop-filter.ts`, `src/test/shop-filter.test.ts`.
 - **Migrations:** none. **Tests:** `shop-filter` (strain match added); full unit suite.
 - **Owner actions:** none. The subcategory options were left as set up in the other session.
+
+## 28 Oct 2026 — Events & Promotions (claude/keen-goodall-imvyxl)
+
+- **Purpose:** the homepage Events section is now **Events & Promotions** and shows three posters: Propaganda: 25K The Plug x CannaPlug (past event, 26 Sep 2026, free ticket for R300 spent in store), the Weekend Special (Friday to Sunday, indoor bud and pre-rolls R70) and Halloweed: Trick or Treat (30% off all edibles, 25 to 31 Oct 2026). A dedicated `/events` page lists the same three. The RSVP / View event links are gone. Posters are shown at their natural aspect ratio, so they are never cropped.
+- **Files:** `src/lib/events.ts` (the content, one place), `src/routes/events.tsx` (new page), `src/components/CannaPlugHome.tsx` (section, nav and footer links now point to `/events`), `src/styles.css` (`.promo-*` replaces `.event-*`), `src/routes/calendar.tsx` (redirects to `/events`), `src/lib/site.ts` (sitemap), `src/assets/{event-propaganda,promo-weekend-special,promo-halloweed}.jpg`, `src/routeTree.gen.ts` (regenerated), `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
+- **Owner actions:** none. Update `src/lib/events.ts` when promotions change.
+- **Rollback:** revert the PR.
+
+## 28 Oct 2026 — Explore menu, Gallery and Promotions (feat/mvp-explore-nav)
+
+- **Purpose:** the menu's Explore section now reads Our story, Rewards (with a "New" badge), Gallery, Newsroom, Promotions, Visit Pretoria. Plug Back is replaced by **Promotions**, which links to `/events`. Main links renamed: Catalog (`/shop`), Specials (`/shop?sale=true`, the shop's existing on-sale filter), Events (`/events`). The desktop header links follow the same names. New `/gallery` page saying Coming soon. Plug Back is now a card on the Events & Promotions page and the homepage section.
+- **Files:** `src/components/CannaPlugHome.tsx`, `src/styles.css` (`.nav-badge`), `src/routes/gallery.tsx`, `src/lib/events.ts`, `src/lib/site.ts`, `src/routeTree.gen.ts`, `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** full `vitest run` (unit), `tsc --noEmit`, eslint, `vite build`. DB tests and `verify-release.sh` not run.
+- **Owner actions:** the Plug Back card uses the existing `plug-back-campaign.jpeg` asset already in the project; send the new image if it should be replaced. Add Instagram media to `/gallery` when ready.
+- **Rollback:** revert the PR.
+
+## 28 Oct 2026 — The Plug Cup event (feat/mvp-plug-cup)
+
+- **Purpose:** adds The Plug Cup, a past EA FC 26 gaming competition (29 August 2026, CannaPlug Pretoria Central, 16 players, R150 entry including 1 free Greenhouse order and a dab hit), with its poster, to the Events & Promotions page and the homepage section.
+- **Files:** `src/lib/events.ts`, `src/assets/event-plug-cup.jpg`, `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
+- **Owner actions:** none.
 - **Rollback:** revert the PR.
