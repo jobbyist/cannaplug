@@ -74,6 +74,8 @@ export const journalArticleQuery = (slug: string) =>
         .from("articles")
         .select("*")
         .eq("slug", slug)
+        // A scheduled article is not readable (even by its address) until its publish time.
+        .lte("published_at", new Date().toISOString())
         .maybeSingle();
       if (error) throw error;
       return (data as unknown as JournalArticle) ?? null;

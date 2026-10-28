@@ -44,6 +44,8 @@ export type ReceiptModel = {
   subtotal: number;
   /** All discounts on the sale; 0 when none. */
   discount: number;
+  /** The staff rate was applied (the customer is a staff member). */
+  staffPurchase: boolean;
   total: number;
   vat: { rate: number; amount: number; number: string } | null;
   tenders: { label: string; amount: number }[];
@@ -100,6 +102,7 @@ export function buildReceiptModel(input: {
     status: string;
     subtotal: number;
     discount_rand?: number;
+    staff_purchase?: boolean;
     total: number;
   };
   items: {
@@ -142,6 +145,7 @@ export function buildReceiptModel(input: {
     })),
     subtotal: roundCents(Number(sale.subtotal)),
     discount: roundCents(Number(sale.discount_rand ?? 0)),
+    staffPurchase: sale.staff_purchase === true,
     total,
     vat:
       settings.vat_registered && settings.vat_number
@@ -189,6 +193,7 @@ export function receiptText(m: ReceiptModel): string {
     ...(m.discount > 0
       ? [`Subtotal ${formatRand(m.subtotal)}`, `Discount -${formatRand(m.discount)}`]
       : []),
+    ...(m.staffPurchase ? ["Staff purchase (staff rate applied)"] : []),
     `Total ${formatRand(m.total)}`,
     ...(m.vat
       ? [`Includes VAT (${m.vat.rate}%) ${formatRand(m.vat.amount)} · VAT no. ${m.vat.number}`]

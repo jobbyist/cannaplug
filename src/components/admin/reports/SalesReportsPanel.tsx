@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, FileText, FileType2, Mail, RefreshCw } from "lucide-react";
 import {
@@ -468,6 +469,39 @@ export function SalesReportsPanel({
                 </ul>
               )}
             </Card>
+            {r.staff && (
+              <Card title="Staff purchases">
+                <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <StaffBadge /> {n(r.staff.percent)}% staff rate, till and online
+                </p>
+                {r.staff.count === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No staff purchases in this period.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border text-xs" data-testid="staff-purchases">
+                    <li className="flex justify-between py-2">
+                      <span className="font-semibold">Till</span>
+                      <span>
+                        {r.staff.pos.count} · <b>{rand(n(r.staff.pos.total))}</b> (took{" "}
+                        {rand(n(r.staff.pos.discount))} off)
+                      </span>
+                    </li>
+                    <li className="flex justify-between py-2">
+                      <span className="font-semibold">Online</span>
+                      <span>
+                        {r.staff.online.count} · <b>{rand(n(r.staff.online.total))}</b> (took{" "}
+                        {rand(n(r.staff.online.discount))} off)
+                      </span>
+                    </li>
+                    <li className="flex justify-between py-2 font-semibold">
+                      <span>Total staff discount</span>
+                      <span>{rand(n(r.staff.discount))}</span>
+                    </li>
+                  </ul>
+                )}
+              </Card>
+            )}
             {r.till && (
               <Card title="Till cash-up" className="lg:col-span-2">
                 <TillCashupSection report={r} />

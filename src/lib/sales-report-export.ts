@@ -199,6 +199,22 @@ export function reportTables(r: SalesReport): ReportTable[] {
     money: [false, false, true],
     rows: r.cashiers.map((c) => [c.name, count(c.count), r2(c.total)]),
   });
+  if (r.staff)
+    t.push({
+      title: `Staff purchases (${n(r.staff.percent)}% staff rate)`,
+      columns: ["Channel", "Purchases", "Paid", "Staff discount"],
+      money: [false, false, true, true],
+      rows: [
+        ["Till", count(r.staff.pos.count), r2(r.staff.pos.total), r2(r.staff.pos.discount)],
+        [
+          "Online",
+          count(r.staff.online.count),
+          r2(r.staff.online.total),
+          r2(r.staff.online.discount),
+        ],
+        ["Total", count(r.staff.count), r2(r.staff.total), r2(r.staff.discount)],
+      ],
+    });
   return t;
 }
 

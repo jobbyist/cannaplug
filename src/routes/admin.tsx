@@ -13,6 +13,7 @@ import {
   History,
   LayoutDashboard,
   Megaphone,
+  FlaskConical,
   Newspaper,
   Package,
   PlusCircle,
@@ -63,6 +64,7 @@ import {
 } from "@/lib/admin.functions";
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
+import { DemoTill } from "@/components/admin/pos/DemoTill";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
 import { InventoryPanel } from "@/components/admin/inventory/InventoryPanel";
@@ -109,6 +111,7 @@ export const Route = createFileRoute("/admin")({
 const NAV_ITEMS: SidebarItem[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
   { id: "pos", icon: Store, label: "POS" },
+  { id: "demo-till", icon: FlaskConical, label: "Demo till" },
   { id: "orders", icon: ClipboardList, label: "Orders" },
   { id: "payments", icon: CreditCard, label: "Payments" },
   { id: "audit", icon: History, label: "Audit log" },
@@ -131,6 +134,7 @@ const NAV_ITEMS: SidebarItem[] = [
 /** Extra words the search box matches for each tab. */
 const TAB_KEYWORDS: Record<string, string> = {
   pos: "till sale cash card receipt refund void drawer stock receive adjust",
+  "demo-till": "demo test practice training sandbox till",
   orders: "online order eft",
   payments: "payfast paypal eft bank exchange rate",
   "id-checks": "id verification document",
@@ -398,6 +402,7 @@ function AdminPage() {
         )}
 
         {tab === "pos" && <PosPanel />}
+        {tab === "demo-till" && atLeast(role, "manager") && <DemoTill />}
         {tab === "orders" && (
           <OrdersPanel
             orders={orders}

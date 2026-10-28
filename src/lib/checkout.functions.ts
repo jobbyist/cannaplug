@@ -42,7 +42,9 @@ export const listCheckoutAddressesFn = createServerFn({ method: "GET" })
 export const quoteCheckoutFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d) => z.object({ items, deliveryMethod }).parse(d))
-  .handler(({ data }) => run(() => quoteCheckout(data.items, data.deliveryMethod)));
+  .handler(({ context, data }) =>
+    run(() => quoteCheckout(context.userId, data.items, data.deliveryMethod)),
+  );
 
 export const placeOrderFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

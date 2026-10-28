@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StaffBadge } from "@/components/StaffBadge";
 import { CustomerPicker, type PickedCustomer } from "@/components/admin/pos/CustomerPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import { recordCashReceivedFn } from "@/lib/receipts.functions";
 import {
   TENDER_METHODS,
   addToCart,
+  STAFF_PERCENT,
   cartSummary,
   discountCents,
   refundLineCents,
@@ -57,7 +59,8 @@ import {
   type TenderMethod,
   type TenderRow,
 } from "./pos-logic";
-import { PosSaleDialog } from "./PosSaleDialog";
+import { PosSaleDialog, type SetSale } from "./PosSaleDialog";
+import { simulateSale, type DemoReceipt } from "./demo-logic";
 import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
@@ -154,7 +157,16 @@ export function PosPanel() {
 
 /* ----------------------------------------------------------------- open till */
 
-function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promise<void> }) {
+export function OpenTill({
+  data,
+  onChanged,
+  demoOpen,
+}: {
+  data: Pick<Overview, "drawers" | "isManager">;
+  onChanged: () => Promise<void>;
+  /** Demo till: opens a practice session in the browser instead of calling the server. */
+  demoOpen?: (drawerId: string, openingFloat: string) => void;
+}) {
   const free = data.drawers.filter((d) => d.is_active && !d.in_use);
   const [drawerId, setDrawerId] = useState("");
   const [float, setFloat] = useState("0");
@@ -171,6 +183,10 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
     setError(null);
     try {
       const amount = centsToAmount(cents);
+      if (demoOpen) {
+        demoOpen(drawerId, amount);
+        return;
+      }
       await openPosSessionFn({
         data: { drawerId, openingFloat: amount, key: keys.current.keyFor(`${drawerId}:${amount}`) },
       });
@@ -253,7 +269,7 @@ function OpenTill({ data, onChanged }: { data: Overview; onChanged: () => Promis
       <Button className="mt-4" onClick={() => void open()} disabled={busy || !drawerId}>
         Open till
       </Button>
-      {data.isManager && (
+      {data.isManager && !demoOpen && (
         <div className="mt-6 border-t border-border pt-4">
           <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Add a drawer</p>
           <div className="flex gap-2">
@@ -284,6 +300,7 @@ type Receipt = {
     receipt_number: string;
     total: number;
     replayed?: boolean;
+    staff_purchase?: boolean;
     items: { name: string; quantity: number; unit_price: number; line_total: number }[];
     tenders: { method: string; amount: number }[];
   };
@@ -291,14 +308,23 @@ type Receipt = {
   cashReceivedCents: number | null;
 };
 
-function SaleScreen({
+/** Demo till: the same screen, but completing a sale only works it out in the browser (nothing is saved). */
+export type DemoHooks = {
+  nextReceiptNumber: () => string;
+  onSold: (sale: { lines: CartLine[]; receipt: DemoReceipt; discountCents: number }) => void;
+  setSale: SetSale;
+};
+
+export function SaleScreen({
   data,
   session,
   onChanged,
+  demo,
 }: {
-  data: Overview;
-  session: NonNullable<Overview["mySession"]>;
+  data: { catalog: CatalogItem[] };
+  session: { id: string };
   onChanged: () => Promise<void>;
+  demo?: DemoHooks;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -338,9 +364,9 @@ function SaleScreen({
     );
   }, [data.catalog]);
 
-  const summary = cartSummary(lines, orderDiscount);
+  const summary = cartSummary(lines, orderDiscount, customer?.staff === true);
   const totalCents = summary.totalCents;
-  const reasonOk = !summary.hasDiscount || discountReason.trim().length >= 3;
+  const reasonOk = !summary.hasManualDiscount || discountReason.trim().length >= 3;
   const discountsOk = summary.discountsValid && reasonOk;
   // A 100% discount makes a free (R0) sale: no payment is taken, whatever payment rows were typed before.
   const activeTenders = totalCents === 0 ? [] : tenders;
@@ -416,7 +442,7 @@ function SaleScreen({
       return { product_id: l.product.id, quantity: l.quantity, ...(discount ? { discount } : {}) };
     });
     const od = sendableDiscount(orderDiscount);
-    const reason = summary.hasDiscount ? discountReason.trim() : null;
+    const reason = summary.hasManualDiscount ? discountReason.trim() : null;
     const sendTenders = activeTenders.map((t) => ({
       method: t.method,
       amount: centsToAmount(parseCents(t.amount) ?? 0),
@@ -428,6 +454,32 @@ function SaleScreen({
       salesSignature({ s: session.id, items, sendTenders, cid, od, reason }),
     );
     try {
+      if (demo) {
+        // Practice sale: worked out here, never sent anywhere.
+        const practice = simulateSale({
+          lines,
+          orderDiscount,
+          tenders: activeTenders,
+          receiptNumber: demo.nextReceiptNumber(),
+          cashReceived,
+          staff: customer?.staff === true,
+        });
+        setReceipt(practice as Receipt);
+        demo.onSold({
+          lines,
+          receipt: practice,
+          discountCents: summary.lineDiscountCents + summary.orderDiscountCents,
+        });
+        keys.current.reset();
+        setLines([]);
+        setTenders([]);
+        setCashReceived("");
+        setCustomer(null);
+        setOrderDiscount(undefined);
+        setDiscountReason("");
+        focusSearch();
+        return;
+      }
       const res = await completePosSaleFn({
         data: {
           sessionId: session.id,
@@ -577,6 +629,7 @@ function SaleScreen({
           )}
         </ul>
         <PosSaleDialog
+          {...(demo ? { setSale: demo.setSale } : {})}
           product={saleFor}
           onOpenChange={(o) => !o && setSaleFor(null)}
           onDone={async (m) => {
@@ -595,6 +648,7 @@ function SaleScreen({
       <div className="flex flex-col gap-4">
         {receipt && (
           <ReceiptCard
+            demo={!!demo}
             receipt={receipt}
             onNew={() => {
               setReceipt(null);
@@ -758,20 +812,34 @@ function SaleScreen({
               </div>
               {summary.hasDiscount && (
                 <>
-                  <label className="grid gap-1 text-xs font-semibold">
-                    Reason for discount (required)
-                    <Input
-                      aria-label="Discount reason"
-                      className="h-8 text-sm"
-                      maxLength={200}
-                      placeholder="e.g. Loyal customer, damaged packaging"
-                      value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                    />
-                    <span className="font-normal text-muted-foreground">
-                      Do not enter health or ID details.
-                    </span>
-                  </label>
+                  {summary.hasManualDiscount && (
+                    <label className="grid gap-1 text-xs font-semibold">
+                      Reason for discount (required)
+                      <Input
+                        aria-label="Discount reason"
+                        className="h-8 text-sm"
+                        maxLength={200}
+                        placeholder="e.g. Loyal customer, damaged packaging"
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                      />
+                      <span className="font-normal text-muted-foreground">
+                        Do not enter health or ID details.
+                      </span>
+                    </label>
+                  )}
+                  {summary.staffDiscountCents > 0 && (
+                    <p
+                      data-testid="staff-rate-note"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                      <StaffBadge /> Staff rate: {STAFF_PERCENT}% off is applied automatically
+                      {summary.orderDiscountCents > summary.staffDiscountCents
+                        ? " (the larger typed order discount applies instead)"
+                        : ""}
+                      .
+                    </p>
+                  )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Subtotal</span>
                     <span>{money(summary.grossCents)}</span>
@@ -983,7 +1051,15 @@ function SaleScreen({
   );
 }
 
-function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }) {
+function ReceiptCard({
+  receipt,
+  onNew,
+  demo = false,
+}: {
+  receipt: Receipt;
+  onNew: () => void;
+  demo?: boolean;
+}) {
   const { sale, loyalty } = receipt;
   const cashPaid = sale.tenders
     .filter((t) => t.method === "cash")
@@ -992,9 +1068,12 @@ function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-5" role="status">
       <div className="mb-2 flex items-center gap-2 text-primary">
         <CheckCircle2 size={18} />
-        <h2 className={headingClass}>Sale complete</h2>
+        <h2 className={headingClass}>{demo ? "Demo sale complete" : "Sale complete"}</h2>
       </div>
-      <p className="font-display text-lg font-extrabold">{sale.receipt_number}</p>
+      <p className="flex items-center gap-2 font-display text-lg font-extrabold">
+        {sale.receipt_number}
+        {sale.staff_purchase && <StaffBadge />}
+      </p>
       <ul className="mt-2 text-xs">
         {sale.items.map((i) => (
           <li key={i.name} className="flex justify-between py-0.5">
@@ -1032,7 +1111,13 @@ function ReceiptCard({ receipt, onNew }: { receipt: Receipt; onNew: () => void }
           Sale saved. Loyalty points will be credited on retry.
         </p>
       )}
-      <ReceiptActions saleId={sale.sale_id} />
+      {demo ? (
+        <p className="mt-2 rounded-md bg-gold/15 p-2 text-xs font-semibold">
+          Practice receipt only. Nothing was saved, printed or emailed.
+        </p>
+      ) : (
+        <ReceiptActions saleId={sale.sale_id} />
+      )}
       <Button type="button" className="mt-3" size="sm" onClick={onNew}>
         New sale (N)
       </Button>
@@ -1146,7 +1231,10 @@ function SaleCard({
     <li className="list-none rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div>
-          <p className="text-sm font-semibold">{sale.receipt_number}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            {sale.receipt_number}
+            {sale.staff_purchase && <StaffBadge />}
+          </p>
           <p className="text-muted-foreground">
             {new Date(sale.created_at).toLocaleString("en-ZA", {
               day: "2-digit",

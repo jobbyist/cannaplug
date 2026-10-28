@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,12 @@ export function OrderTable({
       <TableBody>
         {orders.map((order) => (
           <TableRow key={order.id} className="cursor-pointer" onClick={() => onSelect(order.id)}>
-            <TableCell className="font-medium">{order.order_number}</TableCell>
+            <TableCell className="font-medium">
+              <span className="flex items-center gap-2">
+                {order.order_number}
+                {order.staff_purchase && <StaffBadge />}
+              </span>
+            </TableCell>
             <TableCell>{order.customer_name ?? "Guest"}</TableCell>
             <TableCell>{rand(order.total_rand)}</TableCell>
             <TableCell>
@@ -119,7 +125,10 @@ export function OrdersPanel({
         <aside className="rounded-xl border border-border bg-card p-5">
           <div className="mb-4 flex items-start justify-between">
             <div>
-              <p className="font-display text-lg font-bold">{selected.order_number}</p>
+              <p className="flex items-center gap-2 font-display text-lg font-bold">
+                {selected.order_number}
+                {selected.staff_purchase && <StaffBadge />}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {selected.customer_name ?? "Customer"}
               </p>
@@ -150,6 +159,14 @@ export function OrdersPanel({
               <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                 <span>Delivery</span>
                 <span>{rand(Number(selected.delivery_fee_rand))}</span>
+              </div>
+            )}
+            {Number(selected.staff_discount_rand) > 0 && (
+              <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  Staff rate <StaffBadge />
+                </span>
+                <span>-{rand(Number(selected.staff_discount_rand))}</span>
               </div>
             )}
             {Number(selected.loyalty_discount_rand) > 0 && (

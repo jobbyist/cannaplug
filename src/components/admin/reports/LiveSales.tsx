@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { useMemo } from "react";
 import { Globe, Radio, Receipt, ShoppingBag, Store, TrendingUp } from "lucide-react";
 import {
@@ -61,7 +62,10 @@ export function SalesFeed({ report }: { report: SalesReport }) {
               <Globe size={14} className="shrink-0 text-[#D4AF37]" />
             )}
             <span className="min-w-0">
-              <span className="block truncate font-semibold">{t.ref}</span>
+              <span className="flex items-center gap-2 truncate font-semibold">
+                {t.ref}
+                {t.staff && <StaffBadge />}
+              </span>
               <span className="block truncate text-muted-foreground">
                 {time(t.at)} · {t.channel === "pos" ? "Till" : "Online"} · {methodLabel(t.method)}
               </span>

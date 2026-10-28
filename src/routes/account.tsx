@@ -1,3 +1,4 @@
+import { StaffBadge } from "@/components/StaffBadge";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -509,7 +510,10 @@ function MemberPortal() {
                     className="flex items-center justify-between border-b border-border py-3 text-xs last:border-0"
                   >
                     <div>
-                      <p className="font-semibold">{order.order_number}</p>
+                      <p className="flex items-center gap-2 font-semibold">
+                        {order.order_number}
+                        {order.staff_purchase && <StaffBadge />}
+                      </p>
                       <p className="text-muted-foreground">
                         {new Date(order.created_at).toLocaleDateString("en-ZA")}
                       </p>

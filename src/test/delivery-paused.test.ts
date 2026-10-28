@@ -70,15 +70,18 @@ describe("delivery is paused: online orders are pickup only", () => {
   });
 
   it("refuses to quote or place a delivery order, even if the browser asks for one", async () => {
-    await expect(quoteCheckout(ITEMS, "standard")).rejects.toThrow(/coming soon/i);
+    await expect(quoteCheckout("u1", ITEMS, "standard")).rejects.toThrow(/coming soon/i);
     await expect(order("discreet")).rejects.toThrow(/coming soon/i);
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it("still quotes and places pickup orders", async () => {
-    await quoteCheckout(ITEMS, "collection");
+    await quoteCheckout("u1", ITEMS, "collection");
     await order("collection");
-    expect(db.rpc.mock.calls.map((c) => c[0])).toEqual(["checkout_quote", "checkout_place_order"]);
+    expect(db.rpc.mock.calls.map((c) => c[0])).toEqual([
+      "checkout_quote_for",
+      "checkout_place_order",
+    ]);
   });
 
   it("offers and allows delivery again once DELIVERY_ENABLED=true", async () => {

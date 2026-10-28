@@ -940,6 +940,8 @@ export type Database = {
           void_reason: string | null;
           voided_at: string | null;
           voided_by: string | null;
+          staff_discount_rand: number;
+          staff_purchase: boolean;
         };
         Insert: {
           cashier_id: string;
@@ -957,6 +959,8 @@ export type Database = {
           void_reason?: string | null;
           voided_at?: string | null;
           voided_by?: string | null;
+          staff_discount_rand?: number;
+          staff_purchase?: boolean;
         };
         Update: {
           cashier_id?: string;
@@ -974,6 +978,8 @@ export type Database = {
           void_reason?: string | null;
           voided_at?: string | null;
           voided_by?: string | null;
+          staff_discount_rand?: number;
+          staff_purchase?: boolean;
         };
         Relationships: [];
       };
@@ -2629,6 +2635,8 @@ export type Database = {
           status: string;
           total_rand: number;
           user_id: string;
+          staff_discount_rand: number;
+          staff_purchase: boolean;
         };
         Insert: {
           payment_method?: string | null;
@@ -2649,6 +2657,8 @@ export type Database = {
           status?: string;
           total_rand?: number;
           user_id: string;
+          staff_discount_rand?: number;
+          staff_purchase?: boolean;
         };
         Update: {
           payment_method?: string | null;
@@ -2669,6 +2679,8 @@ export type Database = {
           status?: string;
           total_rand?: number;
           user_id?: string;
+          staff_discount_rand?: number;
+          staff_purchase?: boolean;
         };
         Relationships: [];
       };
@@ -3453,6 +3465,14 @@ export type Database = {
         Returns: Json;
       };
       checkout_quote: { Args: { p_delivery_method: string; p_items: Json }; Returns: Json };
+      checkout_quote_for: {
+        Args: { p_delivery_method: string; p_items: Json; p_user_id: string };
+        Returns: Json;
+      };
+      pos_customer_search: {
+        Args: { p_actor: string; p_limit: number; p_search: string };
+        Returns: Json;
+      };
       claim_back_in_stock_notifications: { Args: { p_limit?: number }; Returns: Json };
       create_reorder: {
         Args: {
