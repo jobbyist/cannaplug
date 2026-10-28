@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: { from: () => chain("inventory_availability", []) },
 }));
+vi.mock("@/lib/rewards-data.server", () => ({ getRewardsSummary: async () => null }));
 vi.mock("@/lib/product-image-url.server", () => ({ productImageUrl: () => null }));
 
 type Call = { table: string; filters: [string, unknown][] };

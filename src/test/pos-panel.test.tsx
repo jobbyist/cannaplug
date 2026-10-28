@@ -52,6 +52,7 @@ const server = vi.hoisted(() => ({
   getPosOverviewFn: vi.fn(),
   completePosSaleFn: vi.fn(),
   searchPosCustomersFn: vi.fn(),
+  getPosCustomerRewardsFn: vi.fn(),
   openPosSessionFn: vi.fn(),
   closePosSessionFn: vi.fn(),
   reviewPosSessionFn: vi.fn(),
@@ -90,6 +91,7 @@ async function ready() {
 beforeEach(() => {
   Object.values(server).forEach((f) => f.mockReset());
   server.getPosOverviewFn.mockResolvedValue(overview);
+  server.getPosCustomerRewardsFn.mockResolvedValue({ points: 0, rewards: [] });
   server.completePosSaleFn.mockResolvedValue(saleResult);
 });
 afterEach(() => cleanup());
@@ -522,5 +524,77 @@ describe("POS screen — till gating", () => {
     render(<PosPanel />);
     expect(await screen.findByText(/Stock control/i)).toBeTruthy();
     expect(screen.getByText(/Cash variance approvals/i)).toBeTruthy();
+  });
+});
+
+describe("POS screen — loyalty rewards at the till", () => {
+  const graded = {
+    id: "p9",
+    slug: "orange-road-greenhouse",
+    name: "Orange Road Stick (Greenhouse)",
+    category: "Pre-rolls",
+    subcategory: "Greenhouse",
+    strain_type: "Hybrid",
+    unit: "each",
+    price_rand: 60,
+    available: 10,
+  };
+  const offers = [
+    {
+      code: "greenhouse_free",
+      name: "Free Greenhouse pre-roll or bud",
+      points_cost: 5,
+      grade: "Greenhouse",
+      categories: ["Pre-rolls", "Flower"],
+    },
+  ];
+  const attachMember = async (user: ReturnType<typeof userEvent.setup>, points: number) => {
+    server.getPosOverviewFn.mockResolvedValue({
+      ...overview,
+      catalog: [...overview.catalog, graded],
+    });
+    server.getPosCustomerRewardsFn.mockResolvedValue({ points, rewards: offers });
+    server.searchPosCustomersFn.mockResolvedValue([
+      {
+        id: "c1",
+        full_name: "Thandi Ndlovu",
+        phone: "0821110001",
+        email: "t@x.co",
+        username: "thandi",
+        is_staff: false,
+      },
+    ]);
+    render(<PosPanel />);
+    const search = await screen.findByLabelText("Search products");
+    await user.type(search, "orange{Enter}");
+    await user.type(screen.getByLabelText("Find customer"), "Thandi");
+    await user.click(await screen.findByRole("button", { name: /Thandi Ndlovu/ }));
+  };
+
+  it("offers a reward when the member has enough points; using it makes the unit free and sends only the code", async () => {
+    server.completePosSaleFn.mockResolvedValue(saleResult);
+    const user = userEvent.setup();
+    await attachMember(user, 6);
+    expect((await screen.findByTestId("member-points")).textContent).toMatch(/6/);
+    await user.click(
+      await screen.findByRole("button", { name: /Use reward: 1 free for 5 points/ }),
+    );
+    expect(screen.getByTestId("reward-applied")).toBeTruthy();
+    expect(screen.getByTestId("reward-note").textContent).toMatch(/5 of 6 points used/);
+    await user.click(screen.getByRole("button", { name: /Complete free sale/ }));
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalled());
+    const sent = server.completePosSaleFn.mock.calls[0]![0].data;
+    expect(sent.items).toEqual([{ product_id: "p9", quantity: 1, reward: "greenhouse_free" }]);
+    expect(JSON.stringify(sent)).not.toMatch(/price|points/i);
+  });
+
+  it("does not let the cashier use a reward the member cannot afford", async () => {
+    const user = userEvent.setup();
+    await attachMember(user, 3);
+    const btn = (await screen.findByRole("button", {
+      name: /Use reward: 1 free for 5 points/,
+    })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.textContent).toMatch(/needs 2 more/);
   });
 });

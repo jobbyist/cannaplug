@@ -380,6 +380,7 @@ export function SaleScreen({
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when a different member is attached
   }, [customer?.id]);
 
   const offerFor = (p: CatalogItem) =>
