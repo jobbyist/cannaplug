@@ -1,3 +1,4 @@
+import { EVENTS_AND_PROMOTIONS } from "@/lib/events";
 import { ResponsibleConsumptionDialog } from "@/components/ResponsibleConsumptionDialog";
 import { submitContactFn, subscribeNewsletterFn } from "@/lib/forms.functions";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -105,7 +106,7 @@ const stories = [
     copy: "Meet the people shaping cannabis culture in South Africa.",
     icon: CalendarDays,
     image: editorialImage,
-    cta: "See events",
+    cta: "See events & promotions",
   },
   {
     label: "Newsroom",
@@ -154,33 +155,6 @@ const news = [
     "Thoughtful guidance for making responsible, personal and well-informed choices.",
     "28 Aug 2026",
     "editorial-pos-3",
-  ],
-];
-
-const events = [
-  [
-    "19",
-    "SEP",
-    "CannaPlug Culture Session",
-    "Pretoria Central",
-    "An intimate evening of education, music and conversation.",
-    "event-one",
-  ],
-  [
-    "04",
-    "OCT",
-    "Wellness & Cannabis Workshop",
-    "Johannesburg",
-    "Practical, informed guidance with local wellness practitioners.",
-    "event-two",
-  ],
-  [
-    "08",
-    "NOV",
-    "CannaPlug Community Mixer",
-    "Cape Town",
-    "Good people, fresh perspectives and a distinctly local energy.",
-    "event-three",
   ],
 ];
 
@@ -441,7 +415,7 @@ export function Header() {
     ["Home", "/"],
     ["Shop", "/shop"],
     ["Menu", "/#categories"],
-    ["Events", "/#events"],
+    ["Events & Promotions", "/events"],
     ["Journal", "/journal"],
     ["About", "/about"],
     ["Contact", "/#contact"],
@@ -450,7 +424,7 @@ export function Header() {
     [Store, "Home", "/"],
     [ShoppingBag, "Shop products", "/shop"],
     [Menu, "Explore menu", "/#categories"],
-    [CalendarDays, "Events", "/#events"],
+    [CalendarDays, "Events & Promotions", "/events"],
   ] as const;
   const exploreLinks = [
     [Newspaper, "Newsroom", "/journal"],
@@ -895,27 +869,30 @@ function Events() {
       <Reveal>
         <SectionHeading
           eyebrow="Good vibes & great people"
-          title="UPCOMING EVENTS"
-          action="View calendar"
-          href="/calendar"
+          title="EVENTS & PROMOTIONS"
+          action="View all"
+          href="/events"
         />
-        <div className="event-grid">
-          {events.map(([day, month, title, location, copy, style]) => (
-            <article className={`event-card ${style}`} key={title}>
-              <div className="event-date">
-                <strong>{day}</strong>
-                <span>{month}</span>
-              </div>
-              <div className="event-copy">
-                <p>
-                  <MapPin size={14} />
-                  {location}
+        <div className="promo-grid">
+          {EVENTS_AND_PROMOTIONS.map((item) => (
+            <article className="promo-card" key={item.slug}>
+              <img
+                src={item.image}
+                alt={item.imageAlt}
+                width={item.width}
+                height={item.height}
+                loading="lazy"
+              />
+              <div className="promo-body">
+                <p className="promo-tag">
+                  {item.kind} · {item.tag}
                 </p>
-                <h3>{title}</h3>
-                <span>{copy}</span>
-                <a href="/#events">
-                  RSVP / View event <ArrowRight size={15} />
-                </a>
+                <h3>{item.title}</h3>
+                <p className="promo-meta">
+                  <CalendarDays size={14} aria-hidden="true" />
+                  {item.when}
+                </p>
+                <p className="promo-copy">{item.copy}</p>
               </div>
             </article>
           ))}
@@ -1145,7 +1122,7 @@ function NewsletterForm() {
 const footerExploreLinks: [string, string][] = [
   ["Shop", "/shop"],
   ["Menu", "/#categories"],
-  ["Events", "/#events"],
+  ["Events & Promotions", "/events"],
   ["Journal", "/journal"],
   ["Rewards", "/rewards"],
   ["About", "/about"],
@@ -1276,10 +1253,10 @@ function FloatingBottomNav() {
       <Link to="/" className="float-leaf" aria-label="CannaPlug home">
         <Leaf fill="currentColor" />
       </Link>
-      <a href="/#events">
+      <Link to="/events">
         <CalendarDays />
         <span>Events</span>
-      </a>
+      </Link>
       <Link to="/journal" className="desktop-float">
         <Newspaper />
         <span>Journal</span>

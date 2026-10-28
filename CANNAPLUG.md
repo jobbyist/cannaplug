@@ -1788,3 +1788,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `shop-filter` (parsing, matching, counts, sorting, changing filters), `catalogue-taxonomy` (including the database back-fill reading the same grades as the code), `shop-view` (the page, including the slider handles and the debounce), `db/product-subcategories` (check, index, mutation check). Screenshots in `docs/shop/screens/`.
 - **Not changed:** the homepage tiles and the sitemap still link to `/shop?category=X`, which works as before. The product CSV has no subcategory column yet, so subcategories for other categories are set by editing a product.
 - **Rollback:** run the rollback SQL, then revert the PR.
+
+## 28 Oct 2026 — Events & Promotions (claude/keen-goodall-imvyxl)
+
+- **Purpose:** the homepage Events section is now **Events & Promotions** and shows three posters: Propaganda: 25K The Plug x CannaPlug (past event, 26 Sep 2026, free ticket for R300 spent in store), the Weekend Special (Friday to Sunday, indoor bud and pre-rolls R70) and Halloweed: Trick or Treat (30% off all edibles, 25 to 31 Oct 2026). A dedicated `/events` page lists the same three. The RSVP / View event links are gone. Posters are shown at their natural aspect ratio, so they are never cropped.
+- **Files:** `src/lib/events.ts` (the content, one place), `src/routes/events.tsx` (new page), `src/components/CannaPlugHome.tsx` (section, nav and footer links now point to `/events`), `src/styles.css` (`.promo-*` replaces `.event-*`), `src/routes/calendar.tsx` (redirects to `/events`), `src/lib/site.ts` (sitemap), `src/assets/{event-propaganda,promo-weekend-special,promo-halloweed}.jpg`, `src/routeTree.gen.ts` (regenerated), `src/test/site-polish.test.tsx`.
+- **Migrations:** none.
+- **Tests run:** `site-polish` unit tests, `tsc --noEmit`, eslint on changed files, `vite build`.
+- **Owner actions:** none. Update `src/lib/events.ts` when promotions change.
+- **Rollback:** revert the PR.
