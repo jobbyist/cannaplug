@@ -47,7 +47,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   session_not_found: "Till session not found",
   drawer_already_open: "That drawer already has an open session",
   drawer_unavailable: "That drawer is not available",
-  payment_reference_in_use: "That payment reference was already used on another payment",
+  payment_reference_in_use:
+    "That card or EFT reference was already used on another payment. Each payment needs its own slip or bank reference.",
   idempotency_conflict:
     "This request was already submitted with different details — refresh and retry",
   product_unavailable: "A product in the basket is no longer available",
@@ -78,6 +79,14 @@ export function friendlyPosError(err: unknown): Error {
       : typeof err === "object" && err && "message" in err
         ? String((err as { message: unknown }).message)
         : String(err);
+  // A reused card or EFT reference trips a unique index (one slip must never be counted twice); say so plainly.
+  const pgCode =
+    typeof err === "object" && err && "code" in err ? String((err as { code: unknown }).code) : "";
+  if (
+    /pos_tenders_reference_uidx|pos_refund_payouts_reference_uidx/.test(raw) ||
+    (pgCode === "23505" && /reference/i.test(raw))
+  )
+    return new Error(ERROR_MESSAGES["payment_reference_in_use"]!);
   const code = /^([a-z_]+)(?::|$)/.exec(raw)?.[1];
   if (code && ERROR_MESSAGES[code]) {
     const detail = raw.slice(code.length + 1).trim();
