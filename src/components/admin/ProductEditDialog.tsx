@@ -1,3 +1,4 @@
+import { SUBCATEGORY_ORDER, canonicalCategory } from "@/lib/catalogue-taxonomy";
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,11 @@ const TEXT_FIELDS: { key: keyof AdminProductInput; label: string; hint?: string 
   { key: "name", label: "Name" },
   { key: "slug", label: "Slug", hint: "Used in the web address, e.g. white-runtz-top-shelf" },
   { key: "category", label: "Category" },
-  { key: "subcategory", label: "Subcategory" },
+  {
+    key: "subcategory",
+    label: "Subcategory",
+    hint: "Pick a suggestion for this category or type your own. It becomes a filter in the shop.",
+  },
   { key: "brand", label: "Brand" },
   { key: "sku", label: "SKU", hint: "Unique. Matches the Yoco export for imports" },
   { key: "barcode", label: "Barcode" },
@@ -257,7 +262,15 @@ export function ProductEditDialog({
                   id={`product-${key}`}
                   value={(form[key] as string | null) ?? ""}
                   onChange={(e) => set(key, e.target.value)}
+                  {...(key === "subcategory" ? { list: "product-subcategory-options" } : {})}
                 />
+                {key === "subcategory" && (
+                  <datalist id="product-subcategory-options">
+                    {(SUBCATEGORY_ORDER[canonicalCategory(form.category) ?? ""] ?? []).map((g) => (
+                      <option key={g} value={g} />
+                    ))}
+                  </datalist>
+                )}
                 {hint && <p className="text-[0.65rem] text-muted-foreground">{hint}</p>}
               </div>
             ))}

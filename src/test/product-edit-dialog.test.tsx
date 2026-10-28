@@ -119,6 +119,37 @@ describe("product editing popup", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
+  it("suggests the subcategories for the product's category (Indoor and Hydro for Flower)", async () => {
+    const { unmount } = render(
+      <ProductEditDialog
+        products={[product()]}
+        editingProduct="11111111-1111-4111-8111-111111111111"
+        setEditingProduct={() => {}}
+        onSaved={async () => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog");
+    const input = within(dialog).getByLabelText(/^Subcategory/i);
+    expect(input.getAttribute("list")).toBe("product-subcategory-options");
+    const options = () =>
+      [...document.querySelectorAll("#product-subcategory-options option")].map((o) =>
+        o.getAttribute("value"),
+      );
+    for (const g of ["Outdoor", "Greenhouse", "Greendoor", "Indoor", "Hydro"])
+      expect(options()).toContain(g);
+    unmount();
+    render(
+      <ProductEditDialog
+        products={[product({ category: "Edibles" })]}
+        editingProduct="11111111-1111-4111-8111-111111111111"
+        setEditingProduct={() => {}}
+        onSaved={async () => {}}
+      />,
+    );
+    await screen.findByRole("dialog");
+    expect(options()).toEqual([]);
+  });
+
   it("warns about a duplicate name, then saves anyway on a second press", async () => {
     mocks.save.mockResolvedValue({});
     render(

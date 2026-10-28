@@ -1,15 +1,8 @@
 // Homepage catalogue rules (pure): which products are featured and which categories are shown.
 
-export const CATEGORY_ORDER = [
-  "Flower",
-  "Pre-rolls",
-  "Edibles",
-  "Drinks",
-  "CBD",
-  "Vapes",
-  "Concentrates",
-  "Accessories",
-] as const;
+import { CATEGORY_ORDER } from "@/lib/catalogue-taxonomy";
+
+export { CATEGORY_ORDER };
 
 export const CATEGORY_TAGLINES: Record<string, string> = {
   Flower: "Premium Strains",

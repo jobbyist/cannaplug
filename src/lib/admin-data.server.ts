@@ -1,3 +1,4 @@
+import { canonicalSubcategory } from "@/lib/catalogue-taxonomy";
 import { saleProblem } from "@/lib/sale-price";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { productImageUrl } from "@/lib/product-image-url.server";
@@ -67,6 +68,8 @@ function toProductColumns(input: AdminProductInput) {
     sale_price_rand != null && sale_price_rand >= 0 && sale_price_rand < input.price_rand;
   return {
     ...rest,
+    // "top shelf", "Top Shelf" and " TOP  SHELF " are the same grade: save the shop's spelling.
+    subcategory: canonicalSubcategory(input.category, input.subcategory),
     price_rand: onSale ? sale_price_rand : input.price_rand,
     regular_price_rand: onSale ? input.price_rand : null,
     sale_ends_at: onSale ? (input.sale_ends_at ?? null) : null,
@@ -684,18 +687,38 @@ export async function listFulfilmentQueue(userId: string) {
   });
 }
 
+/** The shop's catalogue: every active product sold online, with whether it is in stock. Read in pages so a large
+ * catalogue is never cut off at the API's row limit. */
 export async function listStoreProducts() {
-  const { data, error } = await supabaseAdmin
-    .from("products")
-    .select(
-      "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,is_active,sort_order,image_path,sold_by_weight",
-    )
-    .eq("is_active", true)
-    .eq("sell_online", true)
-    .order("sort_order")
-    .order("name");
-  if (error) throw error;
-  return (data ?? []).map((p) => ({ ...p, image_url: productImageUrl(p.image_path) }));
+  const PAGE = 1000;
+  const rows: NonNullable<Awaited<ReturnType<typeof readPage>>["data"]> = [];
+  const readPage = (from: number) =>
+    supabaseAdmin
+      .from("products")
+      .select(
+        "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,is_active,sort_order,image_path,sold_by_weight",
+      )
+      .eq("is_active", true)
+      .eq("sell_online", true)
+      .order("sort_order")
+      .order("name")
+      .order("id")
+      .range(from, from + PAGE - 1);
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await readPage(from);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+  }
+  const stock = await supabaseAdmin.from("inventory_availability").select("product_id,available");
+  const available = new Map((stock.data ?? []).map((s) => [s.product_id, Number(s.available)]));
+  return rows.map((p) => ({
+    ...p,
+    price_rand: Number(p.price_rand),
+    regular_price_rand: p.regular_price_rand == null ? null : Number(p.regular_price_rand),
+    in_stock: (available.get(p.id) ?? 0) > 0,
+    image_url: productImageUrl(p.image_path),
+  }));
 }
 
 export async function listMemberOrders(userId: string) {
