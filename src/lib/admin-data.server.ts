@@ -600,6 +600,7 @@ export type CustomerRow = {
   full_name: string | null;
   phone: string | null;
   email: string | null;
+  username: string | null;
   member_since: string;
   order_count: number;
   spend_rand: number;
@@ -627,6 +628,29 @@ export async function listCustomersPage(
       spend_rand: Number(r.spend_rand),
     })),
   };
+}
+
+/**
+ * A manager or admin changes a member's username (it is also their referral code). The database checks the role,
+ * that the member is not staff, that the new name is free and valid, and writes the audit row with the reason.
+ */
+export async function setMemberUsernameAsAdmin(
+  userId: string,
+  memberId: string,
+  username: string,
+  reason: string,
+  key: string,
+) {
+  await assertRole(userId, "manager");
+  const { data, error } = await supabaseAdmin.rpc("admin_set_username", {
+    p_actor: userId,
+    p_user_id: memberId,
+    p_username: username.trim().toLowerCase(),
+    p_reason: reason,
+    p_idempotency_key: key,
+  });
+  if (error) throw error;
+  return data as unknown as { username: string; previous: string | null };
 }
 
 /** Hide (or restore) a cancelled or unpaid order. A paid order can never be archived. */

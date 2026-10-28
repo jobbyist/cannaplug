@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listCustomersFn } from "@/lib/admin.functions";
+import { UsernameEditDialog, type UsernameTarget } from "@/components/admin/UsernameEditDialog";
 import { rand } from "@/lib/cart";
 
 export const CUSTOMERS_PAGE_SIZE = 25;
@@ -21,7 +22,10 @@ export const CUSTOMERS_PAGE_SIZE = 25;
 export function CustomersPanel({
   focusLabel,
   onClearFocus,
+  canEditUsername = false,
 }: {
+  /** Managers and admins can change a member's username. */
+  canEditUsername?: boolean;
   /** Set when the admin search box sent the person here: the list starts filtered to that result. */
   focusLabel?: string | null;
   onClearFocus?: () => void;
@@ -29,6 +33,7 @@ export function CustomersPanel({
   const [text, setText] = useState(focusLabel ?? "");
   const [search, setSearch] = useState(focusLabel ?? "");
   const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState<UsernameTarget | null>(null);
 
   useEffect(() => {
     setText(focusLabel ?? "");
@@ -72,7 +77,7 @@ export function CustomersPanel({
         <Input
           aria-label="Search customers"
           className="pl-9"
-          placeholder="Search by name, phone or email"
+          placeholder="Search by name, username, phone or email"
           value={text}
           maxLength={100}
           onChange={(e) => setText(e.target.value)}
@@ -87,17 +92,20 @@ export function CustomersPanel({
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Username</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Member since</TableHead>
             <TableHead>Orders</TableHead>
             <TableHead>Spend</TableHead>
+            {canEditUsername && <TableHead className="text-right">Username</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {(q.data?.rows ?? []).map((c) => (
             <TableRow key={c.id}>
               <TableCell>{c.full_name ?? "Unnamed"}</TableCell>
+              <TableCell>{c.username ?? "—"}</TableCell>
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
               <TableCell>
@@ -107,11 +115,28 @@ export function CustomersPanel({
               </TableCell>
               <TableCell>{c.order_count}</TableCell>
               <TableCell>{rand(c.spend_rand)}</TableCell>
+              {canEditUsername && (
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Change username for ${c.full_name ?? "this member"}`}
+                    onClick={() =>
+                      setEditing({ id: c.id, name: c.full_name ?? "Unnamed", username: c.username })
+                    }
+                  >
+                    Change
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
           {q.data && q.data.rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-xs text-muted-foreground">
+              <TableCell
+                colSpan={canEditUsername ? 8 : 7}
+                className="text-center text-xs text-muted-foreground"
+              >
                 {search ? "No customers match that search." : "No customers yet."}
               </TableCell>
             </TableRow>
@@ -145,6 +170,11 @@ export function CustomersPanel({
           </Button>
         </div>
       </div>
+      <UsernameEditDialog
+        member={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => void q.refetch()}
+      />
     </div>
   );
 }

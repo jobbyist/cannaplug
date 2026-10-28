@@ -493,6 +493,7 @@ function AdminPage() {
           <CustomersPanel
             focusLabel={focus?.kind === "customer" ? focus.label : null}
             onClearFocus={() => setFocus(null)}
+            canEditUsername={atLeast(role, "manager")}
           />
         )}
         {tab === "settings" && (
