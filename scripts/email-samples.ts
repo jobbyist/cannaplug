@@ -106,6 +106,19 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   document_ready: {},
   document_revoked: {},
   staff_prescription_revoked: { order_id: "o1", order_number: "CP-100245" },
+  staff_billing_change: {
+    account: "Admin/Checkout API Integration (POS + E-Commerce)",
+    provider: "Shopify",
+    from: "active",
+    to: "paused",
+    reason: "Pausing until the next release",
+    actor_name: "Thandi Mokoena",
+  },
+  staff_billing_payment: {
+    account: "ID Verification System",
+    provider: "VerifyNow",
+    amount_cents: 10000,
+  },
 };
 
 export function renderAll() {

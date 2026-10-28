@@ -16,6 +16,7 @@ import {
   Newspaper,
   Package,
   PlusCircle,
+  Receipt,
   Search,
   ShieldCheck,
   ShoppingBag,
@@ -27,6 +28,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BillingPanel } from "@/components/admin/BillingPanel";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
 import { PurchaseLimitsCard } from "@/components/admin/PurchaseLimitsCard";
@@ -122,6 +124,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "reports", icon: Wallet, label: "Reports" },
   { id: "staff", icon: UserCog, label: "Staff" },
   { id: "notifications", icon: Megaphone, label: "Notifications" },
+  { id: "billing", icon: Receipt, label: "Billing" },
   { id: "settings", icon: Cog, label: "Settings" },
 ];
 
@@ -137,6 +140,8 @@ const TAB_KEYWORDS: Record<string, string> = {
   inventory: "stock available",
   promotions: "email campaign newsletter marketing subscribers",
   staff: "roles team budtender manager admin permissions access",
+  billing:
+    "invoice subscription recurring payfast paypal shopify verifynow whatsapp pay pause cancel services",
   notifications: "bell updates messages announcements reminders team",
 };
 
@@ -514,6 +519,7 @@ function AdminPage() {
         {tab === "reports" && <SalesReportsPanel canEmail={atLeast(role, "manager")} />}
         {tab === "newsroom" && atLeast(role, "manager") && <NewsroomPanel />}
         {tab === "staff" && atLeast(role, "manager") && <StaffPanel role={role} myId={user.id} />}
+        {tab === "billing" && atLeast(role, "manager") && <BillingPanel role={role} />}
         {tab === "notifications" && atLeast(role, "manager") && (
           <NotificationsPanel team={team} role={role} />
         )}

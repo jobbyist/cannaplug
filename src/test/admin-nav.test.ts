@@ -19,6 +19,8 @@ describe("/admin tabs by role", () => {
   });
   it("managers see everything except clinical administration; admins see all; nobody sees anything before the role loads", () => {
     expect(Object.keys(TAB_MIN_ROLE).filter((t) => !canSee("manager", t))).toEqual(["clinical"]);
+    expect(canSee("manager", "billing")).toBe(true);
+    expect(canSee("budtender", "billing")).toBe(false);
     expect(Object.keys(TAB_MIN_ROLE).every((t) => canSee("admin", t))).toBe(true);
     expect(canSee(null, "overview")).toBe(false);
     expect(canSee("admin", "unknown-tab")).toBe(true);

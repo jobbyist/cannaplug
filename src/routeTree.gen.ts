@@ -32,6 +32,12 @@ import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as BillingPayfastCancelRouteImport } from './routes/billing.payfast.cancel'
+import { Route as BillingPayfastNotifyRouteImport } from './routes/billing.payfast.notify'
+import { Route as BillingPayfastReturnRouteImport } from './routes/billing.payfast.return'
+import { Route as BillingVerifynowCancelRouteImport } from './routes/billing.verifynow.cancel'
+import { Route as BillingVerifynowNotifyRouteImport } from './routes/billing.verifynow.notify'
+import { Route as BillingVerifynowReturnRouteImport } from './routes/billing.verifynow.return'
 import { Route as AdminPosReceiptSaleIdRouteImport } from './routes/admin_.pos.receipt.$saleId'
 import { Route as ApiPublicInventoryMaintenanceRouteImport } from './routes/api/public/inventory/maintenance'
 import { Route as ApiPublicNewsroomRunRouteImport } from './routes/api/public/newsroom/run'
@@ -155,6 +161,36 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BillingPayfastCancelRoute = BillingPayfastCancelRouteImport.update({
+  id: '/billing/payfast/cancel',
+  path: '/billing/payfast/cancel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingPayfastNotifyRoute = BillingPayfastNotifyRouteImport.update({
+  id: '/billing/payfast/notify',
+  path: '/billing/payfast/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingPayfastReturnRoute = BillingPayfastReturnRouteImport.update({
+  id: '/billing/payfast/return',
+  path: '/billing/payfast/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingVerifynowCancelRoute = BillingVerifynowCancelRouteImport.update({
+  id: '/billing/verifynow/cancel',
+  path: '/billing/verifynow/cancel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingVerifynowNotifyRoute = BillingVerifynowNotifyRouteImport.update({
+  id: '/billing/verifynow/notify',
+  path: '/billing/verifynow/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingVerifynowReturnRoute = BillingVerifynowReturnRouteImport.update({
+  id: '/billing/verifynow/return',
+  path: '/billing/verifynow/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPosReceiptSaleIdRoute = AdminPosReceiptSaleIdRouteImport.update({
   id: '/admin_/pos/receipt/$saleId',
   path: '/admin/pos/receipt/$saleId',
@@ -220,6 +256,12 @@ export interface FileRoutesByFullPath {
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
+  '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
+  '/billing/payfast/return': typeof BillingPayfastReturnRoute
+  '/billing/verifynow/cancel': typeof BillingVerifynowCancelRoute
+  '/billing/verifynow/notify': typeof BillingVerifynowNotifyRoute
+  '/billing/verifynow/return': typeof BillingVerifynowReturnRoute
   '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -252,6 +294,12 @@ export interface FileRoutesByTo {
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
+  '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
+  '/billing/payfast/return': typeof BillingPayfastReturnRoute
+  '/billing/verifynow/cancel': typeof BillingVerifynowCancelRoute
+  '/billing/verifynow/notify': typeof BillingVerifynowNotifyRoute
+  '/billing/verifynow/return': typeof BillingVerifynowReturnRoute
   '/admin/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -285,6 +333,12 @@ export interface FileRoutesById {
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
+  '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
+  '/billing/payfast/return': typeof BillingPayfastReturnRoute
+  '/billing/verifynow/cancel': typeof BillingVerifynowCancelRoute
+  '/billing/verifynow/notify': typeof BillingVerifynowNotifyRoute
+  '/billing/verifynow/return': typeof BillingVerifynowReturnRoute
   '/admin_/pos/receipt/$saleId': typeof AdminPosReceiptSaleIdRoute
   '/api/public/inventory/maintenance': typeof ApiPublicInventoryMaintenanceRoute
   '/api/public/newsroom/run': typeof ApiPublicNewsroomRunRoute
@@ -319,6 +373,12 @@ export interface FileRouteTypes {
     | '/verify/$token'
     | '/journal/'
     | '/api/public/health'
+    | '/billing/payfast/cancel'
+    | '/billing/payfast/notify'
+    | '/billing/payfast/return'
+    | '/billing/verifynow/cancel'
+    | '/billing/verifynow/notify'
+    | '/billing/verifynow/return'
     | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -351,6 +411,12 @@ export interface FileRouteTypes {
     | '/verify/$token'
     | '/journal'
     | '/api/public/health'
+    | '/billing/payfast/cancel'
+    | '/billing/payfast/notify'
+    | '/billing/payfast/return'
+    | '/billing/verifynow/cancel'
+    | '/billing/verifynow/notify'
+    | '/billing/verifynow/return'
     | '/admin/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -383,6 +449,12 @@ export interface FileRouteTypes {
     | '/verify/$token'
     | '/journal/'
     | '/api/public/health'
+    | '/billing/payfast/cancel'
+    | '/billing/payfast/notify'
+    | '/billing/payfast/return'
+    | '/billing/verifynow/cancel'
+    | '/billing/verifynow/notify'
+    | '/billing/verifynow/return'
     | '/admin_/pos/receipt/$saleId'
     | '/api/public/inventory/maintenance'
     | '/api/public/newsroom/run'
@@ -416,6 +488,12 @@ export interface RootRouteChildren {
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  BillingPayfastCancelRoute: typeof BillingPayfastCancelRoute
+  BillingPayfastNotifyRoute: typeof BillingPayfastNotifyRoute
+  BillingPayfastReturnRoute: typeof BillingPayfastReturnRoute
+  BillingVerifynowCancelRoute: typeof BillingVerifynowCancelRoute
+  BillingVerifynowNotifyRoute: typeof BillingVerifynowNotifyRoute
+  BillingVerifynowReturnRoute: typeof BillingVerifynowReturnRoute
   AdminPosReceiptSaleIdRoute: typeof AdminPosReceiptSaleIdRoute
   ApiPublicInventoryMaintenanceRoute: typeof ApiPublicInventoryMaintenanceRoute
   ApiPublicNewsroomRunRoute: typeof ApiPublicNewsroomRunRoute
@@ -588,6 +666,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/billing/payfast/cancel': {
+      id: '/billing/payfast/cancel'
+      path: '/billing/payfast/cancel'
+      fullPath: '/billing/payfast/cancel'
+      preLoaderRoute: typeof BillingPayfastCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/payfast/notify': {
+      id: '/billing/payfast/notify'
+      path: '/billing/payfast/notify'
+      fullPath: '/billing/payfast/notify'
+      preLoaderRoute: typeof BillingPayfastNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/payfast/return': {
+      id: '/billing/payfast/return'
+      path: '/billing/payfast/return'
+      fullPath: '/billing/payfast/return'
+      preLoaderRoute: typeof BillingPayfastReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/verifynow/cancel': {
+      id: '/billing/verifynow/cancel'
+      path: '/billing/verifynow/cancel'
+      fullPath: '/billing/verifynow/cancel'
+      preLoaderRoute: typeof BillingVerifynowCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/verifynow/notify': {
+      id: '/billing/verifynow/notify'
+      path: '/billing/verifynow/notify'
+      fullPath: '/billing/verifynow/notify'
+      preLoaderRoute: typeof BillingVerifynowNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/verifynow/return': {
+      id: '/billing/verifynow/return'
+      path: '/billing/verifynow/return'
+      fullPath: '/billing/verifynow/return'
+      preLoaderRoute: typeof BillingVerifynowReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/pos/receipt/$saleId': {
       id: '/admin_/pos/receipt/$saleId'
       path: '/admin/pos/receipt/$saleId'
@@ -664,6 +784,12 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  BillingPayfastCancelRoute: BillingPayfastCancelRoute,
+  BillingPayfastNotifyRoute: BillingPayfastNotifyRoute,
+  BillingPayfastReturnRoute: BillingPayfastReturnRoute,
+  BillingVerifynowCancelRoute: BillingVerifynowCancelRoute,
+  BillingVerifynowNotifyRoute: BillingVerifynowNotifyRoute,
+  BillingVerifynowReturnRoute: BillingVerifynowReturnRoute,
   AdminPosReceiptSaleIdRoute: AdminPosReceiptSaleIdRoute,
   ApiPublicInventoryMaintenanceRoute: ApiPublicInventoryMaintenanceRoute,
   ApiPublicNewsroomRunRoute: ApiPublicNewsroomRunRoute,

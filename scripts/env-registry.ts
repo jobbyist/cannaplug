@@ -139,6 +139,24 @@ export const ENV_VARS: EnvVar[] = [
     note: "true: PayFast window on our checkout (onsite beta; enable on the merchant account), else PayFast's page",
   },
   {
+    name: "BILLING_PAYFAST_MERCHANT_ID",
+    group: "Billing",
+    status: "optional",
+    note: "Merchant that receives service payments (default 25538645); compared on every billing notify",
+  },
+  {
+    name: "BILLING_PAYFAST_PASSPHRASE",
+    group: "Billing",
+    status: "feature",
+    note: "That merchant's passphrase, to verify …/billing/{payfast,verifynow}/notify",
+  },
+  {
+    name: "BILLING_PAYFAST_ENV",
+    group: "Billing",
+    status: "optional",
+    note: "live (default) or sandbox",
+  },
+  {
     name: "DELIVERY_ENABLED",
     group: "Checkout",
     status: "optional",

@@ -45,6 +45,7 @@ describe("service worker cache policy", () => {
       "/verify/abc",
       "/unsubscribe?t=1",
       "/subscribe/admin-api",
+      "/billing/payfast/return",
       "/api/public/payments/payfast-itn",
       "/_serverFn/abc",
     ])

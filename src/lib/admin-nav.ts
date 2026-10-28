@@ -21,6 +21,7 @@ export const TAB_MIN_ROLE: Record<string, StaffRole> = {
   settings: "manager",
   staff: "manager",
   notifications: "manager",
+  billing: "manager",
   clinical: "admin",
 };
 
