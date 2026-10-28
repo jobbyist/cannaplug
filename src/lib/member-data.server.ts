@@ -1,3 +1,4 @@
+import { isStaffAccount } from "@/lib/verification-data.server";
 import { productImageUrl } from "@/lib/product-image-url.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -154,7 +155,9 @@ export async function getMemberAccount(db: UserClient, userId: string) {
       in_stock: inStock.has(p.id),
       image_url: productImageUrl(p.image_path),
     })),
-    verification: unwrap(verification),
+    verification: (await isStaffAccount(userId))
+      ? { ...(unwrap(verification) ?? { status: "unverified" }), staff_exempt: true }
+      : unwrap(verification),
   };
 }
 

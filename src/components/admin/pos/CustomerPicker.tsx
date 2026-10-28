@@ -12,6 +12,9 @@ type Hit = {
   phone: string | null;
   email: string | null;
   is_staff: boolean;
+  /** False when this staff member cannot be attached by the person at the till (the database decides). */
+  can_attach?: boolean;
+  blocked_reason?: string | null;
 };
 
 /** Attach a member or a staff member to a till sale: type a name, phone or email; the database searches (no list is loaded up front). */
@@ -91,7 +94,9 @@ export function CustomerPicker({
             <li key={h.id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted"
+                disabled={h.can_attach === false}
+                title={h.can_attach === false ? (h.blocked_reason ?? undefined) : undefined}
+                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
                 onClick={() => {
                   onChange({
                     id: h.id,
@@ -102,9 +107,16 @@ export function CustomerPicker({
                   setHits([]);
                 }}
               >
-                <span className="flex items-center gap-2 font-medium">
-                  {h.full_name ?? "Unnamed"}
-                  {h.is_staff && <StaffBadge />}
+                <span className="flex flex-col">
+                  <span className="flex items-center gap-2 font-medium">
+                    {h.full_name ?? "Unnamed"}
+                    {h.is_staff && <StaffBadge />}
+                  </span>
+                  {h.can_attach === false && h.blocked_reason && (
+                    <span className="text-[0.65rem] font-normal text-muted-foreground">
+                      {h.blocked_reason}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-muted-foreground">{h.phone ?? h.email ?? ""}</span>
               </button>

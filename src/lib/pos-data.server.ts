@@ -61,6 +61,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_discount: "That discount is not valid",
   discount_too_large: "That discount is more than the amount it applies to",
   discount_reason_required: "Give a reason for the discount",
+  staff_attach_not_allowed:
+    "You cannot attach that staff member. Managers and admins can attach any staff member; a budtender can attach other budtenders, but not themselves",
   invalid_amount: "Invalid amount",
   invalid_input: "Check the details and try again",
   expense_not_found: "That expense was not found",
@@ -174,6 +176,8 @@ export type PosCustomerHit = {
   phone: string | null;
   email: string | null;
   is_staff: boolean;
+  can_attach: boolean;
+  blocked_reason: string | null;
 };
 
 /** The till's customer search: members and staff (flagged), found in the database. Read-only. */

@@ -149,6 +149,7 @@ const DATA_LAYERS: Record<string, string[]> = {
   ],
   "src/lib/verification-data.server.ts": [
     "getMyVerification",
+    "isStaffAccount", // reads only the caller's own role; never takes an id from the browser
     "createIdUpload",
     "submitVerification",
     "sweepOrphanedIdFolders",

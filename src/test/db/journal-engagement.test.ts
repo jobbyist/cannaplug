@@ -216,7 +216,7 @@ describe.skipIf(!DB_URL)("journal likes and comments (real PostgreSQL)", () => {
   it("the launch articles and their seeded comments are in place, dated 25 to 28 October 2026", async () => {
     const rows = await sql`SELECT slug, author_name, featured, published_at::date::text AS d,
         (SELECT count(*)::int FROM public.article_comments c WHERE c.article_id = a.id AND c.is_seed) AS seeds
-      FROM public.articles a WHERE author_name = 'Dithekgo M.' ORDER BY published_at`;
+      FROM public.articles a WHERE author_name = 'Dithekgo M.' AND published_at < '2026-10-29T00:00:00+02:00' ORDER BY published_at`;
     expect(rows.map((r) => r["d"])).toEqual([
       "2026-10-25",
       "2026-10-26",

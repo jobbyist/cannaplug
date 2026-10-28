@@ -29,7 +29,8 @@ describe.skipIf(!DB_URL)("staff purchases (real PostgreSQL)", () => {
   beforeAll(async () => {
     sql = connect(20);
     manager = await mkUser(sql, "manager");
-    cashier = await mkUser(sql, "budtender");
+    // A manager runs this till: managers can attach any staff member (the attach rules are tested in staff-rules).
+    cashier = await mkUser(sql, "manager");
     ({ sessionId } = await mkSession(sql, manager, cashier));
   });
   afterAll(async () => {
