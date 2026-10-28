@@ -6,6 +6,7 @@ const LEVEL: Record<StaffRole, number> = { budtender: 1, manager: 2, admin: 3 };
 export const TAB_MIN_ROLE: Record<string, StaffRole> = {
   overview: "budtender",
   pos: "budtender",
+  "demo-till": "manager", // practice till: records nothing
   orders: "budtender",
   deliveries: "budtender",
   products: "budtender", // budtenders see the list without cost and cannot edit
