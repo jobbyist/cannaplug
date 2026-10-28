@@ -14,6 +14,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import { CartProvider } from "../lib/cart";
 import { AuthProvider } from "../hooks/useAuth";
 import { ChatWidget } from "../components/ChatWidget";
+import { Analytics } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -149,6 +150,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         {children}
         <Scripts />
+        <Analytics />
       </body>
     </html>
   );
