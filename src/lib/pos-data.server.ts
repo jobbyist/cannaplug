@@ -182,6 +182,8 @@ export type PosCustomerHit = {
   phone: string | null;
   email: string | null;
   is_staff: boolean;
+  /** The member's ID status (provisional = imported from the previous platform), null for staff without one. */
+  id_status?: string | null;
   can_attach: boolean;
   blocked_reason: string | null;
 };

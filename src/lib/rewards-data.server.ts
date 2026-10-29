@@ -15,6 +15,8 @@ export type ReferralCodeCheck = {
 };
 export type RewardsSummary = {
   username: string | null;
+  /** Imported members may change the username from the file once, after submitting their ID. */
+  username_change: "none" | "needs_id" | "available" | "used";
   /** True while the username was generated for the member: they can replace or keep it once. */
   username_auto: boolean;
   can_change: boolean;
@@ -32,10 +34,17 @@ export type RewardsSummary = {
 };
 
 /** Is this username free? Public (the sign-up form asks before an account exists). Reads nothing about anyone. */
-export async function checkUsername(raw: string): Promise<{ status: UsernameStatus }> {
-  const { data, error } = await supabaseAdmin.rpc("username_check", {
-    p_username: normaliseUsername(raw),
-  });
+export async function checkUsername(
+  raw: string,
+  email?: string,
+): Promise<{ status: UsernameStatus }> {
+  // With an email (the sign-up form) an imported member's own username counts as free for them.
+  const { data, error } = email
+    ? await supabaseAdmin.rpc("username_check_signup", {
+        p_email: email,
+        p_username: normaliseUsername(raw),
+      })
+    : await supabaseAdmin.rpc("username_check", { p_username: normaliseUsername(raw) });
   if (error) throw friendlyMemberError(error);
   return { status: data as UsernameStatus };
 }
@@ -64,5 +73,10 @@ export async function getRewardsSummary(userId: string): Promise<RewardsSummary>
   if (ensured.error) console.error("member_ensure_username failed", ensured.error.message);
   const { data, error } = await supabaseAdmin.rpc("member_rewards_summary", { p_user_id: userId });
   if (error) throw new MemberError("Could not load your rewards. Please retry.");
-  return data as unknown as RewardsSummary;
+  const change = await supabaseAdmin.rpc("member_username_change_state", { p_user_id: userId });
+  if (change.error) throw new MemberError("Could not load your rewards. Please retry.");
+  return {
+    ...(data as unknown as Omit<RewardsSummary, "username_change">),
+    username_change: change.data as RewardsSummary["username_change"],
+  };
 }

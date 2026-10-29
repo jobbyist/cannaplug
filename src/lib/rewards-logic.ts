@@ -81,10 +81,15 @@ const RESERVED = new Set([
 export const normaliseUsername = (raw: string): string => raw.trim().toLowerCase();
 
 /** null when the username is well formed (the database still checks it is free). */
-export function usernameProblem(raw: string): string | null {
+export function usernameProblem(
+  raw: string,
+  opts: { allowImported?: boolean } = {},
+): string | null {
   const v = normaliseUsername(raw);
   if (!v) return "Choose a username.";
-  if (!/^[a-z0-9_]{3,20}$/.test(v))
+  // Usernames brought over from the previous platform look like first.last (dots, up to 32 characters). The
+  // sign-up form accepts that shape; the database decides whether it is the member's own.
+  if (!(opts.allowImported ? /^[a-z0-9_.]{3,32}$/ : /^[a-z0-9_]{3,20}$/).test(v))
     return "A username is 3 to 20 letters, numbers or underscores, with no spaces.";
   if (RESERVED.has(v)) return "That username is not available. Try another.";
   return null;
@@ -101,7 +106,7 @@ export const referralShareText = (link: string, username: string): string =>
 export function referralFromSearch(search: string): string {
   const raw = new URLSearchParams(search).get("ref") ?? "";
   const v = raw.trim().toLowerCase();
-  return /^[a-z0-9_-]{3,32}$/.test(v) ? v : "";
+  return /^[a-z0-9_.-]{3,32}$/.test(v) ? v : "";
 }
 
 /** Points still needed for the next reward the member cannot yet claim, or null when they can claim every reward. */

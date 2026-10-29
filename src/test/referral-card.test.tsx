@@ -15,6 +15,7 @@ import type { RewardsSummary } from "@/lib/rewards-data.server";
 
 const base: RewardsSummary = {
   username: "thandi",
+  username_change: "none",
   username_auto: false,
   can_change: false,
   can_refer: true,

@@ -8,17 +8,22 @@ export type UsernameCheck =
   | { state: "ok" | "taken" | "reserved" | "invalid" | "error"; message: string };
 
 /** Checks, as you type, that a username is well formed and free. The database still has the final say. */
-export function useUsernameCheck(value: string, delayMs = 350): UsernameCheck {
+export function useUsernameCheck(
+  value: string,
+  opts: { email?: string; delayMs?: number } = {},
+): UsernameCheck {
+  const { email, delayMs = 350 } = opts;
   const [result, setResult] = useState<UsernameCheck>({ state: "idle" });
   useEffect(() => {
     const v = normaliseUsername(value);
     if (!v) return setResult({ state: "idle" });
-    const problem = usernameProblem(v);
+    // At sign-up (an email is given) an imported member's own username, which may contain dots, is allowed.
+    const problem = usernameProblem(v, { allowImported: email !== undefined });
     if (problem) return setResult({ state: "invalid", message: problem });
     let alive = true;
     setResult({ state: "checking" });
     const t = setTimeout(() => {
-      checkUsernameFn({ data: { username: v } })
+      checkUsernameFn({ data: { username: v, ...(email ? { email } : {}) } })
         .then(({ status }) => {
           if (!alive) return;
           setResult(
@@ -39,6 +44,6 @@ export function useUsernameCheck(value: string, delayMs = 350): UsernameCheck {
       alive = false;
       clearTimeout(t);
     };
-  }, [value, delayMs]);
+  }, [value, delayMs, email]);
   return result;
 }

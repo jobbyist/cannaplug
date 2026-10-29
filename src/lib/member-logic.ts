@@ -148,6 +148,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   username_invalid: "A username is 3 to 20 letters, numbers or underscores.",
   username_reserved: "That username is not available. Try another.",
   username_already_set: "Your username is your referral code, so it cannot be changed.",
+  username_edit_needs_id:
+    "Submit your ID for verification first, then you can change your username once.",
+  username_unchanged: "That is already your username.",
   invalid_points: "Enter a whole number of points",
   idempotency_conflict:
     "This request was already submitted with different details — please refresh",
@@ -170,6 +173,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_items: "Your basket could not be read — please refresh it",
   verification_required: "Verify your ID before placing an order",
   verification_pending: "Your ID is being reviewed — you can order once it is approved",
+  verification_provisional:
+    "Your account is active in store. Submit your ID to unlock the online store.",
   already_verified: "Your ID is already verified",
   underage: "You must be 18 or older to shop with CannaPlug",
   invalid_dob: "Enter your date of birth",

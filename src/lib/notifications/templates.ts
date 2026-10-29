@@ -432,6 +432,38 @@ export const TEMPLATES: Record<string, Template> = {
       footerNote: "You asked to be notified about this product; this is a one-time message.",
     }),
   }),
+  // One-time invitation to members brought over from the previous platform. No ID, health or order data: first name
+  // and the username they already have.
+  member_import_invite: (d, c) => {
+    const base = c.siteUrl.replace(/\/+$/, "");
+    const name = String(d["first_name"] ?? "").trim();
+    return {
+      subject: "The new Cannaplug is live: your account is ready",
+      html: layout({
+        preheader:
+          "Sign up with this email address, set your password and unlock the online store.",
+        title: "The new Cannaplug is live",
+        bodyHtml:
+          p(`Hi${name ? ` ${esc(name)}` : ""},`) +
+          p(
+            "Our new Cannaplug platform and online store are now live. Because you submitted your ID on our previous system, your Cannaplug account is already <b>provisionally activated</b>, so you can keep shopping in store as usual.",
+          ) +
+          p("To get full access to the platform and the online store:") +
+          `<ol style="margin:0 0 14px;padding-left:20px;font-size:15px;line-height:1.7">
+<li>Sign up with <b>this email address</b>.</li>
+<li>Your username is <b>${esc(d["username"])}</b>. It is linked to your account when you sign up with this email address, and you can change it once after you submit your ID.</li>
+<li>Set your own password.</li>
+<li>Submit your ID or passport for verification (this is a POPIA requirement for online access).</li>
+</ol>` +
+          p(
+            "If you would rather not re-submit your ID, nothing changes for you in store: your account stays provisionally activated.",
+          ),
+        cta: { label: "Sign up now", url: `${base}/account?mode=signup` },
+        footerNote:
+          "You are receiving this one-time message because you are a Cannaplug member. If it is not meant for you, reply and we will remove your details.",
+      }),
+    };
+  },
   staff_id_review: (d, c) => ({
     subject: "ID waiting for review",
     html: layout({
