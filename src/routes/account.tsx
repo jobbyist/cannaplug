@@ -1,5 +1,5 @@
 import { StaffBadge } from "@/components/StaffBadge";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   BadgeCheck,
@@ -51,6 +51,8 @@ import { idCreditsOpenFn } from "@/lib/id-credits.functions";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import logoImage from "@/assets/cannaplug-logo.png";
 import logoImageWhite from "@/assets/cannaplug-logo-white.png";
+import { PlatformTour } from "@/components/account/PlatformTour";
+import { TOUR_FLAG, tourPending } from "@/lib/tour-logic";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/account")({
@@ -70,6 +72,7 @@ function AccountPage() {
 }
 
 function AuthPanel() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">(() =>
     typeof window !== "undefined" &&
     (referralFromSearch(window.location.search) ||
@@ -134,6 +137,7 @@ function AuthPanel() {
     };
   }, [referral, mode]);
   const [dob, setDob] = useState("");
+  const [extrasOpen, setExtrasOpen] = useState(() => Boolean(referral));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -158,19 +162,23 @@ function AuthPanel() {
         // lose the referral).
         if (username.trim()) {
           const { status } = await checkUsernameFn({ data: { username, email } });
-          if (status !== "ok")
+          if (status !== "ok") {
+            setExtrasOpen(true);
             throw new Error(
               status === "taken"
                 ? "That username is taken. Try another."
                 : "That username is not available. Try another.",
             );
+          }
         }
         if (referral.trim()) {
           const r = await checkReferralCodeFn({ data: { code: referral } });
-          if (!r.valid && r.reason !== "inactive")
+          if (!r.valid && r.reason !== "inactive") {
+            setExtrasOpen(true);
             throw new Error(
               "We couldn't find that referral code. Check the spelling or clear the box.",
             );
+          }
         }
         // New members need an ID check; when the shop has no credits left, sign-up is paused.
         if (!(await idCreditsOpenFn())) {
@@ -191,6 +199,9 @@ function AuthPanel() {
         if (!created.session) {
           setMode("signin");
           setNotice("Account created. Sign in with your email and password to upload your ID.");
+        } else {
+          // Straight into the member portal (the welcome tour opens there), with the sign-up query cleared.
+          await navigate({ to: "/account", search: {}, hash: "", replace: true });
         }
       }
     } catch (err) {
@@ -289,38 +300,6 @@ function AuthPanel() {
                   )}
                   {mode === "signup" && (
                     <div className="grid gap-1.5">
-                      <Label htmlFor="signup-username">Username (optional)</Label>
-                      <Input
-                        id="signup-username"
-                        autoComplete="username"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        maxLength={32}
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
-                      />
-                      <p
-                        data-testid="username-status"
-                        aria-live="polite"
-                        className={
-                          "text-[0.7rem] " +
-                          (usernameCheck.state === "ok"
-                            ? "text-primary"
-                            : usernameCheck.state === "idle" || usernameCheck.state === "checking"
-                              ? "text-muted-foreground"
-                              : "text-destructive")
-                        }
-                      >
-                        {usernameCheck.state === "checking"
-                          ? "Checking…"
-                          : usernameCheck.state === "idle"
-                            ? "Optional. Set a username to get your own referral code and link: once it's set you can share it with friends and earn loyalty points when they join and spend R50. You can skip this now and set it in your account after you sign up. 3 to 20 letters, numbers or underscores; it becomes your referral code and can't be changed later."
-                            : usernameCheck.message}
-                      </p>
-                    </div>
-                  )}
-                  {mode === "signup" && (
-                    <div className="grid gap-1.5">
                       <DateOfBirthField
                         id="signup-dob"
                         label="Date of birth"
@@ -394,41 +373,84 @@ function AuthPanel() {
                     )}
                   </div>
                   {mode === "signup" && (
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="signup-referral">Referral code (optional)</Label>
-                      <Input
-                        id="signup-referral"
-                        autoComplete="off"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        value={referral}
-                        onChange={(e) => setReferral(e.target.value.replace(/\s/g, ""))}
-                      />
-                      <p
-                        data-testid="referral-status"
-                        aria-live="polite"
-                        className={
-                          "text-[0.7rem] " +
-                          (referralNote
-                            ? referralNote.ok
-                              ? "text-primary"
-                              : "text-destructive"
-                            : "text-muted-foreground")
-                        }
-                      >
-                        {referralNote?.text ??
-                          "A friend's username. They earn a loyalty point when you spend R50."}
-                      </p>
-                      <p className="text-[0.7rem] text-muted-foreground">
-                        Earn 1 loyalty point for every R50 you spend.{" "}
-                        <a
-                          className="font-semibold text-primary underline-offset-2 hover:underline"
-                          href="/rewards"
-                        >
-                          How rewards work
-                        </a>
-                      </p>
-                    </div>
+                    <details
+                      data-testid="signup-extras"
+                      className="rounded-md border border-border px-3 py-2"
+                      open={extrasOpen}
+                      onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
+                    >
+                      <summary className="cursor-pointer text-xs font-semibold text-primary">
+                        Have a referral code or want a username? (optional)
+                      </summary>
+                      <div className="mt-3 flex flex-col gap-4">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="signup-username">Username (optional)</Label>
+                          <Input
+                            id="signup-username"
+                            autoComplete="username"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            maxLength={32}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))}
+                          />
+                          <p
+                            data-testid="username-status"
+                            aria-live="polite"
+                            className={
+                              "text-[0.7rem] " +
+                              (usernameCheck.state === "ok"
+                                ? "text-primary"
+                                : usernameCheck.state === "idle" ||
+                                    usernameCheck.state === "checking"
+                                  ? "text-muted-foreground"
+                                  : "text-destructive")
+                            }
+                          >
+                            {usernameCheck.state === "checking"
+                              ? "Checking…"
+                              : usernameCheck.state === "idle"
+                                ? "Optional. A username is your referral code and link: share it to earn loyalty points when friends join and spend R50. Skip it now and set it later in your account. 3 to 20 letters, numbers or underscores; it can't be changed later."
+                                : usernameCheck.message}
+                          </p>
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="signup-referral">Referral code (optional)</Label>
+                          <Input
+                            id="signup-referral"
+                            autoComplete="off"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            value={referral}
+                            onChange={(e) => setReferral(e.target.value.replace(/\s/g, ""))}
+                          />
+                          <p
+                            data-testid="referral-status"
+                            aria-live="polite"
+                            className={
+                              "text-[0.7rem] " +
+                              (referralNote
+                                ? referralNote.ok
+                                  ? "text-primary"
+                                  : "text-destructive"
+                                : "text-muted-foreground")
+                            }
+                          >
+                            {referralNote?.text ??
+                              "A friend's username. They earn a loyalty point when you spend R50."}
+                          </p>
+                          <p className="text-[0.7rem] text-muted-foreground">
+                            Earn 1 loyalty point for every R50 you spend.{" "}
+                            <a
+                              className="font-semibold text-primary underline-offset-2 hover:underline"
+                              href="/rewards"
+                            >
+                              How rewards work
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+                    </details>
                   )}
                   {error && (
                     <p
@@ -508,6 +530,12 @@ function MemberPortal() {
   );
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
+  // Welcome tour: once, for members who just signed up. Hidden immediately, then recorded on the account.
+  const [tourDone, setTourDone] = useState(false);
+  const finishTour = () => {
+    setTourDone(true);
+    void supabase.auth.updateUser({ data: { [TOUR_FLAG]: "done" } });
+  };
 
   // Onboarding: a member who has never submitted an ID lands on the verification step first.
   const onboarded = useRef(false);
@@ -565,6 +593,9 @@ function MemberPortal() {
           </>
         }
       />
+      {account && !resetting && !tourDone && tourPending(user) && (
+        <PlatformTour onStep={setTab} onFinish={finishTour} />
+      )}
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
         <Breadcrumbs bare />
         <header className="mb-6 flex items-center justify-between">

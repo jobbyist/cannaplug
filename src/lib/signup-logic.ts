@@ -98,6 +98,8 @@ export function signupMetadata(f: SignupFields) {
     last_name: last,
     phone: f.phone.trim(),
     date_of_birth: f.dob,
+    // Marks a brand-new member so the member portal shows the welcome tour once (see tour-logic.ts).
+    onboarding_tour: "pending",
     id_number: normaliseIdNumber(f.idNumber),
     ...(f.username.trim() ? { username: normaliseUsername(f.username) } : {}),
     ...(f.referral.trim() ? { referral_code: f.referral.trim().toUpperCase() } : {}),
