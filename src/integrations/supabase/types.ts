@@ -176,6 +176,42 @@ export type Database = {
           },
         ];
       };
+      commerce_suspensions: {
+        Row: {
+          billing_account_id: string | null;
+          id: string;
+          reason: string;
+          resumed_at: string | null;
+          resumed_by: string | null;
+          resumed_payment_id: string | null;
+          resumed_via: string | null;
+          suspended_at: string;
+          suspended_by: string | null;
+        };
+        Insert: {
+          billing_account_id?: string | null;
+          id?: string;
+          reason: string;
+          resumed_at?: string | null;
+          resumed_by?: string | null;
+          resumed_payment_id?: string | null;
+          resumed_via?: string | null;
+          suspended_at?: string;
+          suspended_by?: string | null;
+        };
+        Update: {
+          billing_account_id?: string | null;
+          id?: string;
+          reason?: string;
+          resumed_at?: string | null;
+          resumed_by?: string | null;
+          resumed_payment_id?: string | null;
+          resumed_via?: string | null;
+          suspended_at?: string;
+          suspended_by?: string | null;
+        };
+        Relationships: [];
+      };
       team_notifications: {
         Row: {
           body: string;
@@ -3729,6 +3765,15 @@ export type Database = {
       };
       billing_paypal_subscription_event: {
         Args: { p_subscription_id: string; p_event: string; p_event_id: string };
+        Returns: Json;
+      };
+      commerce_suspension_status: { Args: Record<PropertyKey, never>; Returns: Json };
+      commerce_suspend: {
+        Args: { p_actor: string; p_slug: string; p_reason: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      commerce_resume: {
+        Args: { p_actor: string; p_reason: string; p_idempotency_key: string };
         Returns: Json;
       };
       billing_set_status: {

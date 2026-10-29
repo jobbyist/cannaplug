@@ -1,6 +1,7 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
+import { assertPosOpen } from "@/lib/commerce-suspension.server";
 import { endExpiredSales } from "@/lib/sale-expiry.server";
 
 /**
@@ -619,6 +620,7 @@ export async function posCompleteSale(
     key: string;
   },
 ) {
+  await assertPosOpen();
   await endExpiredSales(userId);
   const sale = unwrap(
     await supabaseAdmin.rpc("pos_complete_sale", {

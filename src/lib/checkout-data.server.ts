@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { friendlyMemberError, MemberError } from "@/lib/member-logic";
 import { endExpiredSales } from "@/lib/sale-expiry.server";
+import { assertCheckoutOpen } from "@/lib/commerce-suspension.server";
 import { DELIVERY_PAUSED_MESSAGE, deliveryEnabled } from "@/lib/delivery-flag";
 
 /**
@@ -125,6 +126,7 @@ export type PlaceOrderInput = {
 };
 
 export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput) {
+  await assertCheckoutOpen();
   // Only accept a method that is actually available: a configured provider, or EFT once the owner has
   // confirmed the bank details (never place an order the member cannot pay).
   const { availableOnlineMethods } = await import("@/lib/payments/payments-data.server");

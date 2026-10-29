@@ -31,6 +31,7 @@ vi.mock("@/integrations/supabase/client.server", () => {
   };
   return { supabaseAdmin: { from: query, rpc: db.rpc } };
 });
+vi.mock("@/lib/commerce-suspension.server", () => ({ assertCheckoutOpen: vi.fn() }));
 vi.mock("@/lib/sale-expiry.server", () => ({ endExpiredSales: vi.fn() }));
 vi.mock("@/lib/payments/payments-data.server", () => ({
   availableOnlineMethods: async () => ({ card: true, paypal: false, eft: { bank: "x" } }),

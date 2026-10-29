@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
+import { assertCheckoutOpen, commerceSuspended } from "@/lib/commerce-suspension.server";
 import { friendlyMemberError } from "@/lib/member-logic";
 import {
   PaymentError,
@@ -52,6 +53,9 @@ export async function getEftDetails(): Promise<EftDetails | null> {
 
 /** Which payment methods the storefront may offer. */
 export async function availableOnlineMethods(): Promise<OnlineMethods> {
+  // Checkout is suspended while the platform bill is unpaid: no method is offered until the payment lifts it.
+  if (await commerceSuspended())
+    return { card: false, cardOnsite: false, paypal: false, eft: null };
   return { ...configuredOnlineProviders(), eft: await getEftDetails() };
 }
 
@@ -114,6 +118,7 @@ export async function startMemberPayment(
   origin: string,
   buyerEmail: string | null = null,
 ): Promise<StartedPayment> {
+  await assertCheckoutOpen();
   try {
     return await startPayment(paymentsDeps(origin), {
       userId,
