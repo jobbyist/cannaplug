@@ -1,3 +1,5 @@
+import { CommerceSuspendedBanner } from "@/components/CommerceSuspendedBanner";
+import { useCommerceSuspended } from "@/hooks/use-commerce-suspended";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   BadgePercent,
@@ -86,6 +88,7 @@ const statusVariant = (s: string) =>
 export function PosPanel() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const commerce = useCommerceSuspended();
 
   const refresh = useCallback(async () => {
     try {
@@ -111,6 +114,9 @@ export function PosPanel() {
 
   return (
     <div className="flex flex-col gap-6">
+      {commerce.suspended && (
+        <CommerceSuspendedBanner kind="pos" canResume onResumed={() => void commerce.refresh()} />
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold uppercase">Point of sale</h1>
@@ -407,6 +413,7 @@ export function SaleScreen({
   // A 100% discount makes a free (R0) sale: no payment is taken, whatever payment rows were typed before.
   const activeTenders = totalCents === 0 ? [] : tenders;
   const status = tenderStatus(totalCents, activeTenders);
+  const salesPaused = useCommerceSuspended(!demo).suspended;
   const cashTender = tenders
     .filter((t) => t.method === "cash")
     .reduce((s, t) => s + (parseCents(t.amount) ?? 0), 0);
@@ -469,7 +476,7 @@ export function SaleScreen({
   };
 
   const completeSale = async () => {
-    if (inFlight.current || !status.ok || !discountsOk || lines.length === 0) return;
+    if (inFlight.current || salesPaused || !status.ok || !discountsOk || lines.length === 0) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -1142,7 +1149,7 @@ export function SaleScreen({
               type="button"
               size="lg"
               className="mt-4 w-full"
-              disabled={!status.ok || !discountsOk || busy}
+              disabled={salesPaused || !status.ok || !discountsOk || busy}
               onClick={() => void completeSale()}
             >
               {busy

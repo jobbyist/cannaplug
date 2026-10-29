@@ -1,3 +1,5 @@
+import { CommerceSuspendedBanner } from "@/components/CommerceSuspendedBanner";
+import { useCommerceSuspended } from "@/hooks/use-commerce-suspended";
 import { StaffBadge } from "@/components/StaffBadge";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -249,6 +251,7 @@ function CheckoutPage() {
   const [usdRate, setUsdRate] = useState<number | null>(null);
   // Starts the payment right after placing; false when resuming after a refresh (the member clicks Pay).
   const [autoPay, setAutoPay] = useState(false);
+  const checkoutPaused = useCommerceSuspended().suspended;
   useEffect(() => {
     let live = true;
     getOnlineMethodsFn()
@@ -492,6 +495,11 @@ function CheckoutPage() {
         <p className="mb-6 text-sm text-muted-foreground">
           A quick, secure path from cart to confirmation.
         </p>
+        {checkoutPaused && step !== "Confirmation" && (
+          <div className="mb-4">
+            <CommerceSuspendedBanner kind="checkout" />
+          </div>
+        )}
         <Stepper step={step} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
@@ -987,6 +995,7 @@ function CheckoutPage() {
                     )}
                     <Button
                       disabled={
+                        checkoutPaused ||
                         placing ||
                         quoting ||
                         !payMethod ||

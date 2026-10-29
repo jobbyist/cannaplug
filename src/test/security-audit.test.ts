@@ -65,6 +65,8 @@ const PUBLIC_FNS: Record<string, string> = {
   listDeliveryOptionsFn: "public checkout info",
   getOnlineMethodsFn:
     "which payment buttons to show, plus the shop's owner-confirmed bank details for EFT (business info only)",
+  getCommerceStatusFn:
+    "whether POS and checkout are paused for an unpaid platform bill (a yes/no, no input)",
   getPaypalRateFn: "today's public ZAR/USD rate for the PayPal estimate (no input, no member data)",
   submitContactFn: "public contact form; honeypot + per-IP rate limit",
   subscribeNewsletterFn: "public newsletter; honeypot + per-IP rate limit",
