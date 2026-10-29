@@ -1,4 +1,4 @@
-import { EVENTS_AND_PROMOTIONS } from "@/lib/events";
+import { mostRecentEventsAndPromotions } from "@/lib/events";
 import { ResponsibleConsumptionDialog } from "@/components/ResponsibleConsumptionDialog";
 import { submitContactFn, subscribeNewsletterFn } from "@/lib/forms.functions";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -915,7 +915,7 @@ function Events() {
           href="/events"
         />
         <div className="promo-grid">
-          {EVENTS_AND_PROMOTIONS.map((item) => (
+          {mostRecentEventsAndPromotions(3).map((item) => (
             <article className="promo-card" key={item.slug}>
               <img
                 src={item.image}

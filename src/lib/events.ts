@@ -1,7 +1,7 @@
 import propagandaImage from "@/assets/event-propaganda.jpg";
 import plugCupImage from "@/assets/event-plug-cup.jpg";
 import weekendSpecialImage from "@/assets/promo-weekend-special.jpg";
-import plugBackAsset from "@/assets/plug-back-campaign.jpeg.asset.json";
+import plugBackImage from "@/assets/plug-back-campaign.jpg";
 import halloweedImage from "@/assets/promo-halloweed.jpg";
 
 export type EventPromo = {
@@ -10,6 +10,8 @@ export type EventPromo = {
   tag: string;
   title: string;
   when: string;
+  /** ISO date the item started (or, for a standing promotion, its latest run); drives "most recent". */
+  startsOn: string;
   where?: string;
   copy: string;
   image: string;
@@ -21,6 +23,7 @@ export type EventPromo = {
 export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
   {
     slug: "propaganda",
+    startsOn: "2026-09-26",
     kind: "Event",
     tag: "Past event",
     title: "Propaganda: 25K The Plug x CannaPlug",
@@ -35,6 +38,7 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
   },
   {
     slug: "plug-cup",
+    startsOn: "2026-08-29",
     kind: "Event",
     tag: "Past event",
     title: "The Plug Cup",
@@ -49,6 +53,7 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
   },
   {
     slug: "weekend-special",
+    startsOn: "2026-10-23",
     kind: "Promotion",
     tag: "Every weekend",
     title: "Weekend Special",
@@ -61,6 +66,7 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
   },
   {
     slug: "halloweed",
+    startsOn: "2026-10-25",
     kind: "Promotion",
     tag: "25 – 31 Oct",
     title: "Halloweed: Trick or Treat",
@@ -73,13 +79,23 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
   },
   {
     slug: "plug-back",
+    startsOn: "2026-10-29",
     kind: "Promotion",
     tag: "Now on",
     title: "Plug Back",
     when: "In store while stocks last",
     copy: "Bring 10 empty CannaPlug pre-roll tubes in store and get 1 complimentary Greenhouse pre-roll. Original CannaPlug tubes only.",
-    image: plugBackAsset.url,
+    image: plugBackImage,
+    width: 1080,
+    height: 1080,
     imageAlt:
       "Plug Back: bring 10 empty CannaPlug pre-roll tubes and get 1 free Greenhouse pre-roll.",
   },
 ];
+
+/** Newest first by start date (stable for ties). */
+export function mostRecentEventsAndPromotions(limit: number): EventPromo[] {
+  return [...EVENTS_AND_PROMOTIONS]
+    .sort((a, b) => b.startsOn.localeCompare(a.startsOn))
+    .slice(0, limit);
+}
