@@ -50,6 +50,8 @@ vi.mock("@tanstack/react-router", async (orig) => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
+  useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
+    select({ location: { pathname: "/member/documents", searchStr: "" } }),
 }));
 
 import { ReviewDialog } from "@/components/clinical/ReviewDialog";

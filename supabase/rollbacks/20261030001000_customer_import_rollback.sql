@@ -175,6 +175,7 @@ DECLARE
   v text := lower(btrim(COALESCE(p_username, '')));
   v_status text;
   v_current text;
+  v_auto boolean;
   v_response jsonb;
 BEGIN
   PERFORM public._require_read_committed();
@@ -183,19 +184,25 @@ BEGIN
   END IF;
   v_cached := public._idem_begin('member_username', p_user_id, p_idempotency_key, jsonb_build_object('u', v));
   IF v_cached IS NOT NULL THEN RETURN v_cached || jsonb_build_object('replayed', true); END IF;
-  SELECT p.username INTO v_current FROM public.profiles p WHERE p.id = p_user_id FOR UPDATE;
+  SELECT p.username, p.username_auto INTO v_current, v_auto FROM public.profiles p WHERE p.id = p_user_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'profile_not_found'; END IF;
-  IF v_current IS NOT NULL THEN
+  IF v_current IS NOT NULL AND NOT v_auto THEN
     RAISE EXCEPTION 'username_already_set: your username is your referral code, so it cannot be changed';
   END IF;
-  v_status := public.username_check(v);
-  IF v_status <> 'ok' THEN RAISE EXCEPTION 'username_%: %', v_status, v; END IF;
-  BEGIN
-    UPDATE public.profiles SET username = v, updated_at = now() WHERE id = p_user_id;
-  EXCEPTION WHEN unique_violation THEN
-    RAISE EXCEPTION 'username_taken: %', v;
-  END;
-  PERFORM public._audit(p_user_id, 'member_username_set', 'profile', p_user_id, jsonb_build_object('username', v));
+  IF v_current IS NOT NULL AND v = v_current THEN
+    -- Keeping the generated name: it becomes final.
+    UPDATE public.profiles SET username_auto = false, updated_at = now() WHERE id = p_user_id;
+  ELSE
+    v_status := public.username_check(v);
+    IF v_status <> 'ok' THEN RAISE EXCEPTION 'username_%: %', v_status, v; END IF;
+    BEGIN
+      UPDATE public.profiles SET username = v, username_auto = false, updated_at = now() WHERE id = p_user_id;
+    EXCEPTION WHEN unique_violation THEN
+      RAISE EXCEPTION 'username_taken: %', v;
+    END;
+  END IF;
+  PERFORM public._audit(p_user_id, 'member_username_set', 'profile', p_user_id,
+    jsonb_build_object('username', v, 'replaced_generated', v_current IS NOT NULL AND v <> v_current));
   v_response := jsonb_build_object('username', v);
   RETURN public._idem_finish('member_username', p_user_id, p_idempotency_key, v_response);
 END;

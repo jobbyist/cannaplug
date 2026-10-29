@@ -79,6 +79,8 @@ describe("username change card", () => {
   const base: RewardsSummary = {
     username: "thandi.mokoena",
     username_change: "available",
+    username_auto: false,
+    can_change: false,
     can_refer: false,
     referral_points: 1,
     referral_min_spend: 50,

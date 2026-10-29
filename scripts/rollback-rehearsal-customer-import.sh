@@ -9,12 +9,13 @@ DB="rollback_rehearsal_customer_import"
 TMPF="$(mktemp /var/tmp/rehearsal-import.XXXXXX.sql)"
 trap 'rm -f "$TMPF"' EXIT
 M=20261030001000_customer_import
+M2=20261030002000_customer_import_username_merge
 run() { if [ "$(id -u)" = 0 ]; then su postgres -s /bin/bash -c "$*"; else bash -c "$*"; fi; }
 P="$PG_BIN/psql -X -q -h 127.0.0.1 -p $PORT -U postgres"
 q() { run "$P -At -d $DB -c \"$1\""; }
 run "$P -d postgres -c 'DROP DATABASE IF EXISTS $DB WITH (FORCE)' -c 'CREATE DATABASE $DB'" 2>/dev/null
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/tests/local/bootstrap.sql" >/dev/null 2>&1
-for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | awk -v m="$M" '{ n=$0; sub(/.*\//, "", n); if (n <= m ".sql") print }'); do
+for f in $(ls "$ROOT"/supabase/migrations/*.sql | sort | awk -v m="$M2" '{ n=$0; sub(/.*\//, "", n); if (n <= m ".sql") print }'); do
   run "$P -d $DB -v ON_ERROR_STOP=1 -f $f" >/dev/null 2>&1 || { echo "FAIL applying $f"; exit 1; }
 done
 A=00000000-0000-0000-0000-0000000000a1
@@ -33,11 +34,13 @@ q "insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000
 [ "$(q "select username from public.profiles where id = '00000000-0000-0000-0000-0000000000b1'")" = ada.test ] || { echo "FAIL: username not linked"; exit 1; }
 [ "$(q "select available || '/' || reserved from public._id_credit_balance()")" = "400/555" ] || { echo "FAIL: sign-up not charged from the reserve"; exit 1; }
 echo "1. applied; 1 staged (minor refused), sign-up links it: provisional, username kept, charged 3 from the reserve; service-role only"
+run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/rollbacks/${M2}_rollback.sql" >/dev/null 2>&1 || { echo "FAIL rolling back the merge"; exit 1; }
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/rollbacks/${M}_rollback.sql" >/dev/null 2>&1 || { echo "FAIL rolling back"; exit 1; }
 [ "$(q "select to_regclass('public.imported_customers') is null")" = t ] || { echo "FAIL: table still present"; exit 1; }
 [ "$(q "select username from public.profiles where id = '00000000-0000-0000-0000-0000000000b1'")" = "" ] || { echo "FAIL: dotted username kept"; exit 1; }
 [ "$(q "select count(*) from public.customer_verification where status = 'provisional'")" = 0 ] || { echo "FAIL: provisional left"; exit 1; }
 echo "2. rolled back"
 run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/migrations/$M.sql" >/dev/null 2>&1 || { echo "FAIL re-applying"; exit 1; }
+run "$P -d $DB -v ON_ERROR_STOP=1 -f $ROOT/supabase/migrations/$M2.sql" >/dev/null 2>&1 || { echo "FAIL re-applying the merge"; exit 1; }
 echo "3. re-applied after rollback"
 run "$P -d postgres -c 'DROP DATABASE $DB WITH (FORCE)'" 2>/dev/null

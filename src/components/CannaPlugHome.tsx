@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Gift,
   Images,
+  Bug,
   Check,
   ChevronDown,
   ChevronRight,
@@ -36,7 +37,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { journalListQuery, formatJournalDate } from "@/lib/journal";
@@ -52,6 +53,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ReportBugDialog } from "@/components/ReportBugDialog";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { GetTheAppStory } from "@/components/pwa/GetTheAppStory";
 import { PWA_ENABLED } from "@/lib/pwa/flag";
 import { rand, useCart } from "@/lib/cart";
@@ -298,12 +301,15 @@ function MobileNav({
   user,
   primaryLinks,
   exploreLinks,
+  onReportBug,
 }: {
   open: boolean;
   onClose: () => void;
   user: unknown;
   primaryLinks: readonly NavIconEntry[];
   exploreLinks: readonly NavIconEntry[];
+  /** Opens the "Report a bug" popup (the menu closes first). */
+  onReportBug: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -377,6 +383,17 @@ function MobileNav({
                       <span>{label}</span>
                     </a>
                   ))}
+                  <button
+                    type="button"
+                    data-testid="report-bug-tile"
+                    onClick={() => {
+                      onClose();
+                      onReportBug();
+                    }}
+                  >
+                    <Bug size={25} />
+                    <span>Report a bug</span>
+                  </button>
                 </div>
               </div>
               <nav className="mobile-nav-secondary">
@@ -411,6 +428,9 @@ export function Header() {
   const [compact, setCompact] = useState(false);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(false);
+  const [term, setTerm] = useState("");
+  const [bugOpen, setBugOpen] = useState(false);
+  const navigate = useNavigate();
   const { count } = useCart();
   const { user } = useAuth();
   useEffect(() => scrollY.on("change", (value) => setCompact(value > 80)), [scrollY]);
@@ -493,22 +513,38 @@ export function Header() {
         </div>
         {search && (
           <motion.div className="search-panel" initial={{ height: 0 }} animate={{ height: "auto" }}>
-            <Search size={18} />
-            <input
-              autoFocus
-              aria-label="Search products"
-              placeholder="Search products, stories and events…"
-            />
+            <form
+              role="search"
+              className="flex w-full items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = term.trim().slice(0, 80);
+                setSearch(false);
+                void navigate({ to: "/shop", search: q ? { q } : {} });
+              }}
+            >
+              <Search size={18} />
+              <input
+                autoFocus
+                aria-label="Search products"
+                placeholder="Search the menu: name, category, strain…"
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+              />
+            </form>
           </motion.div>
         )}
       </header>
+      <Breadcrumbs />
       <MobileNav
         open={open}
         onClose={() => setOpen(false)}
         user={user}
         primaryLinks={primaryLinks}
         exploreLinks={exploreLinks}
+        onReportBug={() => setBugOpen(true)}
       />
+      <ReportBugDialog open={bugOpen} onOpenChange={setBugOpen} />
     </>
   );
 }

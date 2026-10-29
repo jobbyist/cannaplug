@@ -70,7 +70,7 @@ export type SignupFields = {
   dob: string;
   idNumber: string;
   referral: string;
-  /** Required: it is the member's unique name and their own referral code. */
+  /** Optional: it is the member's unique name and their own referral code. Verified members get one generated. */
   username: string;
 };
 
@@ -83,7 +83,7 @@ export function signupProblem(f: SignupFields, dobIssue: string | null): string 
     phoneProblem(f.phone) ??
     dobIssue ??
     idNumberProblem(f.idNumber, f.dob) ??
-    usernameProblem(f.username, { allowImported: true }) ??
+    (f.username.trim() ? usernameProblem(f.username, { allowImported: true }) : null) ??
     referralProblem(f.referral)
   );
 }
@@ -99,7 +99,7 @@ export function signupMetadata(f: SignupFields) {
     phone: f.phone.trim(),
     date_of_birth: f.dob,
     id_number: normaliseIdNumber(f.idNumber),
-    username: normaliseUsername(f.username),
+    ...(f.username.trim() ? { username: normaliseUsername(f.username) } : {}),
     ...(f.referral.trim() ? { referral_code: f.referral.trim().toUpperCase() } : {}),
   };
 }

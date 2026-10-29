@@ -24,6 +24,14 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   id_rejected: { contact_name: "Thandi Mokoena", rejection_code: "unreadable" },
   id_expiring: { contact_name: "Thandi Mokoena", document_expires_on: "2026-10-28" },
   back_in_stock: { product_name: "Gorilla Zkittlez" },
+  bug_report_staff: {
+    kind: "bug",
+    name: "Thandi Mokoena",
+    email: "thandi@example.com",
+    page: "/shop",
+    user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
+    message: "The Add button on the catalog does nothing on my phone.",
+  },
   contact_form_ack: { name: "Thandi Mokoena", subject: "Do you stock CBD tinctures?" },
   contact_form_staff: {
     name: "Thandi Mokoena",

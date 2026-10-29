@@ -307,6 +307,17 @@ describe.skipIf(!DB_URL)("customer import (real PostgreSQL)", () => {
     expect(await rpc(sql, "member_username_change_state", id)).toBe("available");
   });
 
+  it("a generated username can still be replaced once, then it is final (the generated-username rule is not lost)", async () => {
+    const member = await mkUser(sql, "customer");
+    const tag = uid().slice(0, 6);
+    await sql`UPDATE public.profiles SET username = ${`gen_${tag}`}, username_auto = true WHERE id = ${member}`;
+    expect((await rpc(sql, "member_set_username", member, `mine_${tag}`, key("u"))).username).toBe(
+      `mine_${tag}`,
+    );
+    const again = await attempt(rpc(sql, "member_set_username", member, `more_${tag}`, key("u")));
+    expect(again.ok === false && again.message).toMatch(/^username_already_set/);
+  });
+
   it("the staged record goes with the account when the account is deleted (POPIA)", async () => {
     // audit_log is append-only here, so a real delete is exercised by the account-deletion job; check the rule itself.
     expect(

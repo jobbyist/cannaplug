@@ -61,6 +61,22 @@ export function ReferralCard({
         </div>
       )}
 
+      {username && summary.can_change && (
+        <div
+          className="mb-4 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-4"
+          data-testid="username-change"
+        >
+          <p className="mb-1 text-sm font-semibold">
+            We've generated the username <span className="font-mono">{username}</span> for you
+          </p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            It is also your referral code. You can change it once, or keep it. Once you save, it is
+            final, and links that use the old name stop working.
+          </p>
+          <UsernameForm initial={username} onSaved={onChanged} />
+        </div>
+      )}
+
       {username && !canRefer && (
         <div className="rounded-lg border border-[#D4AF37]/60 bg-[#D4AF37]/10 p-4 text-sm">
           <p className="mb-1 font-semibold">

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { listMemberDocumentsFn, openDocumentFn } from "@/lib/clinical/clinical.functions";
 import type { MemberDocumentRow } from "@/lib/clinical/documents-data.server";
 import logoImage from "@/assets/cannaplug-logo.png";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/member/documents")({
   head: () => ({
@@ -83,6 +84,7 @@ function MemberDocumentsPage() {
   return (
     <div className="site min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <Breadcrumbs bare />
         <header className="mb-8 flex items-center justify-between">
           <Link to="/">
             <img src={logoImage} alt="CannaPlug" className="h-6 w-auto" />

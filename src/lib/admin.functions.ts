@@ -9,6 +9,7 @@ import {
   confirmOrderPayment,
   listAdminProducts,
   listCustomersPage,
+  setMemberUsernameAsAdmin,
   getAttentionCounts,
   setOrderArchived,
   listFulfilmentQueue,
@@ -205,6 +206,23 @@ export const listCustomersFn = createServerFn({ method: "GET" })
       ...(data.limit !== undefined ? { limit: data.limit } : {}),
       ...(data.offset !== undefined ? { offset: data.offset } : {}),
     }),
+  );
+
+/** Managers and admins change a member's username. The member and the new name are fields; the actor is the session. */
+export const setCustomerUsernameFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        memberId: z.string().uuid(),
+        username: z.string().trim().min(1).max(40),
+        reason: z.string().trim().min(3).max(200),
+        key: z.string().min(8).max(120),
+      })
+      .parse(d),
+  )
+  .handler(({ context, data }) =>
+    setMemberUsernameAsAdmin(context.userId, data.memberId, data.username, data.reason, data.key),
   );
 
 export const getAttentionCountsFn = createServerFn({ method: "GET" })

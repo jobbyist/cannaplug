@@ -2897,6 +2897,7 @@ export type Database = {
           phone: string | null;
           updated_at: string;
           username: string | null;
+          username_auto: boolean;
         };
         Insert: {
           address?: string | null;
@@ -2909,6 +2910,7 @@ export type Database = {
           phone?: string | null;
           updated_at?: string;
           username?: string | null;
+          username_auto?: boolean;
         };
         Update: {
           address?: string | null;
@@ -2921,6 +2923,7 @@ export type Database = {
           phone?: string | null;
           updated_at?: string;
           username?: string | null;
+          username_auto?: boolean;
         };
         Relationships: [];
       };
@@ -3551,6 +3554,34 @@ export type Database = {
       referral_code_check: { Args: { p_code: string }; Returns: Json };
       member_set_username: {
         Args: { p_idempotency_key: string; p_user_id: string; p_username: string };
+        Returns: Json;
+      };
+      admin_set_username: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_reason: string;
+          p_user_id: string;
+          p_username: string;
+        };
+        Returns: Json;
+      };
+      bug_report_submit: {
+        Args: {
+          p_agent: string;
+          p_email: string;
+          p_idempotency_key: string;
+          p_inboxes: string[];
+          p_ip_hash: string;
+          p_kind: string;
+          p_message: string;
+          p_name: string;
+          p_page: string;
+        };
+        Returns: Json;
+      };
+      member_ensure_username: {
+        Args: { p_user_id: string };
         Returns: Json;
       };
       member_rewards_summary: { Args: { p_user_id: string }; Returns: Json };

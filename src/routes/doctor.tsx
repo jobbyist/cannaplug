@@ -64,6 +64,7 @@ import type {
 } from "@/lib/clinical/documents-data.server";
 import { ASSURANCE_LABELS, documentTypeLabel, type DocumentType } from "@/lib/clinical/logic";
 import logoImage from "@/assets/cannaplug-logo.png";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({
@@ -172,6 +173,7 @@ function DoctorPage() {
         }
       />
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
+        <Breadcrumbs bare />
         <header className="mb-6">
           <h1 className="font-display text-2xl font-extrabold uppercase">
             {NAV.find((n) => n.id === tab)?.label}

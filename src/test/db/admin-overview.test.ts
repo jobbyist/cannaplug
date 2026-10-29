@@ -438,7 +438,9 @@ describe.skipIf(!DB_URL)(
           await sql`SELECT source_key FROM public.team_notifications WHERE source_key IS NOT NULL GROUP BY source_key HAVING count(*) > 1`;
         expect(dup).toHaveLength(0);
         const bodies =
-          await sql`SELECT body FROM public.team_notifications WHERE source_key LIKE 'alert:%' AND source_key NOT LIKE 'alert:test-%'`;
+          await sql`SELECT body FROM public.team_notifications WHERE source_key LIKE 'alert:%' AND source_key NOT LIKE 'alert:test-%' AND source_key NOT LIKE 'alert:bill-due:%'`;
+        // Bill reminders (alert:bill-due:*) carry the provider and amount by design; they are business costs, not
+        // member data, and only exist on the day before a bill, so they must not make this check date-dependent.
         for (const b of bodies)
           expect(String(b["body"])).toMatch(/^\d+ [a-zA-Z -]+(is|are|has|have) /);
       });

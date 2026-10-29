@@ -74,6 +74,8 @@ const PUBLIC_FNS: Record<string, string> = {
   checkUsernameFn: "sign-up form: is this username free (yes/no and a reason only; no member data)",
   checkReferralCodeFn:
     "sign-up form: is this referral code an active member (yes/no only, no names)",
+  submitBugReportFn:
+    "public bug report form; honeypot + per-IP rate limit; recipients fixed in code, no member data collected",
   verifyDocumentFn: "public QR verification page; reveals only validity, never content",
 };
 

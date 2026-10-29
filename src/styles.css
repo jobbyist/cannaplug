@@ -527,7 +527,8 @@
   gap: 8px;
   padding-top: 10px;
 }
-.mobile-explore-grid a {
+.mobile-explore-grid a,
+.mobile-explore-grid button {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -545,6 +546,11 @@
   text-align: center;
   transition: 0.2s ease;
 }
+.mobile-explore-grid button {
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
 .nav-badge {
   position: absolute;
   top: 6px;
@@ -559,7 +565,8 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.mobile-explore-grid a:hover {
+.mobile-explore-grid a:hover,
+.mobile-explore-grid button:hover {
   background: var(--secondary);
   border-color: var(--primary);
 }
