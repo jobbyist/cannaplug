@@ -88,6 +88,11 @@ export async function takeMemberQuota(
   if (!who.userId) {
     // Signed-out visitors (stricter, spec: protect the shared free tier). Cheapest, narrowest check first; the shared
     // pool last, so a refused visitor never spends the pool. A visitor is a hashed IP: no account, no personal data.
+    // A read-only look at the shared pool first: when it is already spent, nobody is served, so a refused visitor
+    // must not also burn their own session and IP allowance. (The take below stays the authoritative check.)
+    if (((await db.count?.(guestGlobalBucket(now))) ?? 0) >= cfg.guestGlobalPerDay) {
+      return { ok: false, reason: "guest_all", retryAfterMinutes: untilReset, resetsAt };
+    }
     if (!(await db.take(`chat:guest-session:${who.sessionId}`, cfg.guestSessionTotal, 24 * 3600))) {
       return { ok: false, reason: "guest", retryAfterMinutes: 24 * 60, resetsAt };
     }

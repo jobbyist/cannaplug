@@ -179,6 +179,8 @@ export async function plugReserve(
       .maybeSingle(),
   ]);
   if (prod.error) throw new Error(prod.error.message);
+  // A failed availability read must never look like "sold out": that would log a false failure and alert staff.
+  if (avail.error) throw new Error(avail.error.message);
   const p = prod.data as {
     id: string;
     name: string;

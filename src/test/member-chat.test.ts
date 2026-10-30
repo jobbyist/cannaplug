@@ -119,6 +119,21 @@ describe("who may use Ask The Plug (everyone, with tighter limits for visitors)"
       before,
     );
   });
+  it("when the shared pool is already spent, a refused visitor keeps their own session and IP allowance", async () => {
+    const { d, counts } = deps({ quota: { ...quotaConfig({}), guestGlobalPerDay: 1 } });
+    expect((await answer(d, who(null, 1), msgs)).ok).toBe(true);
+    const mine = () =>
+      [...counts.entries()].filter(
+        ([k]) => k.startsWith("chat:guest-session:") || k.startsWith("chat:guest:"),
+      );
+    const before = JSON.stringify(mine());
+    expect(await answer(d, who(null, 2), msgs)).toMatchObject({ ok: false, limited: true });
+    expect(JSON.stringify(mine())).toBe(before);
+  });
+  it("mutation check: a failed availability read in plugReserve throws instead of looking sold out", () => {
+    const src = readFileSync(join(__dirname, "..", "lib", "plug-match.server.ts"), "utf8");
+    expect(src).toContain("if (avail.error) throw new Error(avail.error.message);");
+  });
   it("mutation check: the visitor limits are what stop a visitor; members never use the visitor buckets", async () => {
     const src = readFileSync(join(__dirname, "..", "lib", "ai", "quota.ts"), "utf8");
     expect(src).toContain("if (!who.userId) {");
