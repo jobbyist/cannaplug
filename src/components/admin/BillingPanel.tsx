@@ -191,6 +191,8 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
   const today = todaySast();
   const [linkUrl, setLinkUrl] = useState("");
   const [paidFor, setPaidFor] = useState<BillingAccount | null>(null);
+  // Read fresh each time the dialog opens, so a tab left open past midnight never offers a stale latest date.
+  const [paidMax, setPaidMax] = useState(() => todaySast());
   const [paidForm, setPaidForm] = useState({
     amount: "",
     currency: "USD" as "ZAR" | "USD",
@@ -285,10 +287,12 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
   const openPaid = (a: BillingAccount) => {
     setError(null);
     setMessage(null);
+    const fresh = todaySast();
+    setPaidMax(fresh);
     setPaidForm({
       amount: "",
       currency: /\$/.test(a.amount_text) ? "USD" : "ZAR",
-      date: today,
+      date: fresh,
       note: "",
     });
     setPaidFor(a);
@@ -655,7 +659,7 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
             <Input
               type="date"
               aria-label="Date paid"
-              max={today}
+              max={paidMax}
               value={paidForm.date}
               onChange={(e) => setPaidForm((f) => ({ ...f, date: e.target.value }))}
             />
