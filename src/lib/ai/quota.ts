@@ -4,11 +4,10 @@
  *
  * Order of checks for one message (a refusal stops the chain, so nothing further is spent):
  *   1. the member's own daily messages          CHAT_MEMBER_RPD        (default 25)
- *   2. the member's own daily deep matches       PLUG_MEMBER_MATCH_RPD  (default 3; "Find my match" only)
- *   3. per hashed IP per hour                    30
- *   4. per chat session                          40
- *   5. a per-model slot (RPM, then RPD), taken right before each model is called: see plug-models.ts.
- * A member who is refused at 1–4 never reaches Gemini; a busy model is skipped for the next one in the ladder.
+ *   2. per hashed IP per hour                    30
+ *   3. per chat session                          40
+ *   4. a per-model slot (RPM, then RPD), taken right before each model is called: see plug-models.ts.
+ * A member who is refused at 1–3 never reaches Gemini; a busy model is skipped for the next one in the ladder.
  */
 import { SITE_FACTS } from "./chat-prompt";
 import type { PlugModel } from "./plug-models";
@@ -21,9 +20,12 @@ export interface QuotaDb {
 
 export interface QuotaConfig {
   memberPerDay: number;
-  memberMatchesPerDay: number;
   ipPerHour: number;
   sessionTotal: number;
+  /** Signed-out visitors: messages per visitor (hashed IP) per day, per chat session, and across ALL visitors per day. */
+  guestPerDay: number;
+  guestSessionTotal: number;
+  guestGlobalPerDay: number;
 }
 
 const n = (v: string | undefined, d: number) =>
@@ -31,9 +33,11 @@ const n = (v: string | undefined, d: number) =>
 
 export const quotaConfig = (env: Record<string, string | undefined>): QuotaConfig => ({
   memberPerDay: n(env["CHAT_MEMBER_RPD"], 25),
-  memberMatchesPerDay: n(env["PLUG_MEMBER_MATCH_RPD"], 3),
   ipPerHour: 30,
   sessionTotal: 40,
+  guestPerDay: n(env["PLUG_GUEST_RPD"], 6),
+  guestSessionTotal: 6,
+  guestGlobalPerDay: n(env["PLUG_GUEST_GLOBAL_RPD"], 120),
 });
 
 /** The calendar date in America/Los_Angeles, which is when Google's daily quota rolls over. */
@@ -55,8 +59,9 @@ export function nextPacificMidnight(now: number): number {
 
 export const memberBucket = (userId: string, now: number) =>
   `chat:member:${userId}:${pacificDate(now)}`;
-export const matchBucket = (userId: string, now: number) =>
-  `plug:match:${userId}:${pacificDate(now)}`;
+export const guestBucket = (ipHash: string | null, now: number) =>
+  `chat:guest:${ipHash ?? "unknown"}:${pacificDate(now)}`;
+export const guestGlobalBucket = (now: number) => `chat:guest-all:${pacificDate(now)}`;
 export const modelMinuteBucket = (model: string, now: number) =>
   `gemini:${model}:rpm:${Math.floor(now / 60_000)}`;
 export const modelDayBucket = (model: string, now: number) =>
@@ -66,29 +71,36 @@ export type QuotaVerdict =
   | { ok: true }
   | {
       ok: false;
-      reason: "member" | "matches" | "visitor" | "session" | "busy" | "daily";
+      reason: "member" | "guest" | "guest_all" | "visitor" | "session" | "busy" | "daily";
       retryAfterMinutes: number;
       resetsAt?: number;
     };
 
-/** The member-side checks (1–4 above). Nothing is spent on Gemini here. */
+/** The member-side checks (1–3 above). Nothing is spent on Gemini here. */
 export async function takeMemberQuota(
   db: QuotaDb,
   cfg: QuotaConfig,
-  who: { sessionId: string; ipHash: string | null; userId: string },
-  mode: "chat" | "match",
+  who: { sessionId: string; ipHash: string | null; userId: string | null },
   now = Date.now(),
 ): Promise<QuotaVerdict> {
   const resetsAt = nextPacificMidnight(now);
   const untilReset = Math.max(1, Math.ceil((resetsAt - now) / 60_000));
+  if (!who.userId) {
+    // Signed-out visitors (stricter, spec: protect the shared free tier). Cheapest, narrowest check first; the shared
+    // pool last, so a refused visitor never spends the pool. A visitor is a hashed IP: no account, no personal data.
+    if (!(await db.take(`chat:guest-session:${who.sessionId}`, cfg.guestSessionTotal, 24 * 3600))) {
+      return { ok: false, reason: "guest", retryAfterMinutes: 24 * 60, resetsAt };
+    }
+    if (!(await db.take(guestBucket(who.ipHash, now), cfg.guestPerDay, 2 * 86400))) {
+      return { ok: false, reason: "guest", retryAfterMinutes: untilReset, resetsAt };
+    }
+    if (!(await db.take(guestGlobalBucket(now), cfg.guestGlobalPerDay, 2 * 86400))) {
+      return { ok: false, reason: "guest_all", retryAfterMinutes: untilReset, resetsAt };
+    }
+    return { ok: true };
+  }
   if (!(await db.take(memberBucket(who.userId, now), cfg.memberPerDay, 2 * 86400))) {
     return { ok: false, reason: "member", retryAfterMinutes: untilReset, resetsAt };
-  }
-  if (
-    mode === "match" &&
-    !(await db.take(matchBucket(who.userId, now), cfg.memberMatchesPerDay, 2 * 86400))
-  ) {
-    return { ok: false, reason: "matches", retryAfterMinutes: untilReset, resetsAt };
   }
   const hour = Math.floor(now / 3_600_000);
   const minsToHour = Math.max(1, Math.ceil(((hour + 1) * 3_600_000 - now) / 60_000));
@@ -118,8 +130,6 @@ export async function takeModelSlot(
 export type Allowance = {
   limit: number;
   remaining: number;
-  matchLimit: number;
-  matchesRemaining: number;
   resetsAt: string;
 };
 
@@ -130,15 +140,10 @@ export async function memberAllowance(
   userId: string,
   now = Date.now(),
 ): Promise<Allowance> {
-  const [used, matches] = await Promise.all([
-    db.count?.(memberBucket(userId, now)) ?? 0,
-    db.count?.(matchBucket(userId, now)) ?? 0,
-  ]);
+  const used = (await db.count?.(memberBucket(userId, now))) ?? 0;
   return {
     limit: cfg.memberPerDay,
-    remaining: Math.max(0, cfg.memberPerDay - (used ?? 0)),
-    matchLimit: cfg.memberMatchesPerDay,
-    matchesRemaining: Math.max(0, cfg.memberMatchesPerDay - (matches ?? 0)),
+    remaining: Math.max(0, cfg.memberPerDay - used),
     resetsAt: new Date(nextPacificMidnight(now)).toISOString(),
   };
 }
@@ -156,8 +161,10 @@ export const quotaMessage = (v: Extract<QuotaVerdict, { ok: false }>): string =>
   switch (v.reason) {
     case "member":
       return `That's all your Ask The Plug messages for today. They reset at ${reset} (SA time). Need help now? Call ${SITE_FACTS.phone} or pop into the shop.`;
-    case "matches":
-      return `You've used today's deep matches. They reset at ${reset} (SA time), but you can keep chatting with me in the meantime.`;
+    case "guest":
+      return `You've used today's free messages. Sign in (it's free) for more, or tap Find my match: that needs no messages. Need help now? Call ${SITE_FACTS.phone}.`;
+    case "guest_all":
+      return `The Plug's free chat is full for today. Tap Find my match (it always works), sign in for more messages, or call ${SITE_FACTS.phone}. It resets at ${reset} (SA time).`;
     case "visitor":
       return `You're sending messages quickly. Please try again in about ${v.retryAfterMinutes} minute${v.retryAfterMinutes === 1 ? "" : "s"}.`;
     case "session":

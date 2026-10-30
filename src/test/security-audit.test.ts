@@ -79,6 +79,14 @@ const PUBLIC_FNS: Record<string, string> = {
   submitBugReportFn:
     "public bug report form; honeypot + per-IP rate limit; recipients fixed in code, no member data collected",
   verifyDocumentFn: "public QR verification page; reveals only validity, never content",
+  askThePlug:
+    "Ask The Plug chat, open to everyone by owner decision (30 Oct 2026): caller identity comes from the verified token or a hashed IP, visitors have a small per-visitor, per-session and shared daily cap, no member data for visitors",
+  getAskThePlugStatusFn:
+    "launcher state: always available; allowance and intro only for a verified token",
+  plugQuizFn:
+    "Ask The Plug guided quiz: answers only, stock read live in the database, per-IP hourly cap for visitors, no AI",
+  plugReserveFn:
+    "Ask The Plug Reserve: live stock re-check for a product id, per-IP hourly cap for visitors; adds nothing server-side (checkout still needs an account and a verified ID)",
 };
 
 describe("server functions", () => {

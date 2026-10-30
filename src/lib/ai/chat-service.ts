@@ -1,21 +1,26 @@
 /**
- * Ask The Plug: one member message in, one budtender reply out. Pure orchestration with injected dependencies, so
- * the guardrails are unit-tested without a database or Google.
+ * Ask The Plug free-text chat: one member question in, one friendly answer out. Pure orchestration with injected
+ * dependencies, so every guardrail is unit-tested without a database or Google.
+ *
+ * Products are chosen by the guided match (src/lib/plug-match.ts), never by the model. The chat answers questions
+ * (what grades mean, what's on special, store facts) and is fed only what is in stock right now.
  *
  * Order (cheapest refusal first, nothing reaches Gemini unless every check passes):
- *   signed in → Gemini configured → verified member (server-side, not just hidden in the UI) → member/IP/session
- *   quota → today's in-stock menu → model ladder (per-model RPM/RPD slot before each call, at most two calls) →
- *   parse → keep only menu picks → health-claim guard → reply.
+ *   Gemini configured → quota (members: member/IP/session; signed-out visitors: a much smaller per-visitor, per-session
+ *   and shared daily allowance) → today's
+ *   in-stock menu (live, safety buffer applied) → model ladder (per-model RPM/RPD slot before each call, at most two
+ *   calls) → parse → health-claim guard → stock check: a reply naming a product that is not available is regenerated
+ *   once, then replaced with a safe answer pointing to the guided match.
  */
 import { SITE_FACTS, buildPlugPrompt } from "./chat-prompt";
 import { generateWithRetry, GeminiError, type FetchLike, type Turn } from "./gemini";
-import { buildPlugCatalogue, type StoreProduct } from "./plug-catalogue";
+import { buildPlugCatalogue } from "./plug-catalogue";
+import type { Candidate } from "../plug-match";
 import {
   complianceGuard,
+  mentionsUnavailable,
   parsePlugOutput,
   PLUG_RESPONSE_SCHEMA,
-  resolvePicks,
-  type PlugPick,
 } from "./plug-guard";
 import { MAX_MODEL_ATTEMPTS, modelLadder, type ModelRole, type PlugModel } from "./plug-models";
 import {
@@ -30,31 +35,21 @@ import {
 
 export { toPlainText } from "./text";
 export type { Allowance };
-export type ChatMode = "chat" | "match";
 
 export type PlugReply =
-  | {
-      ok: true;
-      reply: string;
-      quickReplies: string[];
-      picks: PlugPick[];
-      readyToMatch: boolean;
-      allowance?: Allowance;
-    }
+  | { ok: true; reply: string; quickReplies: string[]; startMatch: boolean; allowance?: Allowance }
   | {
       ok: false;
       error: string;
       limited?: boolean;
-      signInRequired?: boolean;
-      notEligible?: boolean;
       allowance?: Allowance;
     };
 /** Kept for older imports. */
 export type ChatReply = PlugReply;
 
-export const SIGN_IN_REQUIRED = "sign_in_required";
-export const NOT_ELIGIBLE_MESSAGE =
-  "Ask The Plug is for verified members. Verify your ID in your account (it only takes a minute) and I'll be right here.";
+/** Shown instead of a reply that keeps naming a product that is not available today. */
+export const STOCK_SAFE_REPLY =
+  "I can only talk about what's on the shelf today, and I couldn't confirm that one is available. Tap Find my match and I'll check live stock for you.";
 
 /** Per-message input caps (the server function's schema enforces them too). */
 export const MAX_USER_CHARS = 500;
@@ -84,14 +79,17 @@ export interface ChatDeps {
   models: Record<ModelRole, PlugModel>;
   fetch: FetchLike;
   geminiKey: string | null;
-  /** Verified member (ID approved and not expired) or staff. Checked on the server for every message. */
-  isEligible(userId: string): Promise<boolean>;
-  /** The shop's live listing (active, sold online, with in_stock), read at the time of the message. */
-  loadCatalogue(): Promise<StoreProduct[]>;
+  /**
+   * What is offered right now (live, hard filters and safety buffer applied in the database) and the names of active
+   * products that are NOT available, for the reply check.
+   */
+  loadCatalogue(): Promise<{ products: Candidate[]; unavailableNames: string[] }>;
   /** Reward tiers and this member's own allow-listed summary. */
-  loadContext(userId: string): Promise<{ tiers: string; member: string }>;
+  loadContext(userId: string | null): Promise<{ tiers: string; member: string }>;
+  /** Monitoring: a reply replaced for naming an unavailable product (no content is logged). */
+  logReplaced?(): Promise<void>;
   warn?(msg: string, err?: unknown): void;
-  /** Operational log: which model answered and whether the guard stepped in. Never message content. */
+  /** Operational log: which model answered and whether a guard stepped in. Never message content. */
   info?(msg: string): void;
   now?: () => number;
 }
@@ -102,21 +100,20 @@ export async function answer(
   deps: ChatDeps,
   who: { sessionId: string; ipHash: string | null; userId: string | null },
   messages: Turn[],
-  mode: ChatMode = "chat",
 ): Promise<PlugReply> {
-  if (!who.userId) return { ok: false, signInRequired: true, error: SIGN_IN_REQUIRED };
+  // Open to everyone (owner's decision, 30 Oct 2026): signed-out visitors get a much smaller allowance (quota.ts).
   const userId = who.userId;
   if (!deps.geminiKey) return { ok: false, error: unavailable };
   const turns = trimHistory(messages);
   if (!turns.length || turns[turns.length - 1]!.role !== "user")
     return { ok: false, error: "Send me a message and I'll get going." };
-  if (!(await deps.isEligible(userId).catch(() => false)))
-    return { ok: false, notEligible: true, error: NOT_ELIGIBLE_MESSAGE };
 
   const now = deps.now?.() ?? Date.now();
   const allowance = () =>
-    memberAllowance(deps.quotaDb, deps.quota, userId, now).catch(() => undefined);
-  const verdict = await takeMemberQuota(deps.quotaDb, deps.quota, { ...who, userId }, mode, now);
+    userId
+      ? memberAllowance(deps.quotaDb, deps.quota, userId, now).catch(() => undefined)
+      : Promise.resolve(undefined);
+  const verdict = await takeMemberQuota(deps.quotaDb, deps.quota, who, now);
   if (!verdict.ok) {
     const a = await allowance();
     return {
@@ -128,14 +125,16 @@ export async function answer(
   }
 
   let system: string;
-  let catalogue: ReturnType<typeof buildPlugCatalogue>;
+  let hidden: string[];
+  let offered: string[];
   try {
-    const [products, context] = await Promise.all([
+    const [cat, context] = await Promise.all([
       deps.loadCatalogue(),
       deps.loadContext(userId).catch(() => ({ tiers: "", member: "" })),
     ]);
-    catalogue = buildPlugCatalogue(products);
-    system = buildPlugPrompt({ catalogue: catalogue.prompt, ...context, mode });
+    system = buildPlugPrompt({ catalogue: buildPlugCatalogue(cat.products).prompt, ...context });
+    hidden = cat.unavailableNames;
+    offered = cat.products.map((p) => p.name);
   } catch (err) {
     deps.warn?.("catalogue unavailable", err);
     return { ok: false, error: unavailable };
@@ -143,9 +142,20 @@ export async function answer(
 
   let attempts = 0;
   let refusal: "busy" | "daily" | null = null;
+  const call = async (sys: string, model: PlugModel) =>
+    generateWithRetry(deps.fetch, {
+      apiKey: deps.geminiKey!,
+      model: model.id,
+      system: sys,
+      turns,
+      json: true,
+      schema: PLUG_RESPONSE_SCHEMA,
+      thinkingLevel: model.thinkingLevel,
+      maxOutputTokens: model.maxOutputTokens,
+    });
   let out: { text: string } | null = null;
   let answeredBy: PlugModel | null = null;
-  for (const model of modelLadder(deps.models, mode)) {
+  for (const model of modelLadder(deps.models)) {
     if (attempts >= MAX_MODEL_ATTEMPTS) break;
     const slot = await takeModelSlot(deps.quotaDb, model, now).catch(() => "busy" as const);
     if (slot !== "ok") {
@@ -154,16 +164,7 @@ export async function answer(
     }
     attempts++;
     try {
-      out = await generateWithRetry(deps.fetch, {
-        apiKey: deps.geminiKey,
-        model: model.id,
-        system,
-        turns,
-        json: true,
-        schema: PLUG_RESPONSE_SCHEMA,
-        thinkingLevel: model.thinkingLevel,
-        maxOutputTokens: model.maxOutputTokens,
-      });
+      out = await call(system, model);
       answeredBy = model;
       break;
     } catch (err) {
@@ -188,26 +189,50 @@ export async function answer(
     return { ok: false, error: unavailable, ...(a ? { allowance: a } : {}) };
   }
 
-  const parsed = parsePlugOutput(out.text);
-  const guarded = complianceGuard({
-    reply: parsed.reply,
-    picks: resolvePicks(parsed.picks, catalogue),
-  });
-  const reply =
-    guarded.reply ||
-    (guarded.picks.length
-      ? "Here's what I'd go for:"
-      : "Sorry, I lost my train of thought there. Could you say that another way?");
+  let parsed = parsePlugOutput(out.text);
+  let notes: string[] = [];
+  // Stock check (spec layer 6): regenerate once, within the two-call cap, then replace.
+  let named = mentionsUnavailable(parsed.reply, hidden, offered);
+  if (named.length && attempts < MAX_MODEL_ATTEMPTS) {
+    const slot = await takeModelSlot(deps.quotaDb, answeredBy, now).catch(() => "busy" as const);
+    if (slot === "ok") {
+      attempts++;
+      try {
+        const retry = await call(
+          `${system}\n\nCORRECTION: your previous draft mentioned products that are NOT available today (${named.join(", ")}). Do not mention them; answer again using only the in-stock list.`,
+          answeredBy,
+        );
+        parsed = parsePlugOutput(retry.text);
+        named = mentionsUnavailable(parsed.reply, hidden, offered);
+        notes.push("regenerated");
+      } catch (err) {
+        deps.warn?.("stock-check regeneration failed", err);
+      }
+    }
+  }
+  let reply = parsed.reply;
+  let quick = parsed.quickReplies;
+  if (named.length) {
+    reply = STOCK_SAFE_REPLY;
+    quick = [];
+    notes = [...notes, "stock guard replaced the reply"];
+    await deps.logReplaced?.().catch(() => undefined);
+  }
+  const guarded = complianceGuard({ reply });
+  if (guarded.blocked) {
+    quick = [];
+    notes.push("health guard replaced the reply");
+  }
   deps.info?.(
-    `answered by ${answeredBy.id} (${answeredBy.role}, ${mode})${guarded.blocked ? " · health guard replaced the reply" : ""}`,
+    `answered by ${answeredBy.id} (${answeredBy.role})${notes.length ? ` · ${notes.join(" · ")}` : ""}`,
   );
   const a = await allowance();
   return {
     ok: true,
-    reply,
-    quickReplies: guarded.blocked ? [] : parsed.quickReplies,
-    picks: guarded.picks,
-    readyToMatch: parsed.readyToMatch,
+    reply:
+      guarded.reply || "Sorry, I lost my train of thought there. Could you say that another way?",
+    quickReplies: quick,
+    startMatch: parsed.startMatch && !guarded.blocked,
     ...(a ? { allowance: a } : {}),
   };
 }

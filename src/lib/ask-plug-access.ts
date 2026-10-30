@@ -1,9 +1,10 @@
 /**
- * Who sees Ask The Plug, and where (pure, shared by the server and the UI).
+ * Where Ask The Plug appears (pure, shared by the server and the UI).
  *
- * WHO: verified members only: an approved ID that has not expired. Staff (budtender, manager, admin) are exempt from
- * the online ID check everywhere else, so they may use it too (useful for showing customers in store). The server
- * function checks this on every message; the UI check only decides whether to draw the button.
+ * WHO: everyone (owner's decision, 30 Oct 2026, replacing the earlier verified-members-and-admins rule). Signed-in
+ * members get the full daily chat allowance and the one-time launch announcement; signed-out visitors get a much
+ * smaller chat allowance and a tighter quiz cap, enforced on the server (src/lib/ai/quota.ts, plug-match.server.ts),
+ * so opening it up cannot exhaust Gemini's free tier. Checking out still needs an account and a verified ID.
  *
  * WHERE: the public storefront only. Never in the member portal (/account, /member/*), the admin dashboard and till
  * (/admin*), the doctor portal, checkout and payment pages, or the standalone landing/billing pages.
@@ -13,12 +14,13 @@ import { isExpired } from "@/lib/verification-logic";
 export type VerificationSnapshot = {
   status?: string | null;
   document_expires_on?: string | null;
-  staff_exempt?: boolean;
+  /** The account holds the admin role. */
+  admin?: boolean;
 } | null;
 
 export function isVerifiedMember(v: VerificationSnapshot, today: Date = new Date()): boolean {
   if (!v) return false;
-  if (v.staff_exempt) return true;
+  if (v.admin) return true;
   return v.status === "verified" && !isExpired(v.document_expires_on, today);
 }
 

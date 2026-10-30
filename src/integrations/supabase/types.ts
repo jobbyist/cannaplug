@@ -2744,6 +2744,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      plug_settings: {
+        Row: {
+          id: boolean;
+          buffer_default: number;
+          buffer_fast: number;
+          fast_seller_units_7d: number;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          buffer_default?: number;
+          buffer_fast?: number;
+          fast_seller_units_7d?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          buffer_default?: number;
+          buffer_fast?: number;
+          fast_seller_units_7d?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      plug_match_events: {
+        Row: {
+          id: string;
+          created_at: string;
+          kind: string;
+          outcome: string;
+          answers: Json;
+          product_ids: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          kind: string;
+          outcome: string;
+          answers?: Json;
+          product_ids?: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          kind?: string;
+          outcome?: string;
+          answers?: Json;
+          product_ids?: string[];
+        };
+        Relationships: [];
+      };
       products: {
         Row: {
           badge: string | null;
@@ -2764,6 +2818,7 @@ export type Database = {
           sale_ends_at: string | null;
           sale_online_only: boolean;
           sell_online: boolean;
+          requires_recommendation: boolean;
           sku: string | null;
           slug: string;
           sold_by_weight: boolean;
@@ -2793,6 +2848,7 @@ export type Database = {
           sale_ends_at?: string | null;
           sale_online_only?: boolean;
           sell_online?: boolean;
+          requires_recommendation?: boolean;
           sku?: string | null;
           slug: string;
           sold_by_weight?: boolean;
@@ -2822,6 +2878,7 @@ export type Database = {
           sale_ends_at?: string | null;
           sale_online_only?: boolean;
           sell_online?: boolean;
+          requires_recommendation?: boolean;
           sku?: string | null;
           slug?: string;
           sold_by_weight?: boolean;
@@ -3086,6 +3143,40 @@ export type Database = {
         Returns: Json;
       };
       member_features_seen: { Args: { p_actor: string }; Returns: string[] };
+      plug_match_candidates: {
+        Args: { p_categories?: string[] | null };
+        Returns: {
+          id: string;
+          name: string;
+          category: string;
+          subcategory: string | null;
+          strain_type: string | null;
+          price_rand: number;
+          regular_price_rand: number | null;
+          unit: string | null;
+          image_path: string | null;
+          is_featured: boolean;
+          sort_order: number;
+          available: number;
+          units_7d: number;
+          fast_seller: boolean;
+          buffer: number;
+        }[];
+      };
+      plug_settings_set: {
+        Args: {
+          p_actor: string;
+          p_buffer_default: number;
+          p_buffer_fast: number;
+          p_fast_units: number;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      plug_match_log: {
+        Args: { p_kind: string; p_outcome: string; p_answers: Json; p_product_ids: string[] };
+        Returns: undefined;
+      };
       admin_search: {
         Args: { p_actor: string; p_limit?: number; p_query: string };
         Returns: Json;

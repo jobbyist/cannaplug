@@ -6,7 +6,6 @@ import { INTRO_FEATURE, PREVIEW_FEATURE } from "@/lib/ask-plug-access";
 
 const inputSchema = z.object({
   sessionId: z.string().uuid(),
-  mode: z.enum(["chat", "match"]).default("chat"),
   messages: z
     .array(
       z.object({
@@ -26,36 +25,31 @@ export type { PlugReply };
 export type ChatReply = PlugReply;
 
 /**
- * "Ask The Plug 🔌", the AI budtender, for signed-in VERIFIED members. The auth middleware refuses anonymous calls
- * before the handler runs; the handler re-checks verification on every message (src/lib/ai/chat-service.ts), so
- * hiding the button is never the only guard. Quotas: src/lib/ai/quota.ts and src/lib/ai/plug-models.ts. The member
- * is the JWT subject; the browser sends only the conversation text and a session id.
+ * "Ask The Plug 🔌", the AI budtender, open to everyone (owner's decision, 30 Oct 2026). A valid sign-in makes the caller
+ * a member with the full daily allowance; a visitor gets a much smaller one (src/lib/ai/quota.ts). Who the caller is
+ * comes from the verified token on the server, never from the request body. The browser sends only the conversation
+ * text and a session id.
  */
 export const askThePlug = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .validator((data) => inputSchema.parse(data))
-  .handler(async ({ context, data }): Promise<PlugReply> => {
-    const [{ answer }, { chatDeps }] = await Promise.all([
+  .handler(async ({ data }): Promise<PlugReply> => {
+    const [{ answer }, { chatDeps }, { plugCaller }] = await Promise.all([
       import("@/lib/ai/chat-service"),
       import("@/lib/ai/chat.server"),
+      import("@/lib/plug-identity.server"),
     ]);
-    const { getRequest } = await import("@tanstack/react-start/server");
-    const { hashIp } = await import("@/lib/payments/service.server");
-    const ip = getRequest().headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-    return answer(
-      chatDeps(),
-      { sessionId: data.sessionId, ipHash: hashIp(ip), userId: context.userId },
-      data.messages,
-      data.mode,
-    );
+    const who = await plugCaller();
+    return answer(chatDeps(), { sessionId: data.sessionId, ...who }, data.messages);
   });
 
-/** Whether this member can use Ask The Plug, what they have left today, and which announcement to show. */
-export const getAskThePlugStatusFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) =>
-    (await import("@/lib/ai/chat.server")).plugStatus(context.userId),
-  );
+/** The launcher state for this caller: always available; members also get their allowance and the one-time intro. */
+export const getAskThePlugStatusFn = createServerFn({ method: "GET" }).handler(async () => {
+  const [{ plugStatus }, { plugCaller }] = await Promise.all([
+    import("@/lib/ai/chat.server"),
+    import("@/lib/plug-identity.server"),
+  ]);
+  return plugStatus((await plugCaller()).userId);
+});
 
 const seenSchema = z.object({
   feature: z.enum([INTRO_FEATURE, PREVIEW_FEATURE]),

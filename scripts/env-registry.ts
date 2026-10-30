@@ -181,16 +181,22 @@ export const ENV_VARS: EnvVar[] = [
     note: "Ask The Plug messages per member per day, default 25",
   },
   {
-    name: "PLUG_MEMBER_MATCH_RPD",
+    name: "PLUG_GUEST_RPD",
     group: "AI",
     status: "optional",
-    note: "Ask The Plug deep matches per member per day, default 3",
+    note: "Ask The Plug chat messages per signed-out visitor per day, default 6",
+  },
+  {
+    name: "PLUG_GUEST_GLOBAL_RPD",
+    group: "AI",
+    status: "optional",
+    note: "Ask The Plug chat messages across ALL signed-out visitors per day, default 120",
   },
   {
     name: "PLUG_REASONING_MODEL",
     group: "AI",
     status: "optional",
-    note: "Default gemini-3.8-flash; _RPM 4, _RPD 18",
+    note: "Default gemini-3.8-flash; _RPM 4, _RPD 18 (held in reserve; the quiz uses no AI)",
   },
   {
     name: "PLUG_CHAT_MODEL",

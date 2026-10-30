@@ -2,13 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { getAskThePlugStatusFn } from "@/lib/chat.functions";
 
 /** One status request feeds both the launcher and the intro modal. */
-export const plugStatusKey = (userId: string | null) => ["ask-the-plug-status", userId] as const;
+export const plugStatusKey = (userId: string | null) =>
+  ["ask-the-plug-status", userId ?? "guest"] as const;
 
 export function usePlugStatus(userId: string | null) {
   return useQuery({
     queryKey: plugStatusKey(userId),
     queryFn: () => getAskThePlugStatusFn(),
-    enabled: Boolean(userId),
     staleTime: 5 * 60_000,
     retry: 1,
   });
