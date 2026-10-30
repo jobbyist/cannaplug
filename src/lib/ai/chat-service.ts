@@ -1,85 +1,122 @@
-import { SITE_FACTS } from "./chat-prompt";
+/**
+ * Ask The Plug: one member message in, one budtender reply out. Pure orchestration with injected dependencies, so
+ * the guardrails are unit-tested without a database or Google.
+ *
+ * Order (cheapest refusal first, nothing reaches Gemini unless every check passes):
+ *   signed in → Gemini configured → verified member (server-side, not just hidden in the UI) → member/IP/session
+ *   quota → today's in-stock menu → model ladder (per-model RPM/RPD slot before each call, at most two calls) →
+ *   parse → keep only menu picks → health-claim guard → reply.
+ */
+import { SITE_FACTS, buildPlugPrompt } from "./chat-prompt";
+import { generateWithRetry, GeminiError, type FetchLike, type Turn } from "./gemini";
+import { buildPlugCatalogue, type StoreProduct } from "./plug-catalogue";
 import {
-  generateWithRetry,
-  GeminiError,
-  GEMINI_CHAT_MODEL,
-  GEMINI_FALLBACK_MODEL,
-  type FetchLike,
-  type Turn,
-} from "./gemini";
+  complianceGuard,
+  parsePlugOutput,
+  PLUG_RESPONSE_SCHEMA,
+  resolvePicks,
+  type PlugPick,
+} from "./plug-guard";
+import { MAX_MODEL_ATTEMPTS, modelLadder, type ModelRole, type PlugModel } from "./plug-models";
 import {
   memberAllowance,
   quotaMessage,
-  siteBudgetUsed,
-  takeChatQuota,
+  takeMemberQuota,
+  takeModelSlot,
+  type Allowance,
   type QuotaConfig,
   type QuotaDb,
 } from "./quota";
 
-export type Allowance = { limit: number; remaining: number; resetsAt: string };
-export type ChatReply =
-  | { ok: true; reply: string; allowance?: Allowance }
+export { toPlainText } from "./text";
+export type { Allowance };
+export type ChatMode = "chat" | "match";
+
+export type PlugReply =
+  | {
+      ok: true;
+      reply: string;
+      quickReplies: string[];
+      picks: PlugPick[];
+      readyToMatch: boolean;
+      allowance?: Allowance;
+    }
   | {
       ok: false;
       error: string;
       limited?: boolean;
       signInRequired?: boolean;
+      notEligible?: boolean;
       allowance?: Allowance;
     };
+/** Kept for older imports. */
+export type ChatReply = PlugReply;
 
 export const SIGN_IN_REQUIRED = "sign_in_required";
-/** Above this share of the site's daily Gemini budget, chat answers with the lighter model. */
-export const FALLBACK_BUDGET_SHARE = 0.8;
+export const NOT_ELIGIBLE_MESSAGE =
+  "Ask The Plug is for verified members. Verify your ID in your account (it only takes a minute) and I'll be right here.";
 
-/** Removes markdown emphasis/heading marks so replies read like a natural text message. */
-export function toPlainText(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```/g, "").trim())
-    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/^\s*[*+]\s+/gm, "• ")
-    .replace(/#/g, "")
-    .replace(/\*/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+/** Per-message input caps (the server function's schema enforces them too). */
+export const MAX_USER_CHARS = 500;
+const MAX_ASSISTANT_CHARS = 900;
+const MAX_TURNS = 12;
+const MAX_HISTORY_CHARS = 7000;
+
+/** The conversation as sent to the model: recent turns only, clipped, starting with the member, within a budget. */
+export function trimHistory(messages: Turn[]): Turn[] {
+  const clipped = messages
+    .slice(-MAX_TURNS)
+    .map((m) => ({
+      role: m.role,
+      content: m.content.trim().slice(0, m.role === "user" ? MAX_USER_CHARS : MAX_ASSISTANT_CHARS),
+    }))
+    .filter((m) => m.content);
+  let total = clipped.reduce((s, m) => s + m.content.length, 0);
+  while (clipped.length > 1 && (total > MAX_HISTORY_CHARS || clipped[0]!.role !== "user")) {
+    total -= clipped.shift()!.content.length;
+  }
+  return clipped;
 }
 
 export interface ChatDeps {
   quotaDb: QuotaDb;
   quota: QuotaConfig;
+  models: Record<ModelRole, PlugModel>;
   fetch: FetchLike;
   geminiKey: string | null;
-  /** Primary chat model (GEMINI_CHAT_MODEL, default gemini-2.5-flash). */
-  model?: string;
-  /** System prompt for this member: site facts + their own order/loyalty summary (built server-side). */
-  buildPrompt(userId: string): Promise<string>;
+  /** Verified member (ID approved and not expired) or staff. Checked on the server for every message. */
+  isEligible(userId: string): Promise<boolean>;
+  /** The shop's live listing (active, sold online, with in_stock), read at the time of the message. */
+  loadCatalogue(): Promise<StoreProduct[]>;
+  /** Reward tiers and this member's own allow-listed summary. */
+  loadContext(userId: string): Promise<{ tiers: string; member: string }>;
   warn?(msg: string, err?: unknown): void;
-  /** Operational log: which model answered. Never message content. */
+  /** Operational log: which model answered and whether the guard stepped in. Never message content. */
   info?(msg: string): void;
   now?: () => number;
 }
 
-/**
- * Members only. Quota first (cheap, atomic, in the database), then one model call — on the lighter model when the
- * site budget is nearly spent, and once more on the lighter model if the primary is rate-limited. Never throws for
- * expected failures.
- */
+const unavailable = `The Plug is unavailable right now. Please call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`;
+
 export async function answer(
   deps: ChatDeps,
   who: { sessionId: string; ipHash: string | null; userId: string | null },
   messages: Turn[],
-): Promise<ChatReply> {
+  mode: ChatMode = "chat",
+): Promise<PlugReply> {
   if (!who.userId) return { ok: false, signInRequired: true, error: SIGN_IN_REQUIRED };
-  if (!deps.geminiKey)
-    return {
-      ok: false,
-      error: `The assistant is not available right now. Please call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`,
-    };
+  const userId = who.userId;
+  if (!deps.geminiKey) return { ok: false, error: unavailable };
+  const turns = trimHistory(messages);
+  if (!turns.length || turns[turns.length - 1]!.role !== "user")
+    return { ok: false, error: "Send me a message and I'll get going." };
+  if (!(await deps.isEligible(userId).catch(() => false)))
+    return { ok: false, notEligible: true, error: NOT_ELIGIBLE_MESSAGE };
+
   const now = deps.now?.() ?? Date.now();
   const allowance = () =>
-    memberAllowance(deps.quotaDb, deps.quota, who.userId!, now).catch(() => undefined);
-  const verdict = await takeChatQuota(deps.quotaDb, deps.quota, who, now);
+    memberAllowance(deps.quotaDb, deps.quota, userId, now).catch(() => undefined);
+  const verdict = await takeMemberQuota(deps.quotaDb, deps.quota, { ...who, userId }, mode, now);
   if (!verdict.ok) {
     const a = await allowance();
     return {
@@ -89,43 +126,88 @@ export async function answer(
       ...(a ? { allowance: a } : {}),
     };
   }
-  const primary = deps.model ?? GEMINI_CHAT_MODEL;
-  const used = await siteBudgetUsed(deps.quotaDb, deps.quota, now).catch(() => 0);
-  let model = used > FALLBACK_BUDGET_SHARE ? GEMINI_FALLBACK_MODEL : primary;
+
+  let system: string;
+  let catalogue: ReturnType<typeof buildPlugCatalogue>;
   try {
-    const system = await deps.buildPrompt(who.userId);
-    const ask = (m: string) =>
-      generateWithRetry(deps.fetch, {
-        apiKey: deps.geminiKey!,
-        model: m,
-        system,
-        turns: messages.slice(-12),
-        maxOutputTokens: 600,
-        temperature: 0.6,
-      });
-    let out;
-    try {
-      out = await ask(model);
-    } catch (err) {
-      if (!(err instanceof GeminiError && err.status === 429) || model === GEMINI_FALLBACK_MODEL)
-        throw err;
-      model = GEMINI_FALLBACK_MODEL;
-      out = await ask(model);
-    }
-    deps.info?.(`answered by ${model}${model !== primary ? ` (fallback from ${primary})` : ""}`);
-    const reply =
-      toPlainText(out.text) ||
-      "Sorry, I couldn't put an answer together just then. Could you rephrase that?";
-    const a = await allowance();
-    return { ok: true, reply, ...(a ? { allowance: a } : {}) };
+    const [products, context] = await Promise.all([
+      deps.loadCatalogue(),
+      deps.loadContext(userId).catch(() => ({ tiers: "", member: "" })),
+    ]);
+    catalogue = buildPlugCatalogue(products);
+    system = buildPlugPrompt({ catalogue: catalogue.prompt, ...context, mode });
   } catch (err) {
-    deps.warn?.("gemini failed", err);
-    const busy = err instanceof GeminiError && err.status === 429;
-    return {
-      ok: false,
-      error: busy
-        ? "The assistant is a little busy right now. Please try again in a minute."
-        : `The assistant is temporarily unavailable. Please call ${SITE_FACTS.phone} or email ${SITE_FACTS.email}.`,
-    };
+    deps.warn?.("catalogue unavailable", err);
+    return { ok: false, error: unavailable };
   }
+
+  let attempts = 0;
+  let refusal: "busy" | "daily" | null = null;
+  let out: { text: string } | null = null;
+  let answeredBy: PlugModel | null = null;
+  for (const model of modelLadder(deps.models, mode)) {
+    if (attempts >= MAX_MODEL_ATTEMPTS) break;
+    const slot = await takeModelSlot(deps.quotaDb, model, now).catch(() => "busy" as const);
+    if (slot !== "ok") {
+      if (refusal !== "busy") refusal = slot;
+      continue;
+    }
+    attempts++;
+    try {
+      out = await generateWithRetry(deps.fetch, {
+        apiKey: deps.geminiKey,
+        model: model.id,
+        system,
+        turns,
+        json: true,
+        schema: PLUG_RESPONSE_SCHEMA,
+        thinkingLevel: model.thinkingLevel,
+        maxOutputTokens: model.maxOutputTokens,
+      });
+      answeredBy = model;
+      break;
+    } catch (err) {
+      if (err instanceof GeminiError && err.status === 429) {
+        refusal = "busy";
+        continue; // Google says this model is busy or spent: try the next one
+      }
+      deps.warn?.(`gemini failed on ${model.id}`, err);
+      break;
+    }
+  }
+
+  if (!out || !answeredBy) {
+    const a = await allowance();
+    if (refusal)
+      return {
+        ok: false,
+        limited: true,
+        error: quotaMessage({ ok: false, reason: refusal, retryAfterMinutes: 1 }),
+        ...(a ? { allowance: a } : {}),
+      };
+    return { ok: false, error: unavailable, ...(a ? { allowance: a } : {}) };
+  }
+
+  const parsed = parsePlugOutput(out.text);
+  const guarded = complianceGuard({
+    reply: parsed.reply,
+    picks: resolvePicks(parsed.picks, catalogue),
+  });
+  const reply =
+    guarded.reply ||
+    (guarded.picks.length
+      ? "Here's what I'd go for:"
+      : "Sorry, I lost my train of thought there. Could you say that another way?");
+  deps.info?.(
+    `answered by ${answeredBy.id} (${answeredBy.role}, ${mode})${guarded.blocked ? " · health guard replaced the reply" : ""}`,
+  );
+  const a = await allowance();
+  return {
+    ok: true,
+    reply,
+    quickReplies: guarded.blocked ? [] : parsed.quickReplies,
+    picks: guarded.picks,
+    readyToMatch: parsed.readyToMatch,
+    ...(a ? { allowance: a } : {}),
+  };
 }

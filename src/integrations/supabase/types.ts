@@ -2834,6 +2834,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      member_feature_seen: {
+        Row: {
+          action: string;
+          feature: string;
+          seen_at: string;
+          user_id: string;
+        };
+        Insert: {
+          action: string;
+          feature: string;
+          seen_at?: string;
+          user_id: string;
+        };
+        Update: {
+          action?: string;
+          feature?: string;
+          seen_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       member_signup_details: {
         Row: {
           created_at: string;
@@ -3060,6 +3081,11 @@ export type Database = {
         Returns: Json;
       };
       member_newsletter_status: { Args: { p_user: string }; Returns: boolean };
+      member_feature_mark_seen: {
+        Args: { p_actor: string; p_feature: string; p_action: string; p_idempotency_key: string };
+        Returns: Json;
+      };
+      member_features_seen: { Args: { p_actor: string }; Returns: string[] };
       admin_search: {
         Args: { p_actor: string; p_limit?: number; p_query: string };
         Returns: Json;

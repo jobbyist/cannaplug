@@ -13,7 +13,8 @@ import {
 import { useEffect, useMemo, type ReactNode } from "react";
 import { CartProvider } from "../lib/cart";
 import { AuthProvider } from "../hooks/useAuth";
-import { ChatWidget } from "../components/ChatWidget";
+import { AskThePlug } from "../components/ask-plug/AskThePlug";
+import { AskThePlugIntro } from "../components/ask-plug/AskThePlugIntro";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -83,8 +84,12 @@ function ErrorComponent({ error: thrown, reset }: { error: unknown; reset: () =>
   );
 }
 
-/** The "Ask CannaPlug AI" tab is hidden for now at the owner's request (26 Oct 2026). Set to true to bring it back. */
-const CHAT_WIDGET_ENABLED = false;
+/**
+ * Ask The Plug 🔌 (AI budtender) and its one-time launch announcement. The launcher draws itself only on storefront
+ * pages for signed-in verified members; set to false to hide both everywhere (the server functions stay member-only).
+ * It also stays hidden while GEMINI_API_KEY is not set.
+ */
+const ASK_THE_PLUG_ENABLED = true;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -163,7 +168,12 @@ function RootComponent() {
         <CartProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
-          {CHAT_WIDGET_ENABLED && <ChatWidget />}
+          {ASK_THE_PLUG_ENABLED && (
+            <>
+              <AskThePlug />
+              <AskThePlugIntro />
+            </>
+          )}
           <PwaRegister />
           <AgeGate />
         </CartProvider>

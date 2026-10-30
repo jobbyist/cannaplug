@@ -1973,3 +1973,346 @@ footer {
 .dark footer {
   background: oklch(0.26 0.065 150);
 }
+
+/* ---- Ask The Plug 🔌 (AI budtender) ---------------------------------------------------------------------- */
+.plug-mark {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  background: #d4af37;
+  border-radius: 50% 50% 50% 16%;
+  box-shadow: 0 6px 18px -6px color-mix(in oklab, #d4af37 60%, transparent);
+}
+.plug-mark::after {
+  content: "";
+  position: absolute;
+  inset: 21%;
+  background: #0b3d20;
+  -webkit-mask: var(--plug-leaf) center / contain no-repeat;
+  mask: var(--plug-leaf) center / contain no-repeat;
+}
+.plug-notch {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 120;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 16px;
+  border: 1px solid color-mix(in oklab, #d4af37 55%, transparent);
+  border-right: 0;
+  border-radius: 14px 0 0 14px;
+  background: #0b3d20;
+  color: #fff;
+  box-shadow: var(--shadow-float);
+  cursor: pointer;
+  font: 800 0.7rem var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  writing-mode: vertical-rl;
+  transition: 0.2s ease;
+}
+.plug-notch .plug-mark {
+  writing-mode: horizontal-tb;
+  box-shadow: none;
+}
+.plug-notch:hover,
+.plug-notch:focus-visible {
+  padding-right: 16px;
+  outline: none;
+  box-shadow:
+    var(--shadow-float),
+    0 0 0 3px color-mix(in oklab, #d4af37 45%, transparent);
+}
+.plug-notch-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(12px);
+}
+.plug-panel {
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(680px, calc(100dvh - 90px));
+}
+.plug-head {
+  background: #0b3d20;
+  border-bottom: 3px solid #d4af37;
+  color: #fff;
+}
+.plug-head .chat-close {
+  color: #fff;
+}
+.plug-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.plug-turn-user {
+  align-items: flex-end;
+}
+.plug-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.plug-quick button {
+  border: 1.5px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  background: var(--card);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font: 600 0.72rem var(--font-sans);
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+.plug-quick button:hover:not(:disabled),
+.plug-quick button:focus-visible {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  outline: none;
+}
+.plug-quick button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.plug-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.plug-pick {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1.5px solid color-mix(in oklab, #d4af37 55%, var(--border));
+}
+.plug-pick-img {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #0b3d20;
+}
+.plug-pick-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.plug-pick-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.plug-pick-kicker {
+  font: 700 0.58rem var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a7b16;
+}
+.plug-pick-body strong {
+  font: 800 0.8rem var(--font-display);
+  color: var(--primary);
+  text-transform: uppercase;
+}
+.plug-pick-body p {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.plug-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.plug-pick-price {
+  font: 800 0.85rem var(--font-display);
+  color: var(--primary);
+}
+.plug-pick-price s {
+  font: 500 0.68rem var(--font-sans);
+  color: var(--muted-foreground);
+  margin-right: 5px;
+}
+.plug-pick-price small {
+  font: 500 0.65rem var(--font-sans);
+  color: var(--muted-foreground);
+}
+.plug-pick-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: 700 0.7rem var(--font-sans);
+  cursor: pointer;
+}
+.plug-pick-add:focus-visible {
+  outline: 3px solid color-mix(in oklab, #d4af37 60%, transparent);
+}
+.plug-pick-link {
+  font-size: 0.66rem;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  align-self: flex-start;
+}
+.plug-match-row {
+  padding: 10px 12px 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+.plug-match {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #d4af37;
+  color: #0b3d20;
+  font: 800 0.74rem var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.plug-match small {
+  font: 600 0.62rem var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+.plug-match:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.plug-panel .chat-input-row {
+  border-top: 0;
+}
+.plug-intro {
+  background: var(--card);
+}
+.plug-intro-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 30px 24px 22px;
+  color: #fff;
+  background: radial-gradient(120% 90% at 85% 0%, #155c31 0%, #0b3d20 50%, #062614 100%);
+  border-bottom: 4px solid #d4af37;
+}
+.plug-intro-pill {
+  font: 800 0.6rem var(--font-display);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #d4af37;
+  border: 1.5px solid color-mix(in oklab, #d4af37 60%, transparent);
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+.plug-intro-title {
+  font: 900 1.7rem/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.plug-intro-sub {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #d9eadf;
+  max-width: 330px;
+}
+.plug-intro-points {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 24px 6px;
+}
+.plug-intro-points li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.plug-intro-points svg {
+  flex-shrink: 0;
+  color: var(--primary);
+  margin-top: 1px;
+}
+.plug-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 24px 20px;
+}
+.plug-intro-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 18px;
+  background: #d4af37;
+  color: #0b3d20;
+  font: 800 0.85rem var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+.plug-intro-cta:focus-visible,
+.plug-intro-later:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  outline-offset: 2px;
+}
+.plug-intro-later {
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  padding: 6px;
+  cursor: pointer;
+}
+.plug-intro-legal {
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--muted-foreground);
+}
+.dark .plug-pick-kicker {
+  color: #e4c766;
+}
+@media (max-width: 600px) {
+  .plug-panel {
+    right: 12px;
+    bottom: 12px;
+  }
+  .plug-notch {
+    padding: 12px 10px 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plug-notch,
+  .plug-quick button {
+    transition: none;
+  }
+}
