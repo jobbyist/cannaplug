@@ -196,10 +196,11 @@ describe.skipIf(!DB_URL)("Ask The Plug matching (real PostgreSQL)", () => {
     await logEvent("reserve_stock_fail", "sold_out", answers, [p]);
     await logEvent("reserve_stock_fail", "sold_out", answers, [p]);
     const alerts =
-      await sql`SELECT title, kind, min_role, alert_count FROM public.team_notifications WHERE source_key = ${"alert:plug-stock:" + p}`;
+      await sql`SELECT title, body, kind, min_role, alert_count FROM public.team_notifications WHERE source_key = ${"alert:plug-stock:" + p}`;
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toMatchObject({ kind: "alert", min_role: "manager", alert_count: 2 });
     expect(String(alerts[0]!["title"])).toMatch(/^Recount: /);
+    expect(String(alerts[0]!["body"])).toMatch(/^2 Ask The Plug reservations have failed/); // counts first, like every alert
     const cols =
       (await sql`SELECT column_name FROM information_schema.columns WHERE table_name = 'plug_match_events'`) as {
         column_name: string;

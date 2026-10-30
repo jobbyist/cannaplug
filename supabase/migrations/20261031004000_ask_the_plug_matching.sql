@@ -161,8 +161,8 @@ BEGIN
        WHERE e.kind = 'reserve_stock_fail' AND v_pid = ANY (e.product_ids) AND e.created_at > now() - interval '24 hours';
       PERFORM public._team_alert_sync('alert:plug-stock:' || v_pid::text, v_count, 'alert', 'manager',
         left('Recount: ' || v_name, 120),
-        left('Ask The Plug offered ' || v_name || ' but it had sold out when a member tapped Reserve ('
-             || public._plural(v_count, 'time', 'times') || ' in 24 hours). The shelf and the system disagree: '
+        left(v_count::text || CASE WHEN v_count = 1 THEN ' Ask The Plug reservation has' ELSE ' Ask The Plug reservations have' END
+             || ' failed on sold-out stock for this product in the last 24 hours. The shelf and the system disagree: '
              || 'recount it and receive any delivery into the POS.', 1000));
     END LOOP;
   END IF;
