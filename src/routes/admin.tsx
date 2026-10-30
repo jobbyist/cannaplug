@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { BillingPanel } from "@/components/admin/BillingPanel";
 import { ClinicalDocsPanel } from "@/components/admin/ClinicalDocsPanel";
 import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
+import { PlugSettingsCard } from "@/components/admin/PlugSettingsCard";
 import { PurchaseLimitsCard } from "@/components/admin/PurchaseLimitsCard";
 import { AuditPanel } from "@/components/admin/AuditPanel";
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
@@ -511,6 +512,7 @@ function AdminPage() {
           <>
             <ReceiptSettingsPanel />
             <PurchaseLimitsCard />
+            <PlugSettingsCard />
           </>
         )}
         <Dialog open={saleOpen !== null} onOpenChange={(o) => !o && setSaleOpen(null)}>

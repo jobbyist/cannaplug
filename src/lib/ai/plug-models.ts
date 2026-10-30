@@ -74,21 +74,17 @@ export function plugModels(env: Record<string, string | undefined>): Record<Mode
 }
 
 /**
- * Which models to try, in order, for one message. A deep match prefers the reasoning model; a chat turn starts on
- * the lighter chat model. At most two models are ever tried for one message, so a single message can never use
- * more than two requests of the shared budget.
+ * Which models to try, in order, for one message. The guided quiz uses no AI, so every Gemini call is a chat turn:
+ * it starts on the light chat model and falls back once. At most two models are ever tried for one message, so a
+ * single message can never use more than two requests of the shared budget. The reasoning model is kept for the
+ * stock-check retry only when the chat models are both busy.
  */
-export function modelLadder(
-  models: Record<ModelRole, PlugModel>,
-  mode: "chat" | "match",
-): PlugModel[] {
-  const ladder =
-    mode === "match"
-      ? [models.reasoning, { ...models.chat, thinkingLevel: "medium" as const }, models.fallback]
-      : [models.chat, models.fallback];
+export function modelLadder(models: Record<ModelRole, PlugModel>): PlugModel[] {
+  const ladder = [models.chat, models.fallback];
   // Same model configured twice (e.g. by env) would double-spend one quota: keep the first only.
   const seen = new Set<string>();
   return ladder.filter((m) => !seen.has(m.id) && seen.add(m.id));
 }
 
+/** A single message may use at most this many model requests (the first try plus one regeneration or fallback). */
 export const MAX_MODEL_ATTEMPTS = 2;

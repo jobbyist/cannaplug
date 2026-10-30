@@ -1,10 +1,8 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { listStoreProducts } from "@/lib/admin-data.server";
-import { INTRO_FEATURE, PREVIEW_FEATURE, isVerifiedMember } from "@/lib/ask-plug-access";
-import { isStaffAccount } from "@/lib/verification-data.server";
+import { INTRO_FEATURE } from "@/lib/ask-plug-access";
 import { memberContextLines } from "./chat-prompt";
 import type { ChatDeps } from "./chat-service";
-import type { StoreProduct } from "./plug-catalogue";
+import { liveCandidates, unavailableNames } from "@/lib/plug-stock.server";
 import { plugModels } from "./plug-models";
 import type { QuotaDb } from "./quota";
 import { memberAllowance, quotaConfig } from "./quota";
@@ -74,60 +72,25 @@ async function loadTiers(): Promise<string> {
   return (data ?? []).map((t) => `${t.name} from ${t.min_lifetime_points} points`).join(", ");
 }
 
-/**
- * The shop's live listing, reused for up to a minute per server instance so a busy chat does not read the catalogue
- * on every message. A minute is short enough that a sold-out product stops being recommended almost at once (and
- * checkout re-checks stock and price anyway).
- */
-const CATALOGUE_TTL_MS = 60_000;
-let catalogueCache: { at: number; rows: StoreProduct[] } | null = null;
-export async function liveCatalogue(now = Date.now()): Promise<StoreProduct[]> {
-  if (catalogueCache && now - catalogueCache.at < CATALOGUE_TTL_MS) return catalogueCache.rows;
-  const rows = (await listStoreProducts()) as StoreProduct[];
-  catalogueCache = { at: now, rows };
-  return rows;
-}
-
-/** Verified member (approved, unexpired ID) or staff. Read with the service role for the signed-in user only. */
-export async function isPlugEligible(userId: string): Promise<boolean> {
-  const [row, staff] = await Promise.all([
-    supabaseAdmin
-      .from("customer_verification")
-      .select("status, document_expires_on")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    isStaffAccount(userId),
-  ]);
-  if (row.error) throw row.error;
-  return isVerifiedMember(staff ? { staff_exempt: true } : row.data);
-}
-
 export const plugConfigured = () => Boolean(process.env["GEMINI_API_KEY"]?.trim());
 
 /**
- * What the storefront needs to know for this member: whether to show the launcher, what they have left today, and
- * which announcement (if any) to show: the full intro once they are verified, or a one-time "verify to unlock"
- * preview before that.
+ * What the storefront needs for this caller. Ask The Plug is open to everyone, so it is always available (the guided
+ * quiz needs no AI and no Gemini key). Signed-in members also get what they have left today and the one-time launch
+ * announcement; visitors get neither.
  */
-export async function plugStatus(userId: string) {
-  if (!plugConfigured()) return { available: false, eligible: false, allowance: null, intro: null };
-  const [eligible, seenRes] = await Promise.all([
-    isPlugEligible(userId),
-    supabaseAdmin.rpc("member_features_seen", { p_actor: userId }),
-  ]);
+export async function plugStatus(userId: string | null) {
+  if (!userId) return { available: true, chat: plugConfigured(), allowance: null, intro: null };
+  const seenRes = await supabaseAdmin.rpc("member_features_seen", { p_actor: userId });
   const seen = new Set<string>((seenRes.data as string[] | null) ?? []);
-  const intro = eligible
-    ? seen.has(INTRO_FEATURE)
-      ? null
-      : ("full" as const)
-    : seen.has(INTRO_FEATURE) || seen.has(PREVIEW_FEATURE)
-      ? null
-      : ("preview" as const);
-  const allowance = eligible
-    ? await memberAllowance(supabaseQuotaDb(), quotaConfig(process.env), userId).catch(() => null)
-    : null;
+  const allowance = await memberAllowance(
+    supabaseQuotaDb(),
+    quotaConfig(process.env),
+    userId,
+  ).catch(() => null);
   // A read failure on the seen list must never pop the modal at every page load: show nothing instead.
-  return { available: true, eligible, allowance, intro: seenRes.error ? null : intro };
+  const intro = seenRes.error || seen.has(INTRO_FEATURE) ? null : ("full" as const);
+  return { available: true, chat: plugConfigured(), allowance, intro };
 }
 
 export async function markFeatureSeen(
@@ -156,12 +119,23 @@ export function chatDeps(): ChatDeps {
       return { ok: r.ok, status: r.status, text: () => r.text() };
     },
     geminiKey: process.env["GEMINI_API_KEY"]?.trim() || null,
-    isEligible: isPlugEligible,
-    loadCatalogue: () => liveCatalogue(),
+    // Live on every message, no cache: the database applies the hard filters and the safety buffer (spec layers 1-2).
+    loadCatalogue: async () => {
+      const products = await liveCandidates();
+      return { products, unavailableNames: await unavailableNames(products).catch(() => []) };
+    },
+    logReplaced: async () => {
+      await supabaseAdmin.rpc("plug_match_log", {
+        p_kind: "chat_reply_replaced",
+        p_outcome: "replaced",
+        p_answers: {},
+        p_product_ids: [],
+      });
+    },
     loadContext: async (userId) => {
       const [tiers, member] = await Promise.all([
         loadTiers().catch(() => ""),
-        memberContext(userId).catch(() => null),
+        userId ? memberContext(userId).catch(() => null) : Promise.resolve(null),
       ]);
       return { tiers, member: member ? memberContextLines(member) : "" };
     },

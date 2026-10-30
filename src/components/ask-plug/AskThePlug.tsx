@@ -1,18 +1,28 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, Loader2, Plus, Send, Sparkles, X } from "lucide-react";
+import { Loader2, RefreshCw, Send, ShoppingBag, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { askThePlug, type PlugReply } from "@/lib/chat.functions";
+import { plugQuizFn, plugReserveFn } from "@/lib/plug-match.functions";
 import { clearChatStorage } from "@/lib/chat-storage";
 import { isStorefrontPath } from "@/lib/ask-plug-access";
 import { useCart, rand } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { PlugMark } from "./PlugMark";
 import { OPEN_EVENT, takeOpenOnArrival, usePlugStatus } from "./plug-status";
-import { MAX_INPUT, STARTERS, toWire, type PlugMessage, type PlugPick } from "./plug-wire";
+import {
+  FIND_MATCH,
+  MAX_INPUT,
+  RESULT_TTL_MS,
+  STARTERS,
+  START_OVER,
+  messageFromQuiz,
+  toWire,
+  type PlugCardData,
+  type PlugMessage,
+} from "./plug-wire";
 
-type Pick = PlugPick;
 type Allowance = NonNullable<Extract<PlugReply, { ok: true }>["allowance"]>;
 
 // History and the session id live per member in sessionStorage (cleared on sign-out by clearChatStorage).
@@ -21,7 +31,7 @@ const SESSION_PREFIX = "cannaplug.chat.session:";
 
 const greeting = (firstName?: string | null): PlugMessage => ({
   role: "assistant",
-  content: `Howzit${firstName ? ` ${firstName}` : ""}! I'm The Plug 🔌 Tell me what you're in the mood for and I'll match you with something from today's menu. Or tap one of these to start:`,
+  content: `Howzit${firstName ? ` ${firstName}` : ""}! I'm The Plug 🔌 Five quick taps and I'll match you with something that's on the shelf right now. Tap Find my match, or ask me anything:`,
   quickReplies: STARTERS,
 });
 
@@ -46,56 +56,71 @@ function loadHistory(userId: string, firstName?: string | null): PlugMessage[] {
   return [greeting(firstName)];
 }
 
-function PickCard({ pick }: { pick: Pick }) {
-  const { add } = useCart();
-  const [added, setAdded] = useState(false);
+function MatchCard({
+  card,
+  checkedAt,
+  paused,
+  expired,
+  busy,
+  onReserve,
+}: {
+  card: PlugCardData;
+  checkedAt: string | undefined;
+  paused: boolean | undefined;
+  expired: boolean;
+  busy: boolean;
+  onReserve: () => void;
+}) {
   return (
     <div className="plug-pick">
       <div className="plug-pick-img">
-        {pick.imageUrl ? <img src={pick.imageUrl} alt="" loading="lazy" /> : <PlugMark size={30} />}
+        {card.imageUrl ? <img src={card.imageUrl} alt="" loading="lazy" /> : <PlugMark size={30} />}
       </div>
       <div className="plug-pick-body">
         <span className="plug-pick-kicker">
-          {[pick.category, pick.subcategory].filter(Boolean).join(" · ")}
-          {pick.strain ? ` · ${pick.strain}` : ""}
+          {[card.category, card.subcategory].filter(Boolean).join(" · ")}
+          {card.strain ? ` · ${card.strain}` : ""}
         </span>
-        <strong>{pick.name}</strong>
-        <p>{pick.why}</p>
+        <strong>{card.name}</strong>
+        <p>{card.why}</p>
+        <span className="plug-stock-line">
+          {paused ? "Available in store today" : "In stock now"}
+          {checkedAt ? ` · checked ${resetTime(checkedAt)}` : ""}
+        </span>
         <div className="plug-pick-row">
           <span className="plug-pick-price">
-            {pick.regularPrice ? <s>{rand(pick.regularPrice)}</s> : null}
-            {rand(pick.price)}
-            {pick.unit ? <small> / {pick.unit}</small> : null}
+            {card.regularPrice ? <s>{rand(card.regularPrice)}</s> : null}
+            {rand(card.price)}
+            {card.unit ? <small> / {card.unit}</small> : null}
           </span>
-          <button
-            type="button"
-            className="plug-pick-add"
-            onClick={() => {
-              add({ productId: pick.id, name: pick.name, price: pick.price, unit: pick.unit });
-              setAdded(true);
-              window.setTimeout(() => setAdded(false), 1600);
-            }}
-            aria-label={`Add ${pick.name} to cart`}
-          >
-            {added ? <Check size={14} /> : <Plus size={14} />} {added ? "Added" : "Add"}
-          </button>
+          {!paused && (
+            <button
+              type="button"
+              className="plug-pick-add"
+              disabled={busy || expired}
+              onClick={onReserve}
+              aria-label={`Reserve ${card.name} for collection`}
+            >
+              <ShoppingBag size={14} /> Reserve for collection
+            </button>
+          )}
         </div>
-        <a className="plug-pick-link" href={pick.shopHref}>
-          See it in the shop
-        </a>
       </div>
     </div>
   );
 }
 
 /**
- * Ask The Plug 🔌: the AI budtender. Drawn only on storefront pages, only for signed-in verified members (the server
- * checks verification again on every message). Never in the member portal, admin, till, doctor portal or checkout.
+ * Ask The Plug 🔌: the AI budtender. Open to everyone on storefront pages (visitors get a smaller chat allowance, enforced
+ * on the server). Never in the member portal, admin, till, doctor portal or checkout.
  */
 export function AskThePlug() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, loading: authLoading } = useAuth();
+  const { add } = useCart();
   const userId = user?.id ?? null;
+  // Signed-out visitors keep their chat under one shared key; signing out wipes it (clearChatStorage).
+  const storeKey = userId ?? "guest";
   const firstName =
     (user?.user_metadata?.["full_name"] as string | undefined)?.trim().split(/\s+/)[0] ?? null;
   const status = usePlugStatus(userId);
@@ -106,6 +131,7 @@ export function AskThePlug() {
   const [messages, setMessages] = useState<PlugMessage[]>([greeting()]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState<false | "chat" | "match">(false);
+  const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -113,20 +139,24 @@ export function AskThePlug() {
   const lastUser = useRef<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+  // Shown matches expire after 10 minutes: tick so the cards notice without a click.
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
   useEffect(() => {
     if (status.data?.allowance) setAllowance(status.data.allowance);
   }, [status.data?.allowance]);
 
-  // Load this member's history; on sign-out wipe every chat trace from the tab.
+  // Load this caller's history; on sign-out wipe every chat trace from the tab.
   useEffect(() => {
     if (!mounted || authLoading) return;
-    if (userId) setMessages(loadHistory(userId, firstName));
-    else {
-      if (lastUser.current) clearChatStorage();
-      setMessages([greeting()]);
+    if (!userId && lastUser.current) {
+      clearChatStorage();
       setAllowance(null);
       setOpen(false);
     }
+    setMessages(loadHistory(storeKey, firstName));
     setError(null);
     lastUser.current = userId;
     // firstName only affects a fresh greeting; reloading history when it changes is not needed.
@@ -134,13 +164,13 @@ export function AskThePlug() {
   }, [mounted, authLoading, userId]);
 
   useEffect(() => {
-    if (!mounted || !userId) return;
+    if (!mounted) return;
     try {
-      window.sessionStorage.setItem(HISTORY_PREFIX + userId, JSON.stringify(messages.slice(-40)));
+      window.sessionStorage.setItem(HISTORY_PREFIX + storeKey, JSON.stringify(messages.slice(-40)));
     } catch {
       /* storage full or unavailable */
     }
-  }, [messages, mounted, userId]);
+  }, [messages, mounted, storeKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -161,28 +191,27 @@ export function AskThePlug() {
     };
   }, [open]);
 
-  const visible =
-    mounted && Boolean(userId) && status.data?.eligible === true && isStorefrontPath(pathname);
+  const visible = mounted && status.data?.available === true && isStorefrontPath(pathname);
 
   const send = useCallback(
-    async (text: string, mode: "chat" | "match" = "chat") => {
+    async (text: string) => {
       const clean = text.trim().slice(0, MAX_INPUT);
-      if (!clean || loading || !userId) return;
+      if (!clean || loading) return;
       const next: PlugMessage[] = [...messages, { role: "user", content: clean }];
       setMessages(next);
       setInput("");
       setError(null);
-      setLoading(mode);
+      setLoading("chat");
       try {
-        let sessionId = window.sessionStorage.getItem(SESSION_PREFIX + userId);
+        let sessionId = window.sessionStorage.getItem(SESSION_PREFIX + storeKey);
         if (!sessionId) {
           sessionId = crypto.randomUUID();
-          window.sessionStorage.setItem(SESSION_PREFIX + userId, sessionId);
+          window.sessionStorage.setItem(SESSION_PREFIX + storeKey, sessionId);
         }
-        const result = await askThePlug({ data: { sessionId, mode, messages: toWire(next) } });
+        const result = await askThePlug({ data: { sessionId, messages: toWire(next) } });
         if (result.allowance) setAllowance(result.allowance);
         if (!result.ok) {
-          setError(result.signInRequired ? "Please sign in again to keep chatting." : result.error);
+          setError(result.error);
           return;
         }
         setMessages((cur) => [
@@ -190,8 +219,9 @@ export function AskThePlug() {
           {
             role: "assistant",
             content: result.reply,
-            picks: result.picks,
-            quickReplies: result.quickReplies,
+            quickReplies: result.startMatch
+              ? [FIND_MATCH, ...result.quickReplies.filter((q) => q !== FIND_MATCH)].slice(0, 4)
+              : result.quickReplies,
           },
         ]);
       } catch (err) {
@@ -204,7 +234,106 @@ export function AskThePlug() {
         setLoading(false);
       }
     },
-    [loading, messages, userId],
+    [loading, messages, storeKey],
+  );
+
+  /** One quiz step. The server owns the flow, the stock and the prices; this only sends the taps. */
+  const runQuiz = useCallback(
+    async (
+      answers: Record<string, string>,
+      label: string | null,
+      extra?: { exclude?: string[]; another?: boolean },
+    ) => {
+      if (loading) return;
+      setError(null);
+      if (label) setMessages((cur) => [...cur, { role: "user", content: label }]);
+      setLoading("match");
+      try {
+        const r = await plugQuizFn({
+          data: {
+            answers,
+            ...(extra?.exclude ? { exclude: extra.exclude } : {}),
+            ...(extra?.another ? { another: true } : {}),
+          },
+        });
+        if (!r.ok) {
+          setError(r.error);
+          return;
+        }
+        setMessages((cur) => [...cur, messageFromQuiz(r)]);
+      } catch {
+        setError("The Plug couldn't check the shelf just now. Please try again in a moment.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading],
+  );
+
+  const shownIds = useCallback(
+    () => [...new Set(messages.flatMap((m) => (m.cards ?? []).map((c) => c.id)))].slice(-50),
+    [messages],
+  );
+
+  const reserve = useCallback(
+    async (m: PlugMessage, card: PlugCardData) => {
+      if (loading) return;
+      setError(null);
+      setLoading("match");
+      try {
+        const r = await plugReserveFn({
+          data: { productId: card.id, answers: m.answers ?? {}, shown: shownIds() },
+        });
+        if (r.ok) {
+          add({
+            productId: r.line.productId,
+            name: r.line.name,
+            price: r.line.price,
+            unit: r.line.unit,
+          });
+          setMessages((cur) => [
+            ...cur,
+            {
+              role: "assistant",
+              content: `${r.line.name} is in your cart for collection. Your stock is held for 2 hours once you check out.`,
+              checkout: true,
+              quickReplies: [START_OVER],
+            },
+          ]);
+        } else if ("soldOut" in r) {
+          setMessages((cur) => [
+            ...cur,
+            {
+              role: "assistant",
+              content: r.note,
+              ...(r.replacement
+                ? { cards: [r.replacement], checkedAt: r.checkedAt, answers: m.answers ?? {} }
+                : {}),
+              quickReplies: [START_OVER],
+            },
+          ]);
+        } else if ("paused" in r) {
+          setMessages((cur) => [
+            ...cur,
+            { role: "assistant", content: r.error, quickReplies: [START_OVER] },
+          ]);
+        } else setError(r.error);
+      } catch {
+        setError("The Plug couldn't reserve that just now. Please try again in a moment.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [add, loading, shownIds],
+  );
+
+  /** A quick-reply tap: the two quiz actions start the quiz; anything else is a normal chat message. */
+  const quick = useCallback(
+    (q: string) => {
+      if (q === FIND_MATCH || q === START_OVER) void runQuiz({}, q);
+      else void send(q);
+    },
+    [runQuiz, send],
   );
 
   // Opened from the intro modal (or anywhere) via an event, or by ?ask=1 in the address.
@@ -213,11 +342,11 @@ export function AskThePlug() {
     const onOpen = (e: Event) => {
       setOpen(true);
       const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt;
-      if (prompt) void send(prompt);
+      if (prompt) quick(prompt);
     };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
-  }, [visible, send]);
+  }, [visible, quick]);
 
   // Opened on arrival: from the intro modal on /account, or a shared link with ?ask=1.
   useEffect(() => {
@@ -232,8 +361,10 @@ export function AskThePlug() {
   };
   const userTurns = messages.filter((m) => m.role === "user").length;
   const last = messages[messages.length - 1];
-  const matchesLeft = allowance ? allowance.matchesRemaining > 0 : true;
   const outOfMessages = allowance ? allowance.remaining <= 0 : false;
+  const isExpired = (m: PlugMessage) =>
+    Boolean(m.checkedAt && m.cards?.length) &&
+    now - new Date(m.checkedAt!).getTime() > RESULT_TTL_MS;
 
   return (
     <>
@@ -265,7 +396,7 @@ export function AskThePlug() {
                 <PlugMark size={36} />
                 <div>
                   <strong>Ask The Plug 🔌</strong>
-                  <small>Your AI budtender · today's menu</small>
+                  <small>Your AI budtender · live stock</small>
                 </div>
               </div>
               <button
@@ -289,12 +420,66 @@ export function AskThePlug() {
                   >
                     {m.content}
                   </div>
-                  {m.picks?.length ? (
+                  {m.cards?.length ? (
                     <div className="plug-picks">
-                      {m.picks.map((p) => (
-                        <PickCard key={p.id} pick={p} />
+                      {m.cards.map((c) => (
+                        <MatchCard
+                          key={c.id}
+                          card={c}
+                          checkedAt={m.checkedAt}
+                          paused={m.paused}
+                          expired={isExpired(m)}
+                          busy={Boolean(loading)}
+                          onReserve={() => void reserve(m, c)}
+                        />
+                      ))}
+                      {isExpired(m) && !m.paused ? (
+                        <button
+                          type="button"
+                          className="plug-refresh"
+                          disabled={Boolean(loading) || outOfMessages}
+                          onClick={() => void runQuiz(m.answers ?? {}, null)}
+                        >
+                          <RefreshCw size={13} /> Stock may have changed. Refresh my match
+                        </button>
+                      ) : m === last && !m.paused && !loading ? (
+                        <button
+                          type="button"
+                          className="plug-refresh"
+                          onClick={() =>
+                            void runQuiz(m.answers ?? {}, "Show me another", {
+                              exclude: shownIds(),
+                              another: true,
+                            })
+                          }
+                        >
+                          Show me another
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {m === last && m.role === "assistant" && !loading && m.question ? (
+                    <div className="plug-quick" role="group" aria-label="Answer options">
+                      {m.question.chips.map((c) => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onClick={() =>
+                            void runQuiz(
+                              { ...(m.answers ?? {}), [m.question!.step]: c.value },
+                              c.label,
+                            )
+                          }
+                        >
+                          {c.label}
+                        </button>
                       ))}
                     </div>
+                  ) : null}
+                  {m.checkout ? (
+                    <Link to="/checkout" onClick={() => setOpen(false)} className="plug-refresh">
+                      <ShoppingBag size={13} /> Go to checkout
+                    </Link>
                   ) : null}
                   {m === last && m.role === "assistant" && !loading && m.quickReplies?.length ? (
                     <div className="plug-quick" role="group" aria-label="Quick replies">
@@ -302,7 +487,7 @@ export function AskThePlug() {
                         <button
                           key={q}
                           type="button"
-                          onClick={() => void send(q)}
+                          onClick={() => quick(q)}
                           disabled={outOfMessages}
                         >
                           {q}
@@ -315,34 +500,22 @@ export function AskThePlug() {
               {loading && (
                 <div className="chat-bubble chat-bubble-bot chat-bubble-loading">
                   <Loader2 size={14} className="chat-spinner" />
-                  {loading === "match" ? "Finding your match…" : "The Plug is typing…"}
+                  {loading === "match" ? "Checking the shelf…" : "The Plug is typing…"}
                 </div>
               )}
               {error && <div className="chat-error">{error}</div>}
             </div>
 
-            {userTurns > 0 && (
-              <div className="plug-match-row">
-                <button
-                  type="button"
-                  className="plug-match"
-                  disabled={Boolean(loading) || !matchesLeft || outOfMessages}
-                  onClick={() =>
-                    void send(
-                      "Based on everything I've told you, what are your top picks for me?",
-                      "match",
-                    )
-                  }
-                >
-                  <Sparkles size={14} /> Find my match
-                  {allowance ? (
-                    <small>
-                      {allowance.matchesRemaining}/{allowance.matchLimit} left today
-                    </small>
-                  ) : null}
-                </button>
-              </div>
-            )}
+            <div className="plug-match-row">
+              <button
+                type="button"
+                className="plug-match"
+                disabled={Boolean(loading)}
+                onClick={() => void runQuiz({}, FIND_MATCH)}
+              >
+                <Sparkles size={14} /> {userTurns > 0 ? "Start a new match" : FIND_MATCH}
+              </button>
+            </div>
 
             <form className="chat-input-row" onSubmit={submit}>
               <input

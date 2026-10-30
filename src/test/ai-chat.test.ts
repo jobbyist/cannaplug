@@ -125,7 +125,7 @@ describe("Gemini client", () => {
 });
 
 describe("model ladder (Gemini free tier, per model)", () => {
-  it("defaults: 3.8 Flash for deep matches, 3.5 Flash-Lite to chat, 3.1 Flash-Lite as fallback, guards under Google's limits", () => {
+  it("defaults: 3.8 Flash held in reserve, 3.5 Flash-Lite to chat, 3.1 Flash-Lite as fallback, guards under Google's limits", () => {
     const m = plugModels({});
     expect(m.reasoning).toMatchObject({ id: "gemini-3.8-flash", rpm: 4, rpd: 18 }); // free tier 5 / 20
     expect(m.chat).toMatchObject({ id: "gemini-3.5-flash-lite", rpm: 8, rpd: 450 }); // free tier 10 / 500
@@ -142,19 +142,14 @@ describe("model ladder (Gemini free tier, per model)", () => {
     expect(m.chat).toMatchObject({ id: "gemini-4-flash", rpd: 900 });
     expect(m.reasoning).toMatchObject({ id: "gemini-3.8-flash", rpm: 4 });
   });
-  it("chat never touches the reasoning model; a match prefers it; the same model is never listed twice", () => {
+  it("the quiz uses no AI: chat starts on the light model and falls back once; the same model is never listed twice", () => {
     const m = plugModels({});
-    expect(modelLadder(m, "chat").map((x) => x.id)).toEqual([
-      "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
-    ]);
-    expect(modelLadder(m, "match").map((x) => x.id)).toEqual([
-      "gemini-3.8-flash",
+    expect(modelLadder(m).map((x) => x.id)).toEqual([
       "gemini-3.5-flash-lite",
       "gemini-3.1-flash-lite",
     ]);
     const same = plugModels({ PLUG_FALLBACK_MODEL: "gemini-3.5-flash-lite" });
-    expect(modelLadder(same, "chat")).toHaveLength(1);
+    expect(modelLadder(same)).toHaveLength(1);
     expect(MAX_MODEL_ATTEMPTS).toBe(2);
   });
 });
@@ -163,36 +158,19 @@ describe("free-tier quota", () => {
   const cfg = quotaConfig({});
   const who = (userId = "u1", ip = "ip1", s = "s1") => ({ userId, ipHash: ip, sessionId: s });
 
-  it("defaults: 25 messages and 3 deep matches per member per day; env can change them", () => {
-    expect(cfg).toMatchObject({
-      memberPerDay: 25,
-      memberMatchesPerDay: 3,
-      ipPerHour: 30,
-      sessionTotal: 40,
-    });
-    expect(quotaConfig({ CHAT_MEMBER_RPD: "10", PLUG_MEMBER_MATCH_RPD: "1" })).toMatchObject({
-      memberPerDay: 10,
-      memberMatchesPerDay: 1,
-    });
+  it("defaults: 25 chat messages per member per day (the quiz is free of AI and not counted); env can change it", () => {
+    expect(cfg).toMatchObject({ memberPerDay: 25, ipPerHour: 30, sessionTotal: 40 });
+    expect(quotaConfig({ CHAT_MEMBER_RPD: "10" })).toMatchObject({ memberPerDay: 10 });
   });
   it("uses Pacific time for the daily window (Google resets at midnight PT)", () => {
     expect(pacificDate(Date.UTC(2026, 9, 30, 6, 59))).toBe("2026-10-29");
     expect(pacificDate(Date.UTC(2026, 9, 30, 7, 0))).toBe("2026-10-30");
     expect(new Date(nextPacificMidnight(T)).toISOString()).toBe("2026-10-31T07:00:00.000Z");
   });
-  it("a member is capped per day; deep matches have their own smaller cap", async () => {
-    const { db } = memQuota();
-    for (let i = 0; i < 3; i++)
-      expect((await takeMemberQuota(db, cfg, who(), "match", T)).ok).toBe(true);
-    expect(await takeMemberQuota(db, cfg, who(), "match", T)).toMatchObject({
-      ok: false,
-      reason: "matches",
-    });
-    expect((await takeMemberQuota(db, cfg, who(), "chat", T)).ok).toBe(true); // chat still allowed
+  it("a member is capped per day", async () => {
     const { db: d2 } = memQuota();
-    for (let i = 0; i < 25; i++)
-      await takeMemberQuota(d2, cfg, who("u2", `ip${i}`, `s${i}`), "chat", T);
-    expect(await takeMemberQuota(d2, cfg, who("u2", "ipX", "sX"), "chat", T)).toMatchObject({
+    for (let i = 0; i < 25; i++) await takeMemberQuota(d2, cfg, who("u2", `ip${i}`, `s${i}`), T);
+    expect(await takeMemberQuota(d2, cfg, who("u2", "ipX", "sX"), T)).toMatchObject({
       ok: false,
       reason: "member",
     });
@@ -200,17 +178,15 @@ describe("free-tier quota", () => {
   it("per IP per hour and per session caps hold, and a refused member spends nothing further", async () => {
     const { db, counts } = memQuota();
     for (let i = 0; i < 30; i++)
-      await takeMemberQuota(db, cfg, who(`u${i}`, "same-ip", `s${i}`), "chat", T);
-    expect(await takeMemberQuota(db, cfg, who("u99", "same-ip", "s99"), "chat", T)).toMatchObject({
+      await takeMemberQuota(db, cfg, who(`u${i}`, "same-ip", `s${i}`), T);
+    expect(await takeMemberQuota(db, cfg, who("u99", "same-ip", "s99"), T)).toMatchObject({
       reason: "visitor",
     });
     expect(counts.get("chat:session:s99")).toBeUndefined();
     const { db: d2 } = memQuota();
     for (let i = 0; i < 40; i++)
-      await takeMemberQuota(d2, cfg, who(`m${i}`, `i${i}`, "one-session"), "chat", T);
-    expect(
-      await takeMemberQuota(d2, cfg, who("m99", "i99", "one-session"), "chat", T),
-    ).toMatchObject({
+      await takeMemberQuota(d2, cfg, who(`m${i}`, `i${i}`, "one-session"), T);
+    expect(await takeMemberQuota(d2, cfg, who("m99", "i99", "one-session"), T)).toMatchObject({
       reason: "session",
     });
   });
@@ -238,12 +214,10 @@ describe("free-tier quota", () => {
   });
   it("reports what a member has left", async () => {
     const { db } = memQuota();
-    await takeMemberQuota(db, cfg, who(), "match", T);
+    await takeMemberQuota(db, cfg, who(), T);
     expect(await memberAllowance(db, cfg, "u1", T)).toEqual({
       limit: 25,
       remaining: 24,
-      matchLimit: 3,
-      matchesRemaining: 2,
       resetsAt: "2026-10-31T07:00:00.000Z",
     });
   });
@@ -252,9 +226,6 @@ describe("free-tier quota", () => {
       expect(quotaMessage({ ok: false, reason, retryAfterMinutes: 5, resetsAt: T })).toContain(
         SITE_FACTS.phone,
       );
-    expect(
-      quotaMessage({ ok: false, reason: "matches", retryAfterMinutes: 5, resetsAt: T }),
-    ).toMatch(/keep chatting/);
     expect(quotaMessage({ ok: false, reason: "busy", retryAfterMinutes: 1 })).toMatch(/minute/);
   });
 });

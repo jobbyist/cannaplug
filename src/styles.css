@@ -2171,6 +2171,31 @@ footer {
   text-underline-offset: 2px;
   align-self: flex-start;
 }
+.plug-stock-line {
+  display: block;
+  margin-top: 4px;
+  font: 700 0.64rem var(--font-sans);
+  color: #16a34a;
+  letter-spacing: 0.02em;
+}
+.plug-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  align-self: flex-start;
+  border: 1px solid #d4af37;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: transparent;
+  color: inherit;
+  font: 700 0.7rem var(--font-sans);
+  cursor: pointer;
+}
+.plug-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .plug-match-row {
   padding: 10px 12px 0;
   background: var(--card);

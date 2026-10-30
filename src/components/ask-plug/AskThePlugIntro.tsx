@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, BadgeCheck, MessageCircleQuestion, ShoppingBag, Sparkles } from "lucide-react";
+import { ArrowRight, MessageCircleQuestion, ShoppingBag, Sparkles } from "lucide-react";
 import { AGE_GATE_KEY, ageGateNeeded } from "@/components/age-gate-logic";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  INTRO_FEATURE,
-  PREVIEW_FEATURE,
-  isIntroPath,
-  isStorefrontPath,
-} from "@/lib/ask-plug-access";
+import { INTRO_FEATURE, isIntroPath, isStorefrontPath } from "@/lib/ask-plug-access";
 import { markAskThePlugSeenFn } from "@/lib/chat.functions";
 import { tourPending } from "@/lib/tour-logic";
 import { PlugMark } from "./PlugMark";
@@ -36,11 +31,8 @@ const ageConfirmed = (path: string) => {
 };
 
 /**
- * One-time launch announcement for Ask The Plug, shown to every member (existing and new) the next time they are
- * signed in on the storefront or their account page:
- *   - verified members get the full intro with "Ask The Plug now" (opens the chat; from /account it goes to the shop);
- *   - members not yet verified get a short preview with "Verify my ID" (only on the storefront, so it never gets in
- *     the way of the ID upload on their account page), and later the full intro once, after approval.
+ * One-time launch announcement for Ask The Plug, shown to every signed-in member (existing and new) the next time they
+ * are on the storefront or their account page. "Ask The Plug now" opens the chat (from /account it goes to the shop).
  * Seen state is stored on the server (member_feature_seen), so it shows once per member on any device.
  */
 export function AskThePlugIntro() {
@@ -60,9 +52,7 @@ export function AskThePlugIntro() {
       ? false
       : variant === "full"
         ? isIntroPath(pathname)
-        : variant === "preview"
-          ? isStorefrontPath(pathname)
-          : false;
+        : false;
 
   // Wait a moment after the page settles, and never on top of the 18+ question.
   useEffect(() => {
@@ -81,7 +71,7 @@ export function AskThePlugIntro() {
   }, [userId]);
 
   if (!variant || !userId) return null;
-  const feature = variant === "full" ? INTRO_FEATURE : PREVIEW_FEATURE;
+  const feature = INTRO_FEATURE;
 
   const record = (action: "opened" | "dismissed") => {
     if (recorded.current) return;
@@ -103,10 +93,6 @@ export function AskThePlugIntro() {
 
   const primary = () => {
     close("opened");
-    if (variant === "preview") {
-      void navigate({ to: "/account" });
-      return;
-    }
     if (isStorefrontPath(pathname)) window.setTimeout(() => openAskThePlug(), 150);
     else {
       openAskThePlugOnArrival();
@@ -124,9 +110,8 @@ export function AskThePlugIntro() {
             Ask The Plug <span aria-hidden="true">🔌</span>
           </DialogTitle>
           <DialogDescription className="plug-intro-sub">
-            {variant === "full"
-              ? "Your AI budtender. Tell it what you're after and get matched with the right bud from today's menu."
-              : "Our new AI budtender is here. Verify your ID to unlock personal picks from today's menu."}
+            Your AI budtender. Tell it what you're after and get matched with the right bud from
+            today's menu.
           </DialogDescription>
         </div>
         <ul className="plug-intro-points">
@@ -139,15 +124,10 @@ export function AskThePlugIntro() {
           <li>
             <ShoppingBag size={18} /> Only what's in stock now, with prices. Add to cart in one tap
           </li>
-          {variant === "preview" && (
-            <li>
-              <BadgeCheck size={18} /> For verified members: one quick ID check unlocks it
-            </li>
-          )}
         </ul>
         <div className="plug-intro-actions">
           <button type="button" className="plug-intro-cta" onClick={primary}>
-            {variant === "full" ? "Ask The Plug now" : "Verify my ID"} <ArrowRight size={16} />
+            Ask The Plug now <ArrowRight size={16} />
           </button>
           <button type="button" className="plug-intro-later" onClick={() => close("dismissed")}>
             Maybe later

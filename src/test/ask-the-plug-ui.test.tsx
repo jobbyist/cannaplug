@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mocks = vi.hoisted(() => ({
   askThePlug: vi.fn(),
+  plugQuizFn: vi.fn(),
+  plugReserveFn: vi.fn(),
   getAskThePlugStatusFn: vi.fn(),
   markAskThePlugSeenFn: vi.fn(),
   navigate: vi.fn(),
@@ -21,6 +23,10 @@ vi.mock("@/lib/chat.functions", () => ({
   askThePlug: mocks.askThePlug,
   getAskThePlugStatusFn: mocks.getAskThePlugStatusFn,
   markAskThePlugSeenFn: mocks.markAskThePlugSeenFn,
+}));
+vi.mock("@/lib/plug-match.functions", () => ({
+  plugQuizFn: mocks.plugQuizFn,
+  plugReserveFn: mocks.plugReserveFn,
 }));
 // happy-dom has no Web Animations, so framer-motion's exit animations reject on unmount: render plain elements.
 vi.mock("framer-motion", async () => {
@@ -50,7 +56,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
 }));
 
 import { AskThePlug } from "@/components/ask-plug/AskThePlug";
-import { toWire } from "@/components/ask-plug/plug-wire";
+import { toWire, type PlugMessage } from "@/components/ask-plug/plug-wire";
 import { AskThePlugIntro } from "@/components/ask-plug/AskThePlugIntro";
 import { AGE_GATE_KEY } from "@/components/age-gate-logic";
 import { CartProvider, useCart } from "@/lib/cart";
@@ -58,18 +64,16 @@ import { CartProvider, useCart } from "@/lib/cart";
 const ALLOW = {
   limit: 25,
   remaining: 24,
-  matchLimit: 3,
-  matchesRemaining: 3,
   resetsAt: "2026-10-31T07:00:00.000Z",
 };
 const status = (over: Record<string, unknown> = {}) => ({
   available: true,
-  eligible: true,
+  chat: true,
   allowance: ALLOW,
   intro: null,
   ...over,
 });
-const PICK = {
+const CARD = {
   id: "11111111-1111-4111-8111-111111111111",
   name: "Purple Fritter",
   category: "Flower",
@@ -79,9 +83,28 @@ const PICK = {
   regularPrice: null,
   unit: "g",
   imageUrl: null,
-  shopHref: "/shop?q=Purple%20Fritter",
-  why: "Greenhouse indica in your budget.",
+  why: "Indica, as you asked · Greenhouse grade · inside your up-to-R50 budget",
+  overBudget: false,
 };
+const question = (step: string, say: string, labels: string[], answers = {}) => ({
+  ok: true,
+  kind: "question",
+  answers,
+  question: {
+    step,
+    say,
+    chips: labels.map((l) => ({ value: l.toLowerCase(), label: l, count: 3 })),
+  },
+});
+const result = (over: Record<string, unknown> = {}) => ({
+  ok: true,
+  kind: "result",
+  answers: { experience: "sometimes", format: "flower" },
+  result: { status: "matched", relaxed: null, note: null, cards: [CARD] },
+  checkedAt: new Date().toISOString(),
+  orderingPaused: false,
+  ...over,
+});
 
 function CartPeek() {
   const { lines } = useCart();
@@ -118,80 +141,174 @@ afterEach(() => {
 const launcher = () => screen.queryByRole("button", { name: /open ask the plug/i });
 
 describe("launcher visibility", () => {
-  it("shows on the storefront for a verified member", async () => {
+  it("shows on the storefront for a signed-in member", async () => {
     renderUI();
     expect(await screen.findByRole("button", { name: /open ask the plug/i })).toBeTruthy();
   });
-  it("is hidden for members who are not verified (and the server is never asked to chat)", async () => {
-    mocks.getAskThePlugStatusFn.mockResolvedValue(status({ eligible: false, allowance: null }));
-    renderUI();
-    await waitFor(() => expect(mocks.getAskThePlugStatusFn).toHaveBeenCalled());
-    expect(launcher()).toBeNull();
-  });
-  it("is hidden when signed out, without even asking for a status", async () => {
+  it("is open to signed-out visitors too", async () => {
     mocks.user.current = null;
+    mocks.getAskThePlugStatusFn.mockResolvedValue(status({ allowance: null }));
     renderUI();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(launcher()).toBeNull();
-    expect(mocks.getAskThePlugStatusFn).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: /open ask the plug/i })).toBeTruthy();
+    await userEvent.setup().click(launcher()!);
+    expect(screen.getByText(/Tap Find my match/)).toBeTruthy();
+    expect(screen.queryByText(/messages left today/)).toBeNull(); // visitors have no member allowance line
   });
   it.each(["/account", "/member/documents", "/admin", "/checkout", "/doctor"])(
-    "never appears on %s, even for a verified member",
+    "never appears on %s",
     async (path) => {
       mocks.path.current = path;
       renderUI();
-      await waitFor(() => expect(mocks.getAskThePlugStatusFn).toHaveBeenCalled());
+      await new Promise((r) => setTimeout(r, 20));
       expect(launcher()).toBeNull();
     },
   );
 });
 
-describe("the conversation", () => {
-  it("starter chips send text only; picks render from the server and add to the real cart", async () => {
+describe("the guided quiz", () => {
+  it("asks one question at a time with tap answers, then shows an in-stock card with a live stock line", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn
+      .mockResolvedValueOnce(
+        question("experience", "How well do you know your cannabis?", ["New to it", "Sometimes"]),
+      )
+      .mockResolvedValueOnce(
+        question("format", "What would you like?", ["Flower", "Pre-roll"], {
+          experience: "sometimes",
+        }),
+      )
+      .mockResolvedValueOnce(result());
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await screen.findByText("How well do you know your cannabis?");
+    await user.click(screen.getByRole("button", { name: "Sometimes" }));
+    await screen.findByText("What would you like?");
+    await user.click(screen.getByRole("button", { name: "Flower" }));
+    await screen.findByText("Purple Fritter");
+    expect(screen.getByText(/In stock now · checked/)).toBeTruthy();
+    expect(screen.getByText(/Greenhouse grade/)).toBeTruthy();
+    // what the browser sent: answers only, accumulated per tap (never prices, stock or user ids)
+    expect(mocks.plugQuizFn.mock.calls.map((c) => c[0].data)).toEqual([
+      { answers: {} },
+      { answers: { experience: "sometimes" } },
+      { answers: { experience: "sometimes", format: "flower" } },
+    ]);
+  });
+  it("Reserve for collection re-checks live stock on the server, then adds to the real cart", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn.mockResolvedValueOnce(result());
+    mocks.plugReserveFn.mockResolvedValueOnce({
+      ok: true,
+      line: { productId: CARD.id, name: "Purple Fritter", price: 50, unit: "g" },
+    });
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await user.click(await screen.findByRole("button", { name: /reserve purple fritter/i }));
+    await screen.findByText(/is in your cart for collection/);
+    expect(mocks.plugReserveFn.mock.calls[0]![0].data).toMatchObject({
+      productId: CARD.id,
+      shown: [CARD.id],
+    });
+    expect(JSON.parse(screen.getByTestId("cart").textContent!)).toEqual([
+      { productId: CARD.id, name: "Purple Fritter", price: 50, unit: "g", quantity: 1 },
+    ]);
+  });
+  it("a Reserve that finds the product sold out shows the swap note and the next best card, and adds nothing", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn.mockResolvedValueOnce(result());
+    mocks.plugReserveFn.mockResolvedValueOnce({
+      ok: false,
+      soldOut: true,
+      note: "That one just sold out. Here's the next best match that's in stock right now:",
+      replacement: { ...CARD, id: "22222222-2222-4222-8222-222222222222", name: "Velvet Moon" },
+      checkedAt: new Date().toISOString(),
+    });
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await user.click(await screen.findByRole("button", { name: /reserve purple fritter/i }));
+    await screen.findByText(/just sold out/);
+    expect(screen.getByText("Velvet Moon")).toBeTruthy();
+    expect(JSON.parse(screen.getByTestId("cart").textContent!)).toEqual([]);
+  });
+  it("while ordering is paused cards say 'Available in store today' and offer no Reserve", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn.mockResolvedValueOnce(result({ orderingPaused: true }));
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await screen.findByText("Purple Fritter");
+    expect(screen.getByText(/Available in store today/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /reserve/i })).toBeNull();
+  });
+  it("a result older than 10 minutes cannot be reserved: it offers a refresh that re-runs the match", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn.mockResolvedValueOnce(
+      result({ checkedAt: new Date(Date.now() - 11 * 60_000).toISOString() }),
+    );
+    mocks.plugQuizFn.mockResolvedValueOnce(result());
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await screen.findByText("Purple Fritter");
+    expect(
+      (screen.getByRole("button", { name: /reserve purple fritter/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await user.click(screen.getByRole("button", { name: /refresh my match/i }));
+    await waitFor(() => expect(mocks.plugQuizFn).toHaveBeenCalledTimes(2));
+    expect(mocks.plugQuizFn.mock.calls[1]![0].data).toEqual({
+      answers: { experience: "sometimes", format: "flower" },
+    });
+  });
+  it("Show me another asks for one more, excluding what was shown", async () => {
+    const user = userEvent.setup();
+    mocks.plugQuizFn.mockResolvedValueOnce(result());
+    mocks.plugQuizFn.mockResolvedValueOnce(
+      result({
+        result: {
+          status: "matched",
+          relaxed: null,
+          note: null,
+          cards: [{ ...CARD, id: "33333333-3333-4333-8333-333333333333", name: "White Widow" }],
+        },
+      }),
+    );
+    renderUI();
+    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
+    await user.click(screen.getAllByRole("button", { name: /find my match/i })[0]!);
+    await user.click(await screen.findByRole("button", { name: /show me another/i }));
+    await screen.findByText("White Widow");
+    expect(mocks.plugQuizFn.mock.calls[1]![0].data).toMatchObject({
+      another: true,
+      exclude: [CARD.id],
+    });
+  });
+});
+
+describe("the chat", () => {
+  it("free text sends text only; a start_match reply offers Find my match; quick replies show", async () => {
     const user = userEvent.setup();
     mocks.askThePlug.mockResolvedValue({
       ok: true,
-      reply: "Lekker. Try this one:",
+      reply: "Lekker. Let's find you something.",
       quickReplies: ["Something cheaper"],
-      picks: [PICK],
-      readyToMatch: true,
+      startMatch: true,
       allowance: { ...ALLOW, remaining: 23 },
     });
     renderUI();
     await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
     expect(screen.getByText(/Howzit Thandi/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Help me pick some flower" }));
-    await screen.findByText("Lekker. Try this one:");
+    await user.click(screen.getByRole("button", { name: "What's on special?" }));
+    await screen.findByText("Lekker. Let's find you something.");
     const sent = mocks.askThePlug.mock.calls[0]![0].data;
-    expect(sent.mode).toBe("chat");
-    expect(sent.messages).toEqual([{ role: "user", content: "Help me pick some flower" }]);
-    expect(Object.keys(sent).sort()).toEqual(["messages", "mode", "sessionId"]); // no user id, prices or products
-    expect(screen.getByText("Purple Fritter")).toBeTruthy();
+    expect(sent.messages).toEqual([{ role: "user", content: "What's on special?" }]);
+    expect(Object.keys(sent).sort()).toEqual(["messages", "sessionId"]); // no user id, prices or products
     expect(screen.getByText(/23 of 25 messages left today/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /add purple fritter to cart/i }));
-    expect(JSON.parse(screen.getByTestId("cart").textContent!)).toEqual([
-      { productId: PICK.id, name: "Purple Fritter", price: 50, unit: "g", quantity: 1 },
-    ]);
-    // the quick reply from the model is offered next
+    expect(screen.getAllByRole("button", { name: "Find my match" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Something cheaper" })).toBeTruthy();
-  });
-  it("Find my match sends a match request and shows how many are left", async () => {
-    const user = userEvent.setup();
-    mocks.askThePlug.mockResolvedValue({
-      ok: true,
-      reply: "Cool",
-      quickReplies: [],
-      picks: [],
-      readyToMatch: false,
-    });
-    renderUI();
-    await user.click(await screen.findByRole("button", { name: /open ask the plug/i }));
-    await user.type(screen.getByLabelText("Message The Plug"), "flower under R60{enter}");
-    await screen.findByText("Cool");
-    const match = screen.getByRole("button", { name: /find my match/i });
-    expect(match.textContent).toContain("3/3 left today");
-    await user.click(match);
-    expect(mocks.askThePlug.mock.calls[1]![0].data.mode).toBe("match");
   });
   it("shows the server's friendly refusal; out of messages disables the input", async () => {
     const user = userEvent.setup();
@@ -207,13 +324,15 @@ describe("the conversation", () => {
     expect(await screen.findByText(/That's all your Ask The Plug messages/)).toBeTruthy();
     expect((screen.getByLabelText("Message The Plug") as HTMLInputElement).disabled).toBe(true);
   });
-  it("toWire drops the greeting and product data and clips text", () => {
-    const wire = toWire([
+  it("toWire drops the greeting, cards and quiz questions, and clips text", () => {
+    const msgs: PlugMessage[] = [
       { role: "assistant", content: "greeting", quickReplies: ["x"] },
       { role: "user", content: "a".repeat(800) },
-      { role: "assistant", content: "b", picks: [PICK] },
-    ]);
-    expect(wire).toEqual([
+      { role: "assistant", content: "b" },
+      { role: "assistant", content: "match card text", cards: [CARD] },
+      { role: "assistant", content: "a question", question: { step: "format", chips: [] } },
+    ];
+    expect(toWire(msgs)).toEqual([
       { role: "user", content: "a".repeat(500) },
       { role: "assistant", content: "b" },
     ]);
@@ -271,33 +390,16 @@ describe("launch announcement", () => {
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/shop" });
     expect(sessionStorage.getItem("cannaplug.chat.plug.open")).toBe("1");
   });
-  it("unverified members get the 'verify to unlock' preview on the storefront only, never over the ID upload", async () => {
+  it("signed-out visitors never get the member announcement", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    mocks.getAskThePlugStatusFn.mockResolvedValue(
-      status({ eligible: false, allowance: null, intro: "preview" }),
-    );
-    mocks.path.current = "/account";
-    const { unmount } = renderUI();
+    mocks.user.current = null;
+    mocks.getAskThePlugStatusFn.mockResolvedValue(status({ allowance: null, intro: null }));
+    renderUI();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3200);
     });
     expect(screen.queryByRole("dialog")).toBeNull();
-    unmount();
-    mocks.path.current = "/";
-    renderUI();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1600);
-    });
-    expect(await screen.findByText(/Verify your ID to unlock/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /maybe later/i }));
-    expect(mocks.markAskThePlugSeenFn).toHaveBeenCalledWith({
-      data: {
-        feature: "ask_the_plug_preview",
-        action: "dismissed",
-        idempotencyKey: "ask_the_plug_preview:dismissed:u1",
-      },
-    });
+    expect(mocks.markAskThePlugSeenFn).not.toHaveBeenCalled();
   });
   it("never stacks on the new-member portal tour on /account", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
