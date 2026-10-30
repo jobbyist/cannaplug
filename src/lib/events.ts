@@ -3,6 +3,7 @@ import plugCupImage from "@/assets/event-plug-cup.jpg";
 import weekendSpecialImage from "@/assets/promo-weekend-special.jpg";
 import plugBackImage from "@/assets/plug-back-campaign.jpg";
 import halloweedImage from "@/assets/promo-halloweed.jpg";
+import askThePlugImage from "@/assets/ask-the-plug-launch.jpg";
 
 export type EventPromo = {
   slug: string;
@@ -16,6 +17,8 @@ export type EventPromo = {
   copy: string;
   image: string;
   imageAlt: string;
+  /** False keeps a live item on /events but off the homepage section (default: shown). */
+  onHome?: boolean;
   width?: number;
   height?: number;
 };
@@ -78,8 +81,23 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
     height: 1536,
   },
   {
+    slug: "ask-the-plug",
+    startsOn: "2026-10-31",
+    kind: "Promotion",
+    tag: "Now live",
+    title: "Ask The Plug 🔌",
+    when: "Launched 31 October 2026",
+    copy: "Tell us what you are after and Ask The Plug suggests products that are in stock right now. Members sign in to chat. Guidance only, not medical advice. For adults 18+.",
+    image: askThePlugImage,
+    imageAlt:
+      "Ask The Plug: chat with the Plug to find what suits you. Guidance only, not medical advice. For adults 18+. Members sign in to chat at cannaplug012.co.za.",
+    width: 1080,
+    height: 1080,
+  },
+  {
     slug: "plug-back",
     startsOn: "2026-10-29",
+    onHome: false, // replaced on the homepage by Ask The Plug (31 Oct 2026); still listed on /events
     kind: "Promotion",
     tag: "Now on",
     title: "Plug Back",
@@ -92,6 +110,13 @@ export const EVENTS_AND_PROMOTIONS: EventPromo[] = [
       "Plug Back: bring 10 empty CannaPlug pre-roll tubes and get 1 free Greenhouse pre-roll.",
   },
 ];
+
+/** What the homepage section shows: newest first, skipping items kept off the homepage. */
+export function homeEventsAndPromotions(limit: number): EventPromo[] {
+  return mostRecentEventsAndPromotions(EVENTS_AND_PROMOTIONS.length)
+    .filter((e) => e.onHome !== false)
+    .slice(0, limit);
+}
 
 /** Newest first by start date (stable for ties). */
 export function mostRecentEventsAndPromotions(limit: number): EventPromo[] {

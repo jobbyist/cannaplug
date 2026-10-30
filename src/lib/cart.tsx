@@ -1,3 +1,4 @@
+import { snapUp } from "@/lib/sale-step";
 import {
   createContext,
   useCallback,
@@ -14,6 +15,8 @@ export type CartLine = {
   price: number;
   unit: string | null;
   quantity: number;
+  /** How the quantity moves: 5 for Outdoor flower (sold in 5 g batches), otherwise 1. */
+  step?: number;
 };
 
 type CartState = {
@@ -21,6 +24,8 @@ type CartState = {
   count: number;
   total: number;
   add: (line: Omit<CartLine, "quantity">, quantity?: number) => void;
+  /** Move a line one step up or down (a whole batch for Outdoor flower); below one step removes it. */
+  stepQuantity: (productId: string, direction: 1 | -1) => void;
   setQuantity: (productId: string, quantity: number) => void;
   remove: (productId: string) => void;
   clear: () => void;
@@ -29,6 +34,21 @@ type CartState = {
 const STORAGE_KEY = "cannaplug.cart.v1";
 const CartContext = createContext<CartState | null>(null);
 
+const stepOf = (line: Pick<CartLine, "step" | "name" | "unit">) =>
+  line.step && line.step > 1
+    ? line.step
+    : /\(outdoor\)\s*$/i.test(line.name) && line.unit === "g"
+      ? 5
+      : 1;
+
+/** A basket saved before the 5 g rule: Outdoor lines are rounded up to a whole batch. */
+function normaliseLines(lines: CartLine[]): CartLine[] {
+  return lines.map((l) => {
+    const step = stepOf(l);
+    return step > 1 ? { ...l, step, quantity: snapUp(l.quantity, step) } : l;
+  });
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -36,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setLines(JSON.parse(raw) as CartLine[]);
+      if (raw) setLines(normaliseLines(JSON.parse(raw) as CartLine[]));
     } catch {
       /* ignore malformed cart */
     }
@@ -48,18 +68,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
   }, [lines, hydrated]);
 
-  const add = useCallback((line: Omit<CartLine, "quantity">, quantity = 1) => {
+  const add = useCallback((line: Omit<CartLine, "quantity">, quantity?: number) => {
+    const step = stepOf(line);
+    const amount = snapUp(quantity ?? step, step);
     setLines((current) => {
       const existing = current.find((item) => item.productId === line.productId);
       if (existing) {
         return current.map((item) =>
           item.productId === line.productId
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, step, quantity: item.quantity + amount }
             : item,
         );
       }
-      return [...current, { ...line, quantity }];
+      return [...current, { ...line, step, quantity: amount }];
     });
+  }, []);
+
+  const stepQuantity = useCallback((productId: string, direction: 1 | -1) => {
+    setLines((current) =>
+      current.flatMap((item) => {
+        if (item.productId !== productId) return [item];
+        const step = stepOf(item);
+        const next = item.quantity + direction * step;
+        return next < step ? [] : [{ ...item, step, quantity: next }];
+      }),
+    );
   }, []);
 
   const setQuantity = useCallback((productId: string, quantity: number) => {
@@ -82,11 +115,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count: lines.reduce((sum, item) => sum + item.quantity, 0),
       total: lines.reduce((sum, item) => sum + item.quantity * item.price, 0),
       add,
+      stepQuantity,
       setQuantity,
       remove,
       clear,
     }),
-    [lines, add, setQuantity, remove, clear],
+    [lines, add, stepQuantity, setQuantity, remove, clear],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

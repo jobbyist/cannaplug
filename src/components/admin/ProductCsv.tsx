@@ -147,9 +147,9 @@ export function ProductCsv({ onSaved }: { onSaved: () => Promise<void> }) {
                   product on sale until <b>sale_ends</b> (a date like 2026-11-30, optional).
                 </li>
                 <li>
-                  Yes/no columns: sold_by_weight, sell_online, featured, active. weight_step_g is 1
-                  or 0.5. Categories: Flower, Pre-rolls, Edibles, Drinks, CBD, Vapes, Concentrates,
-                  Accessories, Lounge.
+                  Yes/no columns: sold_by_weight, sell_online, featured, active. weight_step_g is 1,
+                  0.5 or 5 (Outdoor flower is always 5). Categories: Flower, Pre-rolls, Edibles,
+                  Drinks, CBD, Vapes, Concentrates, Accessories, Lounge.
                 </li>
                 <li>
                   <b>opening_stock</b> is used only for products that have never had stock. After

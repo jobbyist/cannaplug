@@ -3751,6 +3751,27 @@ export type Database = {
       };
       member_rewards_summary: { Args: { p_user_id: string }; Returns: Json };
       pos_customer_rewards: { Args: { p_actor: string; p_customer: string }; Returns: Json };
+      plug_back_summary: { Args: { p_actor: string; p_customer: string }; Returns: Json };
+      plug_back_record_return: {
+        Args: {
+          p_actor: string;
+          p_customer: string;
+          p_idempotency_key: string;
+          p_note: string;
+          p_tubes: number;
+        };
+        Returns: Json;
+      };
+      plug_back_redeem: {
+        Args: {
+          p_actor: string;
+          p_customer: string;
+          p_idempotency_key: string;
+          p_product: string;
+          p_session_id: string;
+        };
+        Returns: Json;
+      };
       checkout_quote_for: {
         Args: { p_delivery_method: string; p_items: Json; p_user_id: string };
         Returns: Json;

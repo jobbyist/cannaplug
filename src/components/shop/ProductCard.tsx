@@ -3,6 +3,7 @@ import { Check, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart, rand } from "@/lib/cart";
+import { saleStep, batchNote } from "@/lib/sale-step";
 import { getCatalogImage } from "@/fixtures/catalog-presentation";
 import type { listStoreProductsFn } from "@/lib/admin.functions";
 
@@ -55,6 +56,14 @@ export function ProductCard({ product }: { product: StoreProduct }) {
             {product.unit && (
               <span className="ml-1 text-[0.65rem] text-muted-foreground">/ {product.unit}</span>
             )}
+            {batchNote(product) && (
+              <p
+                className="mt-0.5 text-[0.65rem] font-semibold text-primary"
+                data-testid="batch-note"
+              >
+                {batchNote(product)}
+              </p>
+            )}
           </div>
           <Button
             size="sm"
@@ -64,6 +73,7 @@ export function ProductCard({ product }: { product: StoreProduct }) {
                 name: product.name,
                 price: product.price_rand,
                 unit: product.unit,
+                step: saleStep(product),
               });
               setAdded(true);
               window.setTimeout(() => setAdded(false), 1400);

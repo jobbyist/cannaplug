@@ -212,7 +212,14 @@ describe("the guided quiz", () => {
       shown: [CARD.id],
     });
     expect(JSON.parse(screen.getByTestId("cart").textContent!)).toEqual([
-      { productId: CARD.id, name: "Purple Fritter", price: 50, unit: "g", quantity: 1 },
+      {
+        productId: CARD.id,
+        name: "Purple Fritter",
+        price: 50,
+        unit: "g",
+        quantity: 1,
+        step: 1, // Greenhouse-style products move one gram at a time; Outdoor flower would carry 5
+      },
     ]);
   });
   it("a Reserve that finds the product sold out shows the swap note and the next best card, and adds nothing", async () => {

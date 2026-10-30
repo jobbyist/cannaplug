@@ -278,7 +278,7 @@ export function parseProductCsv(text: string): ParsedProductCsv {
     const step = cell("weight_step_g");
     if (step !== undefined) {
       const n = Number(step.replace(",", "."));
-      if (n !== 1 && n !== 0.5) problems.push("weight_step_g must be 1 or 0.5");
+      if (n !== 1 && n !== 0.5 && n !== 5) problems.push("weight_step_g must be 0.5, 1 or 5");
       else p.weight_step_g = n;
     }
     flag("sell_online");

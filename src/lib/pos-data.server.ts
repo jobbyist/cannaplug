@@ -39,6 +39,9 @@ export type PosCatalogItem = {
   /** Set while the product is on sale: the normal price, shown struck through. price_rand is what is charged. */
   regular_price_rand: number | null;
   sale_ends_at: string | null;
+  /** Weighed products are counted in grams; Outdoor flower moves in 5 g batches (see sale-step). */
+  sold_by_weight: boolean;
+  weight_step_g: number;
   available: number;
 };
 
@@ -64,6 +67,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_discount: "That discount is not valid",
   discount_too_large: "That discount is more than the amount it applies to",
   discount_reason_required: "Give a reason for the discount",
+  invalid_batch_size: "Outdoor flower is sold in batches of 5 g",
+  insufficient_tubes: "The member needs 10 returned tubes for a free pre-roll",
   reward_needs_member: "Attach the member to use a reward",
   reward_not_eligible: "That product is not covered by the reward",
   reward_unavailable: "That reward is not available",
@@ -124,7 +129,7 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 }
 
 const CATALOG_COLUMNS =
-  "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only";
+  "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only,sold_by_weight,weight_step_g";
 
 /** Active products as the till sees them, with live availability. */
 function toCatalog(
@@ -140,6 +145,8 @@ function toCatalog(
     regular_price_rand: number | string | null;
     sale_ends_at: string | null;
     sale_online_only: boolean;
+    sold_by_weight: boolean;
+    weight_step_g: number | string;
   }[],
   availabilityRows: { product_id: string | null; available: number | null }[],
 ): PosCatalogItem[] {
@@ -149,6 +156,7 @@ function toCatalog(
     const hidden = sale_online_only && p.regular_price_rand != null;
     return {
       ...p,
+      weight_step_g: Number(p.weight_step_g),
       price_rand: Number(hidden ? p.regular_price_rand : p.price_rand),
       regular_price_rand:
         hidden || p.regular_price_rand == null ? null : Number(p.regular_price_rand),

@@ -720,7 +720,7 @@ export async function listStoreProducts() {
     supabaseAdmin
       .from("products")
       .select(
-        "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,is_active,sort_order,image_path,sold_by_weight",
+        "id,slug,name,category,subcategory,strain_type,price_rand,regular_price_rand,unit,badge,description,is_active,sort_order,image_path,sold_by_weight,weight_step_g",
       )
       .eq("is_active", true)
       .eq("sell_online", true)
@@ -769,7 +769,7 @@ export async function getHomeCatalogue() {
     supabaseAdmin
       .from("products")
       .select(
-        "id,slug,name,category,subcategory,price_rand,regular_price_rand,unit,badge,sold_by_weight,image_path,is_featured,sort_order",
+        "id,slug,name,category,subcategory,price_rand,regular_price_rand,unit,badge,sold_by_weight,weight_step_g,image_path,is_featured,sort_order",
       )
       .eq("is_active", true)
       .eq("sell_online", true),
@@ -788,6 +788,7 @@ export async function getHomeCatalogue() {
     unit: p.unit,
     badge: p.badge,
     sold_by_weight: p.sold_by_weight,
+    weight_step_g: Number(p.weight_step_g),
     image_url: productImageUrl(p.image_path),
     is_featured: p.is_featured,
     sort_order: p.sort_order,

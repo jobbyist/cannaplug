@@ -116,7 +116,7 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     brand: p.brand,
     sell_online: p.sell_online,
     sold_by_weight: p.sold_by_weight,
-    weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : 1,
+    weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : Number(p.weight_step_g) === 5 ? 5 : 1,
     is_featured: p.is_featured,
   };
 }
@@ -405,15 +405,21 @@ export function ProductEditDialog({
                     className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                     value={String(form.weight_step_g ?? 1)}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, weight_step_g: e.target.value === "0.5" ? 0.5 : 1 }))
+                      setForm((f) => ({
+                        ...f,
+                        weight_step_g:
+                          e.target.value === "0.5" ? 0.5 : e.target.value === "5" ? 5 : 1,
+                      }))
                     }
                   >
                     <option value="1">1 g</option>
+                    <option value="5">5 g batches</option>
                     <option value="0.5">0.5 g</option>
                   </select>
                   <p className="text-[0.65rem] text-muted-foreground">
-                    The till sells whole grams today; 0.5 g steps switch on with the
-                    fractional-weight update.
+                    The shop and the till add 5 g at a time with 5 g batches. Outdoor flower is
+                    always sold in 5 g batches (set automatically). The till sells whole grams
+                    today; 0.5 g steps switch on with the fractional-weight update.
                   </p>
                 </div>
               )}
