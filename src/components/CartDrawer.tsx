@@ -21,7 +21,7 @@ export function CartDrawer({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const { lines, count, total, setQuantity, remove } = useCart();
+  const { lines, count, total, stepQuantity, remove } = useCart();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = open !== undefined;
   const sheetOpen = isControlled ? open : internalOpen;
@@ -65,15 +65,17 @@ export function CartDrawer({
                       <button
                         aria-label={`Decrease quantity of ${line.name}`}
                         className="grid h-7 w-7 place-items-center"
-                        onClick={() => setQuantity(line.productId, line.quantity - 1)}
+                        onClick={() => stepQuantity(line.productId, -1)}
                       >
                         <Minus size={13} />
                       </button>
-                      <span className="w-5 text-center text-xs font-semibold">{line.quantity}</span>
+                      <span className="min-w-5 px-1 text-center text-xs font-semibold">
+                        {line.unit === "g" ? `${line.quantity} g` : line.quantity}
+                      </span>
                       <button
                         aria-label={`Increase quantity of ${line.name}`}
                         className="grid h-7 w-7 place-items-center"
-                        onClick={() => setQuantity(line.productId, line.quantity + 1)}
+                        onClick={() => stepQuantity(line.productId, 1)}
                       >
                         <Plus size={13} />
                       </button>

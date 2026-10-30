@@ -171,6 +171,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   payment_method_unsupported: "Choose EFT, card or PayPal",
   order_not_payable: "This order is no longer awaiting payment",
   invalid_items: "Your basket could not be read — please refresh it",
+  invalid_batch_size:
+    "Outdoor flower is sold in batches of 5 g. Please adjust the amount in your basket",
   verification_required: "Verify your ID before placing an order",
   verification_pending: "Your ID is being reviewed — you can order once it is approved",
   verification_provisional:

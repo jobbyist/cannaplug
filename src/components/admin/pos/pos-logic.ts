@@ -6,6 +6,8 @@
  * server-side (tender_mismatch / insufficient_stock), never trusted.
  */
 
+import { saleStep, snapUp, snapDown } from "@/lib/sale-step";
+
 export type TenderMethod = "cash" | "card" | "eft" | "paypal";
 
 export const TENDER_METHODS: { id: TenderMethod; label: string; needsReference: boolean }[] = [
@@ -28,8 +30,16 @@ export type CatalogItem = {
   regular_price_rand?: number | null;
   /** When the sale ends (ISO), if it has an end. */
   sale_ends_at?: string | null;
+  /** Weighed products are counted in grams; Outdoor flower is sold in 5 g batches. */
+  sold_by_weight?: boolean;
+  weight_step_g?: number | string | null;
   available: number;
 };
+
+/** How far one tap moves this product on the till (5 for Outdoor flower, otherwise 1). */
+export const stepOf = (
+  p: Pick<CatalogItem, "category" | "subcategory" | "name" | "sold_by_weight" | "weight_step_g">,
+): number => saleStep(p);
 
 /** A discount the cashier typed: a percentage ("10") or a rand amount ("15.50"). The server works out the cents. */
 export type DiscountInput = { kind: "percent" | "amount"; value: string };
@@ -181,9 +191,12 @@ export function refundLineCents(
   return upTo(alreadyRefunded + qty) - upTo(alreadyRefunded);
 }
 
-export const clampQuantity = (quantity: number, available: number): number => {
-  if (!Number.isFinite(quantity)) return 1;
-  return Math.max(1, Math.min(Math.floor(quantity), Math.max(available, 1), 9999));
+/** Keeps a quantity a whole number of steps, at least one step, and no more than what is in stock (or 9999). */
+export const clampQuantity = (quantity: number, available: number, step = 1): number => {
+  if (!Number.isFinite(quantity)) return step;
+  const whole = Math.max(1, Math.floor(quantity));
+  const most = Math.max(snapDown(Math.min(available, 9999), step), step);
+  return Math.min(snapUp(whole, step), most);
 };
 
 /** "3*blue gelato" -> { quantity: 3, term: "blue gelato" }; plain text -> quantity 1. */
@@ -239,11 +252,21 @@ export function addToCart(lines: CartLine[], product: CatalogItem, quantity = 1)
   if (existing) {
     return lines.map((l) =>
       l.product.id === product.id
-        ? { ...l, quantity: clampQuantity(l.quantity + quantity, product.available) }
+        ? {
+            ...l,
+            quantity: clampQuantity(
+              l.quantity + snapUp(quantity, stepOf(product)),
+              product.available,
+              stepOf(product),
+            ),
+          }
         : l,
     );
   }
-  return [...lines, { product, quantity: clampQuantity(quantity, product.available) }];
+  return [
+    ...lines,
+    { product, quantity: clampQuantity(quantity, product.available, stepOf(product)) },
+  ];
 }
 
 export function setLineQuantity(
@@ -253,9 +276,19 @@ export function setLineQuantity(
 ): CartLine[] {
   return lines.map((l) =>
     l.product.id === productId
-      ? { ...l, quantity: clampQuantity(quantity, l.product.available) }
+      ? { ...l, quantity: clampQuantity(quantity, l.product.available, stepOf(l.product)) }
       : l,
   );
+}
+
+/** One tap on + or -: a whole step (5 g for Outdoor flower). Going below one step is ignored (the line is removed with Remove). */
+export function stepLine(lines: CartLine[], productId: string, direction: 1 | -1): CartLine[] {
+  return lines.map((l) => {
+    if (l.product.id !== productId) return l;
+    const step = stepOf(l.product);
+    const next = l.quantity + direction * step;
+    return next < step ? l : { ...l, quantity: clampQuantity(next, l.product.available, step) };
+  });
 }
 
 export const removeLine = (lines: CartLine[], productId: string): CartLine[] =>

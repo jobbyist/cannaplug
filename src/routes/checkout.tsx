@@ -214,7 +214,7 @@ function OrderSummary({
 
 function CheckoutPage() {
   const { user } = useAuth();
-  const { lines, setQuantity, remove, clear } = useCart();
+  const { lines, stepQuantity, remove, clear } = useCart();
   const [step, setStep] = useState<Step>("Cart");
 
   const [contactName, setContactName] = useState("");
@@ -540,7 +540,7 @@ function CheckoutPage() {
                         <button
                           aria-label="Decrease quantity"
                           className="grid h-7 w-7 place-items-center"
-                          onClick={() => setQuantity(line.productId, line.quantity - 1)}
+                          onClick={() => stepQuantity(line.productId, -1)}
                         >
                           <Minus size={13} />
                         </button>
@@ -550,7 +550,7 @@ function CheckoutPage() {
                         <button
                           aria-label="Increase quantity"
                           className="grid h-7 w-7 place-items-center"
-                          onClick={() => setQuantity(line.productId, line.quantity + 1)}
+                          onClick={() => stepQuantity(line.productId, 1)}
                         >
                           <Plus size={13} />
                         </button>

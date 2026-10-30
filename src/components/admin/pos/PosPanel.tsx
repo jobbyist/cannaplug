@@ -41,6 +41,8 @@ import {
   addToCart,
   STAFF_PERCENT,
   rewardCovers,
+  stepLine,
+  stepOf,
   cartSummary,
   discountCents,
   refundLineCents,
@@ -369,7 +371,13 @@ export function SaleScreen({
       cur.flatMap((l) => {
         const fresh = data.catalog.find((p) => p.id === l.product.id);
         return fresh
-          ? [{ ...l, product: fresh, quantity: clampQuantity(l.quantity, fresh.available) }]
+          ? [
+              {
+                ...l,
+                product: fresh,
+                quantity: clampQuantity(l.quantity, fresh.available, stepOf(fresh)),
+              },
+            ]
           : [];
       }),
     );
@@ -758,9 +766,7 @@ export function SaleScreen({
                         size="icon"
                         className="h-8 w-8"
                         aria-label="Decrease quantity"
-                        onClick={() =>
-                          setLines((cur) => setLineQuantity(cur, l.product.id, l.quantity - 1))
-                        }
+                        onClick={() => setLines((cur) => stepLine(cur, l.product.id, -1))}
                       >
                         <Minus size={14} />
                       </Button>
@@ -769,6 +775,13 @@ export function SaleScreen({
                         className="h-8 w-14 text-center"
                         inputMode="numeric"
                         value={l.quantity}
+                        // Outdoor flower moves in 5 g batches: use + and - (or the arrow keys), never a typed part-batch.
+                        readOnly={stepOf(l.product) > 1}
+                        title={
+                          stepOf(l.product) > 1
+                            ? `Sold in ${stepOf(l.product)} g batches`
+                            : undefined
+                        }
                         onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => {
                           const n = Number(e.target.value.replace(/\D/g, ""));
@@ -777,10 +790,10 @@ export function SaleScreen({
                         onKeyDown={(e) => {
                           if (e.key === "ArrowUp" || e.key === "+" || e.key === "=") {
                             e.preventDefault();
-                            setLines((cur) => setLineQuantity(cur, l.product.id, l.quantity + 1));
+                            setLines((cur) => stepLine(cur, l.product.id, 1));
                           } else if (e.key === "ArrowDown" || e.key === "-") {
                             e.preventDefault();
-                            setLines((cur) => setLineQuantity(cur, l.product.id, l.quantity - 1));
+                            setLines((cur) => stepLine(cur, l.product.id, -1));
                           } else if (e.key === "Delete") {
                             e.preventDefault();
                             setLines((cur) => removeLine(cur, l.product.id));
@@ -798,10 +811,8 @@ export function SaleScreen({
                         size="icon"
                         className="h-8 w-8"
                         aria-label="Increase quantity"
-                        disabled={l.quantity >= l.product.available}
-                        onClick={() =>
-                          setLines((cur) => setLineQuantity(cur, l.product.id, l.quantity + 1))
-                        }
+                        disabled={l.quantity + stepOf(l.product) > l.product.available}
+                        onClick={() => setLines((cur) => stepLine(cur, l.product.id, 1))}
                       >
                         <Plus size={14} />
                       </Button>

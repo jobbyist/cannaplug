@@ -147,7 +147,7 @@ const productSchema = z.object({
     .transform((v) => (v ? v : null)),
   sell_online: z.boolean().optional(),
   sold_by_weight: z.boolean().optional(),
-  weight_step_g: z.union([z.literal(0.5), z.literal(1)]).optional(),
+  weight_step_g: z.union([z.literal(0.5), z.literal(1), z.literal(5)]).optional(),
   sale_price_rand: z.number().nonnegative().max(1_000_000).nullish(),
   sale_ends_at: z.string().datetime({ offset: true }).nullish(),
   sale_online_only: z.boolean().optional(),

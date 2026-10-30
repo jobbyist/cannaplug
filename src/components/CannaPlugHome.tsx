@@ -1,4 +1,5 @@
-import { mostRecentEventsAndPromotions } from "@/lib/events";
+import { saleStep, batchNote } from "@/lib/sale-step";
+import { homeEventsAndPromotions } from "@/lib/events";
 import { ResponsibleConsumptionDialog } from "@/components/ResponsibleConsumptionDialog";
 import { submitContactFn, subscribeNewsletterFn } from "@/lib/forms.functions";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -722,11 +723,22 @@ function Products({ catalogue, failed }: { catalogue: HomeCatalogue | null; fail
                     )}
                     {rand(p.price_rand)}
                     {p.sold_by_weight ? " / g" : ""}
+                    {batchNote(p) && (
+                      <span className="block text-[0.65rem] font-semibold text-primary">
+                        {batchNote(p)}
+                      </span>
+                    )}
                   </b>
                   <Button
                     aria-label={`Add ${p.name} to cart`}
                     onClick={() => {
-                      add({ productId: p.id, name: p.name, price: p.price_rand, unit: p.unit });
+                      add({
+                        productId: p.id,
+                        name: p.name,
+                        price: p.price_rand,
+                        unit: p.unit,
+                        step: saleStep(p),
+                      });
                       setAdded(p.id);
                       window.setTimeout(() => setAdded(null), 1600);
                     }}
@@ -915,7 +927,7 @@ function Events() {
           href="/events"
         />
         <div className="promo-grid">
-          {mostRecentEventsAndPromotions(3).map((item) => (
+          {homeEventsAndPromotions(3).map((item) => (
             <article className="promo-card" key={item.slug}>
               <img
                 src={item.image}

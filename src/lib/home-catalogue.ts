@@ -27,6 +27,7 @@ export type HomeProduct = {
   unit: string | null;
   badge: string | null;
   sold_by_weight: boolean;
+  weight_step_g?: number;
   image_url: string | null;
   is_featured: boolean;
   sort_order: number;

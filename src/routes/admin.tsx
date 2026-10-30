@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Megaphone,
   FlaskConical,
+  Gift,
   Newspaper,
   Package,
   PlusCircle,
@@ -65,6 +66,7 @@ import {
 } from "@/lib/admin.functions";
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
 import { PosPanel } from "@/components/admin/pos/PosPanel";
+import { LoyaltyPanel } from "@/components/admin/loyalty/LoyaltyPanel";
 import { DemoTill } from "@/components/admin/pos/DemoTill";
 import { ProductsPanel } from "@/components/admin/ProductsPanel";
 import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
@@ -113,6 +115,7 @@ export const Route = createFileRoute("/admin")({
 const NAV_ITEMS: SidebarItem[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
   { id: "pos", icon: Store, label: "POS" },
+  { id: "loyalty", icon: Gift, label: "Loyalty" },
   { id: "demo-till", icon: FlaskConical, label: "Demo till" },
   { id: "orders", icon: ClipboardList, label: "Orders" },
   { id: "payments", icon: CreditCard, label: "Payments" },
@@ -414,6 +417,7 @@ function AdminPage() {
         )}
 
         {tab === "pos" && <PosPanel />}
+        {tab === "loyalty" && <LoyaltyPanel />}
         {tab === "demo-till" && atLeast(role, "manager") && <DemoTill />}
         {tab === "orders" && (
           <OrdersPanel
