@@ -3081,6 +3081,18 @@ export type Database = {
         Returns: Json;
       };
       member_newsletter_status: { Args: { p_user: string }; Returns: boolean };
+      billing_record_manual_payment: {
+        Args: {
+          p_actor: string;
+          p_slug: string;
+          p_amount_cents: number;
+          p_currency: string;
+          p_paid_on: string;
+          p_note: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       member_feature_mark_seen: {
         Args: { p_actor: string; p_feature: string; p_action: string; p_idempotency_key: string };
         Returns: Json;

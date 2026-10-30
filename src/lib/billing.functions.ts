@@ -64,3 +64,21 @@ export const setBillingLinkFn = createServerFn({ method: "POST" })
       data.key,
     ),
   );
+
+export const recordManualPaymentFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        slug,
+        amountCents: z.number().int().min(1).max(100_000_000),
+        currency: z.enum(["ZAR", "USD"]),
+        paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        note: z.string().trim().min(3).max(200),
+        key,
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) =>
+    (await import("@/lib/billing.server")).recordManualPayment(context.userId, data),
+  );
