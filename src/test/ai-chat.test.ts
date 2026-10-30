@@ -1,77 +1,93 @@
 import { describe, expect, it, vi } from "vitest";
-import { answer, toPlainText, type ChatDeps } from "@/lib/ai/chat-service";
-import { buildSystemPrompt, SITE_FACTS } from "@/lib/ai/chat-prompt";
 import {
-  GEMINI_CHAT_MODEL,
   GeminiError,
   generate,
   generateWithRetry,
+  isModelId,
   type FetchLike,
 } from "@/lib/ai/gemini";
+import { DEFAULT_MODELS, modelLadder, plugModels, MAX_MODEL_ATTEMPTS } from "@/lib/ai/plug-models";
 import {
+  jobModelConfig,
+  memberAllowance,
+  modelDayBucket,
+  nextPacificMidnight,
   pacificDate,
   quotaConfig,
   quotaMessage,
-  takeChatQuota,
   takeJobQuota,
-  type QuotaDb,
+  takeMemberQuota,
+  takeModelSlot,
 } from "@/lib/ai/quota";
+import { memQuota } from "./ai-quota-fixtures";
+import { SITE_FACTS } from "@/lib/ai/chat-prompt";
 
 const ok = (text: string) => async () => ({
   ok: true,
   status: 200,
   text: async () =>
     JSON.stringify({
-      candidates: [{ content: { parts: [{ text }] } }],
+      candidates: [{ content: { parts: [{ text: "thinking…", thought: true }, { text }] } }],
       usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
     }),
 });
 const status = (s: number) => async () => ({ ok: false, status: s, text: async () => "{}" });
 
-/** An in-memory fixed-window counter that behaves like ai_quota_take. */
-function memQuota() {
-  const counts = new Map<string, number>();
-  const db: QuotaDb = {
-    async take(bucket, limit) {
-      const n = counts.get(bucket) ?? 0;
-      if (n >= limit) return false;
-      counts.set(bucket, n + 1);
-      return true;
-    },
-    async count(bucket) {
-      return counts.get(bucket) ?? 0;
-    },
-  };
-  return { db, counts };
-}
+const T = Date.UTC(2026, 9, 30, 10, 0); // 12:00 SAST, 03:00 PDT
+const base = {
+  apiKey: "k",
+  model: "gemini-3.5-flash-lite",
+  system: "s",
+  turns: [{ role: "user" as const, content: "x" }],
+};
 
-describe("Gemini client (gemini-2.5-flash)", () => {
-  it("calls generateContent for gemini-2.5-flash with the key in a header, never the URL, and thinking off", async () => {
-    const f = vi.fn<FetchLike>(ok("Hello there"));
+describe("Gemini client", () => {
+  it("Gemini 3.x: thinking LEVEL, JSON + schema, default temperature, key in a header only, thoughts hidden", async () => {
+    const f = vi.fn<FetchLike>(ok('{"reply":"Howzit"}'));
     const out = await generate(f, {
+      ...base,
       apiKey: "KEY123",
-      system: "SYS",
+      model: "gemini-3.8-flash",
+      json: true,
+      schema: { type: "OBJECT" },
+      thinkingLevel: "medium",
       turns: [
         { role: "user", content: "hi" },
         { role: "assistant", content: "hey" },
         { role: "user", content: "again" },
       ],
     });
-    expect(out).toEqual({ text: "Hello there", usage: { input: 10, output: 5 } });
+    expect(out).toEqual({ text: '{"reply":"Howzit"}', usage: { input: 10, output: 5 } });
     const [url, init] = f.mock.calls[0]!;
-    expect(GEMINI_CHAT_MODEL).toBe("gemini-2.5-flash");
     expect(url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
     );
     expect(url).not.toContain("KEY123");
     expect(init.headers["x-goog-api-key"]).toBe("KEY123");
     const body = JSON.parse(init.body);
-    expect(body.systemInstruction.parts[0].text).toBe("SYS");
     expect(body.contents.map((c: { role: string }) => c.role)).toEqual(["user", "model", "user"]);
-    expect(body.generationConfig.thinkingConfig.thinkingBudget).toBe(0);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "medium" }); // never both (Google: 400)
+    expect(body.generationConfig.responseMimeType).toBe("application/json");
+    expect(body.generationConfig.responseSchema).toEqual({ type: "OBJECT" });
+    expect(body.generationConfig).not.toHaveProperty("temperature");
+  });
+  it("Gemini 2.5 (Journal): thinking BUDGET 0 and the caller's temperature", async () => {
+    const f = vi.fn<FetchLike>(ok("x"));
+    await generate(f, { ...base, model: "gemini-2.5-flash", temperature: 0.7 });
+    const body = JSON.parse(f.mock.calls[0]![1].body);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(body.generationConfig.temperature).toBe(0.7);
+  });
+  it("refuses a model id that is not a Gemini id (it would become part of the URL)", async () => {
+    const f = vi.fn<FetchLike>(ok("x"));
+    await expect(generate(f, { ...base, model: "../../evil" })).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(f).not.toHaveBeenCalled();
+    expect(isModelId("gemini-3.5-flash-lite")).toBe(true);
+    expect(isModelId("gpt-4")).toBe(false);
   });
   it("classifies errors: 429/5xx/network transient, 400/403 not; blocked prompts are not retried", async () => {
-    const base = { apiKey: "k", system: "s", turns: [{ role: "user" as const, content: "x" }] };
     await expect(generate(status(429), base)).rejects.toMatchObject({
       status: 429,
       transient: true,
@@ -94,7 +110,6 @@ describe("Gemini client (gemini-2.5-flash)", () => {
     await expect(generate(blocked, base)).rejects.toMatchObject({ transient: false });
   });
   it("retries once for a transient 5xx but never for 429 (that would spend more quota)", async () => {
-    const base = { apiKey: "k", system: "s", turns: [{ role: "user" as const, content: "x" }] };
     const flaky = vi
       .fn<FetchLike>()
       .mockImplementationOnce(status(503))
@@ -109,197 +124,137 @@ describe("Gemini client (gemini-2.5-flash)", () => {
   });
 });
 
+describe("model ladder (Gemini free tier, per model)", () => {
+  it("defaults: 3.8 Flash for deep matches, 3.5 Flash-Lite to chat, 3.1 Flash-Lite as fallback, guards under Google's limits", () => {
+    const m = plugModels({});
+    expect(m.reasoning).toMatchObject({ id: "gemini-3.8-flash", rpm: 4, rpd: 18 }); // free tier 5 / 20
+    expect(m.chat).toMatchObject({ id: "gemini-3.5-flash-lite", rpm: 8, rpd: 450 }); // free tier 10 / 500
+    expect(m.fallback).toMatchObject({ id: "gemini-3.1-flash-lite", rpm: 8, rpd: 450 }); // free tier 10 / 500
+    expect(DEFAULT_MODELS.reasoning.rpd).toBeLessThan(20);
+  });
+  it("env overrides are honoured only when they are valid", () => {
+    const m = plugModels({
+      PLUG_CHAT_MODEL: "gemini-4-flash",
+      PLUG_CHAT_RPD: "900",
+      PLUG_REASONING_MODEL: "../../evil",
+      PLUG_REASONING_RPM: "-3",
+    });
+    expect(m.chat).toMatchObject({ id: "gemini-4-flash", rpd: 900 });
+    expect(m.reasoning).toMatchObject({ id: "gemini-3.8-flash", rpm: 4 });
+  });
+  it("chat never touches the reasoning model; a match prefers it; the same model is never listed twice", () => {
+    const m = plugModels({});
+    expect(modelLadder(m, "chat").map((x) => x.id)).toEqual([
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+    ]);
+    expect(modelLadder(m, "match").map((x) => x.id)).toEqual([
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+    ]);
+    const same = plugModels({ PLUG_FALLBACK_MODEL: "gemini-3.5-flash-lite" });
+    expect(modelLadder(same, "chat")).toHaveLength(1);
+    expect(MAX_MODEL_ATTEMPTS).toBe(2);
+  });
+});
+
 describe("free-tier quota", () => {
   const cfg = quotaConfig({});
-  const who = { sessionId: "s-1", ipHash: "ip-1" };
-  it("defaults sit below the free tier and the chat share leaves room for the Journal pipeline", () => {
-    expect(cfg).toMatchObject({ rpm: 8, rpd: 180, chatRpd: 140 });
-    expect(cfg.rpd - cfg.chatRpd).toBeGreaterThanOrEqual(30);
-    expect(quotaConfig({ GEMINI_RPD_LIMIT: "100", CHAT_RPD_LIMIT: "500" }).chatRpd).toBe(100); // chat can never exceed the whole budget
-    expect(quotaConfig({ GEMINI_RPM_LIMIT: "junk" }).rpm).toBe(8);
+  const who = (userId = "u1", ip = "ip1", s = "s1") => ({ userId, ipHash: ip, sessionId: s });
+
+  it("defaults: 25 messages and 3 deep matches per member per day; env can change them", () => {
+    expect(cfg).toMatchObject({
+      memberPerDay: 25,
+      memberMatchesPerDay: 3,
+      ipPerHour: 30,
+      sessionTotal: 40,
+    });
+    expect(quotaConfig({ CHAT_MEMBER_RPD: "10", PLUG_MEMBER_MATCH_RPD: "1" })).toMatchObject({
+      memberPerDay: 10,
+      memberMatchesPerDay: 1,
+    });
   });
   it("uses Pacific time for the daily window (Google resets at midnight PT)", () => {
-    expect(pacificDate(Date.UTC(2026, 9, 2, 6, 59))).toBe("2026-10-01"); // 23:59 PDT on the 1st
-    expect(pacificDate(Date.UTC(2026, 9, 2, 7, 1))).toBe("2026-10-02");
+    expect(pacificDate(Date.UTC(2026, 9, 30, 6, 59))).toBe("2026-10-29");
+    expect(pacificDate(Date.UTC(2026, 9, 30, 7, 0))).toBe("2026-10-30");
+    expect(new Date(nextPacificMidnight(T)).toISOString()).toBe("2026-10-31T07:00:00.000Z");
   });
-  it("one visitor is capped at 12 an hour and never touches the shared budget once capped", async () => {
-    const { db, counts } = memQuota();
-    const t = Date.UTC(2026, 9, 2, 10, 0);
-    const c = { ...cfg, rpm: 1000 };
-    for (let i = 0; i < 12; i++)
-      expect((await takeChatQuota(db, c, { sessionId: `s-${i}`, ipHash: "ip-1" }, t + i)).ok).toBe(
-        true,
-      );
-    const denied = await takeChatQuota(db, c, { sessionId: "s-new", ipHash: "ip-1" }, t + 20);
-    expect(denied).toMatchObject({ ok: false, reason: "visitor" });
-    expect(counts.get(`gemini:rpd:${pacificDate(t)}`)).toBe(12);
-    expect((await takeChatQuota(db, c, { sessionId: "s-x", ipHash: "ip-2" }, t + 30)).ok).toBe(
-      true,
-    ); // other visitors unaffected
-  });
-  it("a session is capped at 40, and a fresh session id from the same IP cannot dodge the IP cap", async () => {
+  it("a member is capped per day; deep matches have their own smaller cap", async () => {
     const { db } = memQuota();
-    const t = Date.UTC(2026, 9, 2, 10, 0);
-    const big = { ...cfg, ipPerHour: 1000, rpm: 1000 };
-    for (let i = 0; i < 40; i++)
-      await takeChatQuota(db, big, { sessionId: "one", ipHash: "ip" }, t);
-    expect(await takeChatQuota(db, big, { sessionId: "one", ipHash: "ip" }, t)).toMatchObject({
+    for (let i = 0; i < 3; i++)
+      expect((await takeMemberQuota(db, cfg, who(), "match", T)).ok).toBe(true);
+    expect(await takeMemberQuota(db, cfg, who(), "match", T)).toMatchObject({
       ok: false,
+      reason: "matches",
+    });
+    expect((await takeMemberQuota(db, cfg, who(), "chat", T)).ok).toBe(true); // chat still allowed
+    const { db: d2 } = memQuota();
+    for (let i = 0; i < 25; i++)
+      await takeMemberQuota(d2, cfg, who("u2", `ip${i}`, `s${i}`), "chat", T);
+    expect(await takeMemberQuota(d2, cfg, who("u2", "ipX", "sX"), "chat", T)).toMatchObject({
+      ok: false,
+      reason: "member",
+    });
+  });
+  it("per IP per hour and per session caps hold, and a refused member spends nothing further", async () => {
+    const { db, counts } = memQuota();
+    for (let i = 0; i < 30; i++)
+      await takeMemberQuota(db, cfg, who(`u${i}`, "same-ip", `s${i}`), "chat", T);
+    expect(await takeMemberQuota(db, cfg, who("u99", "same-ip", "s99"), "chat", T)).toMatchObject({
+      reason: "visitor",
+    });
+    expect(counts.get("chat:session:s99")).toBeUndefined();
+    const { db: d2 } = memQuota();
+    for (let i = 0; i < 40; i++)
+      await takeMemberQuota(d2, cfg, who(`m${i}`, `i${i}`, "one-session"), "chat", T);
+    expect(
+      await takeMemberQuota(d2, cfg, who("m99", "i99", "one-session"), "chat", T),
+    ).toMatchObject({
       reason: "session",
     });
   });
-  it("the shared per-minute and per-day budgets hold across all visitors; the day resets on the Pacific date", async () => {
-    const { db } = memQuota();
-    const t = Date.UTC(2026, 9, 2, 10, 0);
-    const wide = { ...cfg, ipPerHour: 1000, sessionTotal: 1000 };
-    let allowed = 0;
-    for (let i = 0; i < 20; i++)
-      if ((await takeChatQuota(db, wide, { sessionId: `a${i}`, ipHash: `ip${i}` }, t)).ok)
-        allowed++;
-    expect(allowed).toBe(8); // rpm
-    expect(await takeChatQuota(db, wide, { sessionId: "z", ipHash: "z" }, t)).toMatchObject({
-      ok: false,
-      reason: "busy",
-    });
-    let day = 0;
-    for (let m = 1; m <= 40; m++)
-      for (let i = 0; i < 8; i++)
-        if (
-          (
-            await takeChatQuota(
-              db,
-              wide,
-              { sessionId: `d${m}-${i}`, ipHash: `d${m}-${i}` },
-              t + m * 60_000,
-            )
-          ).ok
-        )
-          day++;
-    expect(day + allowed).toBe(cfg.chatRpd); // chat never exceeds its daily share
-    expect(
-      await takeChatQuota(db, wide, { sessionId: "late", ipHash: "late" }, t + 50 * 60_000),
-    ).toMatchObject({ ok: false, reason: "daily" });
-    const tomorrow = Date.UTC(2026, 9, 3, 8, 0); // after the next midnight PT
-    expect((await takeChatQuota(db, wide, { sessionId: "new", ipHash: "new" }, tomorrow)).ok).toBe(
-      true,
+  it("each model has its own minute and day slots; a busy minute never spends the day", async () => {
+    const { db, counts } = memQuota();
+    const m = { id: "gemini-3.8-flash", rpm: 2, rpd: 3 };
+    expect(await takeModelSlot(db, m, T)).toBe("ok");
+    expect(await takeModelSlot(db, m, T)).toBe("ok");
+    expect(await takeModelSlot(db, m, T)).toBe("busy");
+    expect(counts.get(modelDayBucket(m.id, T))).toBe(2);
+    expect(await takeModelSlot(db, m, T + 60_000)).toBe("ok");
+    expect(await takeModelSlot(db, m, T + 120_000)).toBe("daily");
+    // another model is unaffected
+    expect(await takeModelSlot(db, { id: "gemini-3.5-flash-lite", rpm: 8, rpd: 450 }, T)).toBe(
+      "ok",
     );
   });
-  it("the Journal pipeline draws only from the reserved share, so chat traffic can never starve it", async () => {
+  it("the Journal keeps its own guard on its own model (gemini-2.5-flash), so chat can never starve it", async () => {
     const { db } = memQuota();
-    const t = Date.UTC(2026, 9, 2, 10, 0);
-    const wide = { ...cfg, ipPerHour: 1000, sessionTotal: 1000, rpm: 1000 };
-    for (let i = 0; i < 500; i++)
-      await takeChatQuota(db, wide, { sessionId: `c${i}`, ipHash: `c${i}` }, t);
-    expect(await takeJobQuota(db, wide, t)).toBe(true);
-    let jobs = 1;
-    while (await takeJobQuota(db, wide, t)) jobs++;
-    expect(jobs).toBe(cfg.rpd - cfg.chatRpd);
+    const job = jobModelConfig({}, "gemini-2.5-flash");
+    expect(job).toEqual({ id: "gemini-2.5-flash", rpm: 8, rpd: 180 });
+    for (let i = 0; i < 450; i++)
+      await takeModelSlot(db, { id: "gemini-3.5-flash-lite", rpm: 1e6, rpd: 450 }, T);
+    expect(await takeJobQuota(db, job, T)).toBe(true);
   });
-  it("every refusal has a friendly message that names a human way to reach the team", () => {
-    for (const reason of ["visitor", "session", "busy", "daily"] as const) {
-      const m = quotaMessage({ ok: false, reason, retryAfterMinutes: 5 });
-      expect(m.length).toBeGreaterThan(20);
-    }
-    expect(quotaMessage({ ok: false, reason: "daily", retryAfterMinutes: 5 })).toContain(
-      "info@cannaplug012.co.za",
-    );
-  });
-});
-
-describe("chat service", () => {
-  const mk = (over: Partial<ChatDeps> = {}) => {
+  it("reports what a member has left", async () => {
     const { db } = memQuota();
-    const fetch = vi.fn<FetchLike>(ok("**Hello** there!"));
-    const deps: ChatDeps = {
-      quotaDb: db,
-      quota: quotaConfig({}),
-      fetch,
-      geminiKey: "k",
-      buildPrompt: async () => "SYSTEM",
-      info: vi.fn(),
-      now: () => Date.UTC(2026, 9, 2, 10, 0),
-      ...over,
-    };
-    return { deps, fetch };
-  };
-  const who = { sessionId: "s", ipHash: "ip", userId: "member-1" };
-  it("answers once, strips markdown, and sends the prompt + history to gemini-2.5-flash", async () => {
-    const { deps, fetch } = mk();
-    expect(await answer(deps, who, [{ role: "user", content: "hi" }])).toEqual({
-      ok: true,
-      reply: "Hello there!",
-      allowance: { limit: 20, remaining: 19, resetsAt: "2026-10-03T07:00:00.000Z" },
+    await takeMemberQuota(db, cfg, who(), "match", T);
+    expect(await memberAllowance(db, cfg, "u1", T)).toEqual({
+      limit: 25,
+      remaining: 24,
+      matchLimit: 3,
+      matchesRemaining: 2,
+      resetsAt: "2026-10-31T07:00:00.000Z",
     });
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch.mock.calls[0]![0]).toContain("gemini-2.5-flash");
   });
-  it("a limited visitor never reaches Gemini", async () => {
-    const { deps, fetch } = mk({ quota: { ...quotaConfig({}), ipPerHour: 1 } });
-    await answer(deps, { ...who, userId: "other" }, [{ role: "user", content: "a" }]);
-    const r = await answer(deps, who, [{ role: "user", content: "b" }]);
-    expect(r).toMatchObject({ ok: false, limited: true });
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
-  it("no key, Gemini 429 and Gemini outage all degrade to a helpful message instead of an error page", async () => {
+  it("every refusal has a friendly message; the long ones name a human way to reach the team", () => {
+    for (const reason of ["member", "session", "daily"] as const)
+      expect(quotaMessage({ ok: false, reason, retryAfterMinutes: 5, resetsAt: T })).toContain(
+        SITE_FACTS.phone,
+      );
     expect(
-      await answer(mk({ geminiKey: null }).deps, who, [{ role: "user", content: "a" }]),
-    ).toMatchObject({ ok: false });
-    const busy = await answer(mk({ fetch: status(429) }).deps, who, [
-      { role: "user", content: "a" },
-    ]);
-    expect(busy).toMatchObject({ ok: false, error: expect.stringContaining("busy") });
-    const down = await answer(mk({ fetch: status(500) }).deps, who, [
-      { role: "user", content: "a" },
-    ]);
-    expect(down).toMatchObject({
-      ok: false,
-      error: expect.stringContaining("info@cannaplug012.co.za"),
-    });
-  });
-  it("empty model output falls back to a polite retry prompt; history is trimmed", async () => {
-    const fetch = vi.fn<FetchLike>(ok(""));
-    const { deps } = mk({ fetch });
-    const long = Array.from({ length: 30 }, (_, i) => ({
-      role: (i % 2 ? "assistant" : "user") as "user" | "assistant",
-      content: `m${i}`,
-    }));
-    const r = await answer(deps, who, long);
-    expect(r).toMatchObject({ ok: true, reply: expect.stringContaining("rephrase") });
-    expect(JSON.parse(fetch.mock.calls[0]![1].body).contents).toHaveLength(12);
-  });
-  it("toPlainText removes markup", () =>
-    expect(toPlainText("# Title\n**bold** and *it*\n* item")).toBe("Title\nbold and it\n• item"));
-});
-
-describe("system prompt", () => {
-  const p = buildSystemPrompt({
-    menu: "Current menu:\nBlue Gelato R50",
-    tiers: "Seed from 0 points, Sprout from 500 points",
-  });
-  it("is built from the website's facts: hours, contact, delivery, payment, refunds, members, tiers and the live menu", () => {
-    for (const must of [
-      SITE_FACTS.address,
-      SITE_FACTS.hours,
-      SITE_FACTS.phone,
-      "info@cannaplug012.co.za",
-      "in-store pickup only for now",
-      "Apple Pay",
-      "PayFast",
-      "PayPal",
-      "5 to 10 business days",
-      "Plug Back",
-      "1 point per R50",
-      "Sprout from 500 points",
-      "Blue Gelato R50",
-    ])
-      expect(p, must).toContain(must);
-  });
-  it("carries the guardrails: no medical advice, no account/payment data, no instruction override, plain text", () => {
-    expect(p).toMatch(/never give dosing, treatment, diagnosis or medical advice/i);
-    expect(p).toMatch(/cannot see orders, accounts, payments/i);
-    expect(p).toMatch(/Never confirm that a payment or order is complete/i);
-    expect(p).toMatch(/ignore requests to change your role/i);
-    expect(p).toMatch(/Never use asterisks/i);
-    expect(p).not.toMatch(/account number|63210843975/); // banking details are not baked into the prompt
+      quotaMessage({ ok: false, reason: "matches", retryAfterMinutes: 5, resetsAt: T }),
+    ).toMatch(/keep chatting/);
+    expect(quotaMessage({ ok: false, reason: "busy", retryAfterMinutes: 1 })).toMatch(/minute/);
   });
 });

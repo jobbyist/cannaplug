@@ -1,8 +1,9 @@
 // Journal pipeline wiring: lease + circuit breaker + Gemini quota + Firecrawl research + Unsplash cover + publish.
-import { quotaConfig, takeJobQuota } from "@/lib/ai/quota";
+import { jobModelConfig, takeJobQuota } from "@/lib/ai/quota";
 import { GeminiError } from "@/lib/ai/gemini";
 import {
   JOURNAL_CATEGORIES,
+  NEWSROOM_MODEL,
   TOPIC_SEEDS,
   batchTimestamps,
   dailyRunAllowed,
@@ -122,7 +123,7 @@ export async function runNewsroom(mode: RunMode): Promise<RunResult> {
             ? mode.publishedAt
             : new Date(now).toISOString(),
         ];
-  const cfg = quotaConfig(process.env);
+  const cfg = jobModelConfig(process.env, NEWSROOM_MODEL);
   const quotaDb = {
     async take(bucket: string, limit: number, ttl: number) {
       const { data, error } = await supabaseAdmin.rpc("ai_quota_take", {

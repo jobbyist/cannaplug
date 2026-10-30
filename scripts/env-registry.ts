@@ -2,7 +2,7 @@
  * Every environment variable the app reads, grouped by feature. `src/test/env-registry.test.ts` fails if server code
  * starts reading a variable that is not listed here, so this file stays the single source for docs/release/env-matrix.md.
  * status: "required" = the site breaks without it; "feature" = the named feature is off until it is set;
- * "optional" = has a safe default; "retiring" = being removed (none at present: Yoco was removed on 23 Oct 2026).
+ * "optional" = has a safe default; "retiring" = no longer read and safe to delete (GEMINI_CHAT_MODEL, CHAT_RPD_LIMIT since Ask The Plug, 31 Oct 2026).
  */
 export type EnvStatus = "required" | "feature" | "optional" | "retiring";
 export type EnvVar = { name: string; group: string; status: EnvStatus; note: string };
@@ -168,26 +168,55 @@ export const ENV_VARS: EnvVar[] = [
     status: "optional",
     note: "Tests only (localhost mock)",
   },
-  { name: "GEMINI_API_KEY", group: "AI", status: "feature", note: "Chatbot and Journal" },
   {
-    name: "GEMINI_CHAT_MODEL",
+    name: "GEMINI_API_KEY",
     group: "AI",
-    status: "optional",
-    note: "Default gemini-2.5-flash; falls back to -lite",
+    status: "feature",
+    note: "Ask The Plug and Journal (free tier is enough)",
   },
   {
     name: "CHAT_MEMBER_RPD",
     group: "AI",
     status: "optional",
-    note: "Messages per member per day, default 20",
+    note: "Ask The Plug messages per member per day, default 25",
   },
-  { name: "GEMINI_RPM_LIMIT", group: "AI", status: "optional", note: "Default 8" },
-  { name: "GEMINI_RPD_LIMIT", group: "AI", status: "optional", note: "Default 180" },
+  {
+    name: "PLUG_MEMBER_MATCH_RPD",
+    group: "AI",
+    status: "optional",
+    note: "Ask The Plug deep matches per member per day, default 3",
+  },
+  {
+    name: "PLUG_REASONING_MODEL",
+    group: "AI",
+    status: "optional",
+    note: "Default gemini-3.8-flash; _RPM 4, _RPD 18",
+  },
+  {
+    name: "PLUG_CHAT_MODEL",
+    group: "AI",
+    status: "optional",
+    note: "Default gemini-3.5-flash-lite; _RPM 8, _RPD 450",
+  },
+  {
+    name: "PLUG_FALLBACK_MODEL",
+    group: "AI",
+    status: "optional",
+    note: "Default gemini-3.1-flash-lite; _RPM 8, _RPD 450",
+  },
+  { name: "GEMINI_RPM_LIMIT", group: "AI", status: "optional", note: "Journal model, default 8" },
+  { name: "GEMINI_RPD_LIMIT", group: "AI", status: "optional", note: "Journal model, default 180" },
+  {
+    name: "GEMINI_CHAT_MODEL",
+    group: "AI",
+    status: "retiring",
+    note: "No longer read (replaced by PLUG_*); remove from Vercel",
+  },
   {
     name: "CHAT_RPD_LIMIT",
     group: "AI",
-    status: "optional",
-    note: "Default 140 (rest reserved for the Journal)",
+    status: "retiring",
+    note: "No longer read (per-model guards); remove from Vercel",
   },
   { name: "FIRECRAWL_API_KEY", group: "Journal", status: "feature", note: "Journal research step" },
   {

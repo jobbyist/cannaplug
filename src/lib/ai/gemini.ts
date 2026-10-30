@@ -1,16 +1,15 @@
 /**
  * Direct Gemini API client (Generative Language API, `generateContent`). Pure and fetch-injected for tests.
- * Model: gemini-2.5-flash. Thinking is disabled for chat (budget 0): it is faster, cheaper and the replies are short.
- * Docs: https://ai.google.dev/gemini-api/docs/text-generation
+ * Ask The Plug uses the Gemini 3.x free-tier models (see src/lib/ai/plug-models.ts), which take a thinking LEVEL;
+ * the Journal pipeline still uses gemini-2.5-flash with a thinking BUDGET. A request carries one or the other, never
+ * both (Google answers 400 to a request with both).
+ * Docs: https://ai.google.dev/gemini-api/docs/text-generation, https://ai.google.dev/gemini-api/docs/thinking
  */
-export const GEMINI_CHAT_MODEL = "gemini-2.5-flash";
-/** Lighter model used when the site budget is above 80% used or the primary model is rate-limited. */
-export const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite";
 const MODEL_RE = /^gemini-[a-z0-9.-]{3,40}$/;
-export const chatModelFromEnv = (env: Record<string, string | undefined>) => {
-  const m = env["GEMINI_CHAT_MODEL"]?.trim();
-  return m && MODEL_RE.test(m) ? m : GEMINI_CHAT_MODEL;
-};
+/** True when a string looks like a Gemini model id (env values are checked before they reach a URL). */
+export const isModelId = (m: string | undefined | null): m is string =>
+  Boolean(m && MODEL_RE.test(m));
+export type ThinkingLevel = "minimal" | "low" | "medium" | "high";
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export type Turn = { role: "user" | "assistant"; content: string };
@@ -38,9 +37,14 @@ export interface GenerateOptions {
   turns: Turn[];
   maxOutputTokens?: number;
   temperature?: number;
-  /** Ask for JSON back (used by the Journal pipeline). */
+  /** Ask for JSON back (used by the Journal pipeline and Ask The Plug). */
   json?: boolean;
+  /** Optional response schema (OpenAPI subset) for structured JSON output; only sent with `json`. */
+  schema?: Record<string, unknown>;
+  /** Gemini 2.5 models: token budget for thinking (default 0 = off). Ignored when `thinkingLevel` is set. */
   thinkingBudget?: number;
+  /** Gemini 3.x models: minimal | low | medium | high. */
+  thinkingLevel?: ThinkingLevel;
   timeoutMs?: number;
 }
 
@@ -48,7 +52,8 @@ export async function generate(
   fetchFn: FetchLike,
   o: GenerateOptions,
 ): Promise<{ text: string; usage: { input: number; output: number } }> {
-  const model = o.model ?? GEMINI_CHAT_MODEL;
+  if (!isModelId(o.model)) throw new GeminiError("invalid model", 400, false);
+  const model = o.model;
   const body = {
     systemInstruction: { parts: [{ text: o.system }] },
     contents: o.turns.map((t) => ({
@@ -56,10 +61,14 @@ export async function generate(
       parts: [{ text: t.content }],
     })),
     generationConfig: {
-      temperature: o.temperature ?? 0.6,
+      // Google recommends leaving Gemini 3 at its default temperature (1.0); 2.5 callers pass their own.
+      ...(o.temperature !== undefined ? { temperature: o.temperature } : {}),
       maxOutputTokens: o.maxOutputTokens ?? 700,
       ...(o.json ? { responseMimeType: "application/json" } : {}),
-      thinkingConfig: { thinkingBudget: o.thinkingBudget ?? 0 },
+      ...(o.json && o.schema ? { responseSchema: o.schema } : {}),
+      thinkingConfig: o.thinkingLevel
+        ? { thinkingLevel: o.thinkingLevel }
+        : { thinkingBudget: o.thinkingBudget ?? 0 },
     },
     // Chat and articles are not the place for blocked-content surprises, but keep Google's defaults for harassment/etc.
   };
@@ -85,7 +94,10 @@ export async function generate(
     throw new GeminiError(`Gemini ${res.status}`, res.status, transient);
   }
   let json: {
-    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+    candidates?: {
+      content?: { parts?: { text?: string; thought?: boolean }[] };
+      finishReason?: string;
+    }[];
     promptFeedback?: { blockReason?: string };
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
   };
@@ -96,6 +108,7 @@ export async function generate(
   }
   if (json.promptFeedback?.blockReason) throw new GeminiError("blocked", 400, false);
   const text = (json.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => !p.thought) // thought summaries are never shown to anyone
     .map((p) => p.text ?? "")
     .join("")
     .trim();
