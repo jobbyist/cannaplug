@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   listBillingFn: vi.fn(),
   setBillingStatusFn: vi.fn(),
   setBillingLinkFn: vi.fn(),
+  recordManualPaymentFn: vi.fn(),
 }));
 vi.mock("@/lib/billing.functions", () => h);
 
@@ -116,6 +117,62 @@ afterEach(() => {
 });
 
 describe("BillingPanel", () => {
+  it("only admins can mark a bill as paid; the browser sends cents, currency, date, note and a key", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPanel("manager");
+    await card("shopify-admin-api");
+    expect(screen.queryByRole("button", { name: /mark as paid/i })).toBeNull();
+    unmount();
+    h.recordManualPaymentFn.mockResolvedValue({ recorded: true, payment_id: "p1" });
+    renderPanel("admin");
+    const shopify = await card("shopify-admin-api");
+    await user.click(within(shopify).getByRole("button", { name: /mark as paid/i }));
+    const dialog = await screen.findByRole("dialog");
+    const save = within(dialog).getByRole("button", { name: /^mark as paid$/i });
+    expect((save as HTMLButtonElement).disabled).toBe(true); // amount and note still empty
+    await user.type(within(dialog).getByLabelText("Amount paid"), "28.75");
+    await user.selectOptions(within(dialog).getByLabelText("Currency"), "USD");
+    await user.type(
+      within(dialog).getByLabelText("How it was paid"),
+      "Card payment made directly with Shopify",
+    );
+    await user.click(save);
+    await waitFor(() => expect(h.recordManualPaymentFn).toHaveBeenCalledTimes(1));
+    const sent = h.recordManualPaymentFn.mock.calls[0]![0].data;
+    expect(sent).toMatchObject({
+      slug: "shopify-admin-api",
+      amountCents: 2875,
+      currency: "USD",
+      paidOn: TODAY,
+      note: "Card payment made directly with Shopify",
+    });
+    expect(sent.key.length).toBeGreaterThanOrEqual(8);
+    expect(
+      await screen.findByText(/marked as paid and added to the billing history/i),
+    ).toBeTruthy();
+  });
+
+  it("billing history labels a manual payment as Manual and shows it as paid", async () => {
+    h.listBillingFn.mockResolvedValue({
+      accounts: ACCOUNTS,
+      payments: [
+        {
+          id: "p1",
+          account_id: "a1",
+          provider: "manual",
+          currency: "USD",
+          status: "COMPLETE",
+          amount_cents: 2875,
+          created_at: new Date().toISOString(),
+        },
+      ],
+    });
+    renderPanel("manager");
+    const history = await screen.findByRole("region", { name: "Billing history" });
+    await waitFor(() => expect(within(history).getByText(/Manual/)).toBeTruthy());
+    expect(within(history).getByText("Paid")).toBeTruthy();
+  });
+
   it("the Payfast gateway button goes to the supplied Payfast payment link", async () => {
     renderPanel();
     const pay = within(await card("payfast-gateway")).getByRole("link", { name: /pay now/i });

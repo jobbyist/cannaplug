@@ -13,6 +13,7 @@ export function friendlyBillingError(err: unknown): Error {
     return new StaffError("This service is pending activation and can't be changed yet.");
   if (/only an admin|admin access required/i.test(raw))
     return new StaffError("Only an admin can change payment links.");
+  if (/forbidden/i.test(raw)) return new StaffError("Only an admin can do that.");
   if (/^invalid_input: (.+)/i.test(raw))
     return new StaffError(raw.replace(/^invalid_input: /i, ""));
   return err instanceof Error ? err : new Error(raw);
@@ -72,4 +73,30 @@ export async function setBillingLink(
   });
   if (error) throw friendlyBillingError(error);
   return data as unknown as { changed: boolean; has_link: boolean };
+}
+
+/** A bill paid outside the billing system (bank transfer, card paid directly with the provider). Admins only. */
+export async function recordManualPayment(
+  userId: string,
+  input: {
+    slug: string;
+    amountCents: number;
+    currency: "ZAR" | "USD";
+    paidOn: string;
+    note: string;
+    key: string;
+  },
+) {
+  await assertRole(userId, "admin");
+  const { data, error } = await supabaseAdmin.rpc("billing_record_manual_payment", {
+    p_actor: userId,
+    p_slug: input.slug,
+    p_amount_cents: input.amountCents,
+    p_currency: input.currency,
+    p_paid_on: input.paidOn,
+    p_note: input.note,
+    p_idempotency_key: input.key,
+  });
+  if (error) throw friendlyBillingError(error);
+  return data as unknown as { recorded: boolean; payment_id: string };
 }

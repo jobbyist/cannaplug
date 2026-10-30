@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
+  CircleCheck,
   ExternalLink,
   Link2,
   Pause,
@@ -48,7 +49,12 @@ import {
   type BillingPaymentRow,
   type BillingStatus,
 } from "@/lib/billing";
-import { listBillingFn, setBillingLinkFn, setBillingStatusFn } from "@/lib/billing.functions";
+import {
+  listBillingFn,
+  recordManualPaymentFn,
+  setBillingLinkFn,
+  setBillingStatusFn,
+} from "@/lib/billing.functions";
 
 type Data = { accounts: BillingAccount[]; payments: BillingPaymentRow[] };
 type Change = { account: BillingAccount; to: "paused" | "cancelled" | "active" };
@@ -184,6 +190,15 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
   const [paypal, setPaypal] = useState<string | null>(null);
   const today = todaySast();
   const [linkUrl, setLinkUrl] = useState("");
+  const [paidFor, setPaidFor] = useState<BillingAccount | null>(null);
+  // Read fresh each time the dialog opens, so a tab left open past midnight never offers a stale latest date.
+  const [paidMax, setPaidMax] = useState(() => todaySast());
+  const [paidForm, setPaidForm] = useState({
+    amount: "",
+    currency: "USD" as "ZAR" | "USD",
+    date: "",
+    note: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
@@ -243,6 +258,48 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
       setError(errMsg(e));
     },
   });
+
+  const manual = useMutation({
+    mutationFn: (v: { account: BillingAccount; form: typeof paidForm }) =>
+      recordManualPaymentFn({
+        data: {
+          slug: v.account.slug,
+          amountCents: Math.round(Number(v.form.amount.replace(/[\s,]/g, "")) * 100),
+          currency: v.form.currency,
+          paidOn: v.form.date,
+          note: v.form.note.trim(),
+          key: keyFor(`manual:${v.account.slug}:${JSON.stringify(v.form)}`),
+        },
+      }),
+    onSuccess: async (_r, v) => {
+      keys.current.clear();
+      setError(null);
+      setMessage(`${v.account.name} is marked as paid and added to the billing history.`);
+      setPaidFor(null);
+      await qc.invalidateQueries({ queryKey: ["admin", "billing"] });
+      notifyAdminTabs("any");
+    },
+    onError: (e) => {
+      setMessage(null);
+      setError(errMsg(e));
+    },
+  });
+  const openPaid = (a: BillingAccount) => {
+    setError(null);
+    setMessage(null);
+    const fresh = todaySast();
+    setPaidMax(fresh);
+    setPaidForm({
+      amount: "",
+      currency: /\$/.test(a.amount_text) ? "USD" : "ZAR",
+      date: fresh,
+      note: "",
+    });
+    setPaidFor(a);
+  };
+  const paidAmountOk =
+    /^\d{1,7}([.,]\d{1,2})?$/.test(paidForm.amount.trim()) &&
+    Number(paidForm.amount.replace(",", ".")) > 0;
 
   const open = (account: BillingAccount, to: Change["to"]) => {
     setAck(false);
@@ -376,6 +433,11 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
               <div className="flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
                 <PayControl account={a} onManage={() => setManage(a)} />
                 <div className="flex flex-wrap gap-2">
+                  {isAdmin && a.status === "active" && (
+                    <Button size="sm" variant="outline" onClick={() => openPaid(a)}>
+                      <CircleCheck size={14} /> Mark as paid
+                    </Button>
+                  )}
                   {isAdmin && a.payment_kind !== "payfast_form" && a.payment_kind !== "manage" && (
                     <Button
                       size="sm"
@@ -428,7 +490,8 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
         <h2 className="mb-3 font-display text-sm font-bold uppercase">Billing history</h2>
         {q.data && q.data.payments.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            No payments yet. Payments appear here once Payfast or PayPal confirms them.
+            No payments yet. Payments appear here once Payfast or PayPal confirms them, or when an
+            admin marks a bill as paid.
           </p>
         )}
         {q.data && q.data.payments.length > 0 && (
@@ -440,7 +503,12 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
               >
                 <span className="min-w-0 flex-1 font-semibold">{nameOf(p.account_id)}</span>
                 <span className="text-muted-foreground">
-                  {when(p.created_at)} · {p.provider === "paypal" ? "PayPal" : "Payfast"}
+                  {when(p.created_at)} ·{" "}
+                  {p.provider === "paypal"
+                    ? "PayPal"
+                    : p.provider === "manual"
+                      ? "Manual"
+                      : "Payfast"}
                 </span>
                 <span className="font-semibold">{formatMoney(p.amount_cents, p.currency)}</span>
                 <Badge
@@ -551,6 +619,81 @@ export function BillingPanel({ role }: { role: StaffRole | null }) {
             </Button>
           </DialogFooter>
           {error && linkFor && (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!paidFor} onOpenChange={(v) => !v && setPaidFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as paid</DialogTitle>
+            <DialogDescription>
+              {paidFor?.name}. Use this when the bill was paid outside this page (for example by
+              card directly with the provider). It is added to the billing history with your name in
+              the audit log, and the developer is emailed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 text-sm">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Input
+                inputMode="decimal"
+                placeholder="Amount paid, e.g. 28.75"
+                aria-label="Amount paid"
+                value={paidForm.amount}
+                onChange={(e) => setPaidForm((f) => ({ ...f, amount: e.target.value }))}
+              />
+              <select
+                aria-label="Currency"
+                className="rounded-md border border-input bg-background px-2 text-sm"
+                value={paidForm.currency}
+                onChange={(e) =>
+                  setPaidForm((f) => ({ ...f, currency: e.target.value as "ZAR" | "USD" }))
+                }
+              >
+                <option value="USD">USD</option>
+                <option value="ZAR">ZAR</option>
+              </select>
+            </div>
+            <Input
+              type="date"
+              aria-label="Date paid"
+              max={paidMax}
+              value={paidForm.date}
+              onChange={(e) => setPaidForm((f) => ({ ...f, date: e.target.value }))}
+            />
+            <Input
+              placeholder="How it was paid, e.g. card payment made directly with Shopify"
+              aria-label="How it was paid"
+              maxLength={200}
+              value={paidForm.note}
+              onChange={(e) => setPaidForm((f) => ({ ...f, note: e.target.value }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaidFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                manual.isPending ||
+                !paidAmountOk ||
+                !paidForm.date ||
+                paidForm.note.trim().length < 3
+              }
+              onClick={() =>
+                paidFor &&
+                manual.mutate({
+                  account: paidFor,
+                  form: { ...paidForm, amount: paidForm.amount.replace(",", ".") },
+                })
+              }
+            >
+              Mark as paid
+            </Button>
+          </DialogFooter>
+          {error && paidFor && (
             <p role="alert" className="text-xs text-destructive">
               {error}
             </p>
