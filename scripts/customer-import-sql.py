@@ -79,7 +79,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     tag = "j" + uuid.uuid4().hex[:8]
     body = json.dumps(payload, ensure_ascii=False)
-    assert f"${tag}$" not in body
+    if f"${tag}$" in body:  # never an assert: python -O would drop it and the data could close the quote
+        sys.exit("the quoting tag appears in the data: run again (a new random tag is picked)")
     sql = (
         f"-- {a.batch}: {len(payload)} members from export sha256 {sha}. Contains personal data: do not commit or share.\n"
         f"select public.import_customers('{a.actor}'::uuid, '{a.batch}'::text, '{sha}'::text, ${tag}${body}${tag}$::jsonb, '{a.batch}-{sha[:12]}'::text);\n"
