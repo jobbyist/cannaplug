@@ -21,12 +21,12 @@ const PAGES = [
   "/account?mode=signup",
 ];
 
-async function layoutProblems(page: Page) {
-  return page.evaluate(() => {
+async function layoutProblems(page: Page, phoneWidth: number) {
+  return page.evaluate((expected) => {
     const W = window.innerWidth;
     // On a phone, content wider than the screen makes the browser widen the whole page (and zoom out), so
-    // innerWidth grows too: compare against the screen, not the window.
-    const overflow = Math.max(document.documentElement.scrollWidth, W) - screen.width;
+    // innerWidth grows too: compare against the phone's real width, passed in, not anything the page reports.
+    const overflow = Math.max(document.documentElement.scrollWidth, W) - expected;
     const smallInputs = [...document.querySelectorAll("input, select, textarea")]
       .filter((e) => {
         const el = e as HTMLInputElement;
@@ -38,7 +38,7 @@ async function layoutProblems(page: Page) {
       })
       .map((e) => (e as HTMLElement).id || (e as HTMLInputElement).name || e.tagName);
     return { overflow, smallInputs };
-  });
+  }, phoneWidth);
 }
 
 for (const phone of PHONES) {
@@ -54,7 +54,7 @@ for (const phone of PHONES) {
         const res = await page.goto(path);
         expect(res?.status(), path).toBeLessThan(500);
         await page.waitForLoadState("networkidle");
-        const r = await layoutProblems(page);
+        const r = await layoutProblems(page, phone.width);
         expect(r.overflow, `${path} scrolls sideways by ${r.overflow}px`).toBeLessThanOrEqual(0);
         expect(r.smallInputs, `${path} inputs under 16px`).toEqual([]);
       });
