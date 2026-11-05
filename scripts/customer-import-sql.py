@@ -10,7 +10,9 @@ Writes, to DIR (keep it outside the repository: the files hold names, emails and
   remaining-members.xlsx    the export in the same layout, without the members that were put in the SQL, ready for the
                             next batch. A member who could not be included (e.g. under 18 on file) stays here with a note
                             unless --drop-members removes them for good.
-Prints a summary with member numbers only.
+Prints a summary with member numbers only. The input can also be a remaining-members.xlsx from an earlier run (next batch):
+
+  python3 scripts/customer-import-sql.py remaining-members.xlsx --first 114 --actor <id> --batch clinify-187-299 --out-dir DIR
 
 Rules applied here (the database repeats the important ones): members are taken in member-number order; an email address
 with spaces inside (a transcription slip in the export) is closed up and the member's invitation is HELD until the owner
@@ -39,8 +41,12 @@ def main():
     wb = openpyxl.load_workbook(a.xlsx)
     ws = wb["Customers"]
     title = ws.cell(1, 1).value
-    header = [c.value for c in ws[2]]
-    rows = [r for r in ws.iter_rows(min_row=3, values_only=True) if r[0] is not None]
+    # The first 7 columns are the export's. A remaining-members file made by this script adds an 8th, "Note": it is read
+    # (kept for members who stay behind) but never imported.
+    header = [c.value for c in ws[2]][:7]
+    raw_rows = [r for r in ws.iter_rows(min_row=3, values_only=True) if r[0] is not None]
+    prior_notes = {r[0]: r[7] for r in raw_rows if len(r) > 7 and r[7]}
+    rows = [tuple(r[:7]) for r in raw_rows]
     rows.sort(key=lambda r: r[0])
     batch_rows, rest = rows[: a.first], rows[a.first :]
     dropped = {int(x) for x in a.drop_members.split(",") if x.strip()}
@@ -73,7 +79,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     tag = "j" + uuid.uuid4().hex[:8]
     body = json.dumps(payload, ensure_ascii=False)
-    assert f"${tag}$" not in body
+    if f"${tag}$" in body:  # never an assert: python -O would drop it and the data could close the quote
+        sys.exit("the quoting tag appears in the data: run again (a new random tag is picked)")
     sql = (
         f"-- {a.batch}: {len(payload)} members from export sha256 {sha}. Contains personal data: do not commit or share.\n"
         f"select public.import_customers('{a.actor}'::uuid, '{a.batch}'::text, '{sha}'::text, ${tag}${body}${tag}$::jsonb, '{a.batch}-{sha[:12]}'::text);\n"
@@ -81,11 +88,12 @@ def main():
     (out / f"import-{a.batch}.sql").write_text(sql, encoding="utf-8")
 
     # Remaining members, same layout as the export. Members held back from this batch stay, with a note.
-    notes = {n: "Held back from batch 1: age on file is under 18. Confirm age before importing." for n in held_minor}
+    notes = {n: note for n, note in prior_notes.items() if any(r[0] == n for r in rest)}
+    notes.update({n: f"Held back from {a.batch}: age on file is under 18. Confirm age before importing." for n in held_minor})
     rem = openpyxl.Workbook()
     rws = rem.active
     rws.title = "Customers"
-    todo = sorted(rest + [r for r in batch_rows if r[0] in notes], key=lambda r: r[0])
+    todo = sorted(rest + [r for r in batch_rows if r[0] in held_minor], key=lambda r: r[0])
     rws.append([f"Clinify Customer Import - {len(todo)} Members remaining | members not yet imported into Cannaplug"])
     rws.append(header + ["Note"])
     for r in todo:
@@ -96,13 +104,14 @@ def main():
         c.font = openpyxl.styles.Font(bold=True)
     sm = rem.create_sheet("Summary")
     ages = [r[5] for r in todo if r[5] is not None]
+    span = (min(r[0] for r in batch_rows), max(r[0] for r in batch_rows)) if batch_rows else None
     for line in [
         ("Cannaplug customer import - remaining members", None),
         (None, None),
         ("Remaining members", len(todo)),
         ("Next member number to import", min((r[0] for r in todo), default=None)),
-        ("Held back (needs a decision)", len(notes)),
-        ("Imported (member numbers)", f"1 to {a.first}" + (f", except {', '.join(map(str, sorted(dropped | set(held_minor))))}" if dropped or held_minor else "")),
+        ("Held back (needs a decision)", len(held_minor)),
+        ("In this batch (member numbers)", f"{span[0]} to {span[1]}" + (f", except {', '.join(map(str, sorted(dropped | set(held_minor))))}" if dropped or held_minor else "") if span else ""),
         ("Source file sha256", sha),
         ("Min age / max age", f"{min(ages)} / {max(ages)}" if ages else ""),
     ]:
