@@ -1993,7 +1993,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - **Tables:** `stock_takes` (one open at a time, unique index) and `stock_take_lines` (`expected_at_count` snapshot taken under the batch locks). Both have RLS; staff (budtender and up) can read; browsers have no write grants.
   - **Functions:** `stock_take_start` / `_post` / `_cancel` (manager), `stock_take_record_count` (budtender), `stock_quick_adjust` and `stock_receive_delivery` (manager), plus the helpers `_stock_move_product` and `_product_on_hand`. All are `SECURITY DEFINER`, `search_path=''`, take an explicit actor and an idempotency key, write an audit row, and are executable by the service role only.
   - **Unchanged:** every movement is still an ordinary `inventory_ledger` row (`adjustment` with reference `stock_take`, or `receipt` with reference `delivery`), so on-hand counts, reports and the till work as before. `receive_stock` and `adjust_stock` are untouched.
-  - **Applied to the hosted project (khltynzzcjhlujxbgyod): not yet.**
+  - **Applied to the hosted project (khltynzzcjhlujxbgyod), 5 Nov 2026: yes.** The connector's approval prompt timed out three times without reaching the owner, so nothing was applied that way (checked after each attempt). The owner then ran the committed file (`d901542`, including the review fixes) in the Supabase SQL Editor inside one BEGIN/COMMIT. Verified after on the live database:
+    - both tables have RLS, 2 staff-read policies, no browser write grants and no anon grants;
+    - all 8 functions are `SECURITY DEFINER` with `search_path=""`, executable by the service role only;
+    - the one-open-count index is present, and the duplicate-invoice fix is in `stock_receive_delivery`;
+    - a call with a non-existent actor is refused (`forbidden`) and writes nothing (0 stock takes).
 - **Tests:**
   - **`db/stock-takes` (14):**
     - posting short, over and exact lines together;
@@ -2013,6 +2017,6 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - **`stock-take-logic` (4):** barcode / SKU / name lookup, count scope, variance at cost, a CSV that can't run formulas.
   - **Rehearsal** and **`scripts/verify-release.sh`** (see PR).
 - **Needs the owner:**
-  1. Apply the migration to the hosted project **before** deploying this branch (the Inventory tab calls the new functions). I can do it on your go-ahead.
+  1. ~~Apply the migration~~ Done 5 Nov (see above); the branch can be deployed.
   2. Products need barcodes on file for scanning (Products tab or the CSV import). Search by name works without them.
 - **Rollback:** revert the PR, then run the rollback SQL. Stock already moved stays; export `stock_takes` / `stock_take_lines` first if the count history matters.
