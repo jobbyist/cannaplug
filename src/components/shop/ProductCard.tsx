@@ -16,14 +16,14 @@ export function ProductCard({ product }: { product: StoreProduct }) {
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-lg">
-      <div className="relative h-48 overflow-hidden bg-secondary">
+      <div className="relative aspect-square overflow-hidden bg-secondary sm:aspect-auto sm:h-48">
         {!product.in_stock && (
-          <span className="absolute left-3 top-3 z-10 rounded-full bg-background/95 px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="absolute left-2 top-2 z-10 rounded-full bg-background/95 px-2 py-1 text-[0.6rem] font-bold uppercase tracking-wide text-muted-foreground sm:left-3 sm:top-3 sm:px-2.5">
             Out of stock
           </span>
         )}
         {product.badge && (
-          <span className="absolute right-3 top-3 z-10 rounded-full bg-primary px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-wide text-primary-foreground">
+          <span className="absolute right-2 top-2 z-10 rounded-full bg-primary px-2 py-1 text-[0.6rem] font-bold uppercase tracking-wide text-primary-foreground sm:right-3 sm:top-3 sm:px-2.5">
             {product.badge}
           </span>
         )}
@@ -33,19 +33,27 @@ export function ProductCard({ product }: { product: StoreProduct }) {
           width={400}
           height={300}
           loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-          <span>{product.subcategory ?? product.category}</span>
-          {product.strain_type && <Badge variant="outline">{product.strain_type}</Badge>}
+      <div className="flex flex-1 flex-col gap-1.5 p-3 sm:gap-2 sm:p-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="truncate">{product.subcategory ?? product.category}</span>
+          {product.strain_type && (
+            <Badge variant="outline" className="hidden sm:inline-flex">
+              {product.strain_type}
+            </Badge>
+          )}
         </div>
-        <h3 className="font-display text-sm font-bold uppercase">{product.name}</h3>
-        <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">
+        <h3 className="line-clamp-2 font-display text-[0.8rem] font-bold uppercase leading-snug sm:text-sm">
+          {product.name}
+        </h3>
+        {/* Phones show two products a row, so the description waits for the larger screen. */}
+        <p className="hidden flex-1 text-xs leading-relaxed text-muted-foreground sm:line-clamp-2">
           {product.description}
         </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="mt-auto flex flex-col gap-2 pt-1 sm:mt-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             {product.regular_price_rand != null && (
               <s className="mr-1 text-[0.7rem] text-muted-foreground">
@@ -67,6 +75,8 @@ export function ProductCard({ product }: { product: StoreProduct }) {
           </div>
           <Button
             size="sm"
+            className="h-10 w-full sm:h-9 sm:w-auto"
+            aria-label={`Add ${product.name} to cart`}
             onClick={() => {
               add({
                 productId: product.id,

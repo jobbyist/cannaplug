@@ -46,7 +46,7 @@ function ReceiptPage() {
   if (error) return <p className="p-6 text-sm">{error}</p>;
   if (!receipt) return <p className="p-6 text-sm">Loading receipt…</p>;
   return (
-    <div className="min-h-screen bg-white py-4 print:py-0">
+    <div className="min-h-dvh bg-white py-4 print:py-0">
       <style>{`@page { size: ${PAGE[paper]}; margin: ${paper === "a4" ? "15mm" : "3mm"}; }
 @media print { body { background: #fff !important; } .no-print { display: none !important; } }`}</style>
       <div className="no-print mb-3 flex justify-center gap-2">

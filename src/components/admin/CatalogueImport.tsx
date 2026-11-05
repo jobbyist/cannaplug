@@ -77,7 +77,7 @@ export function CatalogueImport({ onImported }: { onImported: () => Promise<void
           if (!o) reset();
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Import products from Yoco</DialogTitle>
             <DialogDescription>

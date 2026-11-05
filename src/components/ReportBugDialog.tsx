@@ -39,7 +39,7 @@ export function ReportBugDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto">
         {open && <BugForm onClose={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>

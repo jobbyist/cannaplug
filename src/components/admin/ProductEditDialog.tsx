@@ -242,7 +242,7 @@ export function ProductEditDialog({
   return (
     <Dialog open={Boolean(editingProduct)} onOpenChange={(o) => !o && setEditingProduct(null)}>
       <DialogContent
-        className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
+        className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
         data-testid="product-editor"
       >
         <DialogHeader className="border-b border-border px-5 py-4 text-left">

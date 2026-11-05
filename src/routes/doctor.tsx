@@ -161,7 +161,7 @@ function DoctorPage() {
   const prescriptions = documents.filter((d) => d.document_type === "PRESCRIPTION_ORDER");
 
   return (
-    <div className="site flex min-h-screen flex-col bg-background md:flex-row">
+    <div className="site flex min-h-dvh flex-col bg-background md:flex-row">
       <DashboardSidebar
         items={NAV}
         active={tab}
@@ -438,7 +438,7 @@ function DoctorPage() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-6 text-center">
+    <div className="grid min-h-dvh place-items-center bg-background px-6 text-center">
       <div>{children}</div>
     </div>
   );

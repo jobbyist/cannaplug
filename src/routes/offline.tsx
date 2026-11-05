@@ -15,7 +15,7 @@ export const Route = createFileRoute("/offline")({
 
 function OfflinePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background px-6 text-center text-foreground">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 text-center text-foreground">
       <img src={logoImage} alt="CannaPlug" className="h-12 w-auto" />
       <span className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
         <WifiOff size={28} />

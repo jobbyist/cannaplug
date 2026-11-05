@@ -74,7 +74,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - run: bunx playwright test e2e/smoke.spec.ts
+      - run: bunx playwright test e2e/smoke.spec.ts e2e/mobile.spec.ts
       - run: bash scripts/pwa-e2e.sh # production build: service worker, /offline, private routes never cached
       - if: failure()
         uses: actions/upload-artifact@v4

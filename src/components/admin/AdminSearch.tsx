@@ -139,7 +139,7 @@ export function AdminSearch({
         <div
           id="admin-search-results"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70dvh] overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg"
         >
           {error && <p className="px-3 py-2 text-xs text-destructive">{error}</p>}
           {!error && hits.length === 0 && (

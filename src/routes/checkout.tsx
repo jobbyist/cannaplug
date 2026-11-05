@@ -539,7 +539,7 @@ function CheckoutPage() {
                       <div className="flex items-center gap-1 rounded-full border border-border px-1">
                         <button
                           aria-label="Decrease quantity"
-                          className="grid h-7 w-7 place-items-center"
+                          className="grid h-10 w-10 place-items-center sm:h-8 sm:w-8"
                           onClick={() => stepQuantity(line.productId, -1)}
                         >
                           <Minus size={13} />
@@ -549,7 +549,7 @@ function CheckoutPage() {
                         </span>
                         <button
                           aria-label="Increase quantity"
-                          className="grid h-7 w-7 place-items-center"
+                          className="grid h-10 w-10 place-items-center sm:h-8 sm:w-8"
                           onClick={() => stepQuantity(line.productId, 1)}
                         >
                           <Plus size={13} />
@@ -557,7 +557,7 @@ function CheckoutPage() {
                       </div>
                       <button
                         aria-label={`Remove ${line.name}`}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="grid h-10 w-10 place-items-center text-muted-foreground hover:text-destructive"
                         onClick={() => remove(line.productId)}
                       >
                         <Trash2 size={16} />
