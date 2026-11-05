@@ -20,6 +20,9 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   invalid_lines: "Check the delivery lines",
   invalid_supplier: "The supplier name is too long",
   invalid_reference: "The delivery reference is too long",
+  delivery_already_received:
+    "This invoice was already received today. For a second delivery on it, add -2 to the reference",
+  batch_unavailable: "The stock could not be saved. Please try again",
   tender_mismatch: "Tenders must add up exactly to the sale total",
   session_closed: "This till session is closed",
   session_not_yours: "This till session belongs to another cashier",
@@ -108,6 +111,7 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
 const SHOW_DETAIL = new Set([
   "insufficient_stock",
   "wrong_category",
+  "delivery_already_received",
   "tender_mismatch",
   "over_refund",
   "refund_mismatch",

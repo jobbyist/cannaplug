@@ -131,6 +131,9 @@ BEGIN
       ON CONFLICT (product_id, batch_code) DO NOTHING;
       SELECT b.id INTO v_batch FROM public.inventory_batches b
       WHERE b.product_id = p_product_id AND b.batch_code = v_code;
+      IF v_batch IS NULL THEN
+        RAISE EXCEPTION 'batch_unavailable: could not set up a batch for %, please try again', v_name;
+      END IF;
       PERFORM public._lock_batches(ARRAY[v_batch]);
     END IF;
     INSERT INTO public.inventory_ledger
@@ -234,6 +237,14 @@ BEGIN
       RAISE EXCEPTION 'product_unavailable: %', v_product;
     END IF;
 
+    -- The same invoice entered twice on one day would add the stock twice: refuse it. A genuine second delivery on the
+    -- same invoice gets its own reference (e.g. INV-0042-2).
+    IF v_ref IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.inventory_batches b WHERE b.product_id = v_product AND b.batch_code = v_code
+    ) THEN
+      RAISE EXCEPTION 'delivery_already_received: % was already received today with reference %',
+        (SELECT p.name FROM public.products p WHERE p.id = v_product), v_ref;
+    END IF;
     INSERT INTO public.inventory_batches (product_id, batch_code, expires_at, unit_cost_rand, notes, created_by)
     VALUES (v_product, v_code, v_expires, v_cost,
             left(concat_ws(' · ', 'Delivery', 'Supplier: ' || v_supplier, 'Ref: ' || v_ref), 500), p_actor)

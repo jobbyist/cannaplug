@@ -166,6 +166,27 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     await assertInventoryConsistent(sql);
   });
 
+  it("the same invoice cannot be received twice on one day; a second reference can", async () => {
+    const p = await mkProduct(sql);
+    const deliver = (ref: string) =>
+      rpc(
+        sql,
+        "stock_receive_delivery",
+        manager,
+        null,
+        ref,
+        [{ product_id: p, quantity: 6 }],
+        key("del"),
+      );
+    await deliver("INV 77");
+    const again = await attempt(deliver("inv-77"));
+    expect(failedWith(again, "delivery_already_received")).toBe(true);
+    expect(await onHand(p)).toBe(6);
+    await deliver("INV 77-2");
+    expect(await onHand(p)).toBe(12);
+    await assertInventoryConsistent(sql);
+  });
+
   it("budtenders can count; only managers start, post, cancel, adjust or receive", async () => {
     const p = await mkProduct(sql);
     await receive(sql, manager, p, 3);
