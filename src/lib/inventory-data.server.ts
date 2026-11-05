@@ -17,7 +17,7 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
     supabaseAdmin
       .from("products")
       .select(
-        "id,name,sku,category,brand,unit,sold_by_weight,is_active,sell_online,track_stock,low_stock_threshold,price_rand,regular_price_rand,cost_rand,image_path",
+        "id,name,sku,barcode,category,brand,unit,sold_by_weight,is_active,sell_online,track_stock,low_stock_threshold,price_rand,regular_price_rand,cost_rand,image_path",
       )
       .order("name")
       .range(0, MAX_ROWS - 1),
@@ -47,6 +47,7 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
       product_id: p.id,
       name: p.name,
       sku: p.sku,
+      barcode: p.barcode ?? null,
       category: p.category,
       brand: p.brand,
       unit: p.unit,
