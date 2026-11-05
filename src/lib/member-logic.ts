@@ -180,6 +180,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   already_verified: "Your ID is already verified",
   underage: "You must be 18 or older to shop with CannaPlug",
   invalid_dob: "Enter your date of birth",
+  invalid_id_number:
+    "That ID or passport number doesn't look right. Enter a 13-digit SA ID number or your passport number.",
+  id_dob_mismatch: "Your ID number and date of birth don't match. Check both.",
+  unknown_member: "Please sign in again and retry.",
   invalid_document_type: "Choose the type of document you are uploading",
   invalid_document_path: "We could not read your upload — please upload your ID again",
   too_many_attempts: "Too many attempts — please contact CannaPlug support",

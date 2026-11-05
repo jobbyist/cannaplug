@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Heart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyArticleLikeFn, setArticleLikeFn } from "@/lib/journal.functions";
@@ -16,6 +16,8 @@ export function LikeButton({
   initialCount: number;
 }) {
   const { user } = useAuth();
+  // Signing in from a story comes back to the same story.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [count, setCount] = useState(initialCount);
   const [liked, setLiked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,7 +77,10 @@ export function LikeButton({
       </button>
       {needSignIn && !userId && (
         <p role="status" className="journal-like-note">
-          <Link to="/account">Sign in</Link> to like stories. Your likes are saved to your account.
+          <Link to="/account" search={{ redirect: pathname }}>
+            Sign in
+          </Link>{" "}
+          to like stories. Your likes are saved to your account.
         </p>
       )}
       {error && (

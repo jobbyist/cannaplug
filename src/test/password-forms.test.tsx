@@ -58,7 +58,7 @@ describe("ChangePasswordForm", () => {
 });
 
 describe("ForgotPasswordForm", () => {
-  it("emails a reset link back to /account and never says whether the account exists", async () => {
+  it("emails a link to the reset page and never says whether the account exists", async () => {
     auth.resetPasswordForEmail.mockRejectedValue(new Error("User not found"));
     const user = userEvent.setup();
     render(<ForgotPasswordForm onBack={vi.fn()} />);
@@ -66,7 +66,7 @@ describe("ForgotPasswordForm", () => {
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
     await waitFor(() =>
       expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("someone@example.com", {
-        redirectTo: "https://cannaplug012.co.za/account?reset=1",
+        redirectTo: "https://cannaplug012.co.za/reset-password",
       }),
     );
     expect((await screen.findByRole("status")).textContent).toMatch(

@@ -3830,6 +3830,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      verification_record_id_number: {
+        Args: {
+          p_dob: string | null;
+          p_id_number: string;
+          p_idempotency_key: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       verification_submit: {
         Args: {
           p_document_path: string;

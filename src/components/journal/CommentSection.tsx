@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ export function CommentSection({
   comments: JournalComment[];
 }) {
   const { user } = useAuth();
+  // Signing in from a story comes back to the same story.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const qc = useQueryClient();
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -108,8 +110,10 @@ export function CommentSection({
         </form>
       ) : (
         <p className="journal-comment-signin">
-          <Link to="/account">Sign in</Link> to join the conversation. Comments are for signed-in
-          members only.
+          <Link to="/account" search={{ redirect: pathname }}>
+            Sign in
+          </Link>{" "}
+          to join the conversation. Comments are for signed-in members only.
         </p>
       )}
     </section>

@@ -588,7 +588,7 @@ function CheckoutPage() {
                   <p className="max-w-sm text-sm text-muted-foreground">
                     Sign in to your CannaPlug account to save delivery details and track this order.
                   </p>
-                  <Link to="/account">
+                  <Link to="/account" search={{ redirect: "/checkout" }}>
                     <Button size="sm">Sign in to continue</Button>
                   </Link>
                   <button

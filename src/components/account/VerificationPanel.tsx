@@ -19,6 +19,7 @@ import {
   type DocumentType,
   type VerificationRow,
 } from "@/lib/verification-logic";
+import { idNumberProblem, normaliseIdNumber } from "@/lib/signup-logic";
 import { useIdempotencyKey } from "./use-member-account";
 
 const errorText = (err: unknown) =>
@@ -79,6 +80,7 @@ export function VerificationPanel({
   const view = verificationView(verification);
   const [documentType, setDocumentType] = useState<DocumentType>("sa_id");
   const [dob, setDob] = useState(defaultDob);
+  const [idNumber, setIdNumber] = useState("");
   const [expiresOn, setExpiresOn] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,6 +92,8 @@ export function VerificationPanel({
     setError(null);
     const dobIssue = dobProblem(dob);
     if (dobIssue) return setError(dobIssue);
+    const idIssue = idNumberProblem(idNumber, dob);
+    if (idIssue) return setError(idIssue);
     const expiryIssue = expiryProblem(documentType, expiresOn);
     if (expiryIssue) return setError(expiryIssue);
     if (!file) return setError("Choose a photo or scan of your ID.");
@@ -108,6 +112,7 @@ export function VerificationPanel({
           documentType,
           path,
           dob,
+          idNumber: normaliseIdNumber(idNumber),
           expiresOn: documentNeedsExpiry(documentType) ? expiresOn : null,
           key: key.get(),
         },
@@ -152,7 +157,7 @@ export function VerificationPanel({
               id="id-type"
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-11 rounded-md border border-input bg-background px-3 text-base md:text-sm"
             >
               {DOCUMENT_TYPES.map((d) => (
                 <option key={d.value} value={d.value}>
@@ -167,6 +172,28 @@ export function VerificationPanel({
             value={dob}
             onChange={setDob}
           />
+          <div className="grid gap-1.5">
+            <Label htmlFor="id-number">
+              {documentType === "sa_id" ? "ID number" : "Document number"}
+            </Label>
+            <Input
+              id="id-number"
+              inputMode={documentType === "sa_id" ? "numeric" : "text"}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={32}
+              value={idNumber}
+              onChange={(e) => setIdNumber(e.target.value)}
+              required
+            />
+            <p className="text-[0.75rem] text-muted-foreground">
+              {documentType === "sa_id"
+                ? "The 13 digits on your ID. It must match your date of birth."
+                : "The number printed on your passport or licence."}{" "}
+              Stored securely and never shown in emails.
+            </p>
+          </div>
           {documentNeedsExpiry(documentType) ? (
             <div className="grid gap-1.5">
               <Label htmlFor="id-expiry">Expiry date (as on your document)</Label>

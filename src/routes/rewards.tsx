@@ -97,12 +97,14 @@ function RewardsPage() {
             ) : (
               <>
                 <Button asChild size="lg">
-                  <Link to="/account" search={{ mode: "signup" }}>
+                  <Link to="/account" search={{ mode: "signup", redirect: "/rewards" }}>
                     Join and start earning
                   </Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                  <Link to="/account">Sign in</Link>
+                  <Link to="/account" search={{ redirect: "/rewards" }}>
+                    Sign in
+                  </Link>
                 </Button>
               </>
             )}

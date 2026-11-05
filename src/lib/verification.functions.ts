@@ -53,6 +53,7 @@ export const submitVerificationFn = createServerFn({ method: "POST" })
         documentType: z.enum(["sa_id", "passport", "drivers_licence"]),
         path: z.string().min(40).max(120),
         dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        idNumber: z.string().trim().min(6).max(32),
         expiresOn: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)

@@ -34,7 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const stableUser = useRef<User | null>(null);
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // A reset link that landed anywhere else (Supabase falls back to the Site URL when the reset page is not on
+      // its redirect allow-list, and links sent before 5 Nov 2026 go to /account?reset=1) still ends on the page
+      // that asks for a new password, instead of silently signing the person in.
+      if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/reset-password") {
+        window.location.replace("/reset-password");
+        return;
+      }
       setSession(nextSession);
       setLoading(false);
     });

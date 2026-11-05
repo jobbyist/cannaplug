@@ -316,3 +316,12 @@ export const removeProductImageFn = createServerFn({ method: "POST" })
     const { removeProductImage } = await import("@/lib/product-media.server");
     return removeProductImage(context.userId, data.productId);
   });
+
+/** Managers and admins email a locked-out member a password-reset link. Only the member's id is sent. */
+export const sendMemberPasswordResetFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) => z.object({ memberId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { sendMemberPasswordReset } = await import("@/lib/member-password-reset.server");
+    return sendMemberPasswordReset(context.userId, data.memberId);
+  });

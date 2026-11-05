@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PlatformTour } from "@/components/account/PlatformTour";
-import { TOUR_STEPS, tourPending } from "@/lib/tour-logic";
+import { GettingStarted } from "@/components/account/GettingStarted";
+import { gettingStartedSteps, tourPending } from "@/lib/tour-logic";
 import { signupMetadata } from "@/lib/signup-logic";
 
 describe("tour logic", () => {
@@ -20,7 +20,6 @@ describe("tour logic", () => {
       email: "r@x.co",
       phone: "0821234567",
       dob: "1990-01-01",
-      idNumber: "1",
       referral: "",
       username: "",
     });
@@ -28,25 +27,27 @@ describe("tour logic", () => {
   });
 });
 
-describe("PlatformTour", () => {
-  it("steps through and finishes once", async () => {
-    const onFinish = vi.fn();
-    const onStep = vi.fn();
-    render(<PlatformTour onStep={onStep} onFinish={onFinish} />);
-    expect(screen.getByText(TOUR_STEPS[0]!.title)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(onStep).toHaveBeenCalledWith("verification");
-    await userEvent.click(screen.getByRole("button", { name: "Back" }));
-    for (let i = 0; i < TOUR_STEPS.length - 1; i++)
-      await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(onFinish).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(onFinish).toHaveBeenCalledTimes(1);
+describe("GettingStarted checklist (replaced the popup tour, 5 Nov 2026)", () => {
+  const none = { idSubmitted: false, hasUsername: false, hasAddress: false };
+
+  it("puts the ID check first and ticks off what is done", () => {
+    const steps = gettingStartedSteps(none);
+    expect(steps[0]!.id).toBe("verify");
+    expect(steps.every((s) => !s.done)).toBe(true);
+    const later = gettingStartedSteps({ idSubmitted: true, hasUsername: true, hasAddress: false });
+    expect(later.find((s) => s.id === "verify")!.done).toBe(true);
+    expect(later.find((s) => s.id === "address")!.done).toBe(false);
   });
-  it("can be skipped at any step", async () => {
-    const onFinish = vi.fn();
-    render(<PlatformTour onFinish={onFinish} />);
-    await userEvent.click(screen.getByRole("button", { name: "Skip tour" }));
-    expect(onFinish).toHaveBeenCalledTimes(1);
+
+  it("is a card in the page, not a dialog, and can be hidden", async () => {
+    const onGo = vi.fn();
+    const onDismiss = vi.fn();
+    render(<GettingStarted state={none} onGo={onGo} onDismiss={onDismiss} />);
+    expect(screen.getByTestId("getting-started")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Verify now" }));
+    expect(onGo).toHaveBeenCalledWith("verification");
+    await userEvent.click(screen.getByRole("button", { name: "Hide getting started" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

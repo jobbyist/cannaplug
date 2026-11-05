@@ -51,8 +51,12 @@ import { idCreditsOpenFn } from "@/lib/id-credits.functions";
 import heroImage from "@/assets/cannaplug-hero.jpg";
 import logoImage from "@/assets/cannaplug-logo.png";
 import logoImageWhite from "@/assets/cannaplug-logo-white.png";
-import { PlatformTour } from "@/components/account/PlatformTour";
+import { GettingStarted } from "@/components/account/GettingStarted";
+import { PasswordHints, PasswordInput } from "@/components/account/PasswordInput";
 import { TOUR_FLAG, tourPending } from "@/lib/tour-logic";
+import { passwordProblem } from "@/lib/password-rules";
+import { redirectFromSearch } from "@/lib/safe-redirect";
+import { getMyStaffAccessFn } from "@/lib/admin.functions";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/account")({
@@ -62,9 +66,14 @@ export const Route = createFileRoute("/account")({
 
 function AccountPage() {
   const { user, loading } = useAuth();
+  // Reset links sent before 5 Nov 2026 point here with ?reset=1: hand over to the page built for it.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("reset"))
+      window.location.replace(`/reset-password${window.location.hash}`);
+  }, []);
   if (loading)
     return (
-      <div className="grid min-h-screen place-items-center bg-background">
+      <div className="grid min-h-dvh place-items-center bg-background">
         <p className="text-sm text-muted-foreground">Loading your account…</p>
       </div>
     );
@@ -73,6 +82,10 @@ function AccountPage() {
 
 function AuthPanel() {
   const navigate = useNavigate();
+  // Where they came from (e.g. checkout): after signing in or up they go straight back there.
+  const [backTo] = useState(() =>
+    typeof window !== "undefined" ? redirectFromSearch(window.location.search) : null,
+  );
   const [mode, setMode] = useState<"signin" | "signup">(() =>
     typeof window !== "undefined" &&
     (referralFromSearch(window.location.search) ||
@@ -94,7 +107,6 @@ function AuthPanel() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [idNumber, setIdNumber] = useState("");
   // A referral link (/account?ref=username) opens sign-up with the code filled in.
   const [referral, setReferral] = useState(() =>
     typeof window !== "undefined" ? referralFromSearch(window.location.search) : "",
@@ -154,9 +166,11 @@ function AuthPanel() {
       if (mode === "signin") {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+        // Without a page to go back to, the portal simply replaces this form.
+        if (backTo) await navigate({ href: backTo, replace: true });
       } else {
-        const fields = { firstName, lastName, email, phone, dob, idNumber, referral, username };
-        const issue = signupProblem(fields, dobProblem(dob));
+        const fields = { firstName, lastName, email, phone, dob, referral, username };
+        const issue = signupProblem(fields, dobProblem(dob)) ?? passwordProblem(password, password);
         if (issue) throw new Error(issue);
         // A username is optional; when given it must be free. A referral code must be one we know (typos would
         // lose the referral).
@@ -199,8 +213,10 @@ function AuthPanel() {
         if (!created.session) {
           setMode("signin");
           setNotice("Account created. Sign in with your email and password to upload your ID.");
+        } else if (backTo) {
+          await navigate({ href: backTo, replace: true });
         } else {
-          // Straight into the member portal (the welcome tour opens there), with the sign-up query cleared.
+          // Straight into the member portal (ID verification first), with the sign-up query cleared.
           await navigate({ to: "/account", search: {}, hash: "", replace: true });
         }
       }
@@ -212,10 +228,12 @@ function AuthPanel() {
   };
   return (
     <div className="site">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+      <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
         <div className="relative hidden overflow-hidden bg-charcoal lg:block">
           <img
             src={heroImage}
+            loading="lazy"
+            decoding="async"
             alt="Premium cannabis flower at CannaPlug"
             className="absolute inset-0 h-full w-full object-cover opacity-70"
           />
@@ -251,35 +269,42 @@ function AuthPanel() {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-center px-6 py-16">
+        <div className="flex items-start justify-center px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-8 sm:items-center sm:px-6 sm:py-16">
           <div className="w-full max-w-sm">
             <Breadcrumbs bare />
             <Link to="/" className="mb-8 block lg:hidden">
               <img src={logoImage} alt="CannaPlug" className="h-7 w-auto" />
             </Link>
-            {forgot && <ForgotPasswordForm onBack={() => setForgot(false)} />}
+            {forgot && <ForgotPasswordForm initialEmail={email} onBack={() => setForgot(false)} />}
             {!forgot && (
               <>
                 <h2 className="font-display text-2xl font-extrabold uppercase">
                   {mode === "signin" ? "Sign in" : "Create account"}
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                {backTo?.startsWith("/checkout") && (
+                  <p className="mt-2 rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">
+                    {mode === "signin" ? "Sign in" : "Create your account"} to finish your order.
+                    We&apos;ll take you straight back to checkout.
+                  </p>
+                )}
+                <p className="mt-2 text-base text-muted-foreground">
                   {mode === "signin" ? "New to CannaPlug?" : "Already have an account?"}{" "}
                   <button
                     type="button"
-                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    className="min-h-[44px] font-semibold text-primary underline underline-offset-2"
                     onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
                   >
                     {mode === "signin" ? "Create an account" : "Sign in instead"}
                   </button>
                 </p>
-                <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
+                <form onSubmit={submit} className="mt-6 flex flex-col gap-5" noValidate>
                   {mode === "signup" && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-3">
                       <div className="grid gap-1.5">
-                        <Label htmlFor="signup-first">Name</Label>
+                        <Label htmlFor="signup-first">First name</Label>
                         <Input
                           id="signup-first"
+                          className="h-11"
                           autoComplete="given-name"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
@@ -290,6 +315,7 @@ function AuthPanel() {
                         <Label htmlFor="signup-last">Surname</Label>
                         <Input
                           id="signup-last"
+                          className="h-11"
                           autoComplete="family-name"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
@@ -298,74 +324,45 @@ function AuthPanel() {
                       </div>
                     </div>
                   )}
-                  {mode === "signup" && (
-                    <div className="grid gap-1.5">
-                      <DateOfBirthField
-                        id="signup-dob"
-                        label="Date of birth"
-                        value={dob}
-                        onChange={setDob}
-                      />
-                      <p className="text-[0.7rem] text-muted-foreground">
-                        You must be 18 or older. We'll ask for a photo of your ID after you sign in
-                        — it's reviewed by hand before you can order.
-                      </p>
-                    </div>
-                  )}
                   <div className="grid gap-1.5">
                     <Label htmlFor="auth-email">Email address</Label>
                     <Input
                       id="auth-email"
+                      className="h-11"
                       type="email"
-                      autoComplete="email"
+                      inputMode="email"
+                      autoComplete={mode === "signin" ? "username" : "email"}
+                      autoCapitalize="none"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
-                  {mode === "signup" && (
-                    <>
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="signup-phone">Phone number</Label>
-                        <Input
-                          id="signup-phone"
-                          type="tel"
-                          autoComplete="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="signup-id">ID / passport number</Label>
-                        <Input
-                          id="signup-id"
-                          autoComplete="off"
-                          value={idNumber}
-                          onChange={(e) => setIdNumber(e.target.value)}
-                          required
-                        />
-                        <p className="text-[0.7rem] text-muted-foreground">
-                          Stored securely for age verification. It is never shown in emails.
-                        </p>
-                      </div>
-                    </>
-                  )}
                   <div className="grid gap-1.5">
-                    <Label htmlFor="auth-password">Password</Label>
-                    <Input
+                    <Label htmlFor="auth-password">
+                      {mode === "signin" ? "Password" : "Create a password"}
+                    </Label>
+                    <PasswordInput
                       id="auth-password"
-                      type="password"
                       autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      aria-describedby={mode === "signup" ? "auth-password-hints" : undefined}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
                     />
+                    {mode === "signup" && (
+                      <>
+                        <PasswordHints value={password} id="auth-password-hints" />
+                        <p className="text-[0.75rem] text-muted-foreground">
+                          If your phone suggests a password, tap Show to see it, and let your phone
+                          save it.
+                        </p>
+                      </>
+                    )}
                     {mode === "signin" && (
                       <button
                         type="button"
-                        className="justify-self-end text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                        className="min-h-[44px] justify-self-end text-sm font-semibold text-primary underline-offset-2 hover:underline"
                         onClick={() => setForgot(true)}
                       >
                         Forgot password?
@@ -373,16 +370,42 @@ function AuthPanel() {
                     )}
                   </div>
                   {mode === "signup" && (
+                    <DateOfBirthField
+                      id="signup-dob"
+                      label="Date of birth"
+                      value={dob}
+                      onChange={setDob}
+                    />
+                  )}
+                  {mode === "signup" && (
+                    <p className="-mt-3 text-[0.75rem] text-muted-foreground">
+                      You must be 18 or older. Next, you&apos;ll upload a photo of your ID —
+                      it&apos;s checked by hand before you can order.
+                    </p>
+                  )}
+                  {mode === "signup" && (
                     <details
                       data-testid="signup-extras"
                       className="rounded-md border border-border px-3 py-2"
                       open={extrasOpen}
                       onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
                     >
-                      <summary className="cursor-pointer text-xs font-semibold text-primary">
-                        Have a referral code or want a username? (optional)
+                      <summary className="flex min-h-[40px] cursor-pointer items-center text-sm font-semibold text-primary">
+                        Optional: phone, username or referral code
                       </summary>
                       <div className="mt-3 flex flex-col gap-4">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="signup-phone">Phone number (optional)</Label>
+                          <Input
+                            id="signup-phone"
+                            className="h-11"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                          />
+                        </div>
                         <div className="grid gap-1.5">
                           <Label htmlFor="signup-username">Username (optional)</Label>
                           <Input
@@ -455,13 +478,13 @@ function AuthPanel() {
                   {error && (
                     <p
                       role="alert"
-                      className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                      className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
                     >
                       {error}
                     </p>
                   )}
                   {notice && (
-                    <p className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
+                    <p className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">
                       {notice}
                     </p>
                   )}
@@ -473,13 +496,18 @@ function AuthPanel() {
                       {ID_CREDITS_DEPLETED_MESSAGE}
                     </p>
                   )}
-                  <Button type="submit" size="lg" disabled={submitting || signupPaused}>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="h-12 text-base"
+                    disabled={submitting || signupPaused}
+                  >
                     {submitting ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
                   </Button>
                 </form>
               </>
             )}
-            <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6 text-center text-[0.62rem] font-semibold uppercase text-muted-foreground">
+            <div className="mt-8 grid grid-cols-3 gap-2 border-t border-border pt-6 text-center text-[0.7rem] font-semibold uppercase text-muted-foreground">
               <div className="flex flex-col items-center gap-2">
                 <ShieldCheck size={18} className="text-primary" />
                 Lab tested
@@ -493,7 +521,7 @@ function AuthPanel() {
                 Expert support
               </div>
             </div>
-            <p className="mt-6 flex items-center justify-center gap-1 text-[0.6rem] text-muted-foreground">
+            <p className="mt-6 flex items-center justify-center gap-1 text-[0.7rem] text-muted-foreground">
               <BadgeCheck size={12} /> Responsible consumption. 18+ only.
             </p>
           </div>
@@ -517,33 +545,39 @@ const NAV_ITEMS: SidebarItem[] = [
 
 function MemberPortal() {
   const { user, signOut } = useAuth();
-  // Arriving from a password-reset email (?reset=1): go straight to choosing a new password.
-  const [resetting] = useState(
-    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset"),
-  );
   const [tab, setTab] = useState(() =>
-    resetting
-      ? "settings"
-      : typeof window !== "undefined" && window.location.hash === "#rewards"
-        ? "rewards"
-        : "dashboard",
+    typeof window !== "undefined" && window.location.hash === "#rewards" ? "rewards" : "dashboard",
   );
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
-  // Welcome tour: once, for members who just signed up. Hidden immediately, then recorded on the account.
-  const [tourDone, setTourDone] = useState(false);
-  const finishTour = () => {
-    setTourDone(true);
+  // "Getting started" checklist: for members who just signed up, until they hide it. Hidden immediately, then
+  // recorded on the account. It is a card in the page, never a popup.
+  const [checklistHidden, setChecklistHidden] = useState(false);
+  const hideChecklist = () => {
+    setChecklistHidden(true);
     void supabase.auth.updateUser({ data: { [TOUR_FLAG]: "done" } });
   };
+  const showChecklist = !checklistHidden && tourPending(user);
+
+  // Staff who sign in here get a shortcut to the admin.
+  const [isStaff, setIsStaff] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getMyStaffAccessFn()
+      .then(({ role }) => alive && setIsStaff(Boolean(role)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
 
   // Onboarding: a member who has never submitted an ID lands on the verification step first.
   const onboarded = useRef(false);
   useEffect(() => {
-    if (!account || onboarded.current || resetting) return;
+    if (!account || onboarded.current) return;
     onboarded.current = true;
     if (!account.verification && window.location.hash !== "#rewards") setTab("verification");
-  }, [account, resetting]);
+  }, [account]);
 
   useEffect(() => {
     if (!flash) return;
@@ -566,7 +600,7 @@ function MemberPortal() {
   const recommended = products.filter((p) => !savedIds.has(p.id)).slice(0, 3);
 
   return (
-    <div className="site flex min-h-screen flex-col bg-background md:flex-row">
+    <div className="site flex min-h-dvh flex-col bg-background md:flex-row">
       <DashboardSidebar
         items={NAV_ITEMS}
         active={tab}
@@ -593,9 +627,6 @@ function MemberPortal() {
           </>
         }
       />
-      {account && !resetting && !tourDone && tourPending(user) && (
-        <PlatformTour onStep={setTab} onFinish={finishTour} />
-      )}
       <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 sm:px-8 sm:pt-8 md:pb-8">
         <Breadcrumbs bare />
         <header className="mb-6 flex items-center justify-between">
@@ -603,9 +634,16 @@ function MemberPortal() {
             <p className="text-xs text-muted-foreground">Good to see you</p>
             <h1 className="font-display text-2xl font-extrabold uppercase">{displayName}</h1>
           </div>
-          <span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
-            <CircleUserRound size={18} />
-          </span>
+          <div className="flex items-center gap-2">
+            {isStaff && (
+              <Button asChild size="sm" variant="outline" data-testid="go-to-admin">
+                <a href="/admin">Go to staff admin</a>
+              </Button>
+            )}
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
+              <CircleUserRound size={18} />
+            </span>
+          </div>
         </header>
         {flash && (
           <p
@@ -625,6 +663,31 @@ function MemberPortal() {
         )}
         {!account && !error && (
           <p className="text-sm text-muted-foreground">Loading your account…</p>
+        )}
+        {account && showChecklist && (tab === "dashboard" || tab === "verification") && (
+          <div className="mb-6">
+            {tab === "verification" && !account.verification && (
+              <p
+                data-testid="one-step-left"
+                className="mb-4 rounded-md bg-primary/10 px-3 py-2 text-sm font-medium text-primary"
+              >
+                Welcome to CannaPlug! One step left: upload your ID to unlock checkout.
+              </p>
+            )}
+            {tab === "dashboard" && (
+              <GettingStarted
+                state={{
+                  idSubmitted: Boolean(
+                    account.verification && account.verification.status !== "rejected",
+                  ),
+                  hasUsername: Boolean(account.rewards.username),
+                  hasAddress: (account.addresses ?? []).length > 0,
+                }}
+                onGo={setTab}
+                onDismiss={hideChecklist}
+              />
+            )}
+          </div>
         )}
         {account && tab === "verification" && (
           <VerificationPanel
@@ -782,11 +845,7 @@ function MemberPortal() {
               </div>
             </div>
             <div className="mt-6 border-t border-border pt-6">
-              <ChangePasswordForm
-                {...(resetting
-                  ? { intro: "You followed a reset link. Choose your new password now." }
-                  : {})}
-              />
+              <ChangePasswordForm />
             </div>
             <div className="mt-6 border-t border-border pt-6">
               <EmailPreferences />

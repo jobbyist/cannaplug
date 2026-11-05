@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, MessageCircleQuestion, ShoppingBag, Sparkles } from "lucide-react";
-import { AGE_GATE_KEY, ageGateNeeded } from "@/components/age-gate-logic";
+import { ageConfirmedNow } from "@/components/age-gate-logic";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { INTRO_FEATURE, isIntroPath, isStorefrontPath } from "@/lib/ask-plug-access";
@@ -16,23 +16,11 @@ import {
   usePlugStatus,
 } from "./plug-status";
 
-const ageConfirmed = (path: string) => {
-  try {
-    const v = Number(window.localStorage.getItem(AGE_GATE_KEY));
-    return !ageGateNeeded(
-      path,
-      navigator.userAgent,
-      Number.isFinite(v) && v > 0 ? v : null,
-      Date.now(),
-    );
-  } catch {
-    return true;
-  }
-};
+const ageConfirmed = (path: string) => ageConfirmedNow(path);
 
 /**
- * One-time launch announcement for Ask The Plug, shown to every signed-in member (existing and new) the next time they
- * are on the storefront or their account page. "Ask The Plug now" opens the chat (from /account it goes to the shop).
+ * One-time launch announcement for Ask The Plug, shown to signed-in members who have finished getting started, the
+ * next time they are on the storefront (never on the account page or straight after joining). "Ask The Plug now" opens the chat (from /account it goes to the shop).
  * Seen state is stored on the server (member_feature_seen), so it shows once per member on any device.
  */
 export function AskThePlugIntro() {
@@ -46,9 +34,11 @@ export function AskThePlugIntro() {
   const recorded = useRef(false);
 
   const variant = status.data?.available ? status.data.intro : null;
-  // Never on top of the new-member portal tour (it runs on /account while the flag is "pending").
+  // Never during registration (staff feedback, 5 Nov 2026): not for a member who has only just joined (the
+  // "Getting started" flag is still pending) and never on the account page, where people sign up, verify their ID
+  // and change passwords. Existing members see it once, on the shop pages.
   const allowedHere =
-    tourPending(user) && pathname.replace(/\/+$/, "") === "/account"
+    tourPending(user) || pathname.replace(/\/+$/, "") === "/account"
       ? false
       : variant === "full"
         ? isIntroPath(pathname)

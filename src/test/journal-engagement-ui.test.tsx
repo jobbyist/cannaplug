@@ -17,9 +17,17 @@ vi.mock("@/lib/journal.functions", () => ({
   addArticleCommentFn: h.addArticleCommentFn,
 }));
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
+  Link: ({
+    children,
+    to,
+    search,
+  }: {
+    children: React.ReactNode;
+    to: string;
+    search?: Record<string, string>;
+  }) => <a href={search ? `${to}?${new URLSearchParams(search)}` : to}>{children}</a>,
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string } }) => string }) =>
+    select({ location: { pathname: "/journal/a-story" } }),
 }));
 
 import { CommentSection } from "@/components/journal/CommentSection";
@@ -41,6 +49,10 @@ describe("like button", () => {
     render(<LikeButton articleId="a1" initialCount={3} />);
     await userEvent.click(screen.getByRole("button", { name: "Like this story" }));
     expect(screen.getByRole("status").textContent).toMatch(/Sign in to like/);
+    // Signing in comes back to the same story.
+    expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe(
+      "/account?redirect=%2Fjournal%2Fa-story",
+    );
     expect(h.setArticleLikeFn).not.toHaveBeenCalled();
   });
 

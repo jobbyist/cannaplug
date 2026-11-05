@@ -1,7 +1,28 @@
 import { SITE_URL } from "@/lib/site";
 
-/** Where Supabase sends people back to after a password-reset email: always the live site. */
+/** Where Supabase sends people back to after a sign-up email: always the live site. */
 export const AUTH_REDIRECT = `${SITE_URL}/account`;
+
+/**
+ * Where a password-reset email link lands: a page that only does one thing (choose a new password), so the link
+ * works even if Supabase drops a query string, and nothing else (age gate, tour, popups) gets in the way.
+ */
+export const RESET_REDIRECT = `${SITE_URL}/reset-password`;
+
+/**
+ * Supabase reports a bad email link in the URL (`#error=access_denied&error_code=otp_expired&...`, or the same
+ * in the query string). Returns words a member can act on, or null when the link carried no error.
+ */
+export function recoveryLinkProblem(hash: string, search: string): string | null {
+  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  const query = new URLSearchParams(search);
+  const code = params.get("error_code") ?? query.get("error_code");
+  const error = params.get("error") ?? query.get("error");
+  if (!code && !error) return null;
+  if (code === "otp_expired" || /expired|invalid/i.test(params.get("error_description") ?? ""))
+    return "This reset link has expired or has already been used. Links work once, for one hour. Send yourself a new one below.";
+  return "This reset link didn't work. Send yourself a new one below.";
+}
 
 export type AuthProblem = {
   message: string;

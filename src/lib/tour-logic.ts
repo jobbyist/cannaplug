@@ -1,4 +1,8 @@
-/** The member-portal welcome tour: which members see it, and what it says. No health or ID data appears here. */
+/**
+ * The member-portal welcome: which members see it, and what it says. No health or ID data appears here.
+ * Since 5 Nov 2026 new members see the "Getting started" checklist (an in-page card), not the popup tour; the
+ * tour steps stay for the Help tab copy and older clients.
+ */
 
 export const TOUR_FLAG = "onboarding_tour";
 
@@ -52,4 +56,59 @@ export const TOUR_STEPS: TourStep[] = [
 /** True only for members who signed up with the flag set and have not finished or skipped the tour. */
 export function tourPending(user: { user_metadata?: Record<string, unknown> } | null): boolean {
   return user?.user_metadata?.[TOUR_FLAG] === "pending";
+}
+
+export type GettingStartedState = {
+  /** ID submitted (pending) or approved. */
+  idSubmitted: boolean;
+  hasUsername: boolean;
+  hasAddress: boolean;
+};
+
+export type GettingStartedStep = {
+  id: string;
+  title: string;
+  body: string;
+  action: string;
+  done: boolean;
+  tab?: string;
+  href?: string;
+};
+
+/** The checklist, in the order that unlocks the most: ID first (needed to order), then the extras. */
+export function gettingStartedSteps(s: GettingStartedState): GettingStartedStep[] {
+  return [
+    {
+      id: "verify",
+      title: "Verify your ID",
+      body: "Needed before you can order online. Upload a photo once; it's checked by hand.",
+      action: "Verify now",
+      done: s.idSubmitted,
+      tab: "verification",
+    },
+    {
+      id: "address",
+      title: "Add a delivery address",
+      body: "So checkout takes a few taps.",
+      action: "Add address",
+      done: s.hasAddress,
+      tab: "addresses",
+    },
+    {
+      id: "username",
+      title: "Choose your username",
+      body: "It's your referral code: friends who join earn you loyalty points.",
+      action: "Choose",
+      done: s.hasUsername,
+      tab: "rewards",
+    },
+    {
+      id: "shop",
+      title: "Browse the menu",
+      body: "See what's in stock today.",
+      action: "Open the shop",
+      done: false,
+      href: "/shop",
+    },
+  ];
 }

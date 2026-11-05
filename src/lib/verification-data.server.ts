@@ -121,11 +121,22 @@ export async function submitVerification(
     path: string;
     dob: string;
     expiresOn: string | null;
+    /** The ID / passport number (moved here from sign-up, 5 Nov 2026). Kept if one is already on file. */
+    idNumber: string;
     key: string;
   },
 ) {
   if (!isOwnUploadPath(userId, input.path))
     throw friendlyMemberError(new Error("invalid_document_path"));
+  // Recorded first, so a typo is reported before the upload is used up. Never logged or returned.
+  unwrap(
+    await supabaseAdmin.rpc("verification_record_id_number", {
+      p_user_id: userId,
+      p_id_number: input.idNumber,
+      p_dob: input.dob,
+      p_idempotency_key: `${input.key}-idn`.slice(0, 128),
+    }),
+  );
   const problem = await inspectUpload(input.path);
   if (problem) {
     await storage().remove([input.path]);
