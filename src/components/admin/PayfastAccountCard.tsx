@@ -268,42 +268,46 @@ export function FeesDialog() {
             these taken off.
           </DialogDescription>
         </DialogHeader>
-        <table className="w-full text-xs">
-          <caption className="sr-only">Transaction fees by payment method</caption>
-          <thead>
-            <tr className="border-b border-border text-left">
-              <th className="py-1.5">Payment method</th>
-              <th className="py-1.5">Fee (excl. VAT)</th>
-              <th className="py-1.5 text-right">On R500</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PAYFAST_FEES.methods.map((m) => (
-              <tr key={m.method} className="border-b border-border/60">
-                <td className="py-1.5 font-semibold">{m.method}</td>
-                <td className="py-1.5">{m.fee}</td>
-                <td className="py-1.5 text-right">{zar(m.example)}</td>
+        <div className="-mx-1 overflow-x-auto px-1">
+          <table className="w-full text-xs">
+            <caption className="sr-only">Transaction fees by payment method</caption>
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="py-1.5">Payment method</th>
+                <th className="py-1.5">Fee (excl. VAT)</th>
+                <th className="py-1.5 text-right">On R500</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <table className="w-full text-xs">
-          <caption className="sr-only">Other PayFast fees</caption>
-          <thead>
-            <tr className="border-b border-border text-left">
-              <th className="py-1.5">Refunds and payouts</th>
-              <th className="py-1.5">Fee (excl. VAT)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PAYFAST_FEES.other.map((o) => (
-              <tr key={o.item} className="border-b border-border/60">
-                <td className="py-1.5 font-semibold">{o.item}</td>
-                <td className="py-1.5">{o.fee}</td>
+            </thead>
+            <tbody>
+              {PAYFAST_FEES.methods.map((m) => (
+                <tr key={m.method} className="border-b border-border/60">
+                  <td className="py-1.5 font-semibold">{m.method}</td>
+                  <td className="py-1.5">{m.fee}</td>
+                  <td className="py-1.5 text-right">{zar(m.example)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="-mx-1 overflow-x-auto px-1">
+          <table className="w-full text-xs">
+            <caption className="sr-only">Other PayFast fees</caption>
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="py-1.5">Refunds and payouts</th>
+                <th className="py-1.5">Fee (excl. VAT)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {PAYFAST_FEES.other.map((o) => (
+                <tr key={o.item} className="border-b border-border/60">
+                  <td className="py-1.5 font-semibold">{o.item}</td>
+                  <td className="py-1.5">{o.fee}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <ul className="list-disc pl-4 text-[0.7rem] text-muted-foreground">
           {PAYFAST_FEES.notes.map((n) => (
             <li key={n}>{n}</li>

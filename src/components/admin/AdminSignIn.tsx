@@ -11,7 +11,7 @@ import { signInMessage } from "@/lib/sign-in-message";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="site grid min-h-screen bg-[#F8FAF8] dark:bg-background md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="site grid min-h-dvh bg-[#F8FAF8] dark:bg-background md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className="relative hidden overflow-hidden bg-[#0B3D20] p-10 text-white md:flex md:flex-col md:justify-between">
         <img src={logoWhite} alt="CannaPlug" className="h-8 w-auto self-start" />
         <div>

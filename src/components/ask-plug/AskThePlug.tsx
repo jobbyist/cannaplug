@@ -139,11 +139,13 @@ export function AskThePlug() {
   const lastUser = useRef<string | null>(null);
 
   useEffect(() => setMounted(true), []);
-  // Shown matches expire after 10 minutes: tick so the cards notice without a click.
+  // Shown matches expire after 10 minutes: tick so the cards notice without a click (only while the chat is open).
   useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
     const t = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(t);
-  }, []);
+  }, [open]);
   useEffect(() => {
     if (status.data?.allowance) setAllowance(status.data.allowance);
   }, [status.data?.allowance]);

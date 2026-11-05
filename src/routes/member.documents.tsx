@@ -82,7 +82,7 @@ function MemberDocumentsPage() {
     );
 
   return (
-    <div className="site min-h-screen bg-background">
+    <div className="site min-h-dvh bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <Breadcrumbs bare />
         <header className="mb-8 flex items-center justify-between">
@@ -194,7 +194,7 @@ function MemberDocumentsPage() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-6 text-center">
+    <div className="grid min-h-dvh place-items-center bg-background px-6 text-center">
       <div>{children}</div>
     </div>
   );

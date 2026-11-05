@@ -64,7 +64,7 @@ export function CartDrawer({
                     <div className="mt-2 flex items-center gap-1 rounded-full border border-border px-1 w-fit">
                       <button
                         aria-label={`Decrease quantity of ${line.name}`}
-                        className="grid h-7 w-7 place-items-center"
+                        className="grid h-10 w-10 place-items-center sm:h-8 sm:w-8"
                         onClick={() => stepQuantity(line.productId, -1)}
                       >
                         <Minus size={13} />
@@ -74,7 +74,7 @@ export function CartDrawer({
                       </span>
                       <button
                         aria-label={`Increase quantity of ${line.name}`}
-                        className="grid h-7 w-7 place-items-center"
+                        className="grid h-10 w-10 place-items-center sm:h-8 sm:w-8"
                         onClick={() => stepQuantity(line.productId, 1)}
                       >
                         <Plus size={13} />
@@ -85,7 +85,7 @@ export function CartDrawer({
                     <b className="text-sm">{rand(line.price * line.quantity)}</b>
                     <button
                       aria-label={`Remove ${line.name} from cart`}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="grid h-10 w-10 place-items-center text-muted-foreground hover:text-destructive"
                       onClick={() => remove(line.productId)}
                     >
                       <Trash2 size={15} />

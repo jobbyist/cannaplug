@@ -204,8 +204,9 @@ function Reveal({ children, className = "" }: { children: ReactNode; className?:
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 26 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      // Never start invisible: the server-rendered page would show nothing until the JavaScript loads.
+      initial={reduce ? false : { y: 18 }}
+      whileInView={{ y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
     >
@@ -559,14 +560,11 @@ function Hero() {
         alt="Premium CannaPlug cannabis flower and apothecary jar"
         width={1920}
         height={1080}
+        fetchPriority="high"
+        decoding="async"
       />
       <div className="hero-wash" />
-      <motion.div
-        className="hero-content"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-      >
+      <motion.div className="hero-content" initial={false} animate={{ opacity: 1, y: 0 }}>
         <p className="eyebrow">Premium cannabis dispensary</p>
         <h1>
           QUALITY CANNABIS.

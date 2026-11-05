@@ -2341,3 +2341,105 @@ footer {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * 5 Nov 2026 phone pass (staff feedback: "layouts are a mess on mobile").
+ * Kept in one block so it is easy to review and revert.
+ * ------------------------------------------------------------------------------------------------------------ */
+
+/* iPhone home bar and notches: fixed bars and the page end clear the safe area. */
+.floating-nav {
+  bottom: calc(18px + env(safe-area-inset-bottom));
+}
+footer {
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+/* Section links ("View all", "Shop all") stay on one line. */
+.section-heading .text-link {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Use the dynamic viewport so browser toolbars never hide part of a panel. */
+@supports (height: 100dvh) {
+  .story-modal article {
+    height: min(700px, 90dvh);
+  }
+  .chat-panel {
+    max-height: calc(100dvh - 100px);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Any text box under 16px makes iOS zoom in while typing. */
+  .contact input,
+  .contact textarea,
+  .chat-input-row input {
+    font-size: 16px;
+  }
+  /* Readable labels under the floating nav icons (were ~8.5px). */
+  .floating-nav a {
+    font-size: 0.66rem;
+    letter-spacing: 0.02em;
+  }
+  /* The headline fits the narrowest phones (iPhone SE is 320-375px wide). */
+  .hero h1 {
+    font-size: clamp(2.1rem, 11vw, 2.75rem);
+  }
+  /* Ask The Plug: on phones a round button in the corner instead of a tall tab that covered the search box,
+     the filters and the headline. It sits above the floating nav and the iPhone home bar. */
+  .plug-notch {
+    top: auto;
+    right: 12px;
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    transform: none;
+    writing-mode: horizontal-tb;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    justify-content: center;
+    border: 2px solid #d4af37;
+    border-radius: 999px;
+  }
+  .plug-notch > span:not(.plug-mark) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .plug-notch:hover,
+  .plug-notch:focus-visible {
+    padding-right: 0;
+  }
+  .plug-notch-hidden {
+    transform: scale(0.8);
+  }
+}
+
+/* The narrowest phones (320-400px): the header's buttons used to push the page 42px wider than the screen, so the
+   browser zoomed out and the right edge was cut off. The logo now shrinks first and the buttons sit closer. */
+@media (max-width: 400px) {
+  .header-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 0 12px;
+  }
+  .logo {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .logo img {
+    height: auto;
+    max-height: 24px;
+    max-width: 100%;
+  }
+  .header-actions {
+    gap: 2px;
+  }
+  .cart-pill {
+    margin-left: 2px;
+    padding: 0 6px 0 10px;
+    gap: 6px;
+  }
+}

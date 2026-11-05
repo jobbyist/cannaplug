@@ -107,7 +107,7 @@ export function VerificationShell({
   const color =
     tone === "ok" ? "text-emerald-600" : tone === "warn" ? "text-amber-600" : "text-destructive";
   return (
-    <div className="site grid min-h-screen place-items-center bg-background px-4 py-10">
+    <div className="site grid min-h-dvh place-items-center bg-background px-4 py-10">
       <main className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         <img src={logoImage} alt="CannaPlug" className="mx-auto mb-6 h-6 w-auto" />
         <Icon className={`mx-auto ${color}`} size={44} aria-hidden />

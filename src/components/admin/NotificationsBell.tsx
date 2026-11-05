@@ -80,7 +80,7 @@ export function NotificationsBell({
               {team.loading ? "Loading…" : "No updates yet."}
             </p>
           ) : (
-            <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto">
+            <ul className="max-h-[60dvh] divide-y divide-border overflow-y-auto">
               {recent.map((n) => (
                 <li key={n.id}>
                   <button

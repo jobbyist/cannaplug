@@ -28,12 +28,12 @@ export function DashboardSidebar({
   footer?: ReactNode;
 }) {
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center gap-1 overflow-x-auto border-t border-border bg-card px-2 md:static md:h-auto md:w-64 md:shrink-0 md:flex-col md:items-stretch md:gap-0 md:overflow-visible md:border-r md:border-t-0 md:px-0">
+    <aside className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-center pb-[env(safe-area-inset-bottom)] gap-1 overflow-x-auto border-t border-border bg-card px-2 md:static md:h-auto md:w-64 md:shrink-0 md:flex-col md:items-stretch md:gap-0 md:overflow-visible md:border-r md:border-t-0 md:px-0">
       <div className="hidden border-b border-border px-6 py-5 md:block">{header}</div>
       <nav className="flex flex-1 items-center gap-1 md:flex-col md:items-stretch md:gap-0 md:overflow-y-auto md:px-3 md:py-4">
         {items.map((item) => {
           const cls = cn(
-            "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[0.58rem] font-medium transition md:mb-1 md:w-full md:flex-row md:items-center md:gap-3 md:px-3 md:py-2.5 md:text-sm",
+            "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[0.68rem] font-medium transition md:mb-1 md:w-full md:flex-row md:items-center md:gap-3 md:px-3 md:py-2.5 md:text-sm",
             active === item.id
               ? "bg-primary text-primary-foreground"
               : "text-foreground hover:bg-muted",
@@ -87,7 +87,12 @@ export function DashboardSidebar({
           );
         })}
       </nav>
-      {footer && <div className="hidden border-t border-border p-3 md:block">{footer}</div>}
+      {/* On phones the footer links (sign out, documents) sit at the end of the scrolling bar instead of vanishing. */}
+      {footer && (
+        <div className="flex shrink-0 items-center gap-1 border-l border-border pl-1 max-md:[&>*]:!w-auto max-md:[&>*]:!flex-col max-md:[&>*]:!gap-0.5 max-md:[&>*]:!px-3 max-md:[&>*]:!py-1.5 max-md:[&>*]:!text-[0.68rem] md:block md:border-l-0 md:border-t md:p-3">
+          {footer}
+        </div>
+      )}
     </aside>
   );
 }
