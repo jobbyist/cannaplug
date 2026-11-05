@@ -1966,3 +1966,53 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Applied to the hosted project (5 Nov 2026): yes.** On the owner's go-ahead, Claude ran `import-clinify-187-299.sql` through the Supabase connector (as batch 1's admin actor): `imported: 92`, 21 skipped `email_exists` (`customer_imports`: received 113, imported 92, skipped 21). The owner then confirmed the emails of members 273, 276 and 277 were correct, so their hold was cleared. After: 266 staged in all, no holds, 93 waiting for an invitation (1 from batch 1 + 92), so the daily job invites them 20 a morning from 6 to 10 Nov 2026 (08:00 SAST).
 - **Owner actions:** none left. The workbook and SQL file stay outside git (personal data).
 - **Rollback:** revert the PR (script only). To undo the staging: `delete from public.imported_customers where batch = 'clinify-187-299' and user_id is null;` (members who already signed up keep their account and status).
+
+## 5 Nov 2026 — Stock takes, quick add / remove and delivery receiving (feat/mvp-stock-take)
+
+- **Purpose:** staff feedback: "We need an actual stock management system where we can add and remove stock as needed, count it, and add new stock as it comes in easily." PR C of three (A: sign-up and recovery, #104; B: phone layouts, #105).
+- **Owner decision (5 Nov):** stock take plus quick receive in this round; suppliers and purchase orders later.
+- **Before:** staff could only receive or adjust **one batch at a time**. They had to choose a batch for every change and could count only by adjusting batch by batch.
+- **Now, in /admin → Inventory:**
+  - **Add / Remove on every product row** (managers). Enter how many, tap a reason (Damaged, Expired, Returned to supplier, Used as sample, Found in store, Count correction, or type one) and save. No batch is chosen:
+    - removals come out of the first-expiring batches and never go below what online orders are holding;
+    - additions go to the newest batch, or a dated `ADJ-` batch when the product has none.
+  - **Receive delivery** (managers):
+    - optional supplier name and invoice number;
+    - scan a barcode (USB scanners type the code and press Enter) or search, then enter how many came in, with optional unit cost and expiry per line;
+    - "Receive N products (M units)" saves everything together, or nothing if any line is wrong;
+    - each line becomes a batch `DEL-YYYYMMDD-<invoice>` whose notes record the supplier.
+  - **Stock take**:
+    - A manager starts a count (all products or one category, with an optional note). Only one count can be open at a time.
+    - Anyone on staff counts: scan or search a product, type what is on the shelf, save. The count is **blind** (the system number is hidden while counting), and progress shows "45 of 185 counted" with a "still to count" list.
+    - The manager reviews the differences: short and over in units and at cost, plus a warning about uncounted products, which are left alone. The count can be downloaded as CSV.
+    - **Post** applies every correction in one transaction. **Cancel** changes nothing.
+    - Each difference is measured from what the system showed **when that product was counted**, so till and online sales made during the count are not undone.
+  - **By batch:** the old dialogs now live under each row's "…" menu ("Receive into a batch…", "Adjust a batch…").
+- **Files:** `supabase/migrations/20261105003000_stock_takes.sql`, `src/lib/{stock-ops.server,stock-ops.functions,stock-take-logic,inventory-logic,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{InventoryPanel,StockOpsDialogs,StockTakeDialog,inventory-api}.tsx/ts`, `src/integrations/supabase/types.ts`.
+- **Migration:** `20261105003000_stock_takes`. Mirror `drizzle/migrations/0074_stock_takes.sql`; rollback `supabase/rollbacks/20261105003000_stock_takes_rollback.sql`; rehearsal `scripts/rollback-rehearsal-stock-takes.sh`.
+  - **Tables:** `stock_takes` (one open at a time, unique index) and `stock_take_lines` (`expected_at_count` snapshot taken under the batch locks). Both have RLS; staff (budtender and up) can read; browsers have no write grants.
+  - **Functions:** `stock_take_start` / `_post` / `_cancel` (manager), `stock_take_record_count` (budtender), `stock_quick_adjust` and `stock_receive_delivery` (manager), plus the helpers `_stock_move_product` and `_product_on_hand`. All are `SECURITY DEFINER`, `search_path=''`, take an explicit actor and an idempotency key, write an audit row, and are executable by the service role only.
+  - **Unchanged:** every movement is still an ordinary `inventory_ledger` row (`adjustment` with reference `stock_take`, or `receipt` with reference `delivery`), so on-hand counts, reports and the till work as before. `receive_stock` and `adjust_stock` are untouched.
+  - **Applied to the hosted project (khltynzzcjhlujxbgyod): not yet.**
+- **Tests:**
+  - **`db/stock-takes` (14):**
+    - posting short, over and exact lines together;
+    - a till sale between counting and posting is kept;
+    - stock held for online orders is never removed;
+    - removals come out of the first-expiring batch;
+    - a product with no batch gets a dated one;
+    - a delivery is all-or-nothing;
+    - role rules: budtenders count, managers do the rest, customers can't;
+    - one open count at a time, and a closed count can't be touched;
+    - category counts take only that category;
+    - retries are idempotent;
+    - everything is audited;
+    - browsers are locked out;
+    - **mutation checks:** removing the manager check lets a budtender post; removing the held-stock rule lets a count take stock promised to an order.
+  - **`inventory-panel` (9):** remove with a required reason; a delivery by barcode scan sends only ids and quantities; start → blind count → review → post; budtenders can count but not post; the by-batch dialogs from the menu.
+  - **`stock-take-logic` (4):** barcode / SKU / name lookup, count scope, variance at cost, a CSV that can't run formulas.
+  - **Rehearsal** and **`scripts/verify-release.sh`** (see PR).
+- **Needs the owner:**
+  1. Apply the migration to the hosted project **before** deploying this branch (the Inventory tab calls the new functions). I can do it on your go-ahead.
+  2. Products need barcodes on file for scanning (Products tab or the CSV import). Search by name works without them.
+- **Rollback:** revert the PR, then run the rollback SQL. Stock already moved stays; export `stock_takes` / `stock_take_lines` first if the count history matters.

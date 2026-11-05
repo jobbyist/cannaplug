@@ -11,6 +11,15 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Your role can't do this. Ask a manager.",
   // POS
   insufficient_stock: "Not enough stock available",
+  // Stock takes and deliveries
+  stock_take_open: "A stock count is already open. Finish or cancel it first",
+  stock_take_closed: "This count has already been posted or cancelled",
+  stock_take_not_found: "That stock count could not be found",
+  wrong_category: "That product is not in the category being counted",
+  duplicate_product: "Each product can appear only once in a delivery. Combine the quantities",
+  invalid_lines: "Check the delivery lines",
+  invalid_supplier: "The supplier name is too long",
+  invalid_reference: "The delivery reference is too long",
   tender_mismatch: "Tenders must add up exactly to the sale total",
   session_closed: "This till session is closed",
   session_not_yours: "This till session belongs to another cashier",
@@ -98,6 +107,7 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
 /** Detail after the code carries numbers or names staff need (never SQL). */
 const SHOW_DETAIL = new Set([
   "insufficient_stock",
+  "wrong_category",
   "tender_mismatch",
   "over_refund",
   "refund_mismatch",
