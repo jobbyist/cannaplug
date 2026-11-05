@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { RESET_REDIRECT, authProblem } from "@/lib/auth-messages";
+import { requestPasswordResetFn } from "@/lib/password-reset.functions";
 import { passwordProblem } from "@/lib/password-rules";
 import { PasswordHints, PasswordInput } from "./PasswordInput";
 
@@ -96,7 +96,10 @@ export function ChangePasswordForm({
   );
 }
 
-/** Signed out: email a reset link. The answer is the same whether or not the address has an account. */
+/**
+ * Signed out: email a reset link. The server sends a branded email through Resend (limits are checked in the
+ * database). The answer is the same whether or not the address has an account.
+ */
 export function ForgotPasswordForm({
   onBack,
   initialEmail = "",
@@ -114,18 +117,15 @@ export function ForgotPasswordForm({
     setBusy(true);
     setError(null);
     try {
-      const { error: sendError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: RESET_REDIRECT,
-      });
-      // A sending problem (too many emails) is shown, because it is not about this person's account.
-      // Anything else gets the same answer whether or not the address has an account.
-      if (sendError && authProblem(sendError.message).kind === "rate_limited")
-        return setError(authProblem(sendError.message).message);
+      await requestPasswordResetFn({ data: { email: email.trim(), key: crypto.randomUUID() } });
       setSent(true);
     } catch (err) {
-      const p = authProblem(err instanceof Error ? err.message : "");
-      if (p.kind === "rate_limited") setError(p.message);
-      else setSent(true);
+      // Refusals (too many requests, email allowance used up) never depend on whether an account exists.
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "We couldn't send the email just now. Please try again in a few minutes.",
+      );
     } finally {
       setBusy(false);
     }

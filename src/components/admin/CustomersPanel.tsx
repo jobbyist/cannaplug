@@ -45,7 +45,7 @@ export function CustomersPanel({
     setResetting(id);
     setResetNote(null);
     try {
-      await sendMemberPasswordResetFn({ data: { memberId: id } });
+      await sendMemberPasswordResetFn({ data: { memberId: id, key: crypto.randomUUID() } });
       setResetNote({
         ok: true,
         text: `Reset link sent to ${name}. Ask them to check their inbox and spam folder; the link works once, for one hour.`,

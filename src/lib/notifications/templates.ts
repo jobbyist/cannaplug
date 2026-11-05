@@ -434,6 +434,31 @@ export const TEMPLATES: Record<string, Template> = {
   }),
   // One-time invitation to members brought over from the previous platform. No ID, health or order data: first name
   // and the username they already have.
+  // Sent straight from the reset request (not queued): the link is single-use and expires in an hour, so it must
+  // never sit in the notification table. `reset_url` is the Supabase one-time link.
+  password_reset: (d) => {
+    const name = String(d["first_name"] ?? "").trim();
+    return {
+      subject: "Reset your Cannaplug password",
+      html: layout({
+        preheader: "Choose a new password. The link works once, for one hour.",
+        title: "Choose a new password",
+        bodyHtml:
+          p(`Hi${name ? ` ${esc(name)}` : ""},`) +
+          p(
+            d["by_staff"]
+              ? "A member of the Cannaplug team sent you this link so you can get back into your account."
+              : "We received a request to reset the password for your Cannaplug account.",
+          ) +
+          p(
+            "Tap the button below and choose a new password. Tap <b>Show</b> to check what you typed, and let your phone save it.",
+          ),
+        cta: { label: "Choose a new password", url: String(d["reset_url"] ?? "") },
+        footerNote:
+          "The link works once, for one hour. If you didn't ask for this, ignore this email: your password stays the same.",
+      }),
+    };
+  },
   member_import_invite: (d, c) => {
     const base = c.siteUrl.replace(/\/+$/, "");
     const name = String(d["first_name"] ?? "").trim();

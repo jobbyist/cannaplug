@@ -3,18 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   assertRole: vi.fn(),
   getUserById: vi.fn(),
-  resetPasswordForEmail: vi.fn(),
-  insert: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
 }));
 vi.mock("@/lib/admin-data.server", () => ({ assertRole: m.assertRole }));
 vi.mock("@/integrations/supabase/client.server", () => ({
-  supabaseAdmin: {
-    auth: {
-      admin: { getUserById: m.getUserById },
-      resetPasswordForEmail: m.resetPasswordForEmail,
-    },
-    from: () => ({ insert: m.insert }),
-  },
+  supabaseAdmin: { auth: { admin: { getUserById: m.getUserById } } },
+}));
+vi.mock("@/lib/password-reset.server", async (orig) => ({
+  ...(await orig<typeof import("@/lib/password-reset.server")>()),
+  sendPasswordResetEmail: m.sendPasswordResetEmail,
+  liveResetDeps: async () => ({}),
 }));
 
 import { sendMemberPasswordReset } from "@/lib/member-password-reset.server";
@@ -26,35 +24,32 @@ describe("staff send a locked-out member a reset link", () => {
     vi.clearAllMocks();
     m.assertRole.mockResolvedValue("manager");
     m.getUserById.mockResolvedValue({ data: { user: { email: "m@example.com" } }, error: null });
-    m.resetPasswordForEmail.mockResolvedValue({ error: null });
-    m.insert.mockResolvedValue({ error: null });
+    m.sendPasswordResetEmail.mockResolvedValue({ ok: true });
   });
 
-  it("checks the manager role first, emails the reset page link and audits without the email", async () => {
-    await expect(sendMemberPasswordReset("staff-1", MEMBER)).resolves.toEqual({ sent: true });
+  it("checks the manager role first, then sends the branded email as that staff member", async () => {
+    await expect(sendMemberPasswordReset("staff-1", MEMBER, "key-12345")).resolves.toEqual({
+      sent: true,
+    });
     expect(m.assertRole).toHaveBeenCalledWith("staff-1", "manager");
-    expect(m.resetPasswordForEmail).toHaveBeenCalledWith("m@example.com", {
-      redirectTo: "https://cannaplug012.co.za/reset-password",
-    });
-    const row = m.insert.mock.calls[0]![0];
-    expect(row).toMatchObject({
-      actor_user_id: "staff-1",
-      action: "member_password_reset_sent",
-      target_user_id: MEMBER,
-    });
-    expect(JSON.stringify(row)).not.toContain("m@example.com");
+    expect(m.sendPasswordResetEmail).toHaveBeenCalledWith(
+      { email: "m@example.com", ipHash: null, actor: "staff-1", key: "key-12345" },
+      expect.anything(),
+    );
   });
 
   it("a budtender (or anyone below manager) cannot send one", async () => {
     m.assertRole.mockRejectedValue(new Error("Forbidden: insufficient staff permissions"));
-    await expect(sendMemberPasswordReset("bud-1", MEMBER)).rejects.toThrow(/Forbidden/);
-    expect(m.resetPasswordForEmail).not.toHaveBeenCalled();
-    expect(m.insert).not.toHaveBeenCalled();
+    await expect(sendMemberPasswordReset("bud-1", MEMBER, "key-12345")).rejects.toThrow(
+      /Forbidden/,
+    );
+    expect(m.sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 
-  it("explains a sending limit and records nothing when the email did not go", async () => {
-    m.resetPasswordForEmail.mockResolvedValue({ error: new Error("email rate limit exceeded") });
-    await expect(sendMemberPasswordReset("staff-1", MEMBER)).rejects.toThrow(/too many/);
-    expect(m.insert).not.toHaveBeenCalled();
+  it("explains a refusal in plain words", async () => {
+    m.sendPasswordResetEmail.mockResolvedValue({ ok: false, reason: "email_limit" });
+    await expect(sendMemberPasswordReset("staff-1", MEMBER, "key-12345")).rejects.toThrow(
+      /last hour/,
+    );
   });
 });

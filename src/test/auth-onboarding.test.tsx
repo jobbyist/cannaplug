@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
 });
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: mocks.auth } }));
 vi.mock("@/lib/admin.functions", () => ({ getMyStaffAccessFn: mocks.getMyStaffAccessFn }));
+vi.mock("@/lib/password-reset.functions", () => ({ requestPasswordResetFn: vi.fn() }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (opts: unknown) => opts,
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (

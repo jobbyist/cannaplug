@@ -3,8 +3,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const auth = vi.hoisted(() => ({ updateUser: vi.fn(), resetPasswordForEmail: vi.fn() }));
+const auth = vi.hoisted(() => ({ updateUser: vi.fn() }));
+const reset = vi.hoisted(() => ({ requestPasswordResetFn: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth } }));
+vi.mock("@/lib/password-reset.functions", () => reset);
 
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
 import { passwordProblem } from "@/lib/password-rules";
@@ -58,15 +60,15 @@ describe("ChangePasswordForm", () => {
 });
 
 describe("ForgotPasswordForm", () => {
-  it("emails a link to the reset page and never says whether the account exists", async () => {
-    auth.resetPasswordForEmail.mockRejectedValue(new Error("User not found"));
+  it("asks the server to send the branded email and never says whether the account exists", async () => {
+    reset.requestPasswordResetFn.mockResolvedValue({ ok: true });
     const user = userEvent.setup();
     render(<ForgotPasswordForm onBack={vi.fn()} />);
     await user.type(screen.getByLabelText("Email address"), "someone@example.com");
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
     await waitFor(() =>
-      expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("someone@example.com", {
-        redirectTo: "https://cannaplug012.co.za/reset-password",
+      expect(reset.requestPasswordResetFn).toHaveBeenCalledWith({
+        data: { email: "someone@example.com", key: expect.any(String) },
       }),
     );
     expect((await screen.findByRole("status")).textContent).toMatch(
@@ -76,16 +78,15 @@ describe("ForgotPasswordForm", () => {
 });
 
 describe("email sending problems", () => {
-  it("tells the customer when the reset email could not be sent (rate limit), without revealing the account", async () => {
-    auth.resetPasswordForEmail.mockResolvedValue({
-      data: null,
-      error: new Error("email rate limit exceeded"),
-    });
+  it("shows the server's reason when the email could not be sent, and no success message", async () => {
+    reset.requestPasswordResetFn.mockRejectedValue(
+      new Error("We've already sent reset links to this address in the last hour."),
+    );
     const user = userEvent.setup();
     render(<ForgotPasswordForm onBack={vi.fn()} />);
     await user.type(screen.getByLabelText("Email address"), "someone@example.com");
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
-    expect((await screen.findByRole("alert")).textContent).toMatch(/couldn't send the email/);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/already sent reset links/);
     expect(screen.queryByRole("status")).toBeNull();
   });
 });

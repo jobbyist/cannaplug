@@ -320,8 +320,10 @@ export const removeProductImageFn = createServerFn({ method: "POST" })
 /** Managers and admins email a locked-out member a password-reset link. Only the member's id is sent. */
 export const sendMemberPasswordResetFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
-  .validator((d) => z.object({ memberId: z.string().uuid() }).parse(d))
+  .validator((d) =>
+    z.object({ memberId: z.string().uuid(), key: z.string().min(8).max(120) }).parse(d),
+  )
   .handler(async ({ context, data }) => {
     const { sendMemberPasswordReset } = await import("@/lib/member-password-reset.server");
-    return sendMemberPasswordReset(context.userId, data.memberId);
+    return sendMemberPasswordReset(context.userId, data.memberId, data.key);
   });
