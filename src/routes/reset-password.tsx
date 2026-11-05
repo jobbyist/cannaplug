@@ -4,7 +4,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
-import { recoveryLinkProblem } from "@/lib/auth-messages";
+import { recoveryLinkProblem, takeRecoveryMarker } from "@/lib/auth-messages";
 import { getMyStaffAccessFn } from "@/lib/admin.functions";
 import logoImage from "@/assets/cannaplug-logo.png";
 
@@ -27,6 +27,7 @@ const LINK_WAIT_MS = 4000;
 type Phase =
   | { kind: "checking" }
   | { kind: "ready" }
+  | { kind: "signed_in" }
   | { kind: "bad_link"; message: string }
   | { kind: "done"; destination: "/account" | "/admin" };
 
@@ -45,8 +46,22 @@ export function ResetPasswordPage() {
       settled = true;
       setPhase({ kind: "ready" });
     };
+    // A session alone is not enough: someone simply signed in should change their password in their account, not
+    // here. A session counts only with a recovery signal: the event itself, a recovery token in this URL, or the
+    // marker useAuth leaves when it moves a recovery link here from another page.
+    const recoveryInUrl =
+      /(?:^|[#&])type=recovery(?:&|$)/.test(window.location.hash) ||
+      new URLSearchParams(window.location.search).has("code");
+    const recoveryHandedOver = takeRecoveryMarker();
+    const signedInOnly = () => {
+      if (settled) return;
+      settled = true;
+      setPhase({ kind: "signed_in" });
+    };
+    const fromSession = () => (recoveryInUrl || recoveryHandedOver ? ready() : signedInOnly());
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) ready();
+      if (event === "PASSWORD_RECOVERY") ready();
+      else if (session && recoveryInUrl) ready();
     });
     const code = new URLSearchParams(window.location.search).get("code");
     if (code) {
@@ -60,7 +75,10 @@ export function ResetPasswordPage() {
         }
       });
     }
-    void supabase.auth.getSession().then(({ data: s }) => s.session && ready());
+    void supabase.auth.getSession().then(({ data: s }) => {
+      // With a recovery token still in the URL, Supabase may not have read it yet: wait for its event.
+      if (s.session && !(recoveryInUrl && !recoveryHandedOver)) fromSession();
+    });
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
@@ -107,6 +125,18 @@ export function ResetPasswordPage() {
               intro="Pick a password you'll remember. Tap Show to check what you typed. If your phone offers to save it, say yes."
               onDone={() => void finished()}
             />
+          </div>
+        )}
+        {phase.kind === "signed_in" && (
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+            <h1 className="font-display text-xl font-extrabold uppercase">You&apos;re signed in</h1>
+            <p className="text-sm text-muted-foreground">
+              This page is for reset links from your email. To change your password, go to Account
+              settings.
+            </p>
+            <Button asChild size="lg">
+              <a href="/account">Go to my account</a>
+            </Button>
           </div>
         )}
         {phase.kind === "done" && (

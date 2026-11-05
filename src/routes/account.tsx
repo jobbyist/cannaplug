@@ -42,7 +42,7 @@ import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
 import { EmailPreferences } from "@/components/account/EmailPreferences";
-import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
+import { AUTH_REDIRECT, authProblem, markRecovery } from "@/lib/auth-messages";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
 import { AddressesPanel } from "@/components/account/AddressesPanel";
@@ -68,8 +68,10 @@ function AccountPage() {
   const { user, loading } = useAuth();
   // Reset links sent before 5 Nov 2026 point here with ?reset=1: hand over to the page built for it.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("reset"))
+    if (new URLSearchParams(window.location.search).has("reset")) {
+      markRecovery();
       window.location.replace(`/reset-password${window.location.hash}`);
+    }
   }, []);
   if (loading)
     return (

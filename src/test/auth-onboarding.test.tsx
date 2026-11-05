@@ -129,7 +129,8 @@ describe("/reset-password page", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("members go back to their account", async () => {
+  it("members go back to their account (recovery handed over from another page)", async () => {
+    window.sessionStorage.setItem("cannaplug.recovery", String(Date.now()));
     mocks.auth.getSession.mockResolvedValueOnce({
       data: { session: { user: { id: "u2" } } },
     } as never);
@@ -152,7 +153,29 @@ describe("/reset-password page", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/couldn't find a reset link/);
   });
 
+  it("someone simply signed in is sent to their account settings, not shown the reset form", async () => {
+    mocks.auth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: "u4" } } },
+    } as never);
+    render(<ResetPasswordPage />);
+    expect(await screen.findByText("You're signed in")).toBeTruthy();
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    expect(screen.getByRole("link", { name: "Go to my account" }).getAttribute("href")).toBe(
+      "/account",
+    );
+  });
+
+  it("the hand-over marker works once and only for a short time", async () => {
+    const { takeRecoveryMarker } = await import("@/lib/auth-messages");
+    window.sessionStorage.setItem("cannaplug.recovery", String(Date.now()));
+    expect(takeRecoveryMarker()).toBe(true);
+    expect(takeRecoveryMarker()).toBe(false);
+    window.sessionStorage.setItem("cannaplug.recovery", String(Date.now() - 11 * 60_000));
+    expect(takeRecoveryMarker()).toBe(false);
+  });
+
   it("the password field can be shown, so a suggested password is never lost", async () => {
+    window.sessionStorage.setItem("cannaplug.recovery", String(Date.now()));
     mocks.auth.getSession.mockResolvedValueOnce({
       data: { session: { user: { id: "u3" } } },
     } as never);

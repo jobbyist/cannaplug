@@ -91,7 +91,8 @@ export async function sendPasswordResetEmail(
       redirectTo: RESET_REDIRECT,
     });
     await finish(error ? "failed" : "sent");
-    return { ok: true };
+    // Supabase answers the same for unknown addresses, so a failure here says nothing about an account.
+    return error ? { ok: false, reason: "send_failed" } : { ok: true };
   }
 
   const { data, error } = await deps.admin.auth.admin.generateLink({

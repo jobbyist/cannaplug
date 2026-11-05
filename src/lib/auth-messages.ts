@@ -9,6 +9,28 @@ export const AUTH_REDIRECT = `${SITE_URL}/account`;
  */
 export const RESET_REDIRECT = `${SITE_URL}/reset-password`;
 
+/** Left by useAuth when it moves a recovery link from another page to /reset-password (this tab only). */
+export const RECOVERY_MARKER = "cannaplug.recovery";
+
+export function markRecovery() {
+  try {
+    window.sessionStorage.setItem(RECOVERY_MARKER, String(Date.now()));
+  } catch {
+    /* storage blocked: the reset page then asks the person to use their account settings */
+  }
+}
+
+/** True once, within 10 minutes of a recovery hand-over in this tab; the marker is removed when read. */
+export function takeRecoveryMarker(now = Date.now()): boolean {
+  try {
+    const at = Number(window.sessionStorage.getItem(RECOVERY_MARKER));
+    window.sessionStorage.removeItem(RECOVERY_MARKER);
+    return Number.isFinite(at) && at > 0 && now - at >= 0 && now - at < 10 * 60_000;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Supabase reports a bad email link in the URL (`#error=access_denied&error_code=otp_expired&...`, or the same
  * in the query string). Returns words a member can act on, or null when the link carried no error.

@@ -144,6 +144,19 @@ describe("branded password-reset emails (sent by the app through Resend)", () =>
     expect(finishStatus(f.rpc)).toBe("sent");
   });
 
+  it("the fallback reports a Supabase mailer failure instead of claiming success", async () => {
+    const f = fakeDeps({ env: {} });
+    f.resetPasswordForEmail.mockResolvedValueOnce({
+      error: { message: "email rate limit exceeded" },
+    } as never);
+    const out = await sendPasswordResetEmail(
+      { email: "a@b.co", ipHash: null, actor: null, key: "key-12345" },
+      f.deps,
+    );
+    expect(out).toEqual({ ok: false, reason: "send_failed" });
+    expect(finishStatus(f.rpc)).toBe("failed");
+  });
+
   it("the email uses the CannaPlug design, escapes the name and says when staff sent it", () => {
     const r = renderTemplate(
       "password_reset",
