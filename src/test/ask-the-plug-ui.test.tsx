@@ -384,18 +384,25 @@ describe("launch announcement", () => {
     });
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
-  it("on /account the intro sends the member to the shop with the chat set to open", async () => {
+  it("never pops up on /account, where people sign up, verify and change passwords", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     mocks.path.current = "/account";
     mocks.getAskThePlugStatusFn.mockResolvedValue(status({ intro: "full" }));
     renderUI();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1600);
+      await vi.advanceTimersByTimeAsync(3200);
     });
-    await user.click(await screen.findByRole("button", { name: /ask the plug now/i }));
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/shop" });
-    expect(sessionStorage.getItem("cannaplug.chat.plug.open")).toBe("1");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("never greets a member who has only just joined, even on the shop", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mocks.user.current = { id: "u1", user_metadata: { onboarding_tour: "pending" } };
+    mocks.getAskThePlugStatusFn.mockResolvedValue(status({ intro: "full" }));
+    renderUI();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3200);
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
   it("signed-out visitors never get the member announcement", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });

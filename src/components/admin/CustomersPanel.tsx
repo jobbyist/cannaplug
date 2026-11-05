@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listCustomersFn } from "@/lib/admin.functions";
+import { listCustomersFn, sendMemberPasswordResetFn } from "@/lib/admin.functions";
 import { UsernameEditDialog, type UsernameTarget } from "@/components/admin/UsernameEditDialog";
 import { rand } from "@/lib/cart";
 
@@ -34,6 +34,31 @@ export function CustomersPanel({
   const [search, setSearch] = useState(focusLabel ?? "");
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<UsernameTarget | null>(null);
+  const [resetNote, setResetNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [resetting, setResetting] = useState<string | null>(null);
+  // A locked-out member gets the normal reset email; staff never see or choose the password.
+  const sendReset = async (id: string, name: string, email: string | null) => {
+    if (
+      !window.confirm(`Email ${name} a link to choose a new password${email ? ` (${email})` : ""}?`)
+    )
+      return;
+    setResetting(id);
+    setResetNote(null);
+    try {
+      await sendMemberPasswordResetFn({ data: { memberId: id, key: crypto.randomUUID() } });
+      setResetNote({
+        ok: true,
+        text: `Reset link sent to ${name}. Ask them to check their inbox and spam folder; the link works once, for one hour.`,
+      });
+    } catch (e) {
+      setResetNote({
+        ok: false,
+        text: e instanceof Error ? e.message : "The email could not be sent.",
+      });
+    } finally {
+      setResetting(null);
+    }
+  };
 
   useEffect(() => {
     setText(focusLabel ?? "");
@@ -88,6 +113,14 @@ export function CustomersPanel({
           {q.error instanceof Error ? q.error.message : "Could not load customers."}
         </p>
       )}
+      {resetNote && (
+        <p
+          role={resetNote.ok ? "status" : "alert"}
+          className={`mb-3 rounded-md px-3 py-2 text-sm ${resetNote.ok ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}
+        >
+          {resetNote.text}
+        </p>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -98,7 +131,7 @@ export function CustomersPanel({
             <TableHead>Member since</TableHead>
             <TableHead>Orders</TableHead>
             <TableHead>Spend</TableHead>
-            {canEditUsername && <TableHead className="text-right">Username</TableHead>}
+            {canEditUsername && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -117,16 +150,31 @@ export function CustomersPanel({
               <TableCell>{rand(c.spend_rand)}</TableCell>
               {canEditUsername && (
                 <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    aria-label={`Change username for ${c.full_name ?? "this member"}`}
-                    onClick={() =>
-                      setEditing({ id: c.id, name: c.full_name ?? "Unnamed", username: c.username })
-                    }
-                  >
-                    Change
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Change username for ${c.full_name ?? "this member"}`}
+                      onClick={() =>
+                        setEditing({
+                          id: c.id,
+                          name: c.full_name ?? "Unnamed",
+                          username: c.username,
+                        })
+                      }
+                    >
+                      Username
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={resetting === c.id || !c.email}
+                      aria-label={`Send a password reset link to ${c.full_name ?? "this member"}`}
+                      onClick={() => void sendReset(c.id, c.full_name ?? "this member", c.email)}
+                    >
+                      {resetting === c.id ? "Sending…" : "Reset password"}
+                    </Button>
+                  </div>
                 </TableCell>
               )}
             </TableRow>

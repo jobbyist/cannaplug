@@ -69,6 +69,8 @@ const PUBLIC_FNS: Record<string, string> = {
     "whether POS and checkout are paused for an unpaid platform bill (a yes/no, no input)",
   getPaypalRateFn: "today's public ZAR/USD rate for the PayPal estimate (no input, no member data)",
   submitContactFn: "public contact form; honeypot + per-IP rate limit",
+  requestPasswordResetFn:
+    "forgot password; honeypot, per-address and per-IP limits in the database, same answer with or without an account",
   subscribeNewsletterFn: "public newsletter; honeypot + per-IP rate limit",
   unsubscribeNewsletterFn: "token in the email link",
   getJournalEngagementFn:

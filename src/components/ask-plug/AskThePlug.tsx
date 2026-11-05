@@ -7,6 +7,7 @@ import { askThePlug, type PlugReply } from "@/lib/chat.functions";
 import { plugQuizFn, plugReserveFn } from "@/lib/plug-match.functions";
 import { clearChatStorage } from "@/lib/chat-storage";
 import { isStorefrontPath } from "@/lib/ask-plug-access";
+import { AGE_CONFIRMED_EVENT, ageConfirmedNow } from "@/components/age-gate-logic";
 import { useCart, rand } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { PlugMark } from "./PlugMark";
@@ -191,7 +192,16 @@ export function AskThePlug() {
     };
   }, [open]);
 
-  const visible = mounted && status.data?.available === true && isStorefrontPath(pathname);
+  // Kept back until the visitor has answered the 18+ question, so it never sits on top of (or opens over) it.
+  const [ageOk, setAgeOk] = useState(false);
+  useEffect(() => {
+    setAgeOk(ageConfirmedNow(pathname));
+    const onConfirm = () => setAgeOk(true);
+    window.addEventListener(AGE_CONFIRMED_EVENT, onConfirm);
+    return () => window.removeEventListener(AGE_CONFIRMED_EVENT, onConfirm);
+  }, [pathname]);
+
+  const visible = mounted && ageOk && status.data?.available === true && isStorefrontPath(pathname);
 
   const send = useCallback(
     async (text: string) => {

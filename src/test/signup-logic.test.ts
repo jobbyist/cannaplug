@@ -16,7 +16,6 @@ const good: SignupFields = {
   email: "rae@example.com",
   phone: "082 123 4567",
   dob: "1990-01-01",
-  idNumber: "AB123456",
   referral: "",
   username: "rae_h",
 };
@@ -29,12 +28,17 @@ describe("sign-up rules", () => {
     ["lastName", " "],
     ["email", "nope"],
     ["phone", ""],
-    ["idNumber", ""],
+    ["phone", "abc"],
     ["username", "ab"],
     ["username", "has space"],
     ["username", "admin"],
   ] as const)("requires %s", (key, value) => {
     expect(signupProblem({ ...good, [key]: value }, null)).not.toBeNull();
+  });
+
+  it("no longer asks for an ID number (5 Nov 2026)", () => {
+    expect("id_number" in signupMetadata(good)).toBe(false);
+    expect(Object.keys(good)).not.toContain("idNumber");
   });
 
   it("the username is optional, but a bad one is still refused", () => {
@@ -70,10 +74,9 @@ describe("sign-up rules", () => {
     expect(referralProblem("a!")).not.toBeNull();
   });
 
-  it("builds metadata with a normalised ID and optional referral", () => {
+  it("builds metadata with trimmed names and an optional referral", () => {
     const m = signupMetadata({
       ...good,
-      idNumber: "ab 123456",
       referral: " friend1 ",
       username: " Rae_H ",
     });
@@ -81,7 +84,7 @@ describe("sign-up rules", () => {
       full_name: "Rae Hearsal",
       first_name: "Rae",
       last_name: "Hearsal",
-      id_number: "AB123456",
+      phone: "082 123 4567",
       referral_code: "FRIEND1",
       username: "rae_h",
     });

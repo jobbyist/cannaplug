@@ -1619,7 +1619,7 @@ footer {
   position: fixed;
   top: 50%;
   right: 0;
-  z-index: 120;
+  z-index: 90; /* below the 18+ gate (100) */
   transform: translateY(-50%);
   display: flex;
   align-items: center;
@@ -1652,7 +1652,7 @@ footer {
 }
 .chat-panel {
   position: fixed;
-  z-index: 150;
+  z-index: 95; /* below the 18+ gate (100) */
   bottom: 18px;
   right: 18px;
   width: min(380px, calc(100vw - 32px));
@@ -1995,7 +1995,7 @@ footer {
   position: fixed;
   top: 50%;
   right: 0;
-  z-index: 120;
+  z-index: 90; /* below the 18+ gate (100) */
   transform: translateY(-50%);
   display: flex;
   align-items: center;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { AGE_GATE_KEY, ageGateNeeded } from "@/components/age-gate-logic";
+import { AGE_GATE_KEY, ageGateNeeded, markAgeConfirmed } from "@/components/age-gate-logic";
 
 function readStored(): number | null {
   try {
@@ -32,6 +32,7 @@ export function AgeGate() {
     } catch {
       /* private mode: confirmed for this visit only */
     }
+    markAgeConfirmed();
     setOpen(false);
   };
 

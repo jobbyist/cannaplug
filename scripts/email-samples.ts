@@ -81,6 +81,10 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   staff_eft_approval: { amount: 12500 },
   staff_id_review: { member_name: "Thandi Mokoena" },
   member_import_invite: { first_name: "Thandi", username: "thandi.mokoena" },
+  password_reset: {
+    first_name: "Thandi",
+    reset_url: "https://cannaplug012.co.za/reset-password#sample",
+  },
   id_credits_low: { available: 97, reserved: 558, total: 655, threshold: 100, cost_per_check: 3 },
   staff_daily_sales: {
     day: "2026-10-27",

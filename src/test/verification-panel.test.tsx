@@ -19,6 +19,10 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { VerificationBanner, VerificationPanel } from "@/components/account/VerificationPanel";
 
 const png = () => new File([new Uint8Array([1, 2, 3])], "id.png", { type: "image/png" });
+/** A valid SA ID number for someone born 17 May 1990 (Luhn checksum passes). */
+const ID_1990_05_17 = "9005175009083";
+const typeId = (value = ID_1990_05_17) =>
+  userEvent.type(screen.getByLabelText(/^ID number|^Document number/), value);
 
 describe("VerificationPanel", () => {
   beforeEach(() => {
@@ -34,6 +38,7 @@ describe("VerificationPanel", () => {
   it("uploads to the minted URL, then submits — in that order — and refreshes", async () => {
     const onDone = vi.fn().mockResolvedValue(undefined);
     render(<VerificationPanel verification={null} defaultDob="1990-05-17" onDone={onDone} />);
+    await typeId();
     await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -46,6 +51,7 @@ describe("VerificationPanel", () => {
         documentType: "sa_id",
         path: "u/abc.png",
         dob: "1990-05-17",
+        idNumber: ID_1990_05_17,
       }),
     });
     expect(mocks.uploadToSignedUrl.mock.invocationCallOrder[0]!).toBeLessThan(
@@ -59,6 +65,7 @@ describe("VerificationPanel", () => {
     expect(screen.queryByLabelText(/expiry date/i)).toBeNull();
     await userEvent.selectOptions(screen.getByLabelText(/document type/i), "passport");
     const expiry = screen.getByLabelText(/expiry date/i);
+    await typeId("A1234567");
     await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
     fireEvent.change(expiry, { target: { value: "2020-01-01" } });
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
@@ -78,6 +85,7 @@ describe("VerificationPanel", () => {
 
   it("an SA ID submission sends no expiry", async () => {
     render(<VerificationPanel verification={null} defaultDob="1990-05-17" onDone={vi.fn()} />);
+    await typeId();
     await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
     await waitFor(() => expect(mocks.submitVerificationFn).toHaveBeenCalled());
@@ -94,6 +102,7 @@ describe("VerificationPanel", () => {
         onDone={vi.fn()}
       />,
     );
+    await typeId("A1234567");
     await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/18 or older/);
@@ -103,12 +112,23 @@ describe("VerificationPanel", () => {
   it("requires a file, and surfaces a server refusal without leaving the form", async () => {
     mocks.submitVerificationFn.mockRejectedValue(new Error("Your ID is being reviewed"));
     render(<VerificationPanel verification={null} defaultDob="1990-05-17" onDone={vi.fn()} />);
+    await typeId();
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/choose a photo/i);
     await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
     await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/being reviewed/));
     expect(screen.getByRole("button", { name: /submit for review/i })).toBeTruthy();
+  });
+
+  it("asks for the ID number here (moved from sign-up) and checks it against the date of birth", async () => {
+    render(<VerificationPanel verification={null} defaultDob="1991-05-17" onDone={vi.fn()} />);
+    expect(screen.getByLabelText(/^ID number/)).toHaveProperty("required", true);
+    await userEvent.upload(screen.getByLabelText(/photo or scan/i), png());
+    await typeId();
+    await userEvent.click(screen.getByRole("button", { name: /submit for review/i }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/don't match/);
+    expect(mocks.createIdUploadFn).not.toHaveBeenCalled();
   });
 
   it("shows no form while pending, and the reason after a rejection", () => {

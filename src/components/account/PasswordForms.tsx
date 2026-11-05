@@ -3,11 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
-import { MIN_PASSWORD, passwordProblem } from "@/lib/password-rules";
+import { requestPasswordResetFn } from "@/lib/password-reset.functions";
+import { passwordProblem } from "@/lib/password-rules";
+import { PasswordHints, PasswordInput } from "./PasswordInput";
 
 /** Signed in: choose a new password (also used after following a reset link). */
-export function ChangePasswordForm({ intro }: { intro?: string }) {
+export function ChangePasswordForm({
+  intro,
+  title = "Change password",
+  onDone,
+}: {
+  intro?: string;
+  title?: string;
+  /** Called after the password is saved (the reset page uses it to move on). */
+  onDone?: () => void;
+}) {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,6 +35,7 @@ export function ChangePasswordForm({ intro }: { intro?: string }) {
       setNext("");
       setConfirm("");
       setMsg({ ok: true, text: "Password changed. Use it the next time you sign in." });
+      onDone?.();
     } catch (err) {
       const text = err instanceof Error ? err.message : "";
       setMsg({
@@ -33,7 +44,9 @@ export function ChangePasswordForm({ intro }: { intro?: string }) {
           ? "That password is too easy to guess or has appeared in a data leak. Choose another."
           : /same|different/i.test(text)
             ? "Choose a password you have not used for this account."
-            : "The password could not be changed. Sign out, sign in again and retry.",
+            : /session|jwt|expired|not authenticated|missing/i.test(text)
+              ? "Your reset link has run out. Use Forgot password to send a new one."
+              : "The password could not be changed. Please try again.",
       });
     } finally {
       setBusy(false);
@@ -43,34 +56,31 @@ export function ChangePasswordForm({ intro }: { intro?: string }) {
   return (
     <form onSubmit={submit} className="grid gap-3" aria-labelledby="change-password-title">
       <h3 id="change-password-title" className="font-display text-sm font-bold uppercase">
-        Change password
+        {title}
       </h3>
       {intro && <p className="text-xs text-muted-foreground">{intro}</p>}
       <div className="grid gap-1.5">
         <Label htmlFor="new-password">New password</Label>
-        <Input
+        <PasswordInput
           id="new-password"
-          type="password"
           autoComplete="new-password"
+          aria-describedby="new-password-hints"
           value={next}
           onChange={(e) => setNext(e.target.value)}
           required
         />
+        <PasswordHints value={next} id="new-password-hints" />
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="confirm-password">Repeat new password</Label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type="password"
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
         />
       </div>
-      <p className="text-[0.7rem] text-muted-foreground">
-        At least {MIN_PASSWORD} characters, with letters and a number.
-      </p>
       {msg && (
         <p
           role={msg.ok ? "status" : "alert"}
@@ -80,15 +90,24 @@ export function ChangePasswordForm({ intro }: { intro?: string }) {
         </p>
       )}
       <Button type="submit" disabled={busy}>
-        {busy ? "Saving…" : "Change password"}
+        {busy ? "Saving…" : title}
       </Button>
     </form>
   );
 }
 
-/** Signed out: email a reset link. The answer is the same whether or not the address has an account. */
-export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
-  const [email, setEmail] = useState("");
+/**
+ * Signed out: email a reset link. The server sends a branded email through Resend (limits are checked in the
+ * database). The answer is the same whether or not the address has an account.
+ */
+export function ForgotPasswordForm({
+  onBack,
+  initialEmail = "",
+}: {
+  onBack?: () => void;
+  initialEmail?: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,18 +117,15 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const { error: sendError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${AUTH_REDIRECT}?reset=1`,
-      });
-      // A sending problem (too many emails) is shown, because it is not about this person's account.
-      // Anything else gets the same answer whether or not the address has an account.
-      if (sendError && authProblem(sendError.message).kind === "rate_limited")
-        return setError(authProblem(sendError.message).message);
+      await requestPasswordResetFn({ data: { email: email.trim(), key: crypto.randomUUID() } });
       setSent(true);
     } catch (err) {
-      const p = authProblem(err instanceof Error ? err.message : "");
-      if (p.kind === "rate_limited") setError(p.message);
-      else setSent(true);
+      // Refusals (too many requests, email allowance used up) never depend on whether an account exists.
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "We couldn't send the email just now. Please try again in a few minutes.",
+      );
     } finally {
       setBusy(false);
     }
@@ -122,8 +138,9 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       </h2>
       {sent ? (
         <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
-          If that email has a CannaPlug account, a reset link is on its way. Open it on this device,
-          then choose a new password under Account settings.
+          If that email has a CannaPlug account, a reset link is on its way. Open the email, tap the
+          link, and choose a new password. It can take a few minutes, so check your spam or
+          promotions folder too. The link works once, for one hour.
         </p>
       ) : (
         <>
@@ -143,6 +160,7 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
             <Input
               id="forgot-email"
               type="email"
+              className="h-11"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -154,9 +172,15 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
           </Button>
         </>
       )}
-      <button type="button" className="text-xs font-semibold text-primary" onClick={onBack}>
-        Back to sign in
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          className="min-h-[44px] text-sm font-semibold text-primary"
+          onClick={onBack}
+        >
+          Back to sign in
+        </button>
+      )}
     </form>
   );
 }

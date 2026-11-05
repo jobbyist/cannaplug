@@ -1,5 +1,9 @@
 # Supabase Auth email templates (branded)
 
+**Password resets are no longer sent by Supabase** (5 Nov 2026): the app makes the link with `auth.admin.generateLink`
+and emails it through Resend itself (`src/lib/password-reset.server.ts`, template `password_reset`). `recovery.html`
+below is only used if `RESEND_API_KEY` is missing and the app falls back to Supabase's mailer.
+
 Sign-up confirmation, password reset, magic link, email change and invite emails are sent by **Supabase Auth**, not by the
 app's notification queue, so their look is configured in Supabase:
 

@@ -65,7 +65,6 @@ describe("imported usernames", () => {
           email: "a@b.co",
           phone: "0821234567",
           dob: "1990-01-01",
-          idNumber: "AB123456",
           referral: "",
           username: "phenyo.kgwadi",
         },
