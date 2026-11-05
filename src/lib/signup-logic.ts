@@ -66,7 +66,6 @@ export type SignupFields = {
   firstName: string;
   lastName: string;
   email: string;
-  /** Optional since 5 Nov 2026 (checkout asks for a delivery number). Checked only when given. */
   phone: string;
   dob: string;
   referral: string;
@@ -75,7 +74,7 @@ export type SignupFields = {
 };
 
 /**
- * First problem found, or null. Name, surname, email and date of birth are required. The ID / passport number is
+ * First problem found, or null. Name, surname, email, phone and date of birth are required. The ID / passport number is
  * no longer asked for here: it is entered with the ID photo at the verification step (staff feedback, 5 Nov 2026).
  */
 export function signupProblem(f: SignupFields, dobIssue: string | null): string | null {
@@ -83,8 +82,8 @@ export function signupProblem(f: SignupFields, dobIssue: string | null): string 
   if (f.lastName.trim().length < 1) return "Enter your surname.";
   if (!/^\S+@\S+\.\S+$/.test(f.email.trim())) return "Enter a valid email address.";
   return (
+    phoneProblem(f.phone) ??
     dobIssue ??
-    (f.phone.trim() ? phoneProblem(f.phone) : null) ??
     (f.username.trim() ? usernameProblem(f.username, { allowImported: true }) : null) ??
     referralProblem(f.referral)
   );
@@ -98,10 +97,10 @@ export function signupMetadata(f: SignupFields) {
     full_name: `${first} ${last}`,
     first_name: first,
     last_name: last,
+    phone: f.phone.trim(),
     date_of_birth: f.dob,
     // Marks a brand-new member so the portal shows the "Getting started" checklist (see tour-logic.ts).
     onboarding_tour: "pending",
-    ...(f.phone.trim() ? { phone: f.phone.trim() } : {}),
     ...(f.username.trim() ? { username: normaliseUsername(f.username) } : {}),
     ...(f.referral.trim() ? { referral_code: f.referral.trim().toUpperCase() } : {}),
   };

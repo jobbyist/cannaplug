@@ -304,6 +304,7 @@ function AuthPanel() {
                         <Label htmlFor="signup-first">First name</Label>
                         <Input
                           id="signup-first"
+                          name="given-name"
                           className="h-11"
                           autoComplete="given-name"
                           value={firstName}
@@ -315,6 +316,7 @@ function AuthPanel() {
                         <Label htmlFor="signup-last">Surname</Label>
                         <Input
                           id="signup-last"
+                          name="family-name"
                           className="h-11"
                           autoComplete="family-name"
                           value={lastName}
@@ -328,6 +330,7 @@ function AuthPanel() {
                     <Label htmlFor="auth-email">Email address</Label>
                     <Input
                       id="auth-email"
+                      name="email"
                       className="h-11"
                       type="email"
                       inputMode="email"
@@ -338,6 +341,22 @@ function AuthPanel() {
                       required
                     />
                   </div>
+                  {mode === "signup" && (
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="signup-phone">Phone number</Label>
+                      <Input
+                        id="signup-phone"
+                        name="tel"
+                        className="h-11"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
                   <div className="grid gap-1.5">
                     <Label htmlFor="auth-password">
                       {mode === "signin" ? "Password" : "Create a password"}
@@ -391,21 +410,9 @@ function AuthPanel() {
                       onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
                     >
                       <summary className="flex min-h-[40px] cursor-pointer items-center text-sm font-semibold text-primary">
-                        Optional: phone, username or referral code
+                        Optional: username or referral code
                       </summary>
                       <div className="mt-3 flex flex-col gap-4">
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="signup-phone">Phone number (optional)</Label>
-                          <Input
-                            id="signup-phone"
-                            className="h-11"
-                            type="tel"
-                            inputMode="tel"
-                            autoComplete="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                          />
-                        </div>
                         <div className="grid gap-1.5">
                           <Label htmlFor="signup-username">Username (optional)</Label>
                           <Input

@@ -27,6 +27,7 @@ describe("sign-up rules", () => {
     ["firstName", ""],
     ["lastName", " "],
     ["email", "nope"],
+    ["phone", ""],
     ["phone", "abc"],
     ["username", "ab"],
     ["username", "has space"],
@@ -35,9 +36,7 @@ describe("sign-up rules", () => {
     expect(signupProblem({ ...good, [key]: value }, null)).not.toBeNull();
   });
 
-  it("no longer asks for an ID number, and the phone is optional (5 Nov 2026)", () => {
-    expect(signupProblem({ ...good, phone: "" }, null)).toBeNull();
-    expect("phone" in signupMetadata({ ...good, phone: "" })).toBe(false);
+  it("no longer asks for an ID number (5 Nov 2026)", () => {
     expect("id_number" in signupMetadata(good)).toBe(false);
     expect(Object.keys(good)).not.toContain("idNumber");
   });
