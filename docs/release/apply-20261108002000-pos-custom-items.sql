@@ -11,7 +11,8 @@ BEGIN;
 --   * A custom line is stored on the sale (pos_sale_items, is_custom = true) with the typed name and price, so the
 --     receipt, reports, voids and refunds work as for any line. Every sale line needs a product id, so custom lines
 --     point at one hidden placeholder product (fixed id below, inactive, untracked, never sold online, hidden from
---     the shop, the till search and every admin list). Nothing is ever created per custom item.
+--     the shop, the till search and every admin list, and locked against any change). Nothing is ever created per
+--     custom item.
 --   * Custom lines never touch stock (no batch, no ledger row), so voids and refunds have nothing to put back.
 --   * Typed name and price are the one exception to "the browser never sends prices": validated here (name 2-80
 --     characters, price R0.01-R100 000, max 2 decimals), and each sale with custom lines writes an audit row
@@ -39,6 +40,27 @@ INSERT INTO public.products (id, slug, name, category, price_rand, unit, is_acti
 VALUES ('00000000-0000-4000-8000-00000000c057', 'system-custom-till-item', 'Custom item', 'Custom', 0, NULL, false,
         100000, 'System placeholder for custom till items. Do not edit or delete.', false, false)
 ON CONFLICT (id) DO NOTHING;
+
+-- The placeholder can't be edited, switched on or deleted from anywhere (editor, sale prices, photos, CSV import,
+-- product delete, a direct server call): it must stay inactive and untracked or it could appear in the shop at R0.
+CREATE OR REPLACE FUNCTION public._protect_custom_item_placeholder()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF OLD.id = '00000000-0000-4000-8000-00000000c057'::uuid THEN
+    RAISE EXCEPTION 'custom_item_placeholder_locked: the custom till item placeholder cannot be changed';
+  END IF;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public._protect_custom_item_placeholder() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS products_protect_custom_item_placeholder ON public.products;
+CREATE TRIGGER products_protect_custom_item_placeholder
+BEFORE UPDATE OR DELETE ON public.products
+FOR EACH ROW WHEN (OLD.id = '00000000-0000-4000-8000-00000000c057'::uuid)
+EXECUTE FUNCTION public._protect_custom_item_placeholder();
 
 -- One line per catalogue product on a sale, as before; custom lines may repeat the placeholder.
 DO $$

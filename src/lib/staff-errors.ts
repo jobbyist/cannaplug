@@ -9,6 +9,7 @@
 
 export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Your role can't do this. Ask a manager.",
+  custom_item_placeholder_locked: "That item is used for custom till items and can't be changed.",
   // POS
   insufficient_stock: "Not enough stock available",
   tender_mismatch: "Tenders must add up exactly to the sale total",

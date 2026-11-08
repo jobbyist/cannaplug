@@ -2,7 +2,8 @@
 -- the 20261029006000_rewards_referrals version, unchanged). Roll the app back first (the till sends custom lines).
 -- Sales already made with custom lines are kept as they are: pos_sale_items.is_custom, the hidden placeholder product,
 -- the partial unique index and the check constraint stay, because those sale lines point at them and receipts,
--- reports, voids and refunds still read them. Nothing else changes.
+-- reports, voids and refunds still read them. The placeholder's lock stays too (it must never appear in the shop).
+-- Nothing else changes.
 
 CREATE OR REPLACE FUNCTION public.pos_complete_sale(
   p_actor uuid,

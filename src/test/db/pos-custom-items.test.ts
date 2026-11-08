@@ -213,6 +213,24 @@ describe.skipIf(!DB_URL)("POS custom items (real PostgreSQL)", () => {
     expect(String(fake[0]!["indexdef"])).toMatch(/WHERE \(NOT is_custom\)/);
   });
 
+  it("the placeholder is locked: it can't be switched on, edited, priced or deleted", async () => {
+    for (const q of [
+      sql`UPDATE public.products SET is_active = true WHERE id = ${PLACEHOLDER}`,
+      sql`UPDATE public.products SET price_rand = 1, sell_online = true WHERE id = ${PLACEHOLDER}`,
+      sql`DELETE FROM public.products WHERE id = ${PLACEHOLDER}`,
+    ]) {
+      expect(failedWith(await attempt(Promise.resolve(q)), "custom_item_placeholder_locked")).toBe(
+        true,
+      );
+    }
+    const [p] =
+      await sql`SELECT is_active, price_rand FROM public.products WHERE id = ${PLACEHOLDER}`;
+    expect(p).toMatchObject({ is_active: false });
+    // Other products are not affected.
+    const other = await mkProduct(sql, 10);
+    await sql`UPDATE public.products SET is_active = false WHERE id = ${other}`;
+  });
+
   it("mutation check: without the custom-line skip, the till would try to take placeholder stock", async () => {
     const { cashier, sessionId } = await till();
     class Undo extends Error {}
