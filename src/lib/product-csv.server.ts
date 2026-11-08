@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { CUSTOM_ITEM_PRODUCT_ID } from "@/lib/pos-custom-item";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { assertRole } from "@/lib/admin-data.server";
@@ -16,7 +17,7 @@ const COLUMNS =
 /** The current catalogue in the planner's shape, including whether each product has ever had stock. */
 async function loadExisting(): Promise<ExistingProduct[]> {
   const [{ data: products, error }, { data: batches, error: bErr }] = await Promise.all([
-    supabaseAdmin.from("products").select(COLUMNS),
+    supabaseAdmin.from("products").select(COLUMNS).neq("id", CUSTOM_ITEM_PRODUCT_ID),
     supabaseAdmin.from("inventory_batches").select("product_id"),
   ]);
   if (error) throw error;

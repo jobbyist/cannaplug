@@ -1,4 +1,5 @@
 import { canonicalSubcategory } from "@/lib/catalogue-taxonomy";
+import { CUSTOM_ITEM_PRODUCT_ID } from "@/lib/pos-custom-item";
 import { saleProblem } from "@/lib/sale-price";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { productImageUrl } from "@/lib/product-image-url.server";
@@ -447,6 +448,7 @@ export async function listAdminProducts(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("products")
     .select("*")
+    .neq("id", CUSTOM_ITEM_PRODUCT_ID)
     .order("sort_order")
     .order("name");
   if (error) throw error;

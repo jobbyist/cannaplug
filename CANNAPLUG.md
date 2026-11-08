@@ -1966,3 +1966,27 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Applied to the hosted project (5 Nov 2026): yes.** On the owner's go-ahead, Claude ran `import-clinify-187-299.sql` through the Supabase connector (as batch 1's admin actor): `imported: 92`, 21 skipped `email_exists` (`customer_imports`: received 113, imported 92, skipped 21). The owner then confirmed the emails of members 273, 276 and 277 were correct, so their hold was cleared. After: 266 staged in all, no holds, 93 waiting for an invitation (1 from batch 1 + 92), so the daily job invites them 20 a morning from 6 to 10 Nov 2026 (08:00 SAST).
 - **Owner actions:** none left. The workbook and SQL file stay outside git (personal data).
 - **Rollback:** revert the PR (script only). To undo the staging: `delete from public.imported_customers where batch = 'clinify-187-299' and user_id is null;` (members who already signed up keep their account and status).
+
+## 8 Nov 2026 — Custom items at the till (feat/mvp-pos-custom-item)
+
+- **Owner request:** add a custom product option to the POS till. The custom product applies only to that sale and is not saved to the product list.
+- **Till:** a **Custom item** button under the search opens a small form: item name (2–80 characters), price in rand (R0.01–R100 000) and quantity, then **Add to sale**. The line shows a gold **Custom** tag in the basket and works like any other line: change the quantity, remove it, or give it a line discount. The order discount and staff rate also apply. Several custom items can be on one sale, even with the same name. The catalogue refresh leaves custom lines alone, and a loyalty reward can't be used on one. Who: any staff member with an open till, the same as selling.
+- **Stored on the sale only:** a custom line is a `pos_sale_items` row with `is_custom = true`, the typed name and price. Receipts, reports, voids and refunds treat it like any other line. It **never touches stock** (no batch, no ledger row), so a void or refund has nothing to put back. **No product is created:** every custom line points at one hidden placeholder product (`00000000-0000-4000-8000-00000000c057`, "Custom item", category Custom, inactive, untracked, not sold online). The shop and till search already hide inactive products; Products, Inventory and the product CSV export now also leave the placeholder out (`src/lib/pos-custom-item.ts`).
+- **The one priced input from the browser:** the typed name and price are checked by zod and again in `pos_complete_sale`. Each sale with custom lines writes an audit row (`pos_custom_item_sold`) with the cashier, receipt, names, prices and quantities. The total, discounts and tender check stay server-side.
+- **Migration** `20261108002000_pos_custom_items`:
+  - mirror `drizzle/migrations/0076_pos_custom_items.sql`; rollback `supabase/rollbacks/20261108002000_pos_custom_items_rollback.sql`; rehearsal `scripts/rollback-rehearsal-pos-custom-items.sh`;
+  - adds `pos_sale_items.is_custom`, the placeholder product and `pos_custom_item_product_id()`;
+  - the one-line-per-product unique constraint becomes a partial unique index (catalogue lines only), and `pos_sale_items_custom_chk` ties `is_custom` to the placeholder;
+  - `pos_complete_sale` is the 20261029006000 version plus custom lines; order discounts are now shared per line (`item_id`), with the same tie-break for catalogue lines;
+  - `_check_pos_sale_consistency` skips the stock match for custom lines and refuses a custom line that moved stock;
+  - the rollback restores the old `pos_complete_sale` (custom lines refused) and keeps sales already made.
+- **Files:** `src/components/admin/pos/{CustomItemForm,PosPanel,pos-logic}.tsx/ts`, `src/lib/{pos.functions,pos-data.server,pos-custom-item,admin-data.server,inventory-data.server,product-csv.server}.ts`, `src/integrations/supabase/types.ts`, `src/test/db/helpers.ts`.
+- **Tests:**
+  - `db/pos-custom-items` (7, real Postgres): sold at the typed price with no product, no stock and an audit row; two custom lines, a product and line + order discounts to the cent; void and refund; loyalty accrual; 11 bad inputs refused, the placeholder can't be sold as a product and a wrong tender is refused; the partial index; **mutation check**: without the custom-line skip the till tries to take placeholder stock.
+  - `pos-logic` (+2), `pos-panel` (+2: add and sell, only name + price sent; validation and Cancel).
+  - The rehearsal and `scripts/verify-release.sh`.
+- **Needs the owner:**
+  1. Apply the migration to the hosted project (`docs/release/apply-20261108002000-pos-custom-items.sql` in the SQL Editor, or tell me to).
+  2. Decide whether custom items should be limited to managers, or capped lower than R100 000.
+  3. Note for compliance: a custom item has no product category, so daily purchase limits (none are set today) can't count it.
+- **Rollback:** revert the PR, then run the rollback SQL. Custom sales already made stay on record.

@@ -11,7 +11,7 @@ const db = vi.hoisted(() => ({ role: "manager", products: [] as Record<string, u
 vi.mock("@/integrations/supabase/client.server", () => {
   const chain = (rows: () => unknown[]) => {
     const q: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "order", "limit", "in"]) q[m] = () => q;
+    for (const m of ["select", "eq", "neq", "order", "limit", "in"]) q[m] = () => q;
     q["then"] = (res: (v: unknown) => unknown) => res({ data: rows(), error: null });
     return q;
   };

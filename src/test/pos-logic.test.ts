@@ -14,6 +14,11 @@ import {
   tenderStatus,
   type CatalogItem,
   type TenderRow,
+  customItemProblem,
+  customLine,
+  saleItemOf,
+  cartSummary,
+  type CartLine,
 } from "@/components/admin/pos/pos-logic";
 
 const item = (over: Partial<CatalogItem> = {}): CatalogItem => ({
@@ -206,5 +211,33 @@ describe("refund payout defaults", () => {
       { method: "cash", cents: 1000 },
     ]);
     expect(defaultPayouts(500, {})).toEqual([]);
+  });
+});
+
+describe("custom till items", () => {
+  it("validates the typed name and price", () => {
+    expect(customItemProblem("Gift wrap", "15.50")).toBeNull();
+    expect(customItemProblem(" x ", "10")).toMatch(/at least 2/);
+    expect(customItemProblem("A".repeat(81), "10")).toMatch(/80/);
+    expect(customItemProblem("Gift wrap", "0")).toMatch(/price/);
+    expect(customItemProblem("Gift wrap", "abc")).toMatch(/price/);
+    expect(customItemProblem("Gift wrap", "100000.01")).toMatch(/R100 000/);
+    expect(customItemProblem("Gift wrap", "R100000")).toBeNull();
+  });
+
+  it("is its own basket line (never merged), and is sent as name + price, never as a product id", () => {
+    const a = customLine("  Gift   wrap ", 1550, 2, "a");
+    const b = customLine("Gift wrap", 1550, 1, "b");
+    expect(a.product.id).not.toBe(b.product.id);
+    expect(a.product.name).toBe("Gift wrap");
+    expect(saleItemOf(a)).toEqual({ custom: { name: "Gift wrap", price: "15.50" }, quantity: 2 });
+    expect(
+      saleItemOf({ ...b, discount: { kind: "percent", value: "10" }, reward: "x" } as CartLine),
+    ).toEqual({
+      custom: { name: "Gift wrap", price: "15.50" },
+      quantity: 1,
+      discount: { kind: "percent", value: "10" },
+    });
+    expect(cartSummary([a, b]).totalCents).toBe(4650);
   });
 });

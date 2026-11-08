@@ -129,7 +129,9 @@ export function sell(
   sql: Sql,
   cashier: string,
   sessionId: string,
-  items: { product_id: string; quantity: number; [k: string]: unknown }[],
+  // A catalogue line has product_id; a custom line (8 Nov 2026) has custom: { name, price } instead.
+  items: ({ product_id: string; quantity: number } | { custom: unknown; quantity: number })[] &
+    { [k: string]: unknown }[],
   tenders: unknown[],
   opts: {
     customer?: string | null;
