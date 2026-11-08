@@ -13,6 +13,7 @@ import {
   quickAdjustStockFn,
   receiveDeliveryFn,
   recordStockCountFn,
+  recordStockCountsFn,
   startStockTakeFn,
 } from "@/lib/stock-ops.functions";
 import type { StockTakeView } from "@/lib/stock-ops.server";
@@ -75,6 +76,11 @@ export type StockOpsApi = {
     counted: number;
     key: string;
   }) => Promise<{ expected: number; counted: number; difference: number }>;
+  recordCounts: (input: {
+    stockTakeId: string;
+    lines: { productId: string; counted: number }[];
+    key: string;
+  }) => Promise<{ saved: number; failed: { productId: string; problem: string }[] }>;
   postStockTake: (input: { stockTakeId: string; key: string }) => Promise<{
     lines: number;
     changed: number;
@@ -109,6 +115,11 @@ export const serverStockOpsApi: StockOpsApi = {
       expected: number;
       counted: number;
       difference: number;
+    }>,
+  recordCounts: (data) =>
+    recordStockCountsFn({ data }) as Promise<{
+      saved: number;
+      failed: { productId: string; problem: string }[];
     }>,
   postStockTake: (data) =>
     postStockTakeFn({ data }) as Promise<{

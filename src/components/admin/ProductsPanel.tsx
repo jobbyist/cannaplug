@@ -1,4 +1,15 @@
-import { PlusCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { PlusCircle, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,12 +21,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { rand } from "@/lib/cart";
-import { deactivateAdminProductFn, listAdminProductsFn } from "@/lib/admin.functions";
+import {
+  deactivateAdminProductFn,
+  deleteAdminProductFn,
+  listAdminProductsFn,
+  restoreAdminProductFn,
+} from "@/lib/admin.functions";
 import { CatalogueImport } from "@/components/admin/CatalogueImport";
 import { ProductEditDialog } from "@/components/admin/ProductEditDialog";
 import { ProductCsv } from "@/components/admin/ProductCsv";
 
 type AdminProduct = Awaited<ReturnType<typeof listAdminProductsFn>>[number];
+
+/** Set once the product-delete migration is applied; older databases simply have no archived products. */
+const isArchived = (p: AdminProduct) => Boolean((p as { archived_at?: string | null }).archived_at);
+const errorText = (e: unknown) =>
+  e instanceof Error && e.message ? e.message : "That didn't work and nothing was changed.";
 
 export function ProductsPanel({
   products,
@@ -31,6 +52,48 @@ export function ProductsPanel({
   /** Budtenders see the list only; every change is also refused on the server. */
   canEdit?: boolean;
 }) {
+  const [showArchived, setShowArchived] = useState(false);
+  const [deleting, setDeleting] = useState<AdminProduct | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  const archivedCount = useMemo(() => products.filter(isArchived).length, [products]);
+  const shown = useMemo(
+    () => (showArchived ? products : products.filter((p) => !isArchived(p))),
+    [products, showArchived],
+  );
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      const r = await deleteAdminProductFn({
+        data: { productId: deleting.id, key: crypto.randomUUID() },
+      });
+      setNotice({
+        text:
+          r.mode === "deleted"
+            ? `${r.name} was deleted.`
+            : `${r.name} has sales or stock history, so it was archived instead: it is switched off and hidden from the lists, and its past sales and receipts are kept. Use "Show archived" to restore it.`,
+      });
+      setDeleting(null);
+      await onSaved();
+    } catch (e) {
+      setNotice({ text: errorText(e), error: true });
+      setDeleting(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const restore = async (p: AdminProduct) => {
+    try {
+      await restoreAdminProductFn({ data: { productId: p.id, key: crypto.randomUUID() } });
+      setNotice({ text: `${p.name} was restored and is active again.` });
+      await onSaved();
+    } catch (e) {
+      setNotice({ text: errorText(e), error: true });
+    }
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -51,6 +114,27 @@ export function ProductsPanel({
           </div>
         )}
       </div>
+      {notice && (
+        <p
+          role={notice.error ? "alert" : "status"}
+          className={
+            "mb-3 rounded-md px-3 py-2 text-sm " +
+            (notice.error ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")
+          }
+        >
+          {notice.text}
+        </p>
+      )}
+      {archivedCount > 0 && (
+        <label className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show archived ({archivedCount})
+        </label>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -64,7 +148,7 @@ export function ProductsPanel({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {products.map((p) => (
+          {shown.map((p) => (
             <TableRow key={p.id}>
               <TableCell>
                 {p.image_url ? (
@@ -101,12 +185,21 @@ export function ProductsPanel({
                 {p.sold_by_weight && <span className="text-muted-foreground"> / g</span>}
               </TableCell>
               <TableCell>
-                <Badge variant={p.is_active ? "default" : "secondary"}>
-                  {p.is_active ? "Active" : "Inactive"}
-                </Badge>
+                {isArchived(p) ? (
+                  <Badge variant="outline">Archived</Badge>
+                ) : (
+                  <Badge variant={p.is_active ? "default" : "secondary"}>
+                    {p.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                )}
               </TableCell>
               <TableCell className="text-right">
-                {canEdit && (
+                {canEdit && isArchived(p) && (
+                  <Button variant="ghost" size="sm" onClick={() => void restore(p)}>
+                    Restore
+                  </Button>
+                )}
+                {canEdit && !isArchived(p) && (
                   <>
                     <Button variant="ghost" size="sm" onClick={() => setEditingProduct(p.id)}>
                       Edit
@@ -122,6 +215,15 @@ export function ProductsPanel({
                         Deactivate
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      aria-label={`Delete ${p.name}`}
+                      onClick={() => setDeleting(p)}
+                    >
+                      <Trash2 size={14} /> Delete
+                    </Button>
                   </>
                 )}
               </TableCell>
@@ -129,6 +231,39 @@ export function ProductsPanel({
           ))}
         </TableBody>
       </Table>
+      <AlertDialog open={deleting !== null} onOpenChange={(o) => !o && !busy && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  If this product was never sold, ordered or stocked, it is removed for good. This
+                  can&apos;t be undone.
+                </p>
+                <p>
+                  If it has sales, orders or stock history, it is <b>archived</b> instead: switched
+                  off, removed from the shop, the till and these lists, while past sales, receipts
+                  and reports stay correct. You can restore an archived product later.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {busy ? "Deleting…" : "Delete product"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {canEdit && (
         <ProductEditDialog
           products={products}

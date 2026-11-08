@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarClock,
   ClipboardList,
+  Upload,
   Minus,
   Plus,
   Download,
@@ -62,6 +63,7 @@ import {
 } from "./inventory-api";
 import { DeliveryDialog, QuickAdjustDialog } from "./StockOpsDialogs";
 import { StockTakeDialog } from "./StockTakeDialog";
+import { BulkStockTakeDialog } from "./BulkStockTakeDialog";
 
 const PAGE = 50;
 const ALL = "__all__";
@@ -77,7 +79,8 @@ type DialogState =
   | { kind: "receive"; row: InventoryRow | null }
   | { kind: "adjust" | "history" | "threshold"; row: InventoryRow }
   | { kind: "quick"; mode: "add" | "remove"; row: InventoryRow }
-  | { kind: "delivery" | "take" }
+  | { kind: "delivery" | "bulk" }
+  | { kind: "take"; review?: boolean }
   | null;
 
 const shortDate = (iso: string) =>
@@ -228,6 +231,11 @@ export function InventoryPanel({
           <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "take" })}>
             <ClipboardList size={14} /> Stock take
           </Button>
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "bulk" })}>
+              <Upload size={14} /> Bulk stock take (CSV)
+            </Button>
+          )}
           {canManage && (
             <Button size="sm" onClick={() => setDialog({ kind: "delivery" })}>
               <PackagePlus size={14} /> Receive delivery
@@ -569,8 +577,21 @@ export function InventoryPanel({
         api={stockApi}
         onDone={done}
       />
+      <BulkStockTakeDialog
+        open={dialog?.kind === "bulk"}
+        onOpenChange={close}
+        rows={all}
+        categories={categories}
+        api={stockApi}
+        onLoaded={(message) => {
+          setNotice(message);
+          setDialog({ kind: "take", review: true });
+        }}
+        onOpenCurrent={() => setDialog({ kind: "take" })}
+      />
       <StockTakeDialog
         open={dialog?.kind === "take"}
+        initialStage={dialog?.kind === "take" && dialog.review ? "review" : "count"}
         onOpenChange={close}
         rows={all}
         categories={categories}
