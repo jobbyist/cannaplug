@@ -2058,3 +2058,38 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - The rehearsal script and `scripts/verify-release.sh` (see PR).
 - **Needs the owner:** apply `20261108001000_product_delete` to the hosted project (SQL Editor, inside BEGIN/COMMIT, as for #106) or tell me to. The count-sheet upload needs no migration beyond #106.
 - **Rollback:** revert the PR, then run the rollback SQL. Products already deleted stay deleted (audit rows remain); archived products stay switched off and show again as Inactive.
+
+## 5 Nov 2026 — Phone layouts and page speed (feat/mvp-mobile-perf)
+
+- **Purpose:** staff feedback, "the site layouts are a mess on mobile". PR B of three (A: sign-up and recovery, #104; C: stock takes). Checked on the live site at 320, 375, 390 and 412px wide before changing anything.
+- **What was wrong:**
+  - **Shop:** 222 products, one per row, in tall cards, so the page was about 85,000px long on a phone and every card and image loaded at once.
+  - **Ask The Plug tab:** it covered the right edge of the shop search box, the sort menu, the category chips and the home headline.
+  - **320px phones:** the header buttons made every page 42px wider than the screen, so the browser zoomed out and cut off the right edge. The earlier check missed it because the window widens along with the page.
+  - **Contact form:** text boxes were 12px, which makes iOS zoom in while typing.
+  - **Small text and targets:** bottom-nav labels were about 8.5px, cart and checkout quantity buttons were 28px, and nothing allowed for the iPhone home bar.
+  - **Dashboards on phones:** the member and staff dashboards hid Sign out and My documents.
+  - **Dialogs:** they had no height limit, and several panels used `vh`, so browser toolbars hid their ends.
+- **Changes:**
+  - **Shop:** two products a row on phones with compact cards (square image, two-line name, full-width Add button; the description shows from tablet up). 24 products show at first, then "Show more", which starts over when a filter changes.
+  - **Ask The Plug on phones:** a round button in the corner, above the nav and the home bar.
+  - **Header:** fits 320px screens; the logo shrinks first.
+  - **Text sizes:** every text box is 16px on phones, including the shared `Select`. Bottom-nav and dashboard labels are readable, and the dashboard bar shows its footer links on phones.
+  - **Tap targets:** 40px buttons in cart and checkout.
+  - **Safe area:** padding for the floating nav, dashboard bar and footer.
+  - **Dialogs:** the shared `Dialog` / `AlertDialog` never exceed the screen (`max-h: 100dvh-2rem`, scroll inside). `vh` → `dvh` across pages.
+  - **Tables and headings:** raw admin tables scroll sideways inside their box, and "View all" links stay on one line.
+- **Speed:**
+  - **Hero:** the home hero and sections no longer start invisible (they were `opacity: 0` until JavaScript ran). The hero image is fetched first.
+  - **Ask The Plug code:** fetched after the page loads, only on the pages that show it (shop pages and account), and its timer runs only while the chat is open. The code every page loads went from 116.7KB to 96.1KB gzipped.
+  - **Logo:** the PNGs are 3× their display size instead of 900px wide (109KB → 35KB).
+  - **Not changed:** admin panels still load together (the admin chunk only reaches staff, and the routes were already split). That's a possible follow-up for the till tablets.
+- **Files:** `src/styles.css` (one block at the end, easy to revert), `src/components/shop/{ShopView,ProductCard}.tsx`, `src/components/{CannaPlugHome,CartDrawer}.tsx`, `src/components/dashboard/Sidebar.tsx`, `src/components/ui/{dialog,alert-dialog,select}.tsx`, `src/components/ask-plug/{AskThePlugLoader,AskThePlug}.tsx`, `src/routes/{__root,checkout}.tsx` and other routes (`dvh`), `src/components/admin/{ProductCsv,PayfastAccountCard,PurchaseLimitsCard}.tsx`, `src/assets/cannaplug-logo{,-white}.png`, `e2e/mobile.spec.ts`, `.github/workflows/ci.yml`.
+- **Migrations:** none.
+- **Tests:**
+  - **New `e2e/mobile.spec.ts`:** 36 checks, in CI with the smoke suite. On 320, 375, 390 and 412px phones, across 8 pages, it checks for no sideways scrolling (measured against the screen) and no text box under 16px, plus the floating nav fitting and having readable labels.
+  - **Mutation checks:** the old stylesheet fails it on the 12px contact boxes and on the 42px overflow.
+  - **`shop-view`:** paging, two-column grid, paging restarting on a filter change, Add buttons named per product.
+  - **Release check:** `scripts/verify-release.sh` (see PR).
+- **Owner actions:** none.
+- **Rollback:** revert the PR.

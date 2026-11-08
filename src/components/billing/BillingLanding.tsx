@@ -41,7 +41,7 @@ export function BillingLanding({
   const copy = COPY[kind];
   const Icon = kind === "return" ? Clock : kind === "cancel" ? X : Check;
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4 py-10">
+    <div className="grid min-h-dvh place-items-center bg-background px-4 py-10">
       <main className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm sm:p-8">
         <img src={cannaplugLogo} alt="Cannaplug" className="mx-auto mb-6 h-7 w-auto" />
         <div className="mx-auto mb-5 grid h-20 w-44 place-items-center rounded-xl border border-border bg-white p-3">

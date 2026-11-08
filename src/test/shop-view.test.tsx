@@ -10,7 +10,7 @@ vi.mock("@/lib/cart", () => ({
 }));
 vi.mock("@/lib/admin.functions", () => ({ listStoreProductsFn: vi.fn() }));
 
-import { ShopView } from "@/components/shop/ShopView";
+import { SHOP_PAGE_SIZE, ShopView } from "@/components/shop/ShopView";
 import type { StoreProduct } from "@/components/shop/ProductCard";
 import type { ShopSearch } from "@/lib/shop-filter";
 
@@ -242,5 +242,36 @@ describe("price slider", () => {
     expect(thumbs.map((t) => t.getAttribute("aria-label"))).toEqual(["Minimum", "Maximum"]);
     expect(thumbs[0]!.getAttribute("aria-valuenow")).toBe("24");
     expect(thumbs[1]!.getAttribute("aria-valuenow")).toBe("120");
+  });
+
+  it("on phones the menu is two products a row, a page at a time (5 Nov 2026)", async () => {
+    const many = Array.from({ length: SHOP_PAGE_SIZE * 2 + 5 }, (_, i) =>
+      prod({ name: `Bulk ${i}`, category: "Edibles", description: "Long description" }),
+    );
+    render(<Harness products={many} />);
+    expect(screen.getByTestId("product-grid").className).toMatch(/\bgrid-cols-2\b/);
+    expect(cards()).toHaveLength(SHOP_PAGE_SIZE);
+    // The count still tells the whole story.
+    expect(screen.getByText(`Showing ${many.length} of ${many.length} products`)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: `Show more (${SHOP_PAGE_SIZE + 5} more)` }),
+    );
+    expect(cards()).toHaveLength(SHOP_PAGE_SIZE * 2);
+    await userEvent.click(screen.getByRole("button", { name: "Show more (5 more)" }));
+    expect(cards()).toHaveLength(many.length);
+    expect(screen.queryByRole("button", { name: /Show more/ })).toBeNull();
+    // Every card's Add button names its product, for screen readers.
+    expect(screen.getByRole("button", { name: "Add Bulk 0 to cart" })).toBeTruthy();
+  });
+
+  it("changing a filter starts again from the first page", async () => {
+    const many = Array.from({ length: SHOP_PAGE_SIZE + 3 }, (_, i) =>
+      prod({ name: `Gummy ${i}`, category: "Edibles" }),
+    );
+    render(<Harness products={[...many, ...PRODUCTS]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Show more/ }));
+    expect(cards()).toHaveLength(many.length + PRODUCTS.length);
+    await userEvent.click(within(cats()).getByRole("button", { name: /Edibles/ }));
+    expect(cards()).toHaveLength(SHOP_PAGE_SIZE);
   });
 });

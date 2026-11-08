@@ -182,7 +182,7 @@ export function ReceiptSettingsPanel() {
               </Button>
             ))}
           </div>
-          <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-white p-3">
+          <div className="max-h-[70dvh] overflow-auto rounded-lg border border-border bg-white p-3">
             <ReceiptView
               receipt={buildReceiptModel({ ...PREVIEW_SALE, settings: form })}
               paper={preview}

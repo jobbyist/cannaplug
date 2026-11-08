@@ -244,7 +244,7 @@ export function TemplatesPanel({ role }: Props) {
       />
 
       <Dialog open={viewing !== null} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {viewing?.name} v{viewing?.version}
@@ -342,7 +342,7 @@ function TemplateEditor({
 
   return (
     <Dialog open={editing !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editing?.mode === "edit"

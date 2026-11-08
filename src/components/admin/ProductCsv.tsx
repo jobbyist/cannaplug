@@ -106,7 +106,7 @@ export function ProductCsv({ onSaved }: { onSaved: () => Promise<void> }) {
           if (!o) reset();
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Upload or edit products with a spreadsheet</DialogTitle>
             <DialogDescription>
@@ -238,59 +238,63 @@ export function ProductCsv({ onSaved }: { onSaved: () => Promise<void> }) {
               {preview.creates.length > 0 && (
                 <div>
                   <p className="font-semibold">New products</p>
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-left text-muted-foreground">
-                        <th className="py-1">SKU</th>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Opening stock</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.creates.map((c) => (
-                        <tr key={c.sku} className="border-t border-border">
-                          <td className="py-1">{c.sku}</td>
-                          <td>{c.name}</td>
-                          <td>{c.category}</td>
-                          <td>R{c.price}</td>
-                          <td>{c.opening_qty || "—"}</td>
+                  <div className="-mx-1 overflow-x-auto px-1">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="py-1">SKU</th>
+                          <th>Name</th>
+                          <th>Category</th>
+                          <th>Price</th>
+                          <th>Opening stock</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {preview.creates.map((c) => (
+                          <tr key={c.sku} className="border-t border-border">
+                            <td className="py-1">{c.sku}</td>
+                            <td>{c.name}</td>
+                            <td>{c.category}</td>
+                            <td>R{c.price}</td>
+                            <td>{c.opening_qty || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
               {preview.updates.length > 0 && (
                 <div>
                   <p className="font-semibold">Changes</p>
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-left text-muted-foreground">
-                        <th className="py-1">Product</th>
-                        <th>Field</th>
-                        <th>Now</th>
-                        <th>After upload</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.updates.flatMap((u) =>
-                        u.changes.map((c, i) => (
-                          <tr
-                            key={`${u.sku}-${c.field}`}
-                            className={i === 0 ? "border-t border-border" : ""}
-                          >
-                            <td className="py-1 pr-2">{i === 0 ? `${u.name} (${u.sku})` : ""}</td>
-                            <td>{c.field}</td>
-                            <td className="text-muted-foreground">{c.from}</td>
-                            <td className="font-medium">{c.to}</td>
-                          </tr>
-                        )),
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="-mx-1 overflow-x-auto px-1">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="py-1">Product</th>
+                          <th>Field</th>
+                          <th>Now</th>
+                          <th>After upload</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.updates.flatMap((u) =>
+                          u.changes.map((c, i) => (
+                            <tr
+                              key={`${u.sku}-${c.field}`}
+                              className={i === 0 ? "border-t border-border" : ""}
+                            >
+                              <td className="py-1 pr-2">{i === 0 ? `${u.name} (${u.sku})` : ""}</td>
+                              <td>{c.field}</td>
+                              <td className="text-muted-foreground">{c.from}</td>
+                              <td className="font-medium">{c.to}</td>
+                            </tr>
+                          )),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 

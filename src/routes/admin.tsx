@@ -322,7 +322,7 @@ function AdminPage() {
 
   if (loading || (user && access === null))
     return (
-      <div className="grid min-h-screen place-items-center bg-background">
+      <div className="grid min-h-dvh place-items-center bg-background">
         <p className="text-sm text-muted-foreground" role="status">
           Loading admin dashboard…
         </p>
@@ -346,7 +346,7 @@ function AdminPage() {
   }));
 
   return (
-    <div className="site flex min-h-screen flex-col bg-background md:flex-row">
+    <div className="site flex min-h-dvh flex-col bg-background md:flex-row">
       <DashboardSidebar
         items={navItems}
         active={tab}

@@ -175,6 +175,9 @@ function FilterControls({
   );
 }
 
+/** How many products the shop shows before "Show more". */
+export const SHOP_PAGE_SIZE = 24;
+
 /** The shop page's content. It keeps no filter state: it shows what `search` says and asks `onSearch` to change it. */
 export function ShopView({ products, loading, error, onRetry, search, onSearch }: Props) {
   const s = useMemo(() => resolveShopSearch(search, products), [search, products]);
@@ -183,6 +186,12 @@ export function ShopView({ products, loading, error, onRetry, search, onSearch }
     () => sortProducts(filterProducts(products, s), (s.sort ?? "featured") as ShopSort),
     [products, s],
   );
+  // Show the menu a page at a time: 222 cards at once made an 85,000px page on phones and loaded every image.
+  const [limit, setLimit] = useState(SHOP_PAGE_SIZE);
+  const filterKey = JSON.stringify(s);
+  useEffect(() => setLimit(SHOP_PAGE_SIZE), [filterKey]);
+  const page = shown.slice(0, limit);
+  const left = shown.length - page.length;
   const chips = activeFilters(s);
   const narrowing = chips.length + (s.category ? 1 : 0);
   const [draft, setDraft] = useState(s.q ?? "");
@@ -339,7 +348,7 @@ export function ShopView({ products, loading, error, onRetry, search, onSearch }
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+              <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Filters</SheetTitle>
                   <SheetDescription>
@@ -388,9 +397,9 @@ export function ShopView({ products, loading, error, onRetry, search, onSearch }
               <Button onClick={onRetry}>Try again</Button>
             </div>
           ) : loading ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-hidden>
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3" aria-hidden>
               {Array.from({ length: 6 }, (_, i) => (
-                <Skeleton key={i} className="h-80 rounded-xl" />
+                <Skeleton key={i} className="h-64 rounded-xl sm:h-80" />
               ))}
             </div>
           ) : shown.length === 0 ? (
@@ -401,11 +410,28 @@ export function ShopView({ products, loading, error, onRetry, search, onSearch }
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {shown.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div
+                className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3"
+                data-testid="product-grid"
+              >
+                {page.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              {left > 0 && (
+                <div className="mt-6 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="min-h-11 w-full sm:w-auto"
+                    onClick={() => setLimit((n) => n + SHOP_PAGE_SIZE)}
+                  >
+                    Show more ({left} more)
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

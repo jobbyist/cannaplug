@@ -76,61 +76,63 @@ export function PurchaseLimitsCard() {
       )}
       {!data && !msg && <p className="mt-3 text-sm text-muted-foreground">Loading…</p>}
       {data && (
-        <table className="mt-4 w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="py-1">Category</th>
-              <th>Most per day</th>
-              <th>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.limits.map((l) => (
-              <tr key={l.category} className="border-t border-border">
-                <td className="py-2 font-medium">{l.category}</td>
-                <td>
-                  {data.canEdit ? (
-                    <Input
-                      aria-label={`${l.category} limit per day`}
-                      inputMode="numeric"
-                      className="h-8 w-24"
-                      value={draft[l.category] ?? ""}
-                      onChange={(e) => setDraft((d) => ({ ...d, [l.category]: e.target.value }))}
-                    />
-                  ) : (
-                    (l.daily_max ?? "—")
-                  )}
-                </td>
-                <td>{l.enabled ? "On" : "Off"}</td>
-                <td className="text-right">
-                  {data.canEdit && (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy !== null}
-                        onClick={() => void save(l.category, true)}
-                      >
-                        {l.enabled ? "Save" : "Switch on"}
-                      </Button>
-                      {l.enabled && (
+        <div className="-mx-1 overflow-x-auto px-1">
+          <table className="mt-4 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="py-1">Category</th>
+                <th>Most per day</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {data.limits.map((l) => (
+                <tr key={l.category} className="border-t border-border">
+                  <td className="py-2 font-medium">{l.category}</td>
+                  <td>
+                    {data.canEdit ? (
+                      <Input
+                        aria-label={`${l.category} limit per day`}
+                        inputMode="numeric"
+                        className="h-8 w-24"
+                        value={draft[l.category] ?? ""}
+                        onChange={(e) => setDraft((d) => ({ ...d, [l.category]: e.target.value }))}
+                      />
+                    ) : (
+                      (l.daily_max ?? "—")
+                    )}
+                  </td>
+                  <td>{l.enabled ? "On" : "Off"}</td>
+                  <td className="text-right">
+                    {data.canEdit && (
+                      <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant="outline"
                           disabled={busy !== null}
-                          onClick={() => void save(l.category, false)}
+                          onClick={() => void save(l.category, true)}
                         >
-                          Switch off
+                          {l.enabled ? "Save" : "Switch on"}
                         </Button>
-                      )}
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        {l.enabled && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null}
+                            onClick={() => void save(l.category, false)}
+                          >
+                            Switch off
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {data && !data.canEdit && (
         <p className="mt-3 text-xs text-muted-foreground">Only an admin can change these limits.</p>

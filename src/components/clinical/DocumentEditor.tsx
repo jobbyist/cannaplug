@@ -246,7 +246,7 @@ export function DocumentEditor({
 
   return (
     <Dialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {documentId ? "Edit draft" : `New ${documentTypeLabel(type).toLowerCase()}`}

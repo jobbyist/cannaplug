@@ -156,7 +156,7 @@ export function ReviewDialog({ documentId, onClose, onChanged, onEditDraft, onNe
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {view ? documentTypeLabel(view.document_type) : "Document"}{" "}
@@ -208,7 +208,7 @@ export function ReviewDialog({ documentId, onClose, onChanged, onEditDraft, onNe
                 </p>
                 <pre
                   aria-label="Exact document text"
-                  className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-4 font-sans text-sm leading-relaxed"
+                  className="max-h-[40dvh] overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-4 font-sans text-sm leading-relaxed"
                 >
                   {resolveLateBound(
                     view.rendered_content,
