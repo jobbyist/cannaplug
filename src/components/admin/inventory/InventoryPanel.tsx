@@ -3,6 +3,9 @@ import {
   AlertTriangle,
   Bell,
   CalendarClock,
+  ClipboardList,
+  Minus,
+  Plus,
   Download,
   History,
   MoreHorizontal,
@@ -51,7 +54,14 @@ import {
 } from "@/lib/inventory-logic";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 import { AdjustDialog, HistoryDialog, ReceiveDialog, ThresholdDialog } from "./InventoryDialogs";
-import { serverInventoryApi, type InventoryApi } from "./inventory-api";
+import {
+  serverInventoryApi,
+  serverStockOpsApi,
+  type InventoryApi,
+  type StockOpsApi,
+} from "./inventory-api";
+import { DeliveryDialog, QuickAdjustDialog } from "./StockOpsDialogs";
+import { StockTakeDialog } from "./StockTakeDialog";
 
 const PAGE = 50;
 const ALL = "__all__";
@@ -66,6 +76,8 @@ const STATUS_STYLE: Record<StockStatus, string> = {
 type DialogState =
   | { kind: "receive"; row: InventoryRow | null }
   | { kind: "adjust" | "history" | "threshold"; row: InventoryRow }
+  | { kind: "quick"; mode: "add" | "remove"; row: InventoryRow }
+  | { kind: "delivery" | "take" }
   | null;
 
 const shortDate = (iso: string) =>
@@ -136,10 +148,12 @@ export function InventoryPanel({
   canManage,
   onEditProduct,
   api = serverInventoryApi,
+  stockApi = serverStockOpsApi,
 }: {
   canManage: boolean;
   onEditProduct?: (productId: string) => void;
   api?: InventoryApi;
+  stockApi?: StockOpsApi;
 }) {
   const [rows, setRows] = useState<InventoryRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +213,9 @@ export function InventoryPanel({
           <h1 className="font-display text-xl font-extrabold uppercase">Inventory</h1>
           <p className="text-sm text-muted-foreground">
             Available = on hand minus stock held for unpaid online orders.
-            {canManage ? " Use Receive and Adjust on any row." : " Managers can change stock."}
+            {canManage
+              ? " Use Add and Remove on any row, Receive delivery for new stock, and Stock take to count."
+              : " Managers can change stock; you can count during a stock take."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -209,8 +225,11 @@ export function InventoryPanel({
           <Button variant="outline" size="sm" onClick={downloadCsv} disabled={!visible.length}>
             <Download size={14} /> Stock sheet
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "take" })}>
+            <ClipboardList size={14} /> Stock take
+          </Button>
           {canManage && (
-            <Button size="sm" onClick={() => setDialog({ kind: "receive", row: null })}>
+            <Button size="sm" onClick={() => setDialog({ kind: "delivery" })}>
               <PackagePlus size={14} /> Receive delivery
             </Button>
           )}
@@ -441,18 +460,20 @@ export function InventoryPanel({
                     <Button
                       size="sm"
                       variant="outline"
-                      aria-label={`Receive stock for ${r.name}`}
-                      onClick={() => setDialog({ kind: "receive", row: r })}
+                      className="h-10 sm:h-9"
+                      aria-label={`Add stock for ${r.name}`}
+                      onClick={() => setDialog({ kind: "quick", mode: "add", row: r })}
                     >
-                      <PackagePlus size={14} /> Receive
+                      <Plus size={14} /> Add
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      aria-label={`Adjust stock for ${r.name}`}
-                      onClick={() => setDialog({ kind: "adjust", row: r })}
+                      className="h-10 sm:h-9"
+                      aria-label={`Remove stock for ${r.name}`}
+                      onClick={() => setDialog({ kind: "quick", mode: "remove", row: r })}
                     >
-                      <SlidersHorizontal size={14} /> Adjust
+                      <Minus size={14} /> Remove
                     </Button>
                   </>
                 )}
@@ -466,6 +487,16 @@ export function InventoryPanel({
                     <DropdownMenuItem onSelect={() => setDialog({ kind: "history", row: r })}>
                       <History size={14} /> Stock history
                     </DropdownMenuItem>
+                    {canManage && r.track_stock && (
+                      <>
+                        <DropdownMenuItem onSelect={() => setDialog({ kind: "receive", row: r })}>
+                          <PackagePlus size={14} /> Receive into a batch…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setDialog({ kind: "adjust", row: r })}>
+                          <SlidersHorizontal size={14} /> Adjust a batch…
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     {canManage && (
                       <DropdownMenuItem onSelect={() => setDialog({ kind: "threshold", row: r })}>
                         <Bell size={14} /> Low-stock alert…
@@ -522,6 +553,30 @@ export function InventoryPanel({
         onOpenChange={close}
         row={dialog?.kind === "history" ? dialog.row : null}
         api={api}
+      />
+      <QuickAdjustDialog
+        open={dialog?.kind === "quick"}
+        onOpenChange={close}
+        mode={dialog?.kind === "quick" ? dialog.mode : "add"}
+        row={dialog?.kind === "quick" ? dialog.row : null}
+        api={stockApi}
+        onDone={done}
+      />
+      <DeliveryDialog
+        open={dialog?.kind === "delivery"}
+        onOpenChange={close}
+        rows={all}
+        api={stockApi}
+        onDone={done}
+      />
+      <StockTakeDialog
+        open={dialog?.kind === "take"}
+        onOpenChange={close}
+        rows={all}
+        categories={categories}
+        canManage={canManage}
+        api={stockApi}
+        onDone={done}
       />
       <ThresholdDialog
         open={dialog?.kind === "threshold"}

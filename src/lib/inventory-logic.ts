@@ -9,6 +9,8 @@ export type InventoryRow = {
   product_id: string;
   name: string;
   sku: string | null;
+  /** Scanned at the till and in stock takes (optional: older callers and fixtures may leave it out). */
+  barcode?: string | null;
   category: string;
   brand: string | null;
   unit: string | null;
