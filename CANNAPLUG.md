@@ -2031,6 +2031,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - **Upload filled sheet**: reads that file and also the Inventory **Stock sheet**. It matches rows by SKU, then barcode, then exact name (a name shared by two products needs the SKU), and also reads Excel's semicolon CSVs and `12,0`-style numbers. A blank `counted` cell means "not counted" and that row is left alone.
   - **Preview before anything is saved:** to save / already saved / left blank / problem rows, each problem with its line number (not in this count, not a whole number, listed twice, no identifier, ambiguous name). Problem rows are skipped; the rest can be saved.
   - **Save N counts:** `recordStockCountsFn` (budtender+, up to 3,000 lines) calls the existing `stock_take_record_count` for each line, so a row saved from the sheet is exactly like a count typed on screen: the snapshot is taken at that moment, it is idempotent per line (`<upload key>:<product>`), and it is audited. A failed line is reported and the others still save. A closed or missing count stops the upload. A manager then reviews and posts as before.
+- **Bulk stock take (CSV)** (client follow-up, 8 Nov; `BulkStockTakeDialog`, managers): a button on Inventory runs the whole count from one spreadsheet.
+  - Choose all products or one category, then **Download count sheet**, fill in `counted` and **Upload filled sheet**.
+  - The same preview as above, then **Start stock take and load N counts**. That one button starts the stock take (note "Bulk CSV upload: <file>") and saves every count through `stock_take_record_count`, then opens the usual **review** screen to post or cancel. Nothing changes until it is posted.
+  - If a stock take is already open, it says so and offers to open that one; the sheet can be uploaded into it there.
+  - If saving the counts fails after the start, the message says the stock take is open, so it can be finished or cancelled from Stock take.
+  - No new migration.
 - **Delete products** (`ProductsPanel`, managers and admins): a **Delete** button on every row opens a confirmation, then:
   - a product that was **never sold, ordered, stocked, held or counted** is removed permanently, with its price history and any wishlist / back-in-stock rows;
   - a product **with history is archived**: switched off (out of the shop and the till) and hidden from Products and from Inventory (unless stock is still on hand or held), while orders, receipts, the ledger and reports keep pointing at it. **Show archived (N)** lists archived products, and **Restore** switches one back on. Switching an archived product on anywhere (editor, CSV `active=yes`) also restores it;
@@ -2044,7 +2050,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Files:** `src/lib/{stock-take-logic,stock-ops.server,stock-ops.functions,admin-data.server,admin.functions,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{StockTakeDialog,inventory-api}.tsx/ts`, `src/components/admin/ProductsPanel.tsx`, `src/integrations/supabase/types.ts`.
 - **Tests:**
   - `stock-take-logic` (+6): blind sheet round trip; SKU / barcode / name matching and blanks; the Inventory stock sheet and semicolon files; bad rows by line; missing columns and unchanged counts; same-name products.
-  - `inventory-panel` (+1): upload → preview with a problem row → save sends only ids and quantities → progress updates.
+  - `inventory-panel` (+3): upload → preview with a problem row → save sends only ids and quantities → progress updates; bulk: upload → one button starts and loads → review → post (only ids and quantities sent); bulk with a count already open, and no bulk button for budtenders.
   - `products-panel` (+4): confirm then delete (only id + key sent); the archived message; archived hidden until Show archived, then Restore; no delete for budtenders.
   - `db/product-delete` (6, real Postgres): unused product removed with its price history and wishlist rows; stocked, sold and ordered products archived; restore and the archive trigger; roles, idempotency and unknown product; price history still guarded and no browser grants; **mutation check**: without the history check the foreign keys refuse the delete.
   - `security-audit`: the new server functions assert the manager role.

@@ -53,7 +53,10 @@ export function StockTakeDialog({
   canManage,
   api,
   onDone,
+  initialStage = "count",
 }: {
+  /** "review" opens straight on the differences (after a bulk CSV upload). */
+  initialStage?: "count" | "review";
   open: boolean;
   onOpenChange: (o: boolean) => void;
   rows: InventoryRow[];
@@ -77,9 +80,9 @@ export function StockTakeDialog({
   }, [api]);
   useEffect(() => {
     if (!open) return;
-    setStage("count");
+    setStage(canManage ? initialStage : "count");
     void load();
-  }, [open, load]);
+  }, [open, load, initialStage, canManage]);
 
   const take = view?.take ?? null;
   const isOpen = take?.status === "open";

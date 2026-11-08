@@ -333,6 +333,67 @@ describe("Inventory tab", () => {
     );
   });
 
+  it("bulk stock take: upload a sheet, one button starts the count and loads it, then the manager reviews and posts", async () => {
+    const user = userEvent.setup();
+    const stock = fakeStockApi();
+    render(<InventoryPanel canManage api={fakeApi()} stockApi={stock} />);
+    await user.click(await screen.findByRole("button", { name: "Bulk stock take (CSV)" }));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByLabelText("What are you counting?");
+    const file = new File(
+      ["sku,name,counted\nTH-1,Thai Haze,7\n,Blue Dream,\n,Ghost,4\n"],
+      "month-end.csv",
+      { type: "text/csv" },
+    );
+    await user.upload(within(dialog).getByLabelText("Bulk count CSV"), file);
+    const preview = await within(dialog).findByTestId("bulk-preview");
+    expect(preview.textContent).toMatch(/1 counted/);
+    expect(preview.textContent).toMatch(/1 left blank/);
+    expect(preview.textContent).toMatch(/Line 4 \(Ghost\)/);
+    expect(stock.startStockTake).not.toHaveBeenCalled();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Start stock take and load 1 count" }),
+    );
+    await waitFor(() => expect(stock.recordCounts).toHaveBeenCalled());
+    expect(stock.startStockTake.mock.calls[0]![0]).toMatchObject({
+      category: null,
+      note: "Bulk CSV upload: month-end.csv",
+    });
+    expect(stock.recordCounts.mock.calls[0]![0].lines).toEqual([{ productId: "p1", counted: 7 }]);
+    // Straight to the review screen of the new count.
+    const review = await screen.findByTestId("variance-summary");
+    expect(review.textContent).toMatch(/Short−3/);
+    expect(screen.getByText(/Bulk stock take loaded: 1 product counted/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Post count (1 correction)" }));
+    await waitFor(() => expect(stock.postStockTake).toHaveBeenCalled());
+  });
+
+  it("bulk stock take: an open count must be finished first; budtenders don't get the button", async () => {
+    const user = userEvent.setup();
+    const stock = fakeStockApi({
+      take: {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "open",
+        note: null,
+        category: null,
+        started_at: "2026-11-05T10:00:00Z",
+        closed_at: null,
+      },
+      lines: [],
+    });
+    const { unmount } = render(<InventoryPanel canManage api={fakeApi()} stockApi={stock} />);
+    await user.click(await screen.findByRole("button", { name: "Bulk stock take (CSV)" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/A stock take is already open/)).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Open the current stock take" }));
+    expect(await screen.findByTestId("count-progress")).toBeTruthy();
+    expect(stock.startStockTake).not.toHaveBeenCalled();
+    unmount();
+    render(<InventoryPanel canManage={false} api={fakeApi()} stockApi={fakeStockApi()} />);
+    await screen.findByRole("button", { name: "Stock take" });
+    expect(screen.queryByRole("button", { name: "Bulk stock take (CSV)" })).toBeNull();
+  });
+
   it("budtenders can count but not review or post", async () => {
     const user = userEvent.setup();
     const stock = fakeStockApi({
