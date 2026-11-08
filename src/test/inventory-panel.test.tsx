@@ -115,6 +115,16 @@ function fakeStockApi(
       };
       return { expected: r.on_hand, counted: i.counted, difference: i.counted - r.on_hand };
     }),
+    recordCounts: vi.fn(async (i: Parameters<StockOpsApi["recordCounts"]>[0]) => {
+      for (const l of i.lines)
+        await api.recordCount({
+          stockTakeId: i.stockTakeId,
+          productId: l.productId,
+          counted: l.counted,
+          key: "k",
+        });
+      return { saved: i.lines.length, failed: [] };
+    }),
     postStockTake: vi.fn(async (_i: Parameters<StockOpsApi["postStockTake"]>[0]) => ({
       lines: 1,
       changed: 1,
@@ -279,6 +289,48 @@ describe("Inventory tab", () => {
     await user.click(within(dialog).getByRole("button", { name: "Post count (1 correction)" }));
     await waitFor(() => expect(stock.postStockTake).toHaveBeenCalled());
     expect(await screen.findByText(/Count posted: 1 of 1 products corrected/)).toBeTruthy();
+  });
+
+  it("staff upload a filled count sheet: checked first, then saved in one go", async () => {
+    const user = userEvent.setup();
+    const stock = fakeStockApi({
+      take: {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "open",
+        note: null,
+        category: null,
+        started_at: "2026-11-05T10:00:00Z",
+        closed_at: null,
+      },
+      lines: [],
+    });
+    render(<InventoryPanel canManage={false} api={fakeApi()} stockApi={stock} />);
+    await user.click(await screen.findByRole("button", { name: "Stock take" }));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByTestId("count-sheet");
+    const file = new File(
+      [
+        "sku,barcode,name,category,unit,counted\nTH-1,,Thai Haze,Flower,units,8\n,,Blue Dream,Flower,units,\nX-9,,Ghost,Flower,units,3\n",
+      ],
+      "count.csv",
+      { type: "text/csv" },
+    );
+    await user.upload(within(dialog).getByLabelText("Count sheet CSV"), file);
+    const preview = await within(dialog).findByTestId("count-sheet-preview");
+    expect(preview.textContent).toMatch(/1 to save/);
+    expect(preview.textContent).toMatch(/1 left blank/);
+    expect(preview.textContent).toMatch(/Line 4 \(Ghost\): Not a product in this count/);
+    expect(stock.recordCounts).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Save 1 count" }));
+    await waitFor(() => expect(stock.recordCounts).toHaveBeenCalled());
+    const sent = stock.recordCounts.mock.calls[0]![0];
+    // Only ids and quantities leave the browser.
+    expect(sent.lines).toEqual([{ productId: "p1", counted: 8 }]);
+    expect(Object.keys(sent).sort()).toEqual(["key", "lines", "stockTakeId"]);
+    expect(await within(dialog).findByText(/Count sheet saved: 1 product counted/)).toBeTruthy();
+    expect((await within(dialog).findByTestId("count-progress")).textContent).toBe(
+      "1 of 3 counted",
+    );
   });
 
   it("budtenders can count but not review or post", async () => {

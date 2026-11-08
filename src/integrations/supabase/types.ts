@@ -2878,6 +2878,8 @@ export type Database = {
       };
       products: {
         Row: {
+          archived_at: string | null;
+          archived_by: string | null;
           badge: string | null;
           barcode: string | null;
           brand: string | null;
@@ -2908,6 +2910,8 @@ export type Database = {
           weight_step_g: number;
         };
         Insert: {
+          archived_at?: string | null;
+          archived_by?: string | null;
           badge?: string | null;
           barcode?: string | null;
           brand?: string | null;
@@ -2938,6 +2942,8 @@ export type Database = {
           weight_step_g?: number;
         };
         Update: {
+          archived_at?: string | null;
+          archived_by?: string | null;
           badge?: string | null;
           barcode?: string | null;
           brand?: string | null;
@@ -3269,6 +3275,14 @@ export type Database = {
       };
       admin_search: {
         Args: { p_actor: string; p_limit?: number; p_query: string };
+        Returns: Json;
+      };
+      product_delete: {
+        Args: { p_actor: string; p_idempotency_key: string; p_product_id: string };
+        Returns: Json;
+      };
+      product_restore: {
+        Args: { p_actor: string; p_idempotency_key: string; p_product_id: string };
         Returns: Json;
       };
       purchase_limit_set: {

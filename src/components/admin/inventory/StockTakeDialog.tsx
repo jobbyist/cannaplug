@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CheckCircle2, ClipboardList, Download, ScanLine } from "lucide-react";
+import { CheckCircle2, ClipboardList, Download, FileUp, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,12 +13,32 @@ import { Label } from "@/components/ui/label";
 import { createKeyStore } from "@/components/admin/pos/pos-logic";
 import { rand } from "@/lib/cart";
 import type { InventoryRow } from "@/lib/inventory-logic";
-import { countCsv, countableProducts, findProducts, varianceSummary } from "@/lib/stock-take-logic";
+import {
+  countCsv,
+  countSheetCsv,
+  countableProducts,
+  findProducts,
+  planCountUpload,
+  varianceSummary,
+  type CountUploadPlan,
+} from "@/lib/stock-take-logic";
 import type { StockOpsApi, StockTakeView } from "./inventory-api";
 
 const errorText = (e: unknown) =>
   e instanceof Error && e.message ? e.message : "That didn't work and nothing was changed.";
 const key = () => crypto.randomUUID();
+
+function downloadText(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
 
 /**
  * Stock take. A manager starts a count (all products or one category). Anyone on staff counts: scan or search a
@@ -408,10 +428,227 @@ function CountStage({
           </div>
         </form>
       )}
+      {!picked && (
+        <CountSheetUpload
+          scope={scope}
+          view={view}
+          api={api}
+          onSaved={async (message) => {
+            setSaved(message);
+            await onSaved();
+          }}
+        />
+      )}
       {canManage && (
         <Button variant="secondary" size="lg" disabled={view.lines.length === 0} onClick={onReview}>
           Review differences ({view.lines.length} counted)
         </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Count on paper or in a spreadsheet instead of product by product: download the count sheet, fill in the "counted"
+ * column, upload it. The file is checked first (what will be saved, rows that don't match, rows left blank) and
+ * nothing is saved until "Save counts" is pressed. Each row then saves exactly like a count typed on screen.
+ */
+function CountSheetUpload({
+  scope,
+  view,
+  api,
+  onSaved,
+}: {
+  scope: InventoryRow[];
+  view: StockTakeView;
+  api: StockOpsApi;
+  onSaved: (message: string) => Promise<void>;
+}) {
+  const take = view.take!;
+  const [plan, setPlan] = useState<CountUploadPlan | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState<{ name: string; problem: string }[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadKey = useRef<string | null>(null);
+
+  const reset = () => {
+    setPlan(null);
+    setFileName("");
+    setError(null);
+    uploadKey.current = null;
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  const pick = async (file: File) => {
+    reset();
+    setFailed([]);
+    if (file.size > 2_000_000) return setError("That file is bigger than 2 MB.");
+    try {
+      const text = await file.text();
+      const already = new Map(view.lines.map((l) => [l.product_id, l.counted]));
+      setPlan(planCountUpload(text, scope, already));
+      setFileName(file.name);
+    } catch {
+      setError("Could not read that file. Save it as CSV and try again.");
+    }
+  };
+  const save = async () => {
+    if (!plan?.lines.length) return;
+    setBusy(true);
+    setError(null);
+    uploadKey.current ??= key();
+    try {
+      const r = await api.recordCounts({
+        stockTakeId: take.id,
+        lines: plan.lines.map((l) => ({ productId: l.product_id, counted: l.counted })),
+        key: uploadKey.current,
+      });
+      const names = new Map(plan.lines.map((l) => [l.product_id, l.name]));
+      setFailed(r.failed.map((f) => ({ name: names.get(f.productId) ?? "", problem: f.problem })));
+      reset();
+      await onSaved(
+        `Count sheet saved: ${r.saved} product${r.saved === 1 ? "" : "s"} counted` +
+          (r.failed.length ? `, ${r.failed.length} not saved (see below).` : "."),
+      );
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="grid gap-3 rounded-lg border border-dashed border-border p-3"
+      data-testid="count-sheet"
+    >
+      <div>
+        <p className="text-sm font-semibold">Counting on paper or in a spreadsheet?</p>
+        <p className="text-xs text-muted-foreground">
+          Download the count sheet, fill in the <b>counted</b> column (leave it blank for anything
+          you didn&apos;t count), save as CSV and upload it here. You see what will be saved first.
+        </p>
+      </div>
+      {!plan && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              downloadText(`cannaplug-count-sheet-${today()}.csv`, countSheetCsv(scope))
+            }
+          >
+            <Download size={14} /> Download count sheet
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            aria-label="Count sheet CSV"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void pick(f);
+            }}
+          />
+          <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
+            <FileUp size={14} /> Upload filled sheet
+          </Button>
+        </div>
+      )}
+      {plan && (
+        <div className="grid gap-2 text-sm" data-testid="count-sheet-preview">
+          <p className="text-xs text-muted-foreground">{fileName}</p>
+          <ul className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+            <li>
+              <b>{plan.lines.length}</b> to save
+            </li>
+            <li>
+              <b>{plan.unchanged}</b> already saved
+            </li>
+            <li>
+              <b>{plan.blank}</b> left blank
+            </li>
+            <li className={plan.issues.length ? "text-destructive" : ""}>
+              <b>{plan.issues.length}</b> problem rows
+            </li>
+          </ul>
+          {plan.issues.length > 0 && (
+            <div className="rounded-md border border-destructive/40 p-2">
+              <p className="mb-1 font-semibold text-destructive">
+                These rows will not be saved. Fix them in the file and upload it again, or count
+                them on screen:
+              </p>
+              <ul className="max-h-40 list-disc overflow-y-auto pl-5 text-xs text-destructive">
+                {plan.issues.map((i) => (
+                  <li key={`${i.line}-${i.problem}`}>
+                    Line {i.line}
+                    {i.label ? ` (${i.label})` : ""}: {i.problem}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {plan.lines.length > 0 && (
+            <div className="max-h-48 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-muted-foreground">
+                    <th className="py-1 font-medium">Product</th>
+                    <th className="py-1 text-right font-medium">Counted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.lines.map((l) => (
+                    <tr key={l.product_id} className="border-t border-border">
+                      <td className="py-1 pr-2">
+                        {l.name}
+                        {l.previous != null && (
+                          <span className="text-muted-foreground"> (was counted {l.previous})</span>
+                        )}
+                      </td>
+                      <td className="py-1 text-right font-semibold">{l.counted}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {plan.lines.length === 0 && plan.issues.length === 0 && (
+            <p className="rounded-md bg-muted px-3 py-2">
+              Nothing new to save: fill in the counted column and upload again.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={busy || plan.lines.length === 0}
+              onClick={() => void save()}
+            >
+              {busy
+                ? "Saving…"
+                : `Save ${plan.lines.length} count${plan.lines.length === 1 ? "" : "s"}`}
+            </Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={reset}>
+              Choose another file
+            </Button>
+          </div>
+        </div>
+      )}
+      {failed.length > 0 && (
+        <ul role="alert" className="list-disc pl-5 text-xs text-destructive">
+          {failed.map((f) => (
+            <li key={f.name + f.problem}>
+              {f.name}: {f.problem}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && (
+        <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );

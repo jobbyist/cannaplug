@@ -2020,3 +2020,34 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   1. ~~Apply the migration~~ Done 5 Nov (see above); the branch can be deployed.
   2. Products need barcodes on file for scanning (Products tab or the CSV import). Search by name works without them.
 - **Rollback:** revert the PR, then run the rollback SQL. Stock already moved stays; export `stock_takes` / `stock_take_lines` first if the count history matters.
+
+## 8 Nov 2026 — Stock take by CSV upload; delete products in admin (feat/mvp-stock-csv-product-delete)
+
+- **Owner request:** fix the CSV upload option for stock taking, and add an option to delete products in admin.
+- **Built on PR #106** (`feat/mvp-stock-take`, migration `20261105003000` already applied to the hosted project). This PR targets that branch; merge #106 first.
+- **Finding (CSV):** there was no way to upload a stock count. The Inventory tab's **Stock sheet** download has an empty `counted` column, but nothing read it back. Uploading it through Products → CSV upload / edit did nothing useful: that upload ignores `counted` ("not part of the template"), stops on every product without a SKU, and `opening_stock` only ever applies to products that have never had stock. The stock take in #106 could only download its result.
+- **Stock take → count sheet upload** (`StockTakeDialog` → `CountSheetUpload`, any staff role while a count is open):
+  - **Download count sheet**: `sku, barcode, name, category, unit, counted` for every product in the count, sorted by category. It is blind (no system quantity), like the on-screen count. UTF-8 with BOM, formula-safe.
+  - **Upload filled sheet**: reads that file and also the Inventory **Stock sheet**. It matches rows by SKU, then barcode, then exact name (a name shared by two products needs the SKU), and also reads Excel's semicolon CSVs and `12,0`-style numbers. A blank `counted` cell means "not counted" and that row is left alone.
+  - **Preview before anything is saved:** to save / already saved / left blank / problem rows, each problem with its line number (not in this count, not a whole number, listed twice, no identifier, ambiguous name). Problem rows are skipped; the rest can be saved.
+  - **Save N counts:** `recordStockCountsFn` (budtender+, up to 3,000 lines) calls the existing `stock_take_record_count` for each line, so a row saved from the sheet is exactly like a count typed on screen: the snapshot is taken at that moment, it is idempotent per line (`<upload key>:<product>`), and it is audited. A failed line is reported and the others still save. A closed or missing count stops the upload. A manager then reviews and posts as before.
+- **Delete products** (`ProductsPanel`, managers and admins): a **Delete** button on every row opens a confirmation, then:
+  - a product that was **never sold, ordered, stocked, held or counted** is removed permanently, with its price history and any wishlist / back-in-stock rows;
+  - a product **with history is archived**: switched off (out of the shop and the till) and hidden from Products and from Inventory (unless stock is still on hand or held), while orders, receipts, the ledger and reports keep pointing at it. **Show archived (N)** lists archived products, and **Restore** switches one back on. Switching an archived product on anywhere (editor, CSV `active=yes`) also restores it;
+  - the screen says which of the two happened.
+- **Migration** `20261108001000_product_delete`:
+  - mirror `drizzle/migrations/0075_product_delete.sql`; rollback `supabase/rollbacks/20261108001000_product_delete_rollback.sql`; rehearsal `scripts/rollback-rehearsal-product-delete.sh`;
+  - columns `products.archived_at` and `archived_by`; trigger `products_archive_consistency` (an archived product is never active, and switching it on un-archives it);
+  - `product_delete(actor, product, key)` and `product_restore(actor, product, key)`: manager+, `SECURITY DEFINER`, `search_path=''`, idempotent, audited (`product_deleted` / `product_archived` / `product_restored`, with name, SKU and category), service role only. `_product_has_history` checks order items, till sale items, the ledger, batches, reservations and stock-take lines;
+  - price history stays append-only. The one exception is a transaction-local flag that `product_delete` sets for the product it is removing, after checking that the product has no history. Browsers have no DELETE grant there.
+  - **Deploy-order safe:** the Inventory tab reads archived ids tolerantly, and Products treats a missing `archived_at` as not archived, so the app works before the migration is applied (Delete then fails with a friendly error).
+- **Files:** `src/lib/{stock-take-logic,stock-ops.server,stock-ops.functions,admin-data.server,admin.functions,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{StockTakeDialog,inventory-api}.tsx/ts`, `src/components/admin/ProductsPanel.tsx`, `src/integrations/supabase/types.ts`.
+- **Tests:**
+  - `stock-take-logic` (+6): blind sheet round trip; SKU / barcode / name matching and blanks; the Inventory stock sheet and semicolon files; bad rows by line; missing columns and unchanged counts; same-name products.
+  - `inventory-panel` (+1): upload → preview with a problem row → save sends only ids and quantities → progress updates.
+  - `products-panel` (+4): confirm then delete (only id + key sent); the archived message; archived hidden until Show archived, then Restore; no delete for budtenders.
+  - `db/product-delete` (6, real Postgres): unused product removed with its price history and wishlist rows; stocked, sold and ordered products archived; restore and the archive trigger; roles, idempotency and unknown product; price history still guarded and no browser grants; **mutation check**: without the history check the foreign keys refuse the delete.
+  - `security-audit`: the new server functions assert the manager role.
+  - The rehearsal script and `scripts/verify-release.sh` (see PR).
+- **Needs the owner:** apply `20261108001000_product_delete` to the hosted project (SQL Editor, inside BEGIN/COMMIT, as for #106) or tell me to. The count-sheet upload needs no migration beyond #106.
+- **Rollback:** revert the PR, then run the rollback SQL. Products already deleted stay deleted (audit rows remain); archived products stay switched off and show again as Inactive.

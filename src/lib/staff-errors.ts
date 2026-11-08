@@ -9,6 +9,8 @@
 
 export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Your role can't do this. Ask a manager.",
+  product_not_found: "That product no longer exists. Refresh the list.",
+  product_not_archived: "That product is not archived.",
   // POS
   insufficient_stock: "Not enough stock available",
   // Stock takes and deliveries

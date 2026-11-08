@@ -9,6 +9,7 @@ import {
   quickAdjustStock,
   receiveDelivery,
   recordStockCount,
+  recordStockCounts,
   startStockTake,
 } from "@/lib/stock-ops.server";
 
@@ -46,6 +47,26 @@ export const recordStockCountFn = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(({ context, data }) => recordStockCount(context.userId, data));
+
+export const recordStockCountsFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        stockTakeId: uuid,
+        lines: z
+          .array(z.object({ productId: uuid, counted: qty.min(0).max(1_000_000) }))
+          .min(1)
+          .max(3000)
+          .refine(
+            (ls) => new Set(ls.map((l) => l.productId)).size === ls.length,
+            "Each product once",
+          ),
+        key,
+      })
+      .parse(d),
+  )
+  .handler(({ context, data }) => recordStockCounts(context.userId, data));
 
 export const postStockTakeFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])

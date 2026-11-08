@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
+import { friendlyStaffError } from "@/lib/staff-errors";
 
 /**
  * Stock takes, product-level quick add / remove and delivery receiving (5 Nov 2026). Every change goes through a
@@ -116,6 +117,36 @@ export async function recordStockCount(
       p_idempotency_key: input.key,
     }),
   );
+}
+
+/**
+ * Saves many counts at once (the count-sheet CSV upload). Each line goes through stock_take_record_count exactly as a
+ * count typed on screen does, with its own idempotency key derived from the upload's key, so a retry never counts a
+ * line twice. A line that fails is reported and the others still save; a closed or missing count stops the upload.
+ */
+export async function recordStockCounts(
+  actor: string,
+  input: { stockTakeId: string; lines: { productId: string; counted: number }[]; key: string },
+): Promise<{ saved: number; failed: { productId: string; problem: string }[] }> {
+  await assertRole(actor, "budtender");
+  let saved = 0;
+  const failed: { productId: string; problem: string }[] = [];
+  for (const l of input.lines) {
+    const res = await supabaseAdmin.rpc("stock_take_record_count", {
+      p_actor: actor,
+      p_stock_take_id: input.stockTakeId,
+      p_product_id: l.productId,
+      p_counted: l.counted,
+      p_idempotency_key: `${input.key}:${l.productId}`,
+    });
+    if (!res.error) {
+      saved++;
+      continue;
+    }
+    if (/stock_take_(closed|not_found)|forbidden/.test(res.error.message)) throw res.error;
+    failed.push({ productId: l.productId, problem: friendlyStaffError(res.error).message });
+  }
+  return { saved, failed };
 }
 
 export async function postStockTake(actor: string, input: { stockTakeId: string; key: string }) {
