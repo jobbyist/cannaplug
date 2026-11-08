@@ -18,6 +18,8 @@ import {
   saveAdminProduct,
   setProductSale,
   deactivateAdminProduct,
+  deleteAdminProduct,
+  restoreAdminProduct,
   transitionAdminOrder,
   type AdminProductInput,
   type AdminOrderStatus,
@@ -187,6 +189,20 @@ export const deactivateAdminProductFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) => z.object({ productId: z.string().uuid() }).parse(data))
   .handler(({ context, data }) => deactivateAdminProduct(context.userId, data.productId));
+
+export const deleteAdminProductFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) =>
+    z.object({ productId: z.string().uuid(), key: z.string().min(8).max(120) }).parse(data),
+  )
+  .handler(({ context, data }) => deleteAdminProduct(context.userId, data));
+
+export const restoreAdminProductFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) =>
+    z.object({ productId: z.string().uuid(), key: z.string().min(8).max(120) }).parse(data),
+  )
+  .handler(({ context, data }) => restoreAdminProduct(context.userId, data));
 
 export const listCustomersFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])

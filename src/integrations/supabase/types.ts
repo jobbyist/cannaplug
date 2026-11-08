@@ -1213,6 +1213,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      stock_takes: {
+        Row: {
+          category: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          id: string;
+          note: string | null;
+          started_at: string;
+          started_by: string;
+          status: string;
+        };
+        Insert: {
+          category?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          id?: string;
+          note?: string | null;
+          started_at?: string;
+          started_by: string;
+          status?: string;
+        };
+        Update: {
+          category?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          id?: string;
+          note?: string | null;
+          started_at?: string;
+          started_by?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      stock_take_lines: {
+        Row: {
+          counted_at: string;
+          counted_by: string;
+          counted_qty: number;
+          expected_at_count: number;
+          posted_delta: number | null;
+          product_id: string;
+          stock_take_id: string;
+        };
+        Insert: {
+          counted_at?: string;
+          counted_by: string;
+          counted_qty: number;
+          expected_at_count: number;
+          posted_delta?: number | null;
+          product_id: string;
+          stock_take_id: string;
+        };
+        Update: {
+          counted_at?: string;
+          counted_by?: string;
+          counted_qty?: number;
+          expected_at_count?: number;
+          posted_delta?: number | null;
+          product_id?: string;
+          stock_take_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_take_lines_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_take_lines_stock_take_id_fkey";
+            columns: ["stock_take_id"];
+            isOneToOne: false;
+            referencedRelation: "stock_takes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // </m3-tables>
       // <m5-tables>
       ai_usage_counters: {
@@ -2800,6 +2878,8 @@ export type Database = {
       };
       products: {
         Row: {
+          archived_at: string | null;
+          archived_by: string | null;
           badge: string | null;
           barcode: string | null;
           brand: string | null;
@@ -2830,6 +2910,8 @@ export type Database = {
           weight_step_g: number;
         };
         Insert: {
+          archived_at?: string | null;
+          archived_by?: string | null;
           badge?: string | null;
           barcode?: string | null;
           brand?: string | null;
@@ -2860,6 +2942,8 @@ export type Database = {
           weight_step_g?: number;
         };
         Update: {
+          archived_at?: string | null;
+          archived_by?: string | null;
           badge?: string | null;
           barcode?: string | null;
           brand?: string | null;
@@ -3191,6 +3275,14 @@ export type Database = {
       };
       admin_search: {
         Args: { p_actor: string; p_limit?: number; p_query: string };
+        Returns: Json;
+      };
+      product_delete: {
+        Args: { p_actor: string; p_idempotency_key: string; p_product_id: string };
+        Returns: Json;
+      };
+      product_restore: {
+        Args: { p_actor: string; p_idempotency_key: string; p_product_id: string };
         Returns: Json;
       };
       purchase_limit_set: {
@@ -4102,6 +4194,53 @@ export type Database = {
       id_credits_open: { Args: Record<PropertyKey, never>; Returns: boolean };
       pos_void_sale: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_sale_id: string };
+        Returns: Json;
+      };
+      stock_quick_adjust: {
+        Args: {
+          p_actor: string;
+          p_delta: number;
+          p_idempotency_key: string;
+          p_product_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      stock_receive_delivery: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_lines: Json;
+          p_reference: string | null;
+          p_supplier: string | null;
+        };
+        Returns: Json;
+      };
+      stock_take_cancel: {
+        Args: { p_actor: string; p_idempotency_key: string; p_stock_take_id: string };
+        Returns: Json;
+      };
+      stock_take_post: {
+        Args: { p_actor: string; p_idempotency_key: string; p_stock_take_id: string };
+        Returns: Json;
+      };
+      stock_take_record_count: {
+        Args: {
+          p_actor: string;
+          p_counted: number;
+          p_idempotency_key: string;
+          p_product_id: string;
+          p_stock_take_id: string;
+        };
+        Returns: Json;
+      };
+      stock_take_start: {
+        Args: {
+          p_actor: string;
+          p_category: string | null;
+          p_idempotency_key: string;
+          p_note: string | null;
+        };
         Returns: Json;
       };
       receive_stock: {
