@@ -598,3 +598,51 @@ describe("POS screen — loyalty rewards at the till", () => {
     expect(btn.textContent).toMatch(/needs 2 more/);
   });
 });
+
+describe("POS screen — custom items", () => {
+  const completeButton = () =>
+    screen.getByRole("button", { name: /Complet(e|ing)/ }) as HTMLButtonElement;
+
+  it("a custom item is added with a typed name and price, sold with a product, and sent as name + price only", async () => {
+    const { user, search } = await ready();
+    await user.type(search, "gelato{Enter}");
+    await user.click(screen.getByRole("button", { name: "Custom item" }));
+    await user.type(screen.getByLabelText("Item name"), "Gift wrapping");
+    await user.type(screen.getByLabelText("Price (R)"), "15.50");
+    const qty = screen.getByLabelText("Qty");
+    await user.clear(qty);
+    await user.type(qty, "2");
+    await user.click(screen.getByRole("button", { name: "Add to sale" }));
+    expect(screen.getByText("Gift wrapping")).toBeTruthy();
+    expect(screen.getByText("Custom")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalledTimes(1));
+    const items = server.completePosSaleFn.mock.calls[0]![0].data.items;
+    expect(items).toContainEqual({
+      custom: { name: "Gift wrapping", price: "15.50" },
+      quantity: 2,
+    });
+    expect(items.some((i: { product_id?: string }) => i.product_id?.startsWith("custom:"))).toBe(
+      false,
+    );
+    expect(items).toHaveLength(2);
+  });
+
+  it("checks the name and price before adding, and Cancel adds nothing", async () => {
+    const { user } = await ready();
+    await user.click(screen.getByRole("button", { name: "Custom item" }));
+    await user.type(screen.getByLabelText("Item name"), "X");
+    await user.type(screen.getByLabelText("Price (R)"), "10");
+    await user.click(screen.getByRole("button", { name: "Add to sale" }));
+    expect(screen.getByRole("alert").textContent).toMatch(/at least 2 characters/);
+    await user.type(screen.getByLabelText("Item name"), "mas card");
+    await user.clear(screen.getByLabelText("Price (R)"));
+    await user.type(screen.getByLabelText("Price (R)"), "0");
+    await user.click(screen.getByRole("button", { name: "Add to sale" }));
+    expect(screen.getByRole("alert").textContent).toMatch(/Enter a price/);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Xmas card")).toBeNull();
+    expect(screen.getByText(/Search and press Enter to add products/)).toBeTruthy();
+  });
+});

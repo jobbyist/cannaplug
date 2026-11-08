@@ -66,7 +66,67 @@ export type CartLine = {
   discount?: DiscountInput | undefined;
   /** A loyalty reward code: one unit of this line is free, paid for in the member's points. */
   reward?: string | undefined;
+  /** A custom item typed at the till for this sale only: not a product, no stock, never saved to the product list. */
+  custom?: true | undefined;
 };
+
+/** Most a custom item may cost (the database enforces the same limit). */
+export const CUSTOM_ITEM_MAX_CENTS = 10_000_000;
+
+/** What is wrong with a custom item the cashier typed, or null when it can be added. */
+export function customItemProblem(name: string, price: string): string | null {
+  const n = name.trim();
+  if (n.length < 2) return "Give the item a name (at least 2 characters).";
+  if (n.length > 80) return "Keep the name to 80 characters.";
+  const cents = parseCents(price);
+  if (cents === null || cents <= 0) return "Enter a price in rand, like 45 or 45.50.";
+  if (cents > CUSTOM_ITEM_MAX_CENTS) return "A custom item can be at most R100 000.";
+  return null;
+}
+
+/**
+ * A custom item as a basket line. It gets a one-off id (never a product id), so it can't merge with anything and the
+ * catalogue refresh leaves it alone. Only its name and price are sent; the database prices it from those.
+ */
+export function customLine(
+  name: string,
+  priceCents: number,
+  quantity = 1,
+  id: string = crypto.randomUUID(),
+): CartLine {
+  return {
+    product: {
+      id: `custom:${id}`,
+      slug: "custom",
+      name: name.trim().replace(/\s+/g, " "),
+      category: "Custom",
+      subcategory: null,
+      strain_type: null,
+      unit: null,
+      price_rand: priceCents / 100,
+      available: 9999,
+    },
+    quantity: Math.min(Math.max(1, Math.floor(quantity)), 9999),
+    custom: true,
+  };
+}
+
+/** The line as the server function expects it: a product id, or a custom item's name and price. */
+export function saleItemOf(l: CartLine) {
+  const discount = sendableDiscount(l.discount);
+  if (l.custom)
+    return {
+      custom: { name: l.product.name, price: centsToAmount(priceCents(l.product.price_rand)) },
+      quantity: l.quantity,
+      ...(discount ? { discount } : {}),
+    };
+  return {
+    product_id: l.product.id,
+    quantity: l.quantity,
+    ...(discount ? { discount } : {}),
+    ...(l.reward ? { reward: l.reward } : {}),
+  };
+}
 
 export type TenderRow = { rowId: string; method: TenderMethod; amount: string; reference: string };
 

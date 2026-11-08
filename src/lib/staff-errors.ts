@@ -9,6 +9,7 @@
 
 export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Your role can't do this. Ask a manager.",
+  custom_item_placeholder_locked: "That item is used for custom till items and can't be changed.",
   product_not_found: "That product no longer exists. Refresh the list.",
   product_not_archived: "That product is not archived.",
   // POS

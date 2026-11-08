@@ -47,6 +47,7 @@ import {
   discountCents,
   refundLineCents,
   sendableDiscount,
+  saleItemOf,
   type DiscountInput,
   cashChangeCents,
   categoryCounts,
@@ -70,6 +71,7 @@ import { PosSaleDialog, type SetSale } from "./PosSaleDialog";
 import { simulateSale, type DemoReceipt } from "./demo-logic";
 import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
+import { CustomItemForm } from "./CustomItemForm";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
 
 type Overview = Awaited<ReturnType<typeof getPosOverviewFn>>;
@@ -369,6 +371,8 @@ export function SaleScreen({
   useEffect(() => {
     setLines((cur) =>
       cur.flatMap((l) => {
+        // A custom item is not in the catalogue: it stays as typed.
+        if (l.custom) return [l];
         const fresh = data.catalog.find((p) => p.id === l.product.id);
         return fresh
           ? [
@@ -488,15 +492,7 @@ export function SaleScreen({
     inFlight.current = true;
     setBusy(true);
     setError(null);
-    const items = lines.map((l) => {
-      const discount = sendableDiscount(l.discount);
-      return {
-        product_id: l.product.id,
-        quantity: l.quantity,
-        ...(discount ? { discount } : {}),
-        ...(l.reward ? { reward: l.reward } : {}),
-      };
-    });
+    const items = lines.map(saleItemOf);
     const od = sendableDiscount(orderDiscount);
     const reason = summary.hasManualDiscount ? discountReason.trim() : null;
     const sendTenders = activeTenders.map((t) => ({
@@ -619,6 +615,13 @@ export function SaleScreen({
             ),
           )}
         </div>
+        <CustomItemForm
+          onAdd={(line) => {
+            setReceipt(null);
+            setLines((cur) => [...cur, line]);
+            focusSearch();
+          }}
+        />
         {saleNotice && (
           <p role="status" className="mb-2 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
             {saleNotice}
@@ -741,7 +744,14 @@ export function SaleScreen({
                 <li key={l.product.id} className="rounded-lg border border-border p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{l.product.name}</p>
+                      <p className="truncate text-sm font-semibold">
+                        {l.product.name}
+                        {l.custom && (
+                          <span className="ml-1.5 rounded-full border border-gold/60 bg-gold/10 px-1.5 py-0.5 align-middle text-[0.6rem] font-semibold uppercase tracking-wide">
+                            Custom
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {rand(l.product.price_rand)} each
                         {l.product.regular_price_rand != null && (

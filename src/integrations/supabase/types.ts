@@ -922,6 +922,7 @@ export type Database = {
       };
       pos_sale_items: {
         Row: {
+          is_custom: boolean;
           id: string;
           line_discount_rand: number;
           order_discount_rand: number;
@@ -934,6 +935,7 @@ export type Database = {
           unit_price_rand: number;
         };
         Insert: {
+          is_custom?: boolean;
           id?: string;
           line_discount_rand?: number;
           order_discount_rand?: number;
@@ -946,6 +948,7 @@ export type Database = {
           unit_price_rand: number;
         };
         Update: {
+          is_custom?: boolean;
           id?: string;
           line_discount_rand?: number;
           order_discount_rand?: number;
@@ -3277,6 +3280,7 @@ export type Database = {
         Args: { p_actor: string; p_limit?: number; p_query: string };
         Returns: Json;
       };
+      pos_custom_item_product_id: { Args: never; Returns: string };
       product_delete: {
         Args: { p_actor: string; p_idempotency_key: string; p_product_id: string };
         Returns: Json;

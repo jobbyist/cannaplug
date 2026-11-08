@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { CUSTOM_ITEM_PRODUCT_ID } from "@/lib/pos-custom-item";
 import { assertRole } from "@/lib/admin-data.server";
 import type { InventoryRow } from "@/lib/inventory-logic";
 import { productImageUrl } from "@/lib/product-image-url.server";
@@ -19,6 +20,7 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
       .select(
         "id,name,sku,barcode,category,brand,unit,sold_by_weight,is_active,sell_online,track_stock,low_stock_threshold,price_rand,regular_price_rand,cost_rand,image_path",
       )
+      .neq("id", CUSTOM_ITEM_PRODUCT_ID)
       .order("name")
       .range(0, MAX_ROWS - 1),
     supabaseAdmin

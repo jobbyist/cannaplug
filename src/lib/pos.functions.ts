@@ -156,19 +156,45 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
     z
       .object({
         sessionId: uuid,
-        // Only ids and quantities: no price, total or stock value is accepted from the client.
+        // Only ids and quantities (plus a custom item's typed name and price): no total or stock value is accepted.
         items: z
           .array(
-            z.object({
-              product_id: uuid,
-              quantity: z.number().int().min(1).max(9999),
-              discount: discount.optional(),
-              // A loyalty reward code (one unit free, paid in points). The database checks everything.
-              reward: z
-                .string()
-                .regex(/^[a-z_]{3,40}$/)
-                .optional(),
-            }),
+            z.union([
+              z
+                .object({
+                  product_id: uuid,
+                  quantity: z.number().int().min(1).max(9999),
+                  discount: discount.optional(),
+                  // A loyalty reward code (one unit free, paid in points). The database checks everything.
+                  reward: z
+                    .string()
+                    .regex(/^[a-z_]{3,40}$/)
+                    .optional(),
+                })
+                .strict(),
+              // A custom item for this sale only: the one line whose name and price the cashier types. Never a
+              // product, never stock; the database validates it again and audits the sale.
+              z
+                .object({
+                  custom: z
+                    .object({
+                      name: z
+                        .string()
+                        .trim()
+                        .min(2)
+                        .max(80)
+                        .regex(/^[^\p{Cc}]+$/u),
+                      price: z
+                        .string()
+                        .regex(/^\d{1,6}(\.\d{1,2})?$/)
+                        .refine((v) => Number(v) > 0 && Number(v) <= 100_000, "R0.01 to R100 000"),
+                    })
+                    .strict(),
+                  quantity: z.number().int().min(1).max(9999),
+                  discount: discount.optional(),
+                })
+                .strict(),
+            ]),
           )
           .min(1)
           .max(100),

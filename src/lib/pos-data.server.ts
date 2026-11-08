@@ -19,13 +19,23 @@ export type PosTenderInput = {
   reference?: string | undefined;
 };
 export type PosDiscountInput = { kind: "percent" | "amount"; value: string };
-export type PosItemInput = {
-  product_id: string;
-  quantity: number;
-  discount?: PosDiscountInput | undefined;
-  /** A loyalty reward code: one unit of this product is free, paid for in points. */
-  reward?: string | undefined;
-};
+export type PosItemInput =
+  | {
+      product_id: string;
+      quantity: number;
+      discount?: PosDiscountInput | undefined;
+      /** A loyalty reward code: one unit of this product is free, paid for in points. */
+      reward?: string | undefined;
+    }
+  | {
+      /**
+       * A custom item for this sale only (8 Nov 2026): typed name and price, never saved as a product and never
+       * stock. The database validates both and audits the sale.
+       */
+      custom: { name: string; price: string };
+      quantity: number;
+      discount?: PosDiscountInput | undefined;
+    };
 
 export type PosCatalogItem = {
   id: string;
@@ -600,6 +610,7 @@ export type SaleResult = {
     quantity: number;
     unit_price: number;
     line_total: number;
+    is_custom?: boolean;
   }[];
   tenders: { method: string; amount: number; reference: string | null }[];
 };
@@ -634,12 +645,20 @@ export async function posCompleteSale(
     await supabaseAdmin.rpc("pos_complete_sale", {
       p_actor: userId,
       p_session_id: input.sessionId,
-      p_items: input.items.map((i) => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        ...(i.discount ? { discount: i.discount } : {}),
-        ...(i.reward ? { reward: i.reward } : {}),
-      })),
+      p_items: input.items.map((i) =>
+        "custom" in i
+          ? {
+              custom: { name: i.custom.name, price: i.custom.price },
+              quantity: i.quantity,
+              ...(i.discount ? { discount: i.discount } : {}),
+            }
+          : {
+              product_id: i.product_id,
+              quantity: i.quantity,
+              ...(i.discount ? { discount: i.discount } : {}),
+              ...(i.reward ? { reward: i.reward } : {}),
+            },
+      ),
       p_tenders: input.tenders.map((t) => ({
         method: t.method,
         amount: t.amount,
