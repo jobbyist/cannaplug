@@ -18,7 +18,7 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
     supabaseAdmin
       .from("products")
       .select(
-        "id,name,sku,category,brand,unit,sold_by_weight,is_active,sell_online,track_stock,low_stock_threshold,price_rand,regular_price_rand,cost_rand,image_path",
+        "id,name,sku,barcode,category,brand,unit,sold_by_weight,is_active,sell_online,track_stock,low_stock_threshold,price_rand,regular_price_rand,cost_rand,image_path",
       )
       .neq("id", CUSTOM_ITEM_PRODUCT_ID)
       .order("name")
@@ -38,17 +38,26 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
   for (const r of [productsRes, availabilityRes, batchesRes]) if (r.error) throw r.error;
 
   const stock = new Map((availabilityRes.data ?? []).map((a) => [a.product_id, a]));
+  const archived = await archivedProductIds();
   const nextExpiry = new Map<string, string>();
   for (const b of batchesRes.data ?? [])
     if (b.expires_at && !nextExpiry.has(b.product_id)) nextExpiry.set(b.product_id, b.expires_at);
 
-  return (productsRes.data ?? []).map((p) => {
+  // Deleted products that had history are archived: hidden here unless stock is still on the shelf or held, so no
+  // real stock disappears from the count or the stock value.
+  const visible = (productsRes.data ?? []).filter((p) => {
+    if (!archived.has(p.id)) return true;
+    const s = stock.get(p.id);
+    return (s?.on_hand ?? 0) > 0 || (s?.held ?? 0) > 0;
+  });
+  return visible.map((p) => {
     const s = stock.get(p.id);
     const onHand = s?.on_hand ?? 0;
     return {
       product_id: p.id,
       name: p.name,
       sku: p.sku,
+      barcode: p.barcode ?? null,
       category: p.category,
       brand: p.brand,
       unit: p.unit,
@@ -72,6 +81,20 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
           : null,
     };
   });
+}
+
+/**
+ * Ids of archived products. Tolerant on purpose: if the product-delete migration (20261108001000) is not applied yet
+ * the column does not exist, and the Inventory tab must keep working, so that reads as "none archived".
+ */
+async function archivedProductIds(): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("id")
+    .not("archived_at", "is", null)
+    .range(0, MAX_ROWS - 1);
+  if (error) return new Set();
+  return new Set((data ?? []).map((r) => r.id));
 }
 
 export type StockMovement = {

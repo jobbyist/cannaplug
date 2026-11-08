@@ -6,6 +6,17 @@ import {
 import type { StockMovement } from "@/lib/inventory-data.server";
 import type { InventoryRow } from "@/lib/inventory-logic";
 import { adjustStockFn, listBatchesFn, receiveStockFn } from "@/lib/pos.functions";
+import {
+  cancelStockTakeFn,
+  getStockTakeFn,
+  postStockTakeFn,
+  quickAdjustStockFn,
+  receiveDeliveryFn,
+  recordStockCountFn,
+  recordStockCountsFn,
+  startStockTakeFn,
+} from "@/lib/stock-ops.functions";
+import type { StockTakeView } from "@/lib/stock-ops.server";
 
 export type Batch = {
   id: string;
@@ -49,4 +60,76 @@ export const serverInventoryApi: InventoryApi = {
     setLowStockThresholdFn({ data: { productId, threshold } }),
 };
 
-export type { StockMovement };
+export type { StockMovement, StockTakeView };
+
+/** Stock takes, quick add / remove and deliveries (5 Nov 2026). Injected like InventoryApi so screens test offline. */
+export type StockOpsApi = {
+  getStockTake: () => Promise<StockTakeView>;
+  startStockTake: (input: {
+    note: string | null;
+    category: string | null;
+    key: string;
+  }) => Promise<unknown>;
+  recordCount: (input: {
+    stockTakeId: string;
+    productId: string;
+    counted: number;
+    key: string;
+  }) => Promise<{ expected: number; counted: number; difference: number }>;
+  recordCounts: (input: {
+    stockTakeId: string;
+    lines: { productId: string; counted: number }[];
+    key: string;
+  }) => Promise<{ saved: number; failed: { productId: string; problem: string }[] }>;
+  postStockTake: (input: { stockTakeId: string; key: string }) => Promise<{
+    lines: number;
+    changed: number;
+    units_added: number;
+    units_removed: number;
+  }>;
+  cancelStockTake: (input: { stockTakeId: string; key: string }) => Promise<unknown>;
+  quickAdjust: (input: {
+    productId: string;
+    delta: number;
+    reason: string;
+    key: string;
+  }) => Promise<{ before: number; after: number }>;
+  receiveDelivery: (input: {
+    supplier: string | null;
+    reference: string | null;
+    lines: {
+      productId: string;
+      quantity: number;
+      unitCost: string | null;
+      expiresOn: string | null;
+    }[];
+    key: string;
+  }) => Promise<{ lines: number; units: number; batch_code: string }>;
+};
+
+export const serverStockOpsApi: StockOpsApi = {
+  getStockTake: () => getStockTakeFn() as Promise<StockTakeView>,
+  startStockTake: (data) => startStockTakeFn({ data }),
+  recordCount: (data) =>
+    recordStockCountFn({ data }) as Promise<{
+      expected: number;
+      counted: number;
+      difference: number;
+    }>,
+  recordCounts: (data) =>
+    recordStockCountsFn({ data }) as Promise<{
+      saved: number;
+      failed: { productId: string; problem: string }[];
+    }>,
+  postStockTake: (data) =>
+    postStockTakeFn({ data }) as Promise<{
+      lines: number;
+      changed: number;
+      units_added: number;
+      units_removed: number;
+    }>,
+  cancelStockTake: (data) => cancelStockTakeFn({ data }),
+  quickAdjust: (data) => quickAdjustStockFn({ data }) as Promise<{ before: number; after: number }>,
+  receiveDelivery: (data) =>
+    receiveDeliveryFn({ data }) as Promise<{ lines: number; units: number; batch_code: string }>,
+};

@@ -1967,6 +1967,98 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Owner actions:** none left. The workbook and SQL file stay outside git (personal data).
 - **Rollback:** revert the PR (script only). To undo the staging: `delete from public.imported_customers where batch = 'clinify-187-299' and user_id is null;` (members who already signed up keep their account and status).
 
+## 5 Nov 2026 — Stock takes, quick add / remove and delivery receiving (feat/mvp-stock-take)
+
+- **Purpose:** staff feedback: "We need an actual stock management system where we can add and remove stock as needed, count it, and add new stock as it comes in easily." PR C of three (A: sign-up and recovery, #104; B: phone layouts, #105).
+- **Owner decision (5 Nov):** stock take plus quick receive in this round; suppliers and purchase orders later.
+- **Before:** staff could only receive or adjust **one batch at a time**. They had to choose a batch for every change and could count only by adjusting batch by batch.
+- **Now, in /admin → Inventory:**
+  - **Add / Remove on every product row** (managers). Enter how many, tap a reason (Damaged, Expired, Returned to supplier, Used as sample, Found in store, Count correction, or type one) and save. No batch is chosen:
+    - removals come out of the first-expiring batches and never go below what online orders are holding;
+    - additions go to the newest batch, or a dated `ADJ-` batch when the product has none.
+  - **Receive delivery** (managers):
+    - optional supplier name and invoice number;
+    - scan a barcode (USB scanners type the code and press Enter) or search, then enter how many came in, with optional unit cost and expiry per line;
+    - "Receive N products (M units)" saves everything together, or nothing if any line is wrong;
+    - each line becomes a batch `DEL-YYYYMMDD-<invoice>` whose notes record the supplier.
+  - **Stock take**:
+    - A manager starts a count (all products or one category, with an optional note). Only one count can be open at a time.
+    - Anyone on staff counts: scan or search a product, type what is on the shelf, save. The count is **blind** (the system number is hidden while counting), and progress shows "45 of 185 counted" with a "still to count" list.
+    - The manager reviews the differences: short and over in units and at cost, plus a warning about uncounted products, which are left alone. The count can be downloaded as CSV.
+    - **Post** applies every correction in one transaction. **Cancel** changes nothing.
+    - Each difference is measured from what the system showed **when that product was counted**, so till and online sales made during the count are not undone.
+  - **By batch:** the old dialogs now live under each row's "…" menu ("Receive into a batch…", "Adjust a batch…").
+- **Files:** `supabase/migrations/20261105003000_stock_takes.sql`, `src/lib/{stock-ops.server,stock-ops.functions,stock-take-logic,inventory-logic,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{InventoryPanel,StockOpsDialogs,StockTakeDialog,inventory-api}.tsx/ts`, `src/integrations/supabase/types.ts`.
+- **Migration:** `20261105003000_stock_takes`. Mirror `drizzle/migrations/0074_stock_takes.sql`; rollback `supabase/rollbacks/20261105003000_stock_takes_rollback.sql`; rehearsal `scripts/rollback-rehearsal-stock-takes.sh`.
+  - **Tables:** `stock_takes` (one open at a time, unique index) and `stock_take_lines` (`expected_at_count` snapshot taken under the batch locks). Both have RLS; staff (budtender and up) can read; browsers have no write grants.
+  - **Functions:** `stock_take_start` / `_post` / `_cancel` (manager), `stock_take_record_count` (budtender), `stock_quick_adjust` and `stock_receive_delivery` (manager), plus the helpers `_stock_move_product` and `_product_on_hand`. All are `SECURITY DEFINER`, `search_path=''`, take an explicit actor and an idempotency key, write an audit row, and are executable by the service role only.
+  - **Unchanged:** every movement is still an ordinary `inventory_ledger` row (`adjustment` with reference `stock_take`, or `receipt` with reference `delivery`), so on-hand counts, reports and the till work as before. `receive_stock` and `adjust_stock` are untouched.
+  - **Applied to the hosted project (khltynzzcjhlujxbgyod), 5 Nov 2026: yes.** The connector's approval prompt timed out three times without reaching the owner, so nothing was applied that way (checked after each attempt). The owner then ran the committed file (`d901542`, including the review fixes) in the Supabase SQL Editor inside one BEGIN/COMMIT. Verified after on the live database:
+    - both tables have RLS, 2 staff-read policies, no browser write grants and no anon grants;
+    - all 8 functions are `SECURITY DEFINER` with `search_path=""`, executable by the service role only;
+    - the one-open-count index is present, and the duplicate-invoice fix is in `stock_receive_delivery`;
+    - a call with a non-existent actor is refused (`forbidden`) and writes nothing (0 stock takes).
+- **Tests:**
+  - **`db/stock-takes` (14):**
+    - posting short, over and exact lines together;
+    - a till sale between counting and posting is kept;
+    - stock held for online orders is never removed;
+    - removals come out of the first-expiring batch;
+    - a product with no batch gets a dated one;
+    - a delivery is all-or-nothing;
+    - role rules: budtenders count, managers do the rest, customers can't;
+    - one open count at a time, and a closed count can't be touched;
+    - category counts take only that category;
+    - retries are idempotent;
+    - everything is audited;
+    - browsers are locked out;
+    - **mutation checks:** removing the manager check lets a budtender post; removing the held-stock rule lets a count take stock promised to an order.
+  - **`inventory-panel` (9):** remove with a required reason; a delivery by barcode scan sends only ids and quantities; start → blind count → review → post; budtenders can count but not post; the by-batch dialogs from the menu.
+  - **`stock-take-logic` (4):** barcode / SKU / name lookup, count scope, variance at cost, a CSV that can't run formulas.
+  - **Rehearsal** and **`scripts/verify-release.sh`** (see PR).
+- **Needs the owner:**
+  1. ~~Apply the migration~~ Done 5 Nov (see above); the branch can be deployed.
+  2. Products need barcodes on file for scanning (Products tab or the CSV import). Search by name works without them.
+- **Rollback:** revert the PR, then run the rollback SQL. Stock already moved stays; export `stock_takes` / `stock_take_lines` first if the count history matters.
+
+## 8 Nov 2026 — Stock take by CSV upload; delete products in admin (feat/mvp-stock-csv-product-delete)
+
+- **Owner request:** fix the CSV upload option for stock taking, and add an option to delete products in admin.
+- **Built on PR #106** (`feat/mvp-stock-take`, migration `20261105003000` already applied to the hosted project). This PR targets that branch; merge #106 first.
+- **Finding (CSV):** there was no way to upload a stock count. The Inventory tab's **Stock sheet** download has an empty `counted` column, but nothing read it back. Uploading it through Products → CSV upload / edit did nothing useful: that upload ignores `counted` ("not part of the template"), stops on every product without a SKU, and `opening_stock` only ever applies to products that have never had stock. The stock take in #106 could only download its result.
+- **Stock take → count sheet upload** (`StockTakeDialog` → `CountSheetUpload`, any staff role while a count is open):
+  - **Download count sheet**: `sku, barcode, name, category, unit, counted` for every product in the count, sorted by category. It is blind (no system quantity), like the on-screen count. UTF-8 with BOM, formula-safe.
+  - **Upload filled sheet**: reads that file and also the Inventory **Stock sheet**. It matches rows by SKU, then barcode, then exact name (a name shared by two products needs the SKU), and also reads Excel's semicolon CSVs and `12,0`-style numbers. A blank `counted` cell means "not counted" and that row is left alone.
+  - **Preview before anything is saved:** to save / already saved / left blank / problem rows, each problem with its line number (not in this count, not a whole number, listed twice, no identifier, ambiguous name). Problem rows are skipped; the rest can be saved.
+  - **Save N counts:** `recordStockCountsFn` (budtender+, up to 3,000 lines) calls the existing `stock_take_record_count` for each line, so a row saved from the sheet is exactly like a count typed on screen: the snapshot is taken at that moment, it is idempotent per line (`<upload key>:<product>`), and it is audited. A failed line is reported and the others still save. A closed or missing count stops the upload. A manager then reviews and posts as before.
+- **Bulk stock take (CSV)** (client follow-up, 8 Nov; `BulkStockTakeDialog`, managers): a button on Inventory runs the whole count from one spreadsheet.
+  - Choose all products or one category, then **Download count sheet**, fill in `counted` and **Upload filled sheet**.
+  - The same preview as above, then **Start stock take and load N counts**. That one button starts the stock take (note "Bulk CSV upload: <file>") and saves every count through `stock_take_record_count`, then opens the usual **review** screen to post or cancel. Nothing changes until it is posted.
+  - If a stock take is already open, it says so and offers to open that one; the sheet can be uploaded into it there.
+  - If saving the counts fails after the start, the message says the stock take is open, so it can be finished or cancelled from Stock take.
+  - No new migration.
+- **Delete products** (`ProductsPanel`, managers and admins): a **Delete** button on every row opens a confirmation, then:
+  - a product that was **never sold, ordered, stocked, held or counted** is removed permanently, with its price history and any wishlist / back-in-stock rows;
+  - a product **with history is archived**: switched off (out of the shop and the till) and hidden from Products and from Inventory (unless stock is still on hand or held), while orders, receipts, the ledger and reports keep pointing at it. **Show archived (N)** lists archived products, and **Restore** switches one back on. Switching an archived product on anywhere (editor, CSV `active=yes`) also restores it;
+  - the screen says which of the two happened.
+- **Migration** `20261108001000_product_delete`:
+  - mirror `drizzle/migrations/0075_product_delete.sql`; rollback `supabase/rollbacks/20261108001000_product_delete_rollback.sql`; rehearsal `scripts/rollback-rehearsal-product-delete.sh`;
+  - columns `products.archived_at` and `archived_by`; trigger `products_archive_consistency` (an archived product is never active, and switching it on un-archives it);
+  - `product_delete(actor, product, key)` and `product_restore(actor, product, key)`: manager+, `SECURITY DEFINER`, `search_path=''`, idempotent, audited (`product_deleted` / `product_archived` / `product_restored`, with name, SKU and category), service role only. `_product_has_history` checks order items, till sale items, the ledger, batches, reservations and stock-take lines;
+  - price history stays append-only. The one exception is a transaction-local flag that `product_delete` sets for the product it is removing, after checking that the product has no history. Browsers have no DELETE grant there.
+  - **Deploy-order safe:** the Inventory tab reads archived ids tolerantly, and Products treats a missing `archived_at` as not archived, so the app works before the migration is applied (Delete then fails with a friendly error).
+- **Files:** `src/lib/{stock-take-logic,stock-ops.server,stock-ops.functions,admin-data.server,admin.functions,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{StockTakeDialog,inventory-api}.tsx/ts`, `src/components/admin/ProductsPanel.tsx`, `src/integrations/supabase/types.ts`.
+- **Tests:**
+  - `stock-counts-bulk` (2): every line saved once with its own key, 8 at a time at most; a closed count stops the upload (review fix: lines now run 8 at a time instead of one after another).
+  - `stock-take-logic` (+6): blind sheet round trip; SKU / barcode / name matching and blanks; the Inventory stock sheet and semicolon files; bad rows by line; missing columns and unchanged counts; same-name products.
+  - `inventory-panel` (+3): upload → preview with a problem row → save sends only ids and quantities → progress updates; bulk: upload → one button starts and loads → review → post (only ids and quantities sent); bulk with a count already open, and no bulk button for budtenders.
+  - `products-panel` (+4): confirm then delete (only id + key sent); the archived message; archived hidden until Show archived, then Restore; no delete for budtenders.
+  - `db/product-delete` (6, real Postgres): unused product removed with its price history and wishlist rows; stocked, sold and ordered products archived; restore and the archive trigger; roles, idempotency and unknown product; price history still guarded and no browser grants; **mutation check**: without the history check the foreign keys refuse the delete.
+  - `security-audit`: the new server functions assert the manager role.
+  - The rehearsal script and `scripts/verify-release.sh` (see PR).
+- **Needs the owner:** apply `20261108001000_product_delete` to the hosted project (SQL Editor, inside BEGIN/COMMIT, as for #106) or tell me to. The count-sheet upload needs no migration beyond #106.
+- **Rollback:** revert the PR, then run the rollback SQL. Products already deleted stay deleted (audit rows remain); archived products stay switched off and show again as Inactive.
+
 ## 8 Nov 2026 — Custom items at the till (feat/mvp-pos-custom-item)
 
 - **Owner request:** add a custom product option to the POS till. The custom product applies only to that sale and is not saved to the product list.
