@@ -595,6 +595,47 @@ export async function deactivateAdminProduct(userId: string, productId: string) 
   return data;
 }
 
+export type ProductDeleteResult = {
+  mode: "deleted" | "archived";
+  product_id: string;
+  name: string;
+  sku: string | null;
+};
+
+/**
+ * Delete a product (managers and admins). The database decides: a product that was never sold, ordered, stocked or
+ * counted is removed permanently; one with history is archived (switched off and hidden from the lists) because
+ * orders, receipts, the stock ledger and reports still point at it. Audited either way.
+ */
+export async function deleteAdminProduct(
+  userId: string,
+  input: { productId: string; key: string },
+): Promise<ProductDeleteResult> {
+  await assertRole(userId, "manager");
+  const { data, error } = await supabaseAdmin.rpc("product_delete", {
+    p_actor: userId,
+    p_product_id: input.productId,
+    p_idempotency_key: input.key,
+  });
+  if (error) throw error;
+  return data as unknown as ProductDeleteResult;
+}
+
+/** Bring an archived product back (switched on again). Managers and admins; audited. */
+export async function restoreAdminProduct(
+  userId: string,
+  input: { productId: string; key: string },
+): Promise<{ product_id: string; name: string }> {
+  await assertRole(userId, "manager");
+  const { data, error } = await supabaseAdmin.rpc("product_restore", {
+    p_actor: userId,
+    p_product_id: input.productId,
+    p_idempotency_key: input.key,
+  });
+  if (error) throw error;
+  return data as unknown as { product_id: string; name: string };
+}
+
 export type CustomerRow = {
   id: string;
   full_name: string | null;

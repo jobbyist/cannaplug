@@ -205,7 +205,12 @@ describe("authorization in the data layers", () => {
       expect(body, fn).toMatch(/assertRole\(userId, "manager"\)/);
     }
     const admin = read(join(root, "src/lib/admin-data.server.ts"));
-    for (const fn of ["saveAdminProduct", "deactivateAdminProduct"])
+    for (const fn of [
+      "saveAdminProduct",
+      "deactivateAdminProduct",
+      "deleteAdminProduct",
+      "restoreAdminProduct",
+    ])
       expect(
         admin.split(new RegExp(`export async function ${fn}\\b`))[1]!.split(/\nexport /)[0]!,
         fn,
