@@ -50,12 +50,13 @@ CREATE TRIGGER products_archive_consistency
 BEFORE INSERT OR UPDATE OF is_active, archived_at ON public.products
 FOR EACH ROW EXECUTE FUNCTION public._products_archive_consistency();
 
--- Same rules as before, plus the one product_delete exception.
+-- Same rules as before, plus the one product_delete exception. search_path is now '' like every other function here
+-- (the body names no tables; current_setting and statement_timestamp live in pg_catalog).
 CREATE OR REPLACE FUNCTION public.validate_product_price_history_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN

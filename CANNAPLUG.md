@@ -2049,6 +2049,7 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   - **Deploy-order safe:** the Inventory tab reads archived ids tolerantly, and Products treats a missing `archived_at` as not archived, so the app works before the migration is applied (Delete then fails with a friendly error).
 - **Files:** `src/lib/{stock-take-logic,stock-ops.server,stock-ops.functions,admin-data.server,admin.functions,inventory-data.server,staff-errors}.ts`, `src/components/admin/inventory/{StockTakeDialog,inventory-api}.tsx/ts`, `src/components/admin/ProductsPanel.tsx`, `src/integrations/supabase/types.ts`.
 - **Tests:**
+  - `stock-counts-bulk` (2): every line saved once with its own key, 8 at a time at most; a closed count stops the upload (review fix: lines now run 8 at a time instead of one after another).
   - `stock-take-logic` (+6): blind sheet round trip; SKU / barcode / name matching and blanks; the Inventory stock sheet and semicolon files; bad rows by line; missing columns and unchanged counts; same-name products.
   - `inventory-panel` (+3): upload → preview with a problem row → save sends only ids and quantities → progress updates; bulk: upload → one button starts and loads → review → post (only ids and quantities sent); bulk with a count already open, and no bulk button for budtenders.
   - `products-panel` (+4): confirm then delete (only id + key sent); the archived message; archived hidden until Show archived, then Restore; no delete for budtenders.

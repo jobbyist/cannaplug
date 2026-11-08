@@ -122,30 +122,39 @@ export async function recordStockCount(
 /**
  * Saves many counts at once (the count-sheet CSV upload). Each line goes through stock_take_record_count exactly as a
  * count typed on screen does, with its own idempotency key derived from the upload's key, so a retry never counts a
- * line twice. A line that fails is reported and the others still save; a closed or missing count stops the upload.
+ * line twice. Lines are different products, so they run a few at a time (bounded, so a large sheet stays well inside
+ * the server's time limit without flooding the database). A line that fails is reported and the others still save;
+ * a closed or missing count, or a role error, stops the upload.
  */
+const COUNT_CONCURRENCY = 8;
 export async function recordStockCounts(
   actor: string,
   input: { stockTakeId: string; lines: { productId: string; counted: number }[]; key: string },
 ): Promise<{ saved: number; failed: { productId: string; problem: string }[] }> {
   await assertRole(actor, "budtender");
   let saved = 0;
+  let fatal: unknown = null;
   const failed: { productId: string; problem: string }[] = [];
-  for (const l of input.lines) {
-    const res = await supabaseAdmin.rpc("stock_take_record_count", {
-      p_actor: actor,
-      p_stock_take_id: input.stockTakeId,
-      p_product_id: l.productId,
-      p_counted: l.counted,
-      p_idempotency_key: `${input.key}:${l.productId}`,
-    });
-    if (!res.error) {
-      saved++;
-      continue;
+  let next = 0;
+  const worker = async () => {
+    while (fatal === null && next < input.lines.length) {
+      const l = input.lines[next++]!;
+      const res = await supabaseAdmin.rpc("stock_take_record_count", {
+        p_actor: actor,
+        p_stock_take_id: input.stockTakeId,
+        p_product_id: l.productId,
+        p_counted: l.counted,
+        p_idempotency_key: `${input.key}:${l.productId}`,
+      });
+      if (!res.error) saved++;
+      else if (/stock_take_(closed|not_found)|forbidden/.test(res.error.message)) fatal = res.error;
+      else failed.push({ productId: l.productId, problem: friendlyStaffError(res.error).message });
     }
-    if (/stock_take_(closed|not_found)|forbidden/.test(res.error.message)) throw res.error;
-    failed.push({ productId: l.productId, problem: friendlyStaffError(res.error).message });
-  }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(COUNT_CONCURRENCY, input.lines.length) }, () => worker()),
+  );
+  if (fatal !== null) throw fatal;
   return { saved, failed };
 }
 
