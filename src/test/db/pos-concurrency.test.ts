@@ -120,7 +120,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       await sell(sql, cashier, sessionId, oneOf(product, 4), [cash("40")]);
       const batches =
         await sql`SELECT batch_code, qty_on_hand FROM public.inventory_batches WHERE product_id = ${product} ORDER BY batch_code`;
-      expect(Object.fromEntries(batches.map((b) => [b["batch_code"], b["qty_on_hand"]]))).toEqual({
+      expect(Object.fromEntries(batches.map((b) => [b["batch_code"], Number(b["qty_on_hand"])]))).toEqual({
         EARLY: 0,
         LATE: 1,
       }); // earliest expiry first
@@ -700,7 +700,7 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       expect(v.loyalty_reversed).toBe(8); // R400 at 1 point per R50
       const batches =
         await sql`SELECT batch_code, qty_on_hand FROM public.inventory_batches WHERE product_id = ${product} ORDER BY batch_code`;
-      expect(batches.map((b) => b["qty_on_hand"])).toEqual([2, 3]);
+      expect(batches.map((b) => Number(b["qty_on_hand"]))).toEqual([2, 3]);
       const [audit] =
         await sql`SELECT actor_user_id, metadata FROM public.audit_log WHERE action = 'pos_sale_voided' AND entity_id = ${sale.sale_id}`;
       expect(audit!["actor_user_id"]).toBe(manager);

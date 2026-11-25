@@ -38,7 +38,7 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
               WHERE status = 'open'`;
   });
 
-  const onHand = (p: string) => val<number>(sql`SELECT public._product_on_hand(${p})`);
+  const onHand = async (p: string) => Number(await val(sql`SELECT public._product_on_hand(${p})`));
   const start = (category: string | null = null) =>
     rpc(sql, "stock_take_start", manager, null, category, key("st")).then(
       (r) => r.stock_take_id as string,
@@ -64,7 +64,7 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     expect([await onHand(a), await onHand(b), await onHand(c)]).toEqual([7, 6, 6]);
     const lines =
       await sql`SELECT product_id, posted_delta FROM public.stock_take_lines WHERE stock_take_id = ${t}`;
-    expect(Object.fromEntries(lines.map((l) => [l["product_id"], l["posted_delta"]]))).toEqual({
+    expect(Object.fromEntries(lines.map((l) => [l["product_id"], Number(l["posted_delta"])]))).toEqual({
       [a]: -3,
       [b]: 2,
       [c]: 0,
@@ -112,7 +112,7 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     const early = await receive(sql, manager, p, 5, "EARLY", soon);
     await rpc(sql, "stock_quick_adjust", manager, p, -3, "Damaged in store", key("qa"));
     const q = async (id: string) =>
-      val<number>(sql`SELECT qty_on_hand FROM public.inventory_batches WHERE id = ${id}`);
+      Number(await val(sql`SELECT qty_on_hand FROM public.inventory_batches WHERE id = ${id}`));
     expect([await q(early), await q(late)]).toEqual([2, 5]);
     await rpc(sql, "stock_quick_adjust", manager, p, 4, "Found in the back", key("qa"));
     expect(await onHand(p)).toBe(11);
@@ -274,7 +274,7 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     for (const role of ["anon", "authenticated"]) {
       const [g] = await sql`SELECT
         has_function_privilege(${role}, 'public.stock_take_post(uuid,uuid,text)', 'EXECUTE') AS post,
-        has_function_privilege(${role}, 'public._stock_move_product(uuid,uuid,integer,text,text,uuid,text)', 'EXECUTE') AS mv,
+        has_function_privilege(${role}, 'public._stock_move_product(uuid,uuid,numeric,text,text,uuid,text)', 'EXECUTE') AS mv,
         has_table_privilege(${role}, 'public.stock_take_lines', 'INSERT') AS ins`;
       expect(g).toEqual({ post: false, mv: false, ins: false });
     }
@@ -317,7 +317,7 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     await sql
       .begin(async (tx) => {
         const [def] = await tx`SELECT pg_get_functiondef(
-          'public._stock_move_product(uuid,uuid,integer,text,text,uuid,text)'::regprocedure) AS d`;
+          'public._stock_move_product(uuid,uuid,numeric,text,text,uuid,text)'::regprocedure) AS d`;
         const broken = String(def!["d"]).replace(
           "SELECT b.qty_on_hand - b.qty_held INTO v_avail",
           "SELECT b.qty_on_hand INTO v_avail",

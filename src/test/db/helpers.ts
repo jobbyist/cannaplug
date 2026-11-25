@@ -158,8 +158,8 @@ export function sell(
 export async function assertInventoryConsistent(sql: Sql): Promise<void> {
   const bad = await sql`
     SELECT b.id, b.qty_on_hand, b.qty_held,
-           COALESCE((SELECT SUM(l.quantity_delta) FROM public.inventory_ledger l WHERE l.batch_id = b.id), 0)::int AS ledger_sum,
-           COALESCE((SELECT SUM(r.quantity) FROM public.stock_reservations r WHERE r.batch_id = b.id AND r.status = 'held'), 0)::int AS held_sum
+           COALESCE((SELECT SUM(l.quantity_delta) FROM public.inventory_ledger l WHERE l.batch_id = b.id), 0)::numeric AS ledger_sum,
+           COALESCE((SELECT SUM(r.quantity) FROM public.stock_reservations r WHERE r.batch_id = b.id AND r.status = 'held'), 0)::numeric AS held_sum
     FROM public.inventory_batches b
     WHERE b.qty_on_hand <> COALESCE((SELECT SUM(l.quantity_delta) FROM public.inventory_ledger l WHERE l.batch_id = b.id), 0)
        OR b.qty_held <> COALESCE((SELECT SUM(r.quantity) FROM public.stock_reservations r WHERE r.batch_id = b.id AND r.status = 'held'), 0)
@@ -171,7 +171,14 @@ export async function assertInventoryConsistent(sql: Sql): Promise<void> {
 export async function stockOf(sql: Sql, productId: string) {
   const [row] =
     await sql`SELECT on_hand, held, available, consumed FROM public.inventory_availability WHERE product_id = ${productId}`;
-  return row as { on_hand: number; held: number; available: number; consumed: number };
+  // Stock is numeric(12,1) (decimal stock, 25 Nov 2026), which the driver hands back as text: "8.0".
+  const r = row as Record<"on_hand" | "held" | "available" | "consumed", unknown>;
+  return {
+    on_hand: Number(r.on_hand),
+    held: Number(r.held),
+    available: Number(r.available),
+    consumed: Number(r.consumed),
+  };
 }
 
 /** First column of the first row (count(*), sum(...), ...). */
