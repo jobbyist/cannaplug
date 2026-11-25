@@ -131,7 +131,7 @@ describe("stock take logic", () => {
       const plan = planCountUpload(csv, scope, none);
       expect(plan.lines.map((l) => l.product_id)).toEqual(["b"]);
       expect(plan.issues.map((i) => i.line)).toEqual([2, 3, 4, 5, 6, 8]);
-      expect(plan.issues[0]!.problem).toMatch(/whole number/);
+      expect(plan.issues[0]!.problem).toMatch(/whole units/);
       expect(plan.issues[5]!.problem).toMatch(/also on line 7/);
     });
 
@@ -147,6 +147,73 @@ describe("stock take logic", () => {
       expect(
         planCountUpload("sku,counted\nTH-1,6", scope, new Map([["a", 5]])).lines[0]!.previous,
       ).toBe(5);
+    });
+
+    it("weighed products take one decimal (point or comma); whole-unit products never do", () => {
+      const weighed = row({
+        product_id: "w",
+        name: "Gram Flower",
+        sku: "GF-1",
+        sold_by_weight: true,
+      });
+      const both = [...scope, weighed];
+      expect(planCountUpload("sku,counted\nGF-1,27.4", both, none).lines[0]).toMatchObject({
+        product_id: "w",
+        counted: 27.4,
+      });
+      expect(planCountUpload('sku;counted\nGF-1;"27,4"', both, none).lines[0]).toMatchObject({
+        counted: 27.4,
+      });
+      expect(planCountUpload("sku,counted\nGF-1,0", both, none).lines[0]).toMatchObject({
+        counted: 0,
+      });
+      // more than one decimal, and a decimal for a whole-unit product, are refused with a plain reason
+      const tooFine = planCountUpload("sku,counted\nGF-1,27.45", both, none);
+      expect(tooFine.lines).toEqual([]);
+      expect(tooFine.issues[0]!.problem).toMatch(/one decimal/);
+      const unitDecimal = planCountUpload("sku,counted\nTH-1,2.5", both, none);
+      expect(unitDecimal.lines).toEqual([]);
+      expect(unitDecimal.issues[0]!.problem).toMatch(/whole units/);
+      // a repeated decimal count is "already saved" only when it is exactly the same
+      expect(
+        planCountUpload("sku,counted\nGF-1,27.4", both, new Map([["w", 27.4]])).unchanged,
+      ).toBe(1);
+      expect(
+        planCountUpload("sku,counted\nGF-1,27.4", both, new Map([["w", 27.3]])).lines[0]!.previous,
+      ).toBe(27.3);
+    });
+
+    it("variance totals are exact to one decimal", () => {
+      const lines = [
+        {
+          product_id: "a",
+          name: "A",
+          category: "Flower",
+          expected: 30,
+          counted: 27.4,
+          difference: -2.6,
+          unit_cost: null,
+        },
+        {
+          product_id: "b",
+          name: "B",
+          category: "Flower",
+          expected: 10,
+          counted: 10.1,
+          difference: 0.1,
+          unit_cost: null,
+        },
+        {
+          product_id: "c",
+          name: "C",
+          category: "Flower",
+          expected: 5,
+          counted: 5.2,
+          difference: 0.2,
+          unit_cost: null,
+        },
+      ];
+      expect(varianceSummary(lines)).toMatchObject({ changed: 3, unitsOver: 0.3, unitsUnder: 2.6 });
     });
 
     it("two products with the same name need a SKU", () => {

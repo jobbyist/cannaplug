@@ -1428,6 +1428,11 @@ BEGIN
   LOOP
     SELECT * INTO v_item FROM public.pos_sale_items WHERE id = v_line.sale_item_id AND sale_id = p_sale_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION 'invalid_items: line % is not part of this sale', v_line.sale_item_id; END IF;
+    -- only a product sold by weight can be refunded in decimals (half a pre-roll would put half a unit back)
+    IF v_line.quantity <> trunc(v_line.quantity) AND NOT EXISTS (
+      SELECT 1 FROM public.products p WHERE p.id = v_item.product_id AND p.sold_by_weight) THEN
+      RAISE EXCEPTION 'invalid_quantity: % is sold in whole units, so only whole units can be refunded', v_item.product_name;
+    END IF;
     IF v_item.refunded_quantity + v_line.quantity > v_item.quantity THEN
       RAISE EXCEPTION 'over_refund: % of % already refunded for %; requested %',
         v_item.refunded_quantity, v_item.quantity, v_item.product_name, v_line.quantity;

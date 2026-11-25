@@ -64,6 +64,7 @@ import {
 import { DeliveryDialog, QuickAdjustDialog } from "./StockOpsDialogs";
 import { StockTakeDialog } from "./StockTakeDialog";
 import { BulkStockTakeDialog } from "./BulkStockTakeDialog";
+import { formatQty } from "@/lib/qty";
 
 const PAGE = 50;
 const ALL = "__all__";
@@ -248,7 +249,7 @@ export function InventoryPanel({
         <StatCard
           label="Products"
           value={summary.products}
-          hint={`${summary.units} on hand · ${summary.held} held`}
+          hint={`${formatQty(summary.units)} on hand · ${formatQty(summary.held)} held`}
           icon={PackageOpen}
           active={filters.status === "all" && !filtered}
           onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -441,7 +442,7 @@ export function InventoryPanel({
                     )}
                     {r.expired > 0 && (
                       <Badge variant="outline" className={STATUS_STYLE.out}>
-                        {r.expired} expired
+                        {formatQty(r.expired)} expired
                       </Badge>
                     )}
                     {expiresSoon(r) && r.next_expiry && (
@@ -454,12 +455,15 @@ export function InventoryPanel({
               </div>
               <div className="grid gap-1">
                 <p className="text-sm">
-                  <span className="font-display text-lg font-extrabold">{r.available}</span>{" "}
+                  <span className="font-display text-lg font-extrabold">
+                    {formatQty(r.available)}
+                  </span>{" "}
                   <span className="text-xs text-muted-foreground">available</span>
                 </p>
                 {r.track_stock && <LevelBar row={r} />}
                 <p className="text-[0.68rem] text-muted-foreground">
-                  {r.on_hand} on hand · {r.held} held · alert at {r.low_stock_threshold}
+                  {formatQty(r.on_hand)} on hand · {formatQty(r.held)} held · alert at{" "}
+                  {r.low_stock_threshold}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 sm:justify-end">

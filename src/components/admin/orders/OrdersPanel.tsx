@@ -21,6 +21,7 @@ import {
 import { rand } from "@/lib/cart";
 import type { AdminOrder, AdminOrderStatus } from "@/lib/admin-data.server";
 import { getAdminOrderFn, listAdminOrdersFn } from "@/lib/admin.functions";
+import { formatQty, lineCents } from "@/lib/qty";
 
 export function OrderTable({
   orders,
@@ -139,9 +140,9 @@ export function OrdersPanel({
             {selected.items.map((item) => (
               <div key={item.id} className="flex justify-between">
                 <span>
-                  {item.quantity} × {item.product_name}
+                  {formatQty(item.quantity)} × {item.product_name}
                 </span>
-                <span>{rand(Number(item.unit_price_rand) * item.quantity)}</span>
+                <span>{rand(lineCents(Number(item.unit_price_rand), item.quantity) / 100)}</span>
               </div>
             ))}
           </div>

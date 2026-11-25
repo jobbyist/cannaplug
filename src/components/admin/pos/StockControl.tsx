@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { adjustStockFn, listBatchesFn, receiveStockFn } from "@/lib/pos.functions";
 import { centsToAmount, createKeyStore, parseCents, type CatalogItem } from "./pos-logic";
+import { cleanQtyInput, formatQty, parseQty, roundQty } from "@/lib/qty";
 
 const selectClass = "h-9 rounded-md border border-input bg-background px-2 text-sm";
 const errorClass =
@@ -75,12 +76,13 @@ function ReceiveForm({
   const [done, setDone] = useState<string | null>(null);
   const keys = useRef(createKeyStore());
 
-  const qty = Number(quantity);
+  // Weighed products take one decimal (27.4 g); everything else is whole units.
+  const decimals = Boolean(catalog.find((c) => c.id === productId)?.sold_by_weight);
+  const qty = parseQty(quantity, { decimals, allowZero: false }) ?? 0;
   const costCents = cost.trim() === "" ? null : parseCents(cost);
   const valid =
     productId &&
     batchCode.trim().length > 0 &&
-    Number.isInteger(qty) &&
     qty > 0 &&
     (cost.trim() === "" || costCents !== null);
 
@@ -138,9 +140,9 @@ function ReceiveForm({
         <label className="grid gap-1.5 text-xs font-semibold">
           Quantity received
           <Input
-            inputMode="numeric"
+            inputMode={decimals ? "decimal" : "numeric"}
             value={quantity}
-            onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setQuantity(cleanQtyInput(e.target.value))}
           />
         </label>
         <label className="grid gap-1.5 text-xs font-semibold">
@@ -206,8 +208,11 @@ function AdjustForm({
     void loadBatches(productId);
   }, [productId]);
 
-  const n = Number(delta);
-  const valid = batchId && Number.isInteger(n) && n !== 0 && reason.trim().length >= 3;
+  const decimals = Boolean(catalog.find((c) => c.id === productId)?.sold_by_weight);
+  const negative = delta.trim().startsWith("-");
+  const parsed = parseQty(delta.replace(/^-/, ""), { decimals, allowZero: false });
+  const n = parsed === null ? 0 : negative ? roundQty(-parsed) : parsed;
+  const valid = batchId && n !== 0 && reason.trim().length >= 3;
 
   const submit = async () => {
     setBusy(true);
@@ -219,7 +224,9 @@ function AdjustForm({
         data: { ...body, key: keys.current.keyFor(JSON.stringify(body)) },
       })) as { before: number; after: number };
       keys.current.reset();
-      setDone(`Adjusted: ${r.before} → ${r.after} units. Recorded in the audit log.`);
+      setDone(
+        `Adjusted: ${formatQty(Number(r.before))} → ${formatQty(Number(r.after))} ${decimals ? "g" : "units"}. Recorded in the audit log.`,
+      );
       setDelta("");
       setReason("");
       await loadBatches(productId);
@@ -262,7 +269,8 @@ function AdjustForm({
             </option>
             {batches.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.batch_code} · {b.qty_on_hand} on hand · {b.qty_held} held · {b.available} free
+                {b.batch_code} · {formatQty(b.qty_on_hand)} on hand · {formatQty(b.qty_held)} held ·{" "}
+                {formatQty(b.available)} free
               </option>
             ))}
           </select>
@@ -270,10 +278,13 @@ function AdjustForm({
         <label className="grid gap-1.5 text-xs font-semibold">
           Change (+ add / − remove)
           <Input
-            inputMode="numeric"
-            placeholder="-2"
+            inputMode={decimals ? "decimal" : "numeric"}
+            placeholder={decimals ? "-2.5" : "-2"}
             value={delta}
-            onChange={(e) => setDelta(e.target.value.replace(/[^\d-]/g, ""))}
+            onChange={(e) => {
+              const minus = e.target.value.trim().startsWith("-") ? "-" : "";
+              setDelta(minus + cleanQtyInput(e.target.value.replace(/-/g, "")));
+            }}
           />
         </label>
         <label className="grid gap-1.5 text-xs font-semibold">

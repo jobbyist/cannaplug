@@ -22,11 +22,14 @@ export const sumQty = (xs: readonly number[]): number =>
 /** True when the number has at most one decimal place (27.4 yes, 27.45 no). */
 export const isTenths = (q: number): boolean =>
   Number.isFinite(q) && Math.abs(q * TENTHS - Math.round(q * TENTHS)) < 1e-6;
-export const isWholeQty = (q: number): boolean => Number.isFinite(q) && Number.isInteger(roundQty(q));
+export const isWholeQty = (q: number): boolean =>
+  Number.isFinite(q) && Number.isInteger(roundQty(q));
 
 /** 27.4 shows as "27,4" in a South African browser (like the rand amounts); whole numbers show without decimals. */
 export const formatQty = (q: number): string =>
-  roundQty(q).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  roundQty(q)
+    .toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+    .replace(/\u00a0/g, " ");
 /** "27,4 g" for a weighed product, otherwise the plain number. */
 export const formatQtyUnit = (q: number, byWeight: boolean | null | undefined): string =>
   byWeight ? `${formatQty(q)} g` : formatQty(q);
@@ -67,11 +70,11 @@ export function qtyProblem(raw: string, o: ParseOptions): string | null {
 }
 
 /**
- * Keeps what is typed into a quantity box tidy: digits, and (only when decimals are allowed) one separator followed by
- * at most one digit. Both "." and "," are accepted, as typed.
+ * Keeps what is typed into a quantity box tidy: digits, and one separator followed by at most one digit ("." and ","
+ * are both accepted, as typed). A decimal typed for a product counted in whole units is deliberately NOT dropped: it
+ * stays visible so parseQty can say "this product is counted in whole units", instead of "2.5" silently becoming 25.
  */
-export function cleanQtyInput(raw: string, decimals: boolean): string {
-  if (!decimals) return raw.replace(/\D/g, "");
+export function cleanQtyInput(raw: string): string {
   const kept = raw.replace(/[^\d.,]/g, "");
   const m = /^(\d*)([.,])?(\d?)/.exec(kept);
   if (!m) return "";

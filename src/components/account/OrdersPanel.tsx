@@ -20,6 +20,7 @@ import { ONLINE_REDEMPTION_NOTICE } from "@/lib/rewards-logic";
 import type { MemberAccount } from "@/lib/member-data.server";
 import { statusLabel, summariseReorder, type ReorderCheck } from "@/lib/member-logic";
 import { useIdempotencyKey } from "./use-member-account";
+import { formatQty, lineCents } from "@/lib/qty";
 
 type Order = MemberAccount["orders"][number];
 
@@ -164,7 +165,7 @@ function ReorderDialog({
               >
                 <div>
                   <p className="font-medium">
-                    {line.quantity} × {line.name}
+                    {formatQty(line.quantity)} × {line.name}
                   </p>
                   {line.status === "price_changed" && (
                     <p className="text-xs text-amber-600">
@@ -182,7 +183,7 @@ function ReorderDialog({
                   )}
                 </div>
                 {line.current_price !== null && line.status !== "unavailable" && (
-                  <b>{rand(Number(line.current_price) * line.quantity)}</b>
+                  <b>{rand(lineCents(Number(line.current_price), line.quantity) / 100)}</b>
                 )}
               </li>
             ))}
@@ -267,7 +268,7 @@ export function OrdersPanel({
             <ul className="mb-3 text-xs text-muted-foreground">
               {order.items.map((item) => (
                 <li key={item.id}>
-                  {item.quantity} × {item.product_name}
+                  {formatQty(item.quantity)} × {item.product_name}
                 </li>
               ))}
             </ul>

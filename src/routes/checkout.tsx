@@ -44,6 +44,7 @@ import { saveAddressFn } from "@/lib/member.functions";
 import { getMyVerificationFn } from "@/lib/verification.functions";
 import { verificationView, type VerificationView } from "@/lib/verification-logic";
 import type { CheckoutQuote, PlacedOrder } from "@/lib/checkout-data.server";
+import { formatQty, lineCents } from "@/lib/qty";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout | CannaPlug" }] }),
@@ -160,13 +161,14 @@ function OrderSummary({
                 key: l.productId,
                 name: l.name,
                 quantity: l.quantity,
-                amount: l.price * l.quantity,
+                amount: lineCents(l.price, l.quantity) / 100,
                 problem: false,
               }))
           ).map((line) => (
             <li key={line.key} className="flex items-center justify-between gap-3 text-xs">
               <span className={line.problem ? "text-destructive" : "text-foreground"}>
-                {line.name} <span className="text-muted-foreground">× {line.quantity}</span>
+                {line.name}{" "}
+                <span className="text-muted-foreground">× {formatQty(line.quantity)}</span>
                 {line.problem && " — unavailable"}
               </span>
               <span className="font-semibold">
@@ -544,8 +546,8 @@ function CheckoutPage() {
                         >
                           <Minus size={13} />
                         </button>
-                        <span className="w-5 text-center text-xs font-semibold">
-                          {line.quantity}
+                        <span className="min-w-5 text-center text-xs font-semibold">
+                          {formatQty(line.quantity)}
                         </span>
                         <button
                           aria-label="Increase quantity"

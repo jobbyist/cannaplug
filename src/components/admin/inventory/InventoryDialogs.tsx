@@ -42,6 +42,7 @@ import {
 } from "@/lib/inventory-logic";
 import type { Batch, InventoryApi, StockMovement } from "./inventory-api";
 import { QuantityStepper } from "./QuantityStepper";
+import { addQty, formatQty, parseQty, qtyProblem, subQty } from "@/lib/qty";
 
 const errMsg = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
@@ -63,15 +64,15 @@ function Problem({ text }: { text: string | null }) {
 }
 
 function Preview({ label, before, after }: { label: string; before: number; after: number }) {
-  const delta = after - before;
+  const delta = subQty(after, before);
   return (
     <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold" data-testid="stock-preview">
-        {before} → <span className="text-base">{after}</span>{" "}
+        {formatQty(before)} → <span className="text-base">{formatQty(after)}</span>{" "}
         <span className={delta < 0 ? "text-destructive" : "text-primary"}>
           ({delta > 0 ? "+" : ""}
-          {delta})
+          {formatQty(delta)})
         </span>
       </span>
     </div>
@@ -126,7 +127,7 @@ function ProductPicker({
                   />
                   <span className="truncate">{r.name}</span>
                   <span className="ml-auto text-xs text-muted-foreground">
-                    {r.available} avail.
+                    {formatQty(r.available)} avail.
                   </span>
                 </CommandItem>
               ))}
@@ -202,13 +203,17 @@ export function ReceiveDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, open]);
 
-  const n = qty === "" ? 0 : Number(qty);
+  // Weighed products take one decimal (27.4 g); everything else is whole units.
+  const decimals = Boolean(product?.sold_by_weight);
+  const n = parseQty(qty, { decimals }) ?? 0;
   const existing = batches?.find((b) => b.id === batch) ?? null;
   const costCents = cost.trim() === "" ? null : parseCents(cost);
   const problem = !product
     ? "Choose a product."
-    : n < 1
-      ? "Enter how many arrived."
+    : n <= 0
+      ? qty.trim() === ""
+        ? "Enter how many arrived."
+        : (qtyProblem(qty, { decimals, allowZero: false }) ?? "Enter how many arrived.")
       : !existing && code.trim().length === 0
         ? "Enter a batch code."
         : cost.trim() !== "" && costCents === null
@@ -275,7 +280,7 @@ export function ReceiveDialog({
                     <SelectItem value={NEW_BATCH}>New batch (new delivery)</SelectItem>
                     {(batches ?? []).map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        Top up {b.batch_code} · {b.qty_on_hand} on hand
+                        Top up {b.batch_code} · {formatQty(b.qty_on_hand)} on hand
                         {b.expires_at ? ` · exp ${date(b.expires_at)}` : ""}
                       </SelectItem>
                     ))}
@@ -303,6 +308,7 @@ export function ReceiveDialog({
                   value={qty}
                   onChange={setQty}
                   quick={[1, 5, 10, 25, 50]}
+                  decimals={decimals}
                 />
               </div>
               {!existing && (
@@ -341,7 +347,7 @@ export function ReceiveDialog({
               <Preview
                 label="Available after"
                 before={product.available}
-                after={product.available + n}
+                after={addQty(product.available, n)}
               />
             </>
           )}
@@ -420,12 +426,13 @@ export function AdjustDialog({
       batch && amount !== ""
         ? adjustmentPreview({
             mode,
-            amount: Number(amount),
+            amount: Number(amount.replace(",", ".")),
             batchOnHand: batch.qty_on_hand,
             batchHeld: batch.qty_held,
+            decimals: Boolean(row?.sold_by_weight),
           })
         : null,
-    [batch, amount, mode],
+    [batch, amount, mode, row?.sold_by_weight],
   );
   const reasonText = adjustmentReasonText(reason, note);
   const problem = !batch
@@ -507,7 +514,8 @@ export function AdjustDialog({
                   <SelectContent>
                     {batches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        {b.batch_code} · {b.qty_on_hand} on hand · {b.qty_held} held
+                        {b.batch_code} · {formatQty(b.qty_on_hand)} on hand ·{" "}
+                        {formatQty(b.qty_held)} held
                         {b.expires_at ? ` · exp ${date(b.expires_at)}` : ""}
                       </SelectItem>
                     ))}
@@ -517,8 +525,8 @@ export function AdjustDialog({
             )}
             {batch && batches && batches.length === 1 && (
               <p className="text-xs text-muted-foreground">
-                Batch {batch.batch_code}: {batch.qty_on_hand} on hand, {batch.qty_held} held for
-                online orders.
+                Batch {batch.batch_code}: {formatQty(batch.qty_on_hand)} on hand,{" "}
+                {formatQty(batch.qty_held)} held for online orders.
               </p>
             )}
             {batchError && <p className="text-xs text-destructive">{batchError}</p>}
@@ -530,7 +538,13 @@ export function AdjustDialog({
                     ? "How many to remove?"
                     : "How many to add?"}
               </Label>
-              <QuantityStepper id="adj-qty" label="quantity" value={amount} onChange={setAmount} />
+              <QuantityStepper
+                id="adj-qty"
+                label="quantity"
+                value={amount}
+                onChange={setAmount}
+                decimals={Boolean(row?.sold_by_weight)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="adj-reason">Reason</Label>
@@ -652,7 +666,7 @@ export function HistoryDialog({
                   className={`shrink-0 font-bold ${m.quantity_delta < 0 ? "text-destructive" : "text-primary"}`}
                 >
                   {m.quantity_delta > 0 ? "+" : ""}
-                  {m.quantity_delta}
+                  {formatQty(Number(m.quantity_delta))}
                 </span>
               </li>
             ))}

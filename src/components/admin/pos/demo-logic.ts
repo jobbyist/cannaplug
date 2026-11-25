@@ -12,6 +12,7 @@ import {
   type TenderRow,
 } from "./pos-logic";
 import type { CloseResult } from "./cashup-logic";
+import { lineCents } from "@/lib/qty";
 
 export type DemoReceipt = {
   sale: {
@@ -59,7 +60,7 @@ export function simulateSale(input: {
 }): DemoReceipt {
   const summary = cartSummary(input.lines, input.orderDiscount, input.staff === true);
   const nets = input.lines.map((l) => {
-    const base = priceCents(l.product.price_rand) * l.quantity;
+    const base = lineCents(l.product.price_rand, l.quantity);
     return base - (discountCents(l.discount, base) ?? 0);
   });
   const shares = shareOrderDiscount(nets, summary.orderDiscountCents);

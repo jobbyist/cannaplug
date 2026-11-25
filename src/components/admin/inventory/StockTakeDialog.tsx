@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createKeyStore } from "@/components/admin/pos/pos-logic";
 import { rand } from "@/lib/cart";
+import { cleanQtyInput, formatQty, parseQty, qtyProblem } from "@/lib/qty";
 import type { InventoryRow } from "@/lib/inventory-logic";
 import {
   countCsv,
@@ -295,9 +296,15 @@ function CountStage({
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (!picked) return;
-    const n = Number(qty);
-    if (qty === "" || !Number.isInteger(n) || n < 0)
-      return setError("Enter the number you counted (0 if none).");
+    // Weighed products take one decimal (27.4 g, or 27,4); everything else is counted in whole units.
+    const decimals = Boolean(picked.sold_by_weight);
+    const n = parseQty(qty, { decimals });
+    if (n === null)
+      return setError(
+        qty.trim() === ""
+          ? "Enter the number you counted (0 if none)."
+          : (qtyProblem(qty, { decimals }) ?? "Enter the number you counted (0 if none)."),
+      );
     setBusy(true);
     setError(null);
     try {
@@ -308,7 +315,7 @@ function CountStage({
         key: keys.current.keyFor(JSON.stringify([take.id, picked.product_id, n])),
       });
       keys.current.reset();
-      setSaved(`${picked.name}: ${n} saved.`);
+      setSaved(`${picked.name}: ${formatQty(n)} saved.`);
       setPicked(null);
       setQty("");
       await onSaved();
@@ -381,7 +388,7 @@ function CountStage({
                   <span className="truncate">{r.name}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {counted.has(r.product_id)
-                      ? `counted ${counted.get(r.product_id)!.counted}`
+                      ? `counted ${formatQty(counted.get(r.product_id)!.counted)}`
                       : r.category}
                   </span>
                 </button>
@@ -407,11 +414,17 @@ function CountStage({
             <Input
               id="st-qty"
               ref={qtyRef}
-              inputMode="numeric"
+              inputMode={picked.sold_by_weight ? "decimal" : "numeric"}
               className="h-14 text-2xl font-bold"
               value={qty}
-              onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setQty(cleanQtyInput(e.target.value))}
+              aria-describedby="st-qty-hint"
             />
+            <p id="st-qty-hint" className="text-xs text-muted-foreground">
+              {picked.sold_by_weight
+                ? "Grams to one decimal place, for example 27.4."
+                : "Whole units."}
+            </p>
           </div>
           {error && (
             <p
@@ -608,10 +621,13 @@ function CountSheetUpload({
                       <td className="py-1 pr-2">
                         {l.name}
                         {l.previous != null && (
-                          <span className="text-muted-foreground"> (was counted {l.previous})</span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            (was counted {formatQty(l.previous)})
+                          </span>
                         )}
                       </td>
-                      <td className="py-1 text-right font-semibold">{l.counted}</td>
+                      <td className="py-1 text-right font-semibold">{formatQty(l.counted)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -691,12 +707,12 @@ function ReviewStage({
         <Stat label="To correct" value={String(s.changed)} />
         <Stat
           label="Short"
-          value={`−${s.unitsUnder}`}
+          value={`−${formatQty(s.unitsUnder)}`}
           hint={s.valueUnder != null ? rand(s.valueUnder) : undefined}
         />
         <Stat
           label="Over"
-          value={`+${s.unitsOver}`}
+          value={`+${formatQty(s.unitsOver)}`}
           hint={s.valueOver != null ? rand(s.valueOver) : undefined}
         />
       </div>
@@ -723,15 +739,15 @@ function ReviewStage({
               {changed.map((l) => (
                 <tr key={l.product_id} className="border-t border-border">
                   <td className="py-2 pr-2">{l.name}</td>
-                  <td className="py-2 pr-2 text-right">{l.expected}</td>
-                  <td className="py-2 pr-2 text-right">{l.counted}</td>
+                  <td className="py-2 pr-2 text-right">{formatQty(l.expected)}</td>
+                  <td className="py-2 pr-2 text-right">{formatQty(l.counted)}</td>
                   <td
                     className={
                       "py-2 text-right font-semibold " +
                       (l.difference < 0 ? "text-destructive" : "text-primary")
                     }
                   >
-                    {l.difference > 0 ? `+${l.difference}` : l.difference}
+                    {l.difference > 0 ? `+${formatQty(l.difference)}` : formatQty(l.difference)}
                   </td>
                 </tr>
               ))}

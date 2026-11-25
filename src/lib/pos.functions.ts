@@ -22,6 +22,7 @@ import {
   upsertDrawer,
 } from "@/lib/pos-data.server";
 import { assertRole } from "@/lib/admin-data.server";
+import { isTenths } from "@/lib/qty";
 
 /**
  * Server-function boundary for the POS. Inputs are validated here; the acting user comes ONLY from
@@ -163,7 +164,12 @@ export const completePosSaleFn = createServerFn({ method: "POST" })
               z
                 .object({
                   product_id: uuid,
-                  quantity: z.number().int().min(1).max(9999),
+                  // Weighed products can be sold in decimals (0.5 g steps); the database checks each product's step.
+                  quantity: z
+                    .number()
+                    .min(0.1)
+                    .max(9999)
+                    .refine(isTenths, "Use at most one decimal place"),
                   discount: discount.optional(),
                   // A loyalty reward code (one unit free, paid in points). The database checks everything.
                   reward: z
@@ -228,7 +234,16 @@ export const refundPosSaleFn = createServerFn({ method: "POST" })
         saleId: uuid,
         sessionId: uuid,
         items: z
-          .array(z.object({ sale_item_id: uuid, quantity: z.number().int().min(1).max(9999) }))
+          .array(
+            z.object({
+              sale_item_id: uuid,
+              quantity: z
+                .number()
+                .min(0.1)
+                .max(9999)
+                .refine(isTenths, "Use at most one decimal place"),
+            }),
+          )
           .min(1)
           .max(100),
         payouts: z
@@ -260,7 +275,7 @@ export const receiveStockFn = createServerFn({ method: "POST" })
       .object({
         productId: uuid,
         batchCode: z.string().trim().min(1).max(60),
-        quantity: z.number().int().min(1).max(100000),
+        quantity: z.number().min(0.1).max(100000).refine(isTenths, "Use at most one decimal place"),
         expiresAt: z.string().datetime().nullable(),
         unitCost: money.nullable(),
         notes: z.string().max(500).nullable(),
@@ -278,7 +293,7 @@ export const adjustStockFn = createServerFn({ method: "POST" })
         batchId: uuid,
         delta: z
           .number()
-          .int()
+          .refine(isTenths, "Use at most one decimal place")
           .refine((n) => n !== 0 && Math.abs(n) <= 100000, "Invalid quantity"),
         reason: z.string().trim().min(3).max(300),
         key: idempotencyKey,

@@ -9,6 +9,7 @@ import {
 } from "@/lib/checkout-data.server";
 import type { UserClient } from "@/lib/member-data.server";
 import { friendlyMemberError } from "@/lib/member-logic";
+import { isTenths } from "@/lib/qty";
 
 /**
  * Server-function boundary for /checkout. No price, fee, total-to-charge or user id is ever read from
@@ -18,7 +19,13 @@ import { friendlyMemberError } from "@/lib/member-logic";
 
 const uuid = z.string().uuid();
 const items = z
-  .array(z.object({ productId: uuid, quantity: z.number().int().min(1).max(999) }))
+  .array(
+    z.object({
+      productId: uuid,
+      // Weighed products can be bought in half grams where the product allows it; the database checks the step.
+      quantity: z.number().min(0.1).max(999).refine(isTenths, "Use at most one decimal place"),
+    }),
+  )
   .min(1)
   .max(100);
 const deliveryMethod = z.string().regex(/^[a-z0-9_]{2,40}$/);

@@ -64,7 +64,9 @@ describe.skipIf(!DB_URL)("stock takes, quick adjust and deliveries (real Postgre
     expect([await onHand(a), await onHand(b), await onHand(c)]).toEqual([7, 6, 6]);
     const lines =
       await sql`SELECT product_id, posted_delta FROM public.stock_take_lines WHERE stock_take_id = ${t}`;
-    expect(Object.fromEntries(lines.map((l) => [l["product_id"], Number(l["posted_delta"])]))).toEqual({
+    expect(
+      Object.fromEntries(lines.map((l) => [l["product_id"], Number(l["posted_delta"])])),
+    ).toEqual({
       [a]: -3,
       [b]: 2,
       [c]: 0,

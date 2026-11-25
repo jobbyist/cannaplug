@@ -12,6 +12,7 @@ import {
   recordStockCounts,
   startStockTake,
 } from "@/lib/stock-ops.server";
+import { isTenths } from "@/lib/qty";
 
 /**
  * /admin → Inventory: stock takes, quick add / remove and deliveries. The acting user comes only from the session;
@@ -20,7 +21,10 @@ import {
 
 const uuid = z.string().uuid();
 const key = z.string().min(8).max(120);
-const qty = z.number().int();
+/** A stock quantity: weighed products take one decimal place (27.4 g), everything else is whole (the database checks). */
+const tenths = (min: number, max: number) =>
+  z.number().min(min).max(max).refine(isTenths, "Use at most one decimal place");
+const qty = z.number().refine(isTenths, "Use at most one decimal place");
 
 export const getStockTakeFn = createServerFn({ method: "GET" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
@@ -42,9 +46,7 @@ export const startStockTakeFn = createServerFn({ method: "POST" })
 export const recordStockCountFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((d) =>
-    z
-      .object({ stockTakeId: uuid, productId: uuid, counted: qty.min(0).max(1_000_000), key })
-      .parse(d),
+    z.object({ stockTakeId: uuid, productId: uuid, counted: tenths(0, 1_000_000), key }).parse(d),
   )
   .handler(({ context, data }) => recordStockCount(context.userId, data));
 
@@ -55,7 +57,7 @@ export const recordStockCountsFn = createServerFn({ method: "POST" })
       .object({
         stockTakeId: uuid,
         lines: z
-          .array(z.object({ productId: uuid, counted: qty.min(0).max(1_000_000) }))
+          .array(z.object({ productId: uuid, counted: tenths(0, 1_000_000) }))
           .min(1)
           .max(3000)
           .refine(
@@ -103,7 +105,7 @@ export const receiveDeliveryFn = createServerFn({ method: "POST" })
           .array(
             z.object({
               productId: uuid,
-              quantity: qty.min(1).max(100_000),
+              quantity: tenths(0.1, 100_000),
               unitCost: z
                 .string()
                 .regex(/^\d{1,7}(\.\d{1,2})?$/)

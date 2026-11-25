@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
 import { friendlyStaffError } from "@/lib/staff-errors";
+import { roundQty, subQty } from "@/lib/qty";
 
 /**
  * Stock takes, product-level quick add / remove and delivery receiving (5 Nov 2026). Every change goes through a
@@ -79,9 +80,10 @@ export async function getStockTake(actor: string): Promise<StockTakeView> {
       name: r.products?.name ?? "Unknown product",
       category: r.products?.category ?? "",
       sold_by_weight: Boolean(r.products?.sold_by_weight),
-      expected: r.expected_at_count,
-      counted: r.counted_qty,
-      difference: r.counted_qty - r.expected_at_count,
+      // numeric(12,1): exact to one decimal, so differences are worked out in whole tenths (no 0.1 + 0.2 drift)
+      expected: roundQty(Number(r.expected_at_count)),
+      counted: roundQty(Number(r.counted_qty)),
+      difference: subQty(Number(r.counted_qty), Number(r.expected_at_count)),
       counted_at: r.counted_at,
       unit_cost: r.products?.cost_rand == null ? null : Number(r.products.cost_rand),
     })),

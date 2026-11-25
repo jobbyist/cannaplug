@@ -120,7 +120,9 @@ describe.skipIf(!DB_URL)("POS & atomic inventory — concurrency (real PostgreSQ
       await sell(sql, cashier, sessionId, oneOf(product, 4), [cash("40")]);
       const batches =
         await sql`SELECT batch_code, qty_on_hand FROM public.inventory_batches WHERE product_id = ${product} ORDER BY batch_code`;
-      expect(Object.fromEntries(batches.map((b) => [b["batch_code"], Number(b["qty_on_hand"])]))).toEqual({
+      expect(
+        Object.fromEntries(batches.map((b) => [b["batch_code"], Number(b["qty_on_hand"])])),
+      ).toEqual({
         EARLY: 0,
         LATE: 1,
       }); // earliest expiry first

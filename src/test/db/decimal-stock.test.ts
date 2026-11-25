@@ -345,6 +345,44 @@ describe.skipIf(!DB_URL)("decimal stock (real PostgreSQL)", () => {
     await assertInventoryConsistent(sql);
   });
 
+  it("a product sold in whole units can only be refunded in whole units", async () => {
+    const unit = await mkProduct(sql, 20);
+    await receive(sql, manager, unit, 10);
+    const session = await till();
+    const sale = await sell(sql, cashier, session, [{ product_id: unit, quantity: 2 }], [cash(40)]);
+    const [item] = await sql`SELECT id FROM public.pos_sale_items WHERE sale_id = ${sale.sale_id}`;
+    const half = await attempt(
+      rpc(
+        sql,
+        "pos_refund_sale",
+        manager,
+        sale.sale_id,
+        session,
+        [{ sale_item_id: item!["id"], quantity: 0.5 }],
+        [{ method: "cash", amount: "5" }],
+        "Half a tube",
+        true,
+        key("rf"),
+      ),
+    );
+    expect(failedWith(half, "invalid_quantity")).toBe(true);
+    expect(await onHand(unit)).toBe(8);
+    await rpc(
+      sql,
+      "pos_refund_sale",
+      manager,
+      sale.sale_id,
+      session,
+      [{ sale_item_id: item!["id"], quantity: 1 }],
+      [{ method: "cash", amount: "20" }],
+      "One tube",
+      true,
+      key("rf"),
+    );
+    expect(await onHand(unit)).toBe(9);
+    await assertInventoryConsistent(sql);
+  });
+
   it("online orders hold, consume and give back decimal stock, and total the rounded lines", async () => {
     const p = await weighed(24.55, 0.5);
     await receive(sql, manager, p, 10);

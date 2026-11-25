@@ -1,4 +1,5 @@
 import type { InventoryRow } from "@/lib/inventory-logic";
+import { addQty, parseQty, qtyProblem, subQty } from "@/lib/qty";
 
 /** Pure helpers for stock takes, quick add / remove and deliveries (no I/O; the screens and tests share them). */
 
@@ -59,10 +60,10 @@ export function varianceSummary(lines: CountLine[]): VarianceSummary {
     if (l.difference === 0) continue;
     changed++;
     if (l.difference > 0) {
-      unitsOver += l.difference;
+      unitsOver = addQty(unitsOver, l.difference);
       if (l.unit_cost != null) valueOver = (valueOver ?? 0) + l.difference * l.unit_cost;
     } else {
-      unitsUnder -= l.difference;
+      unitsUnder = subQty(unitsUnder, l.difference);
       if (l.unit_cost != null) valueUnder = (valueUnder ?? 0) - l.difference * l.unit_cost;
     }
   }
@@ -282,11 +283,16 @@ export function planCountUpload(
           ? "Not a product in this count (check the SKU, or that it belongs to the category being counted)."
           : "No SKU, barcode or name on this row.",
       );
-    // Whole numbers only; "12.0" or "12,0" from a spreadsheet is fine.
-    const m = /^(\d{1,7})(?:[.,]0+)?$/.exec(raw);
-    if (!m) return bad(`"${raw}" is not a whole number (0 if there are none).`);
-    const counted = Number(m[1]);
-    if (counted > 1_000_000) return bad("That is more than 1,000,000.");
+    // Weighed products may carry one decimal (27.4 or 27,4 from a spreadsheet); everything else is whole units.
+    const opts = { decimals: Boolean(product.sold_by_weight), max: 1_000_000 };
+    const counted = parseQty(raw, opts);
+    if (counted === null)
+      return bad(
+        `"${raw}" is not a valid count. ${qtyProblem(raw, opts) ?? ""} Use 0 if there are none.`.replace(
+          /\s+/g,
+          " ",
+        ),
+      );
     const dup = seen.get(product.product_id);
     if (dup) return bad(`${product.name} is also on line ${dup}. Keep one row per product.`);
     seen.set(product.product_id, line);
