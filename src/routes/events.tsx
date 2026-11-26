@@ -60,6 +60,11 @@ function EventsPage() {
                   </p>
                 )}
                 <p className="promo-copy">{item.copy}</p>
+                {item.post && (
+                  <a className="promo-more" href={`/events/${item.slug}`}>
+                    See all the deals
+                  </a>
+                )}
               </div>
             </article>
           ))}

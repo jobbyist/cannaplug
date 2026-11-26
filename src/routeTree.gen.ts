@@ -28,6 +28,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as EventsBlackFridayRouteImport } from './routes/events_.black-friday'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
 import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
@@ -142,6 +143,11 @@ const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsBlackFridayRoute = EventsBlackFridayRouteImport.update({
+  id: '/events_/black-friday',
+  path: '/events/black-friday',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JournalIndexRoute = JournalIndexRouteImport.update({
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/events/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/events/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -353,6 +361,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/events_/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
   '/payment/return': typeof PaymentReturnRoute
@@ -396,6 +405,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
+    | '/events/black-friday'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
+    | '/events/black-friday'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -478,6 +489,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
+    | '/events_/black-friday'
     | '/journal/$slug'
     | '/member/documents'
     | '/payment/return'
@@ -520,6 +532,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  EventsBlackFridayRoute: typeof EventsBlackFridayRoute
   JournalSlugRoute: typeof JournalSlugRoute
   MemberDocumentsRoute: typeof MemberDocumentsRoute
   PaymentReturnRoute: typeof PaymentReturnRoute
@@ -675,6 +688,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events_/black-friday': {
+      id: '/events_/black-friday'
+      path: '/events/black-friday'
+      fullPath: '/events/black-friday'
+      preLoaderRoute: typeof EventsBlackFridayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/journal/': {
@@ -840,6 +860,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  EventsBlackFridayRoute: EventsBlackFridayRoute,
   JournalSlugRoute: JournalSlugRoute,
   MemberDocumentsRoute: MemberDocumentsRoute,
   PaymentReturnRoute: PaymentReturnRoute,

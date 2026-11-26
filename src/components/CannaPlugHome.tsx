@@ -1,5 +1,5 @@
 import { saleStep, batchNote } from "@/lib/sale-step";
-import { homeEventsAndPromotions } from "@/lib/events";
+import { BLACK_FRIDAY_NOTICE_ENDS, BLACK_FRIDAY_PATH, homeEventsAndPromotions } from "@/lib/events";
 import { ResponsibleConsumptionDialog } from "@/components/ResponsibleConsumptionDialog";
 import { submitContactFn, subscribeNewsletterFn } from "@/lib/forms.functions";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -424,6 +424,20 @@ function MobileNav({
   );
 }
 
+/** Black Friday + Cyber Monday notice above the header; goes away by itself after Monday 30 Nov (SAST). */
+function PromoNotice() {
+  const [show, setShow] = useState(false);
+  useEffect(() => setShow(Date.now() < BLACK_FRIDAY_NOTICE_ENDS), []);
+  if (!show) return null;
+  return (
+    <a className="promo-notice" href={BLACK_FRIDAY_PATH} data-testid="promo-notice">
+      <b>Black Friday + Cyber Monday</b>
+      <span>27 – 30 Nov · in-store deals, online-only prices and double points</span>
+      <u>See the deals</u>
+    </a>
+  );
+}
+
 export function Header() {
   const { scrollY } = useScroll();
   const [compact, setCompact] = useState(false);
@@ -460,6 +474,7 @@ export function Header() {
   ] as const satisfies readonly NavIconEntry[];
   return (
     <>
+      <PromoNotice />
       <header className={compact ? "header compact" : "header"}>
         <div className="header-inner">
           <Logo />
@@ -946,6 +961,11 @@ function Events() {
                   {item.when}
                 </p>
                 <p className="promo-copy">{item.copy}</p>
+                {item.post && (
+                  <a className="promo-more" href={`/events/${item.slug}`}>
+                    See all the deals
+                  </a>
+                )}
               </div>
             </article>
           ))}
