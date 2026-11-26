@@ -209,8 +209,8 @@ AS $$
 DECLARE
   c_start constant timestamptz := timestamptz '2026-11-27 00:00:00+02';
   c_mon constant timestamptz := timestamptz '2026-11-30 00:00:00+02';
-  c_sun_end constant timestamptz := timestamptz '2026-11-29 23:59:00+02';
-  c_mon_end constant timestamptz := timestamptz '2026-11-30 23:59:00+02';
+  c_sun_end constant timestamptz := timestamptz '2026-11-29 23:59:59+02';
+  c_mon_end constant timestamptz := timestamptz '2026-11-30 23:59:59+02';
   v_total integer := 0;
   v_n integer;
 BEGIN

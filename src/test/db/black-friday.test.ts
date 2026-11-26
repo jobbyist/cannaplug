@@ -236,10 +236,10 @@ describe.skipIf(!DB_URL)("Black Friday + Cyber Monday 2026 (real PostgreSQL)", (
       const ms = (v: unknown) => new Date(v as string).getTime();
       const g = (await q(green))!;
       expect(ms(g["starts_at"])).toBe(Date.parse("2026-11-29T22:00:00Z")); // Mon 00:00 SAST
-      expect(ms(g["ends_at"])).toBe(Date.parse("2026-11-30T21:59:00Z")); // Mon 23:59 SAST
+      expect(ms(g["ends_at"])).toBe(Date.parse("2026-11-30T21:59:59Z")); // Mon 23:59:59 SAST
       const t = (await q(top))!;
       expect(ms(t["starts_at"])).toBe(Date.parse("2026-11-26T22:00:00Z")); // Fri 00:00 SAST
-      expect(ms(t["ends_at"])).toBe(Date.parse("2026-11-29T21:59:00Z")); // Sun 23:59 SAST
+      expect(ms(t["ends_at"])).toBe(Date.parse("2026-11-29T21:59:59Z")); // Sun 23:59:59 SAST
       if (Date.now() < FROM) {
         await rpc(sql, "products_start_due_sales", null);
         expect(await row(top)).toMatchObject({ price: 120, regular: null });
