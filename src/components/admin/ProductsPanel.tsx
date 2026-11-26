@@ -197,20 +197,28 @@ export function ProductsPanel({
     }
   };
   const restore = async (p: AdminProduct) => {
+    if (busy) return;
+    setBusy(true);
     try {
       await restoreAdminProductFn({ data: { productId: p.id, key: crypto.randomUUID() } });
       setNotice({ text: `${p.name} was restored and is active again.` });
       await onSaved();
     } catch (e) {
       setNotice({ text: errorText(e), error: true });
+    } finally {
+      setBusy(false);
     }
   };
   const toggleActive = async (p: AdminProduct) => {
+    if (busy) return;
+    setBusy(true);
     try {
       await setAdminProductsActiveFn({ data: { productIds: [p.id], active: !p.is_active } });
       await onSaved();
     } catch (e) {
       setNotice({ text: errorText(e), error: true });
+    } finally {
+      setBusy(false);
     }
   };
 

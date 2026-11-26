@@ -257,6 +257,22 @@ describe("ProductsPanel filters and bulk actions", () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it("a double-click on Deactivate sends one request, not two", async () => {
+    let release: (v: unknown) => void = () => {};
+    fns.setAdminProductsActiveFn.mockReset();
+    fns.setAdminProductsActiveFn.mockReturnValue(
+      new Promise((r) => {
+        release = r;
+      }),
+    );
+    setup();
+    const user = userEvent.setup();
+    const [first] = await screen.findAllByRole("button", { name: "Deactivate" });
+    await user.dblClick(first!);
+    expect(fns.setAdminProductsActiveFn).toHaveBeenCalledTimes(1);
+    release({ changed: [a.id], skipped: 0 });
+  });
+
   it("budtenders get no ticks or bulk actions", async () => {
     setup(false);
     await screen.findByText("Alpha Haze");
