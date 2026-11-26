@@ -238,7 +238,7 @@ describe("ProductsPanel filters and bulk actions", () => {
     fns.setAdminProductsActiveFn.mockResolvedValue({ changed: [a.id], skipped: 0 });
     const onSaved = setup();
     const user = userEvent.setup();
-    const toggle = await screen.findByRole("switch", { name: /Out of stock only/ });
+    const toggle = await screen.findByRole("button", { name: /Out of stock/ });
     await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
     await user.click(toggle);
     expect(screen.getByText("Alpha Haze")).toBeTruthy();
@@ -255,6 +255,18 @@ describe("ProductsPanel filters and bulk actions", () => {
     });
     expect(await screen.findByText(/1 product made inactive/)).toBeTruthy();
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("the Stock level filter can show only products that are in stock", async () => {
+    setup();
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("combobox", { name: "Stock level" });
+    await waitFor(() => expect(trigger.hasAttribute("disabled")).toBe(false));
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "In stock" }));
+    expect(screen.getByText("Charlie Gummies")).toBeTruthy();
+    expect(screen.queryByText("Alpha Haze")).toBeNull();
+    expect(screen.queryByText("Bravo Kush")).toBeNull();
   });
 
   it("a double-click on Deactivate sends one request, not two", async () => {

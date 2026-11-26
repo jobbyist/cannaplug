@@ -23,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -31,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { rand } from "@/lib/cart";
 import {
   deleteAdminProductFn,
@@ -44,11 +42,13 @@ import type { InventoryRow } from "@/lib/inventory-logic";
 import {
   DEFAULT_PRODUCT_FILTERS,
   filterProducts,
+  inStockIds,
   outOfStockIds,
   productCategories,
   productSubcategories,
   type ProductFilters,
   type ProductStatusFilter,
+  type ProductStockFilter,
 } from "@/lib/product-filters";
 import { useAdminTabSync } from "@/lib/admin-sync";
 import { CatalogueImport } from "@/components/admin/CatalogueImport";
@@ -111,6 +111,7 @@ export function ProductsPanel({
     [products, showArchived],
   );
   const outIds = useMemo(() => outOfStockIds(stock), [stock]);
+  const inIds = useMemo(() => inStockIds(stock), [stock]);
   const outCount = useMemo(
     () => pool.filter((p) => !isArchived(p) && outIds.has(p.id)).length,
     [pool, outIds],
@@ -120,7 +121,10 @@ export function ProductsPanel({
     () => productSubcategories(pool, filters.category),
     [pool, filters.category],
   );
-  const shown = useMemo(() => filterProducts(pool, filters, outIds), [pool, filters, outIds]);
+  const shown = useMemo(
+    () => filterProducts(pool, filters, outIds, inIds),
+    [pool, filters, outIds, inIds],
+  );
   const filtered = JSON.stringify(filters) !== JSON.stringify(DEFAULT_PRODUCT_FILTERS);
   const activeCount = useMemo(
     () => pool.filter((p) => !isArchived(p) && p.is_active).length,
@@ -247,9 +251,9 @@ export function ProductsPanel({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <button
           type="button"
-          aria-pressed={filters.status === "all" && !filters.outOfStock}
-          onClick={() => setFilters((f) => ({ ...f, status: "all", outOfStock: false }))}
-          className={`rounded-xl border bg-card p-3 text-left transition hover:border-primary/60 ${filters.status === "all" && !filters.outOfStock ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
+          aria-pressed={filters.status === "all" && filters.stock === "all"}
+          onClick={() => setFilters((f) => ({ ...f, status: "all", stock: "all" }))}
+          className={`rounded-xl border bg-card p-3 text-left transition hover:border-primary/60 ${filters.status === "all" && filters.stock === "all" ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
         >
           <span className="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">
             <PackageOpen size={13} className="text-primary" /> Products
@@ -279,10 +283,10 @@ export function ProductsPanel({
         </button>
         <button
           type="button"
-          aria-pressed={filters.outOfStock}
+          aria-pressed={filters.stock === "out"}
           disabled={stock === null}
-          onClick={() => set("outOfStock", !filters.outOfStock)}
-          className={`col-span-2 rounded-xl border bg-card p-3 text-left transition hover:border-primary/60 disabled:opacity-60 sm:col-span-1 ${filters.outOfStock ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
+          onClick={() => set("stock", filters.stock === "out" ? "all" : "out")}
+          className={`col-span-2 rounded-xl border bg-card p-3 text-left transition hover:border-primary/60 disabled:opacity-60 sm:col-span-1 ${filters.stock === "out" ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
         >
           <span className="flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">
             <X size={13} className="text-destructive" /> Out of stock
@@ -356,17 +360,20 @@ export function ProductsPanel({
             <SelectItem value="inactive">Inactive only</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2 px-1 md:h-10">
-          <Switch
-            id="prod-out"
-            checked={filters.outOfStock}
-            disabled={stock === null}
-            onCheckedChange={(v) => set("outOfStock", v)}
-          />
-          <Label htmlFor="prod-out" className="text-xs">
-            Out of stock only
-          </Label>
-        </div>
+        <Select
+          value={filters.stock}
+          onValueChange={(v) => set("stock", v as ProductStockFilter)}
+          disabled={stock === null}
+        >
+          <SelectTrigger aria-label="Stock level" className="md:w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any stock level</SelectItem>
+            <SelectItem value="in">In stock</SelectItem>
+            <SelectItem value="out">Out of stock</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {notice && (
