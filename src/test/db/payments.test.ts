@@ -209,14 +209,12 @@ describe.skipIf(!DB_URL)("Milestone 5 payments (real PostgreSQL)", () => {
       ).toBe(1);
     });
 
-    it("never lets one member pay another's order, or an unverified member pay at all", async () => {
+    it("never lets one member pay another's order, whether or not their ID is verified", async () => {
       const o = await newOrder();
       const other = await mkMember(sql);
       expect(failedWith(await attempt(init(other, o.orderId)), "order_not_found")).toBe(true);
       const unverified = await mkUser(sql, "customer");
-      expect(failedWith(await attempt(init(unverified, o.orderId)), "verification_required")).toBe(
-        true,
-      );
+      expect(failedWith(await attempt(init(unverified, o.orderId)), "order_not_found")).toBe(true);
     });
 
     it("refuses an order that is not awaiting payment, and validates provider and mode", async () => {

@@ -177,6 +177,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   verification_pending: "Your ID is being reviewed — you can order once it is approved",
   verification_provisional:
     "Your account is active in store. Submit your ID to unlock the online store.",
+  verification_rejected: "Your ID could not be approved. Upload a new one to keep ordering",
   already_verified: "Your ID is already verified",
   underage: "You must be 18 or older to shop with CannaPlug",
   invalid_dob: "Enter your date of birth",

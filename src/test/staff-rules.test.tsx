@@ -25,10 +25,11 @@ describe("staff skip the online ID check", () => {
     }
   });
   it("a member is unchanged", () => {
-    expect(verificationView({ status: "unverified" }).canOrder).toBe(false);
-    expect(verificationView({ status: "pending" }).canOrder).toBe(false);
+    expect(verificationView({ status: "unverified" }).canOrder).toBe(true);
+    expect(verificationView({ status: "pending" }).canOrder).toBe(true);
+    expect(verificationView({ status: "rejected" }).canOrder).toBe(false);
     expect(verificationView({ status: "verified" }).canOrder).toBe(true);
-    expect(verificationView(null).canOrder).toBe(false);
+    expect(verificationView(null).canOrder).toBe(true);
   });
 });
 
