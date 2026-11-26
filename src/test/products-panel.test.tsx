@@ -12,6 +12,7 @@ const fns = vi.hoisted(() => ({
   attachProductImageFn: vi.fn(),
   removeProductImageFn: vi.fn(),
   listAdminProductsFn: vi.fn(),
+  setAdminProductsActiveFn: vi.fn(),
 }));
 vi.mock("@/lib/admin.functions", () => fns);
 vi.mock("@/integrations/supabase/client", () => ({
@@ -196,5 +197,70 @@ describe("ProductsPanel", () => {
       );
       expect(screen.queryByRole("button", { name: /Delete/ })).toBeNull();
     });
+  });
+});
+
+describe("ProductsPanel filters and bulk actions", () => {
+  const mk = (id: string, name: string, over: Record<string, unknown> = {}) => ({
+    ...product,
+    id: `${id}1111111-2222-4333-8444-555555555555`,
+    slug: name.toLowerCase().replace(/\W+/g, "-"),
+    name,
+    sku: `S-${id}`,
+    ...over,
+  });
+  const a = mk("a", "Alpha Haze", { subcategory: "Top Shelf" });
+  const b = mk("b", "Bravo Kush", { subcategory: "Greenhouse", is_active: false });
+  const c = mk("c", "Charlie Gummies", { category: "Edibles" });
+  const stock = (available: Record<string, number>) =>
+    Object.entries(available).map(([id, n]) => ({
+      product_id: id,
+      track_stock: true,
+      available: n,
+      low_stock_threshold: 2,
+    }));
+  const setup = (canEdit = true) => {
+    const onSaved = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ProductsPanel
+        products={[a, b, c] as never}
+        editingProduct={null}
+        setEditingProduct={vi.fn()}
+        onSaved={onSaved}
+        canEdit={canEdit}
+        loadStock={() => Promise.resolve(stock({ [a.id]: 0, [b.id]: 0, [c.id]: 9 }) as never)}
+      />,
+    );
+    return onSaved;
+  };
+
+  it("out-of-stock filter shows what is not on hand, and select all + Make inactive sends only active ones", async () => {
+    fns.setAdminProductsActiveFn.mockResolvedValue({ changed: [a.id], skipped: 0 });
+    const onSaved = setup();
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole("switch", { name: /Out of stock only/ });
+    await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
+    await user.click(toggle);
+    expect(screen.getByText("Alpha Haze")).toBeTruthy();
+    expect(screen.getByText("Bravo Kush")).toBeTruthy();
+    expect(screen.queryByText("Charlie Gummies")).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByText("2 selected")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Make inactive/ }));
+    await waitFor(() => expect(fns.setAdminProductsActiveFn).toHaveBeenCalled());
+    // Bravo is already inactive, so only Alpha is sent.
+    expect(fns.setAdminProductsActiveFn.mock.calls[0]![0].data).toEqual({
+      productIds: [a.id],
+      active: false,
+    });
+    expect(await screen.findByText(/1 product made inactive/)).toBeTruthy();
+    expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("budtenders get no ticks or bulk actions", async () => {
+    setup(false);
+    await screen.findByText("Alpha Haze");
+    expect(screen.queryByRole("checkbox", { name: "Select all" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /^Select Alpha/ })).toBeNull();
   });
 });

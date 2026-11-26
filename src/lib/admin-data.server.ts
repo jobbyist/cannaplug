@@ -597,6 +597,40 @@ export async function deactivateAdminProduct(userId: string, productId: string) 
   return data;
 }
 
+/**
+ * Switch several products on or off in one go (managers and admins), for the Products tab's bulk actions.
+ * Archived products are skipped (they come back through Restore); every product changed gets its own audit row.
+ */
+export async function setAdminProductsActive(
+  userId: string,
+  productIds: string[],
+  active: boolean,
+): Promise<{ changed: string[]; skipped: number }> {
+  await assertRole(userId, "manager");
+  const ids = [...new Set(productIds)];
+  if (ids.length === 0) return { changed: [], skipped: 0 };
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .update({ is_active: active })
+    .in("id", ids)
+    .is("archived_at", null)
+    .select("id");
+  if (error) throw error;
+  const changed = (data ?? []).map((r) => r.id);
+  if (changed.length > 0) {
+    await supabaseAdmin.from("audit_log").insert(
+      changed.map((id) => ({
+        actor_user_id: userId,
+        action: active ? "product_activated" : "product_deactivated",
+        entity_type: "product",
+        entity_id: id,
+        metadata: { bulk: true },
+      })),
+    );
+  }
+  return { changed, skipped: ids.length - changed.length };
+}
+
 export type ProductDeleteResult = {
   mode: "deleted" | "archived";
   product_id: string;
