@@ -99,8 +99,8 @@ function BlackFridayPost() {
         </div>
 
         <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
-          Online orders are collected in store: bring your ID, we check it on collection. 18+
-          verified members only. While stocks last. Not medical advice.
+          You must be 18+. Online orders are collected in store: bring your ID and we check it at
+          collection. While stocks last. Not medical advice.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a className="bf-cta" href="/shop?sale=true">
