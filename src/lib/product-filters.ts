@@ -6,13 +6,15 @@ import { CATEGORY_ORDER, SUBCATEGORY_ORDER, normKey, orderBy } from "@/lib/catal
 import { stockStatus, type InventoryRow } from "@/lib/inventory-logic";
 
 export type ProductStatusFilter = "all" | "active" | "inactive";
+/** "out" = tracked with nothing available; "in" = tracked with something available (low stock counts as in stock). */
+export type ProductStockFilter = "all" | "out" | "in";
 
 export type ProductFilters = {
   q: string;
   status: ProductStatusFilter;
   category: string; // "" = all
   subcategory: string; // "" = all
-  outOfStock: boolean;
+  stock: ProductStockFilter;
 };
 
 export const DEFAULT_PRODUCT_FILTERS: ProductFilters = {
@@ -20,7 +22,7 @@ export const DEFAULT_PRODUCT_FILTERS: ProductFilters = {
   status: "all",
   category: "",
   subcategory: "",
-  outOfStock: false,
+  stock: "all",
 };
 
 type FilterableProduct = {
@@ -33,6 +35,16 @@ type FilterableProduct = {
   is_active: boolean;
 };
 
+/** Ids of products that are tracked and have something available (Inventory's "Low stock" and "In stock"). */
+export function inStockIds(stock: InventoryRow[] | null | undefined): Set<string> {
+  const ids = new Set<string>();
+  for (const r of stock ?? []) {
+    const s = stockStatus(r);
+    if (s === "low" || s === "ok") ids.add(r.product_id);
+  }
+  return ids;
+}
+
 /** Ids of products that are tracked and have nothing available (what Inventory calls "Out of stock"). */
 export function outOfStockIds(stock: InventoryRow[] | null | undefined): Set<string> {
   const ids = new Set<string>();
@@ -44,6 +56,7 @@ export function filterProducts<T extends FilterableProduct>(
   products: T[],
   f: ProductFilters,
   outIds: Set<string>,
+  inIds: Set<string> = new Set(),
 ): T[] {
   const needle = f.q.trim().toLowerCase();
   const cat = normKey(f.category);
@@ -53,7 +66,8 @@ export function filterProducts<T extends FilterableProduct>(
     if (f.status === "inactive" && p.is_active) return false;
     if (cat && normKey(p.category) !== cat) return false;
     if (sub && normKey(p.subcategory) !== sub) return false;
-    if (f.outOfStock && !outIds.has(p.id)) return false;
+    if (f.stock === "out" && !outIds.has(p.id)) return false;
+    if (f.stock === "in" && !inIds.has(p.id)) return false;
     if (needle) {
       const hay =
         `${p.name} ${p.sku ?? ""} ${p.brand ?? ""} ${p.category} ${p.subcategory ?? ""}`.toLowerCase();

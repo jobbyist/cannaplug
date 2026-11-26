@@ -2121,3 +2121,11 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests run:** `tsc --noEmit`, `eslint . --max-warnings 0`, `vitest run` (1159 passed; DB tests skipped, no database in this session). `scripts/verify-release.sh` not run here.
 - **Needs the owner:** none. Note: turning a product inactive hides it from the shop and till; stock is unchanged.
 - **Rollback:** revert the PR. No database change.
+
+## 27 Nov 2026 — Products tab: in-stock filter and double-click guard (fix/mvp-products-busy-guard)
+
+- **Purpose:** follow-up to the Products tab PR (#112). Row **Activate / Deactivate** and **Restore** now lock while a request is running, like Delete and the bulk actions, so a fast double-click can't send two requests (two Restore audit rows, or a repeated switch).
+- **Also:** the Products tab now has a **Stock level** filter (Any / In stock / Out of stock) replacing the "Out of stock only" switch. In stock = tracked with something available (low stock counts); untracked products appear under neither. The Out of stock card still works as a shortcut.
+- **Files:** `src/components/admin/ProductsPanel.tsx`, `src/lib/product-filters.ts`, `src/test/products-panel.test.tsx`, `src/test/product-filters.test.ts`.
+- **Migrations:** none. **Tests run:** `tsc --noEmit`, `eslint . --max-warnings 0`, `vitest run`.
+- **Needs the owner:** none. **Rollback:** revert the PR.
