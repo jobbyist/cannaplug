@@ -2111,3 +2111,13 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `events-promos` updated for the new order, post, posters and notice end time.
 - **Needs the owner:** (1) confirm the post copy and that the posters should stay as the cover; (2) the notice and post show from the moment this deploys (tonight), a few hours before the deals start at 00:00 Fri, so say if it should be hidden until midnight.
 - **Rollback:** revert the PR. No database change.
+
+## 26 Nov 2026 — Admin Products tab: Inventory-style layout, filters and bulk on/off (feat/mvp-admin-products-filters)
+
+- **Owner request (client):** cleaner Products tab like Inventory; filters for active/inactive, every category and subcategory, and out of stock; tick products to make them inactive/active, with a select-all.
+- **What changed:** `/admin → Products` now uses the Inventory layout (stat cards that act as filters, one filter bar, card rows). Filters: search, category, subcategory (follows the chosen category), active/inactive, and "Out of stock only" (tracked products with nothing available, same rule as Inventory; stock is read from the Inventory list). Every non-archived row has a tick box; "Select all N" ticks everything matching the current filters; a bulk bar offers **Make inactive** / **Make active**. Ticks clear whenever filters change, so a bulk action never touches products you can't see. Archived products still use Restore and can't be ticked. Budtenders see no ticks, bulk bar or edit controls.
+- **Server:** new `setAdminProductsActiveFn` (`setAdminProductsActive` in `admin-data.server.ts`): manager/admin only, up to 500 product ids and an on/off flag from the browser, skips archived products, writes one audit row per product changed (`product_activated` / `product_deactivated`, `bulk: true`). It uses a plain `products` update like the existing `deactivateAdminProduct`, so **no migration**. Row-level Activate/Deactivate now use it too.
+- **Files:** `src/components/admin/ProductsPanel.tsx`, `src/lib/product-filters.ts` (new), `src/lib/admin-data.server.ts`, `src/lib/admin.functions.ts`, tests `src/test/product-filters.test.ts`, `src/test/products-panel.test.tsx`.
+- **Tests run:** `tsc --noEmit`, `eslint . --max-warnings 0`, `vitest run` (1159 passed; DB tests skipped, no database in this session). `scripts/verify-release.sh` not run here.
+- **Needs the owner:** none. Note: turning a product inactive hides it from the shop and till; stock is unchanged.
+- **Rollback:** revert the PR. No database change.
