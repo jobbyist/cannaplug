@@ -427,7 +427,15 @@ function MobileNav({
 /** Black Friday + Cyber Monday notice above the header; goes away by itself after Monday 30 Nov (SAST). */
 function PromoNotice() {
   const [show, setShow] = useState(false);
-  useEffect(() => setShow(Date.now() < BLACK_FRIDAY_NOTICE_ENDS), []);
+  // Decided after mount (not in the initial state) so server and browser markup match.
+  useEffect(() => {
+    const remaining = BLACK_FRIDAY_NOTICE_ENDS - Date.now();
+    if (remaining <= 0) return;
+    setShow(true);
+    // Hide it when the deadline passes, even if the page stays open.
+    const id = window.setTimeout(() => setShow(false), Math.min(remaining, 2 ** 31 - 1));
+    return () => window.clearTimeout(id);
+  }, []);
   if (!show) return null;
   return (
     <a className="promo-notice" href={BLACK_FRIDAY_PATH} data-testid="promo-notice">

@@ -35,7 +35,8 @@ const ONLINE = [
 ] as const;
 
 function BlackFridayPost() {
-  const post = EVENTS_AND_PROMOTIONS.find((e) => e.slug === BLACK_FRIDAY_SLUG)!;
+  const post = EVENTS_AND_PROMOTIONS.find((e) => e.slug === BLACK_FRIDAY_SLUG);
+  if (!post) return null;
   return (
     <div className="site">
       <Header />
