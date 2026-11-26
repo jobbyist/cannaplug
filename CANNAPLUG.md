@@ -2082,3 +2082,21 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
   2. Decide whether custom items should be limited to managers, or capped lower than R100 000.
   3. Note for compliance: a custom item has no product category, so daily purchase limits (none are set today) can't count it.
 - **Rollback:** revert the PR, then run the rollback SQL. Custom sales already made stay on record.
+
+## 26 Nov 2026 — Black Friday + Cyber Monday 2026, and online orders before the ID check (feat/mvp-black-friday-2026)
+
+- **Owner request:** (1) apply the revised Black Friday / Cyber Monday deals to the live site, live from midnight (00:00 SAST Fri 27 Nov) until the end of Cyber Monday; (2) let members place their online (collect-in-store) order before their ID has been checked by hand, for all online orders.
+- **Online orders before the ID check:** `_require_verified_member` now refuses only a member whose ID was **rejected** (`verification_rejected`). No ID, pending, provisional and expired members can order and pay; staff stay exempt. The ID is checked at collection (checkout and the pickup option already say "Bring your ID"). `verificationView.canOrder` follows (true unless rejected), so the checkout gate only shows for a rejected ID.
+- **Deals (queued in `scheduled_sales`, started by `products_start_due_sales` every minute by pg_cron and just before pricing):**
+  - Fri 27 00:00 to Sun 29 23:59 SAST: Top Shelf flower 25% off (R120 to R90/g), all accessories 20% off.
+  - Fri 27 00:00 to Mon 30 23:59 SAST, online only (till keeps the normal price): Entry Indoor flower R70/g, all edibles 20% off.
+  - Mon 30 00:00 to 23:59 SAST, online only: Greendoor flower R55/g.
+  - Each sale ends by itself through the existing end-of-sale sweep. A product already on sale keeps its regular price as the base; a campaign price that is not lower than the regular price is skipped and recorded.
+  - **Double loyalty points:** `accrue_order_loyalty` doubles the points of an online pickup order placed from Fri 00:00 to Mon 23:59:59 SAST (by the order's placed time).
+  - **Double Plug Back:** `plug_back_tubes_per_reward()` is 5 in the window, 10 otherwise.
+  - **Not automated:** "Buy 2 get 1 free" on Greenhouse pre-rolls is a cashier discount at the till. The platform has no store-only sale price: the Top Shelf and accessories sales also show and charge online until Sunday 23:59.
+- **Files:** `src/lib/{verification-logic,member-logic,sale-expiry.server}.ts`, `src/integrations/supabase/types.ts`, tests.
+- **Migration:** `20261126001000_black_friday_2026` (mirror `drizzle/migrations/0077_black_friday_2026.sql`; rollback `supabase/rollbacks/20261126001000_black_friday_2026_rollback.sql`; rehearsal `scripts/rollback-rehearsal-black-friday.sh`; apply script `docs/release/apply-20261126001000-black-friday-2026.sql`). No DROP of data. **Applied to the hosted project: not yet** (no database access in the session that built it).
+- **Tests:** `db/black-friday` (window edges, ID gate, double points by placed time, scheduled sales start/skip/end/service-role only, campaign queue by category and grade); updated `id-verification`, `staff-rules`, `payments`, `customer-import`, `verification-logic`, `staff-rules` (UI), `customer-import-ui`; the rehearsal. Note: `plug-back` and the loyalty tests assume 10 tubes and normal points, so they fail if run between 27 and 30 Nov 2026.
+- **Needs the owner:** (1) apply the migration before midnight, or sales start the minute it is applied (a due sale starts immediately); (2) decide whether Top Shelf and accessories should be in-store only (needs a store-only sale flag); (3) ring up the pre-roll 2+1 at the till; (4) the ID must be checked at collection: staff should not hand over an order until it is.
+- **Rollback:** revert the PR, then run the rollback SQL. Sales already started end at their end time.

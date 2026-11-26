@@ -267,14 +267,15 @@ export function verificationView(row: VerificationRow | null | undefined): Verif
     status === "rejected" ||
     status === "expired" ||
     status === "provisional";
-  const base = { status, canOrder: status === "verified", attemptsLeft };
-  // A verified member whose passport / driver's licence has expired cannot order (the database enforces
-  // it at the gate); show them that, and let them upload a current document.
+  // Online orders (collect in store) do not wait for the ID check: only a rejected ID stops ordering. The ID is checked at collection.
+  const base = { status, canOrder: status !== "rejected", attemptsLeft };
+  // A verified member whose passport / driver's licence has expired can still order (the ID is checked at collection);
+  // show them that, and let them upload a current document.
   if (status === "verified" && isExpired(row?.document_expires_on)) {
     return {
       ...base,
       status: "expired",
-      canOrder: false,
+      canOrder: true,
       label: "Expired",
       tone: "danger",
       headline: "Your ID document has expired",

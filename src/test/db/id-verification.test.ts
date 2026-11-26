@@ -378,18 +378,13 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
       expect((await row(u))!["rejection_code"]).toBe("expired_document");
     });
 
-    it("an expired passport blocks ordering, an SA ID never does", async () => {
+    it("an expired passport no longer blocks ordering (the ID is checked at collection); an SA ID never expires", async () => {
       const passport = await customer();
       await submit(passport, { type: "passport", expires: inYears(2) });
       await review(manager, passport, "approve");
       await rpc(sql, "_require_verified_member", passport); // in date: open
       await sql`UPDATE public.customer_verification SET document_expires_on = ${yesterday()} WHERE user_id = ${passport}`;
-      expect(
-        failedWith(
-          await attempt(rpc(sql, "_require_verified_member", passport)),
-          "verification_expired",
-        ),
-      ).toBe(true);
+      await rpc(sql, "_require_verified_member", passport); // expired: still open, the ID is checked at collection
 
       const sa = await customer();
       await submit(sa, { type: "sa_id" });
@@ -409,10 +404,8 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
         status: "pending",
         attempt: 1,
       });
-      // pending: the order gate says "in review", and approval makes it current again.
-      expect(
-        failedWith(await attempt(rpc(sql, "_require_verified_member", u)), "verification_pending"),
-      ).toBe(true);
+      // pending: ordering stays open, and approval makes it current again.
+      await rpc(sql, "_require_verified_member", u);
       await review(manager, u, "approve");
       await rpc(sql, "_require_verified_member", u);
     });
@@ -464,42 +457,47 @@ describe.skipIf(!DB_URL)("ID verification (real PostgreSQL)", () => {
         key("co"),
       );
 
-    it("refuses checkout until the ID is approved, with a status-specific reason", async () => {
+    it("lets a member check out before the ID is approved; only a rejected ID stops ordering", async () => {
       const items = await basket();
+      const none = await customer();
+      expect(await checkout(none, items)).toMatchObject({ status: "awaiting_payment", total: 180 });
+      const pending = await customer();
+      await submit(pending);
+      expect(await checkout(pending, items)).toMatchObject({ status: "awaiting_payment" });
       const u = await customer();
-      expect(failedWith(await attempt(checkout(u, items)), "verification_required")).toBe(true);
       await submit(u);
-      expect(failedWith(await attempt(checkout(u, items)), "verification_pending")).toBe(true);
       await review(manager, u, "reject", "unreadable");
-      expect(failedWith(await attempt(checkout(u, items)), "verification_required")).toBe(true);
+      expect(failedWith(await attempt(checkout(u, items)), "verification_rejected")).toBe(true);
       expect(await val(sql`SELECT count(*)::int FROM public.orders WHERE user_id = ${u}`)).toBe(0);
       await submit(u);
       await review(manager, u, "approve");
       expect(await checkout(u, items)).toMatchObject({ status: "awaiting_payment", total: 180 });
     });
 
-    it("an expired verification blocks orders again", async () => {
+    it("an expired verification can still order", async () => {
       const items = await basket();
       const u = await mkMember(sql);
       await sql`UPDATE public.customer_verification SET status = 'expired' WHERE user_id = ${u}`;
-      expect(failedWith(await attempt(checkout(u, items)), "verification_required")).toBe(true);
+      expect(await checkout(u, items)).toMatchObject({ status: "awaiting_payment" });
     });
 
     it("a refused checkout leaves stock untouched", async () => {
       const items = await basket();
       const u = await customer();
+      await sql`INSERT INTO public.customer_verification (user_id, status) VALUES (${u}, 'rejected')
+                ON CONFLICT (user_id) DO UPDATE SET status = 'rejected'`;
       const before = await val(sql`SELECT count(*)::int FROM public.stock_reservations`);
       await attempt(checkout(u, items));
       expect(await val(sql`SELECT count(*)::int FROM public.stock_reservations`)).toBe(before);
     });
 
-    it("blocks a reorder for a member who is no longer verified", async () => {
+    it("blocks a reorder for a member whose ID was rejected", async () => {
       const items = await basket();
       const u = await mkMember(sql);
       const first = await checkout(u, items);
       await sql`UPDATE public.customer_verification SET status = 'rejected' WHERE user_id = ${u}`;
       const o = await attempt(rpc(sql, "create_reorder", u, first.order_id, 180, key("ro")));
-      expect(failedWith(o, "verification_required")).toBe(true);
+      expect(failedWith(o, "verification_rejected")).toBe(true);
     });
   });
 

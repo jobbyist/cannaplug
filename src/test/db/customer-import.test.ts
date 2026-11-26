@@ -244,14 +244,14 @@ describe.skipIf(!DB_URL)("customer import (real PostgreSQL)", () => {
     ).toBe(0);
   });
 
-  it("a provisional member cannot order online but is findable at the till; an unlinked staged member is shown but cannot be attached", async () => {
+  it("a provisional member can order online and is findable at the till; an unlinked staged member is shown but cannot be attached", async () => {
     const r = await stage();
     const waiting = await rpc(sql, "pos_customer_search", admin, r.username, 5);
     expect(waiting[0]).toMatchObject({ id_status: "provisional", can_attach: false });
     expect(waiting[0].blocked_reason).toMatch(/not signed up/i);
     const id = await signUp(r.email);
     const gate = await attempt(sql`SELECT public._require_verified_member(${id})`);
-    expect(gate.ok === false && gate.message).toMatch(/^verification_provisional/);
+    expect(gate.ok).toBe(true);
     const hits = await rpc(sql, "pos_customer_search", admin, r.username, 5);
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({ id, id_status: "provisional", can_attach: true });
