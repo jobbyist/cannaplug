@@ -2100,3 +2100,14 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests:** `db/black-friday` (window edges, ID gate, double points by placed time, scheduled sales start/skip/end/service-role only, campaign queue by category and grade); updated `id-verification`, `staff-rules`, `payments`, `customer-import`, `verification-logic`, `staff-rules` (UI), `customer-import-ui`; the rehearsal. Note: `plug-back` and the loyalty tests assume 10 tubes and normal points, so they fail if run between 27 and 30 Nov 2026.
 - **Needs the owner:** (1) apply the migration before midnight, or sales start the minute it is applied (a due sale starts immediately); (2) decide whether Top Shelf and accessories should be in-store only (needs a store-only sale flag); (3) ring up the pre-roll 2+1 at the till; (4) the ID must be checked at collection: staff should not hand over an order until it is.
 - **Rollback:** revert the PR, then run the rollback SQL. Sales already started end at their end time.
+
+## 26 Nov 2026 — Black Friday announcement post and promo notice (feat/mvp-black-friday-announcement)
+
+- **Owner request:** add the Black Friday deal to the homepage Events/Announcements with a cover image, include all the deal posters in the post, and show a Black Friday notice above the header navigation that links to the post.
+- **Announcement post:** new page `/events/black-friday` (`src/routes/events_.black-friday.tsx`) with both posters (square 1080x1080 as cover, story 900x1600), the in-store and online-only deal lists, the collect-in-store ID note and the 18+ / not medical advice line. Posters are in `src/assets/black-friday-poster-{square,story}.jpg`.
+- **Events:** `src/lib/events.ts` has a new `black-friday` entry (starts 27 Nov, newest item), so it leads the homepage Events/Announcements and `/events`. Both cards show a "See all the deals" link to the post. Plug Back stays off the homepage.
+- **Notice above the header:** `PromoNotice` in `Header()` (`CannaPlugHome.tsx`), Forest bar with gold text, links to the post. It shows until 00:00 SAST Tue 1 Dec (`BLACK_FRIDAY_NOTICE_ENDS`) and removes itself after that, so it needs no clean-up.
+- **Left out on purpose:** the old story poster that still said 30% off accessories (the deal is now 20%).
+- **Tests:** `events-promos` updated for the new order, post, posters and notice end time.
+- **Needs the owner:** (1) confirm the post copy and that the posters should stay as the cover; (2) the notice and post show from the moment this deploys (tonight), a few hours before the deals start at 00:00 Fri, so say if it should be hidden until midnight.
+- **Rollback:** revert the PR. No database change.
