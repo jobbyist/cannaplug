@@ -71,6 +71,7 @@ const PUBLIC_FNS: Record<string, string> = {
   submitContactFn: "public contact form; honeypot + per-IP rate limit",
   subscribeNewsletterFn: "public newsletter; honeypot + per-IP rate limit",
   unsubscribeNewsletterFn: "token in the email link",
+  unsubscribeCartFn: "token in the email link",
   getJournalEngagementFn:
     "public like count and approved comments for a published article (first name + initial only, no user ids)",
   checkUsernameFn: "sign-up form: is this username free (yes/no and a reason only; no member data)",

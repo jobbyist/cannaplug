@@ -3349,6 +3349,9 @@ export type Database = {
         Returns: Json;
       };
       newsletter_unsubscribe: { Args: { p_token: string }; Returns: Json };
+      cart_save: { Args: { p_user_id: string; p_items: Json }; Returns: undefined };
+      cart_get: { Args: { p_user_id: string }; Returns: Json };
+      cart_unsubscribe: { Args: { p_token: string }; Returns: Json };
       eft_approve: {
         Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string };
         Returns: Json;

@@ -262,3 +262,32 @@ describe("order_abandoned email", () => {
     expect(r.html).toMatch(/bring your ID/);
   });
 });
+
+describe("cart_reminder email", () => {
+  const d = {
+    first_name: "Ada <b>",
+    items: [{ name: "Gorilla <i>Z</i>", quantity: 2, price_rand: 120 }],
+    more: 3,
+    subtotal_rand: 240,
+    unsubscribe_token: "0123456789abcdef0123456789abcdef0123456789abcdef",
+  };
+  const c: Parameters<typeof renderTemplate>[2] = { siteUrl: "https://cannaplug012.co.za" };
+  it("first email lists the basket and carries a one-click unsubscribe", () => {
+    const r = renderTemplate("cart_reminder", { ...d, stage: 1 }, c)!;
+    expect(r.subject).toBe("You left something in your basket");
+    expect(r.html).toContain("unsubscribe?kind=cart&amp;token=0123456789abcdef");
+    expect(r.headers?.["List-Unsubscribe"]).toContain(
+      "/unsubscribe?kind=cart&token=0123456789abcdef",
+    );
+    expect(r.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    expect(r.html).toContain("and 3 more");
+    expect(r.html).not.toContain("<i>Z</i>");
+    expect(r.html).not.toContain("Ada <b>");
+    expect(r.html).not.toMatch(/double/i);
+  });
+  it("second email offers double Plug points for 48 hours", () => {
+    const r = renderTemplate("cart_reminder", { ...d, stage: 2 }, c)!;
+    expect(r.subject).toMatch(/Double Plug points/);
+    expect(r.html).toMatch(/within the next 48 hours/);
+  });
+});
