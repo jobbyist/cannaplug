@@ -18,6 +18,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   order_out_for_delivery: order,
   order_completed: order,
   order_cancelled: order,
+  order_abandoned: { ...order, kind: "pay", payment_method: "card", hold_until: "Friday 17:30" },
   member_welcome: { contact_name: "Thandi Mokoena", id_verified: true },
   id_submitted: { contact_name: "Thandi Mokoena" },
   id_approved: { contact_name: "Thandi Mokoena", document_expires_on: "2031-04-12" },
