@@ -243,6 +243,15 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
     expect(after.second_emails - before.second_emails).toBe(0);
     expect(after.recovered_orders - before.recovered_orders).toBe(1);
     expect(Number(after.recovered_rand) - Number(before.recovered_rand)).toBeCloseTo(total, 2);
+    // A budtender sees the counts but never the rand value; a manager does.
+    const budtender = await mkUser(sql, "budtender");
+    const seen = (await rpc(sql, "admin_cart_recovery", budtender, 30)) as {
+      recovered_orders: number;
+      recovered_rand: number;
+    };
+    expect(seen.recovered_orders).toBe(after.recovered_orders);
+    expect(Number(seen.recovered_rand)).toBe(0);
+    expect(Number(after.recovered_rand)).toBeGreaterThan(0);
   });
 
   it("cart emails are low priority and unpaid-order reminders are normal; the functions are service-role only", async () => {
