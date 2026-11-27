@@ -2225,6 +2225,6 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Enforcement:** in `posCompleteSale` (`src/lib/pos-data.server.ts`): claim the waiver, run the existing `pos_complete_sale`, link the sale, release the claim if the sale fails. Retrying with the same key is safe.
 - **Retention:** 3 years, then deleted by a daily job (`dab-waiver-retention`, 00:15 UTC, only where pg_cron exists).
 - **Privacy policy** updated (information collected and uses).
-- **Migration (see PR for hosted status):** `20261127012000_dab_waivers` (mirror `drizzle/migrations/0088_dab_waivers.sql`; rollback `supabase/rollbacks/20261127012000_dab_waivers_rollback.sql`; rehearsal `scripts/rollback-rehearsal-dab-waivers.sh`). Rolling back deletes every waiver: export first.
+- **Migration (applied to the hosted project):** `20261127012000_dab_waivers` (mirror `drizzle/migrations/0088_dab_waivers.sql`; rollback `supabase/rollbacks/20261127012000_dab_waivers_rollback.sql`; rehearsal `scripts/rollback-rehearsal-dab-waivers.sh`). Rolling back deletes every waiver: export first.
 - **To switch on:** create the "Dab hit" product and tick the waiver box. The indemnity wording (section 5) should be reviewed by an attorney.
 - **Files:** `src/lib/waiver*.ts`, `src/components/admin/waiver/*`, `src/routes/admin_.waiver.$waiverId.tsx`, `src/test/db/dab-waivers.test.ts`.
