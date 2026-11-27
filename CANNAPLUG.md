@@ -2194,3 +2194,8 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Migration (not yet applied to the hosted project):** `20261127007000_cart_reminders` (mirror `drizzle/migrations/0083_cart_reminders.sql`; rollback `supabase/rollbacks/20261127007000_cart_reminders_rollback.sql`; rehearsal `scripts/rollback-rehearsal-cart-reminders.sh`). Adds a table and five service-role functions, replaces `_email_tier` and `accrue_order_loyalty`. The rollback deletes saved baskets (copies of what members had in their browsers).
 - **Files:** `src/lib/cart.tsx`, `src/lib/cart.functions.ts`, `src/routes/unsubscribe.tsx`, `src/routes/privacy-policy.tsx`, `src/lib/notifications/templates.ts`, `scripts/email-samples.ts`, `src/lib/email-campaigns.server.ts`, `src/integrations/supabase/types.ts`, `src/test/db/cart-reminders.test.ts`, `src/test/notifications.test.ts`.
 - **Not built:** an Admin → Overview tile for baskets saved, emails sent and orders recovered.
+
+## 27 Nov 2026 — Cart function fixes (fix/cart-save-unsubscribe-checks)
+
+- From the review of PR #122: `cart_save` no longer drops a basket when two devices save for the first time at the same moment (later write wins), and `cart_unsubscribe` now fails for a link that matches no member (a link used twice still says "unsubscribed"). The review's third point (double points not limited to collection) was already covered: `accrue_order_loyalty` only doubles for collection orders; a test now proves it.
+- **Migration (not yet applied to the hosted project):** `20261127008000_cart_functions_fix` (mirror `drizzle/migrations/0084_cart_functions_fix.sql`; rollback `supabase/rollbacks/20261127008000_cart_functions_fix_rollback.sql`). Replaces two functions; no table changes.
