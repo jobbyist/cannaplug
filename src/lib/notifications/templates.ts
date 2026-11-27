@@ -146,6 +146,31 @@ export const TEMPLATES: Record<string, Template> = {
       }),
     };
   },
+  order_abandoned: (d, c) => {
+    const collect = d["kind"] === "collect";
+    const until = d["hold_until"] ? String(d["hold_until"]) : null;
+    return {
+      subject: collect
+        ? `Your order ${d["order_number"]} is waiting for you`
+        : `Finish your order ${d["order_number"]}`,
+      html: layout({
+        preheader: collect
+          ? "Collect and pay in store before we release your items."
+          : "Your items are still held for you. Complete your payment to keep them.",
+        title: collect ? "Your order is reserved" : "Your items are still held",
+        bodyHtml:
+          p(hi(d)) +
+          p(
+            collect
+              ? `We are holding your order${until ? ` until ${esc(until)}` : ""}. Pop in, pay at the till (cash, card or EFT), quote your order number and bring your ID. After that the items go back on the shelf.`
+              : `You started an order but have not paid yet. We are holding your items${until ? ` until ${esc(until)}` : " for a short while"}. Open your order to pay, or choose to pay in store when you collect.`,
+          ) +
+          kv(orderRows(d)),
+        cta: { label: collect ? "View my order" : "Complete my order", url: accountUrl(c) },
+        footerNote: "Not what you wanted? Ignore this email and the order will lapse by itself.",
+      }),
+    };
+  },
   order_confirmed: (d, c) => ({
     subject: `Payment confirmed — order ${d["order_number"]}`,
     html: layout({

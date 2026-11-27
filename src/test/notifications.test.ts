@@ -235,3 +235,30 @@ describe("template coverage", () => {
     expect(Object.keys(TEMPLATES).filter((t) => !(t in SAMPLES))).toEqual([]);
   });
 });
+
+describe("order_abandoned email", () => {
+  const d = {
+    order_number: "CP-100",
+    total_rand: 250,
+    contact_name: "Ada <b>L</b>",
+    delivery_method: "collection",
+    hold_until: "Friday 17:30",
+  };
+  const c: Parameters<typeof renderTemplate>[2] = { siteUrl: "https://cannaplug012.co.za" };
+  it("nudges an online payment and names the hold time", () => {
+    const r = renderTemplate("order_abandoned", { ...d, kind: "pay", payment_method: "card" }, c)!;
+    expect(r.subject).toBe("Finish your order CP-100");
+    expect(r.html).toContain("until Friday 17:30");
+    expect(r.html).toContain("pay in store");
+    expect(r.html).not.toContain("<b>L</b>");
+  });
+  it("tells a pay-in-store customer to collect and bring ID", () => {
+    const r = renderTemplate(
+      "order_abandoned",
+      { ...d, kind: "collect", payment_method: "cash" },
+      c,
+    )!;
+    expect(r.subject).toMatch(/waiting for you/);
+    expect(r.html).toMatch(/bring your ID/);
+  });
+});
