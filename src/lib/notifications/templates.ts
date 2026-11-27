@@ -146,6 +146,53 @@ export const TEMPLATES: Record<string, Template> = {
       }),
     };
   },
+  cart_reminder: (d, c) => {
+    const base = c.siteUrl.replace(/\/+$/, "");
+    const second = Number(d["stage"]) === 2;
+    const unsub = `${base}/unsubscribe?kind=cart&token=${esc(d["unsubscribe_token"])}`;
+    const unsubHtml = unsub.replace(/&/g, "&amp;");
+    const items = (
+      (d["items"] as { name?: unknown; quantity?: unknown; price_rand?: unknown }[] | undefined) ??
+      []
+    ).slice(0, 5);
+    const more = Number(d["more"] ?? 0);
+    const rows: [string, string][] = items.map((i) => [
+      `${String(i.name ?? "")} × ${Number(i.quantity ?? 1)}`,
+      esc(rand(Number(i.price_rand ?? 0) * Number(i.quantity ?? 1))),
+    ]);
+    if (more > 0) rows.push([`and ${more} more`, ""]);
+    rows.push(["Basket total", esc(rand(d["subtotal_rand"]))]);
+    return {
+      subject: second
+        ? "Double Plug points on your basket, for 48 hours"
+        : "You left something in your basket",
+      headers: {
+        "List-Unsubscribe": `<${unsub}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      html: layout({
+        preheader: second
+          ? "Order within 48 hours and earn double Plug points on a collection order."
+          : "Your basket is saved. Pick up where you left off.",
+        title: second ? "Double Plug points, 48 hours" : "Your basket is saved",
+        bodyHtml:
+          p(`Hi ${esc(d["first_name"] ?? "there")},`) +
+          p(
+            second
+              ? "Your basket is still waiting. Place a collection order within the next 48 hours and we will double the Plug points you earn on it. Points are added when your order is completed."
+              : "You left these in your basket. They are saved to your account, so you can finish on any device. Popular items can sell out.",
+          ) +
+          kv(rows) +
+          p(
+            `Prices are today's prices. Not for you? <a href="${unsubHtml}" style="color:${BRAND.green}">Unsubscribe from basket reminders in one click</a>.`,
+          ),
+        cta: { label: "Back to my basket", url: `${base}/shop` },
+        footerNote:
+          "You are receiving this because you have a Cannaplug account and left items in your basket. For adults 18 and over. You can unsubscribe at any time.",
+        siteUrl: c.siteUrl,
+      }),
+    };
+  },
   order_abandoned: (d, c) => {
     const collect = d["kind"] === "collect";
     const until = d["hold_until"] ? String(d["hold_until"]) : null;

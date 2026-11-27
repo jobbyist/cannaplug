@@ -25,6 +25,7 @@ const TEMPLATE_LABEL: Record<string, string> = {
   order_completed: "Order completed",
   order_cancelled: "Order cancelled",
   order_abandoned: "Order reminder",
+  cart_reminder: "Basket reminder",
   member_welcome: "Welcome",
   newsletter_welcome: "Newsletter welcome",
   id_submitted: "ID received",
