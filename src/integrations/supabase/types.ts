@@ -4008,6 +4008,7 @@ export type Database = {
       };
       admin_overview: { Args: { p_actor: string }; Returns: Json };
       admin_attention_counts: { Args: { p_actor: string }; Returns: Json };
+      admin_cart_recovery: { Args: { p_actor: string; p_days?: number }; Returns: Json };
       admin_account_delete: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_user: string };
         Returns: Json;

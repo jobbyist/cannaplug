@@ -2199,3 +2199,9 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 
 - From the review of PR #122: `cart_save` no longer drops a basket when two devices save for the first time at the same moment (later write wins), and `cart_unsubscribe` now fails for a link that matches no member (a link used twice still says "unsubscribed"). The review's third point (double points not limited to collection) was already covered: `accrue_order_loyalty` only doubles for collection orders; a test now proves it.
 - **Migration (not yet applied to the hosted project):** `20261127008000_cart_functions_fix` (mirror `drizzle/migrations/0084_cart_functions_fix.sql`; rollback `supabase/rollbacks/20261127008000_cart_functions_fix_rollback.sql`). Replaces two functions; no table changes.
+
+## 27 Nov 2026 — Admin tile for basket reminders, SAST on Recent activity (feat/admin-cart-tile)
+
+- **Admin → Overview → "Basket reminders"** (last 30 days): baskets saved, first and second reminders sent, unsubscribes, paid orders placed within 7 days of a first reminder, and (managers and admins only) their value. "Ordered after a reminder" shows timing, not proof the email caused the order. Counts only, no names or emails.
+- **Recent activity** now shows South African time and says "SAST" (it used the server's UTC clock before).
+- **Migration (applied to the hosted project):** `20261127009000_admin_cart_recovery` (mirror `drizzle/migrations/0085_admin_cart_recovery.sql`; rollback `supabase/rollbacks/20261127009000_admin_cart_recovery_rollback.sql`). New staff-only function `admin_cart_recovery`; no table changes.

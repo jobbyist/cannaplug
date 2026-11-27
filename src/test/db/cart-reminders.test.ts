@@ -203,6 +203,45 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
     expect([a, b]).toContain(items[0]!.product_id);
   });
 
+  it("admin_cart_recovery is staff only and counts reminders and orders placed after one", async () => {
+    const stats = async () =>
+      (await rpc(sql, "admin_cart_recovery", manager, 30)) as {
+        baskets_saved: number;
+        first_emails: number;
+        second_emails: number;
+        recovered_orders: number;
+        recovered_rand: number;
+      };
+    const before = await stats();
+    const u = await mkMember(sql);
+    expect((await attempt(rpc(sql, "admin_cart_recovery", u, 30))).ok).toBe(false);
+    await save(u, [{ product_id: await product(), quantity: 1 }]);
+    await sql`UPDATE public.member_carts SET reminder_1_at = now() - interval '1 day' WHERE user_id = ${u}`;
+    const p = await product(500);
+    await receive(sql, manager, p, 5);
+    const o = await rpc(
+      sql,
+      "create_online_order",
+      u,
+      [{ product_id: p, quantity: 1 }],
+      "Ada",
+      "0820000000",
+      null,
+      key("ord"),
+      30,
+    );
+    await payOrder(sql, o.order_id);
+    const total = Number(
+      await val(sql`SELECT total_rand FROM public.orders WHERE id = ${o.order_id}`),
+    );
+    const after = await stats();
+    expect(after.baskets_saved - before.baskets_saved).toBe(1);
+    expect(after.first_emails - before.first_emails).toBe(1);
+    expect(after.second_emails - before.second_emails).toBe(0);
+    expect(after.recovered_orders - before.recovered_orders).toBe(1);
+    expect(Number(after.recovered_rand) - Number(before.recovered_rand)).toBeCloseTo(total, 2);
+  });
+
   it("cart emails are low priority and unpaid-order reminders are normal; the functions are service-role only", async () => {
     expect(await val(sql`SELECT public._email_tier('cart_reminder')`)).toBe(3);
     expect(await val(sql`SELECT public._email_tier('order_abandoned')`)).toBe(2);

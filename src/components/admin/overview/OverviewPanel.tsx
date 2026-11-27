@@ -72,6 +72,41 @@ export function SalesChart({ days }: { days: AdminDashboard["salesOverview"] }) 
   );
 }
 
+/** Saved-basket reminder results. "Ordered after a reminder" means an order within 7 days of the first email, not proof the email caused it. */
+export function CartRecoveryCard({
+  data,
+  canSeeMoney,
+}: {
+  data: AdminDashboard["cartRecovery"];
+  canSeeMoney: boolean;
+}) {
+  const items: [string, string][] = [
+    ["Baskets saved", compact(data.basketsSaved)],
+    ["First reminders sent", compact(data.firstEmails)],
+    ["Second reminders sent", compact(data.secondEmails)],
+    ["Unsubscribed", compact(data.unsubscribed)],
+    ["Ordered after a reminder", compact(data.recoveredOrders)],
+  ];
+  if (canSeeMoney) items.push(["Value of those orders", rand(data.recoveredRand)]);
+  return (
+    <section aria-label="Basket reminders" className="rounded-xl border border-border bg-card p-5">
+      <h2 className="font-display text-sm font-bold uppercase">Basket reminders</h2>
+      <p className="mb-4 text-[0.68rem] text-muted-foreground">
+        Last {data.days} days. "Ordered after a reminder" counts paid orders within 7 days of the
+        first email.
+      </p>
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        {items.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="font-display text-xl font-extrabold">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 /** The Overview tab. Money is for managers and admins (the same numbers as Reports); everyone sees the counts. */
 export function OverviewPanel({
   dashboard,
@@ -150,6 +185,7 @@ export function OverviewPanel({
           ))}
         </div>
       </section>
+      <CartRecoveryCard data={dashboard.cartRecovery} canSeeMoney={canSeeMoney} />
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
@@ -161,14 +197,17 @@ export function OverviewPanel({
           <OrderTable orders={dashboard.recentOrders} onSelect={onSelectOrder} />
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-3 font-display text-sm font-bold uppercase">Recent activity</h2>
+          <h2 className="mb-1 font-display text-sm font-bold uppercase">Recent activity</h2>
+          <p className="mb-3 text-[0.68rem] text-muted-foreground">
+            Times shown in South African time (SAST)
+          </p>
           {dashboard.activity.map((a) => (
             <div
               key={a.label + "-" + a.time}
               className="flex justify-between gap-3 border-b border-border py-2 text-xs last:border-0"
             >
               <span>{a.label}</span>
-              <span className="text-muted-foreground">{a.time}</span>
+              <span className="whitespace-nowrap text-muted-foreground">{a.time} SAST</span>
             </div>
           ))}
         </div>
