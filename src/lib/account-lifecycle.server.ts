@@ -51,7 +51,7 @@ export async function deleteMemberAccount(
     p_reason: reason,
     p_idempotency_key: key,
   });
-  if (error) throw error;
+  if (error) throw friendlyMemberError(error);
   const r = data as unknown as {
     email_placeholder: string;
     id_document_paths: string[];

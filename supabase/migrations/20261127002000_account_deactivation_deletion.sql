@@ -281,7 +281,7 @@ BEGIN
       JOIN auth.users u ON u.id = ur.user_id
       LEFT JOIN public.profiles p ON p.id = ur.user_id
       WHERE ur.role = 'customer'
-        AND p.deleted_at IS NULL
+        AND (p.id IS NULL OR p.deleted_at IS NULL)
         AND NOT EXISTS (SELECT 1 FROM public.user_roles s
                         WHERE s.user_id = ur.user_id AND s.role IN ('budtender', 'manager', 'admin'))
         AND (v_pat IS NULL OR p.full_name ILIKE v_pat OR p.phone ILIKE v_pat OR u.email ILIKE v_pat OR p.username ILIKE v_pat)

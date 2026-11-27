@@ -82,7 +82,8 @@ function Form({
         <DialogHeader>
           <DialogTitle>Account deleted, with follow-ups</DialogTitle>
           <DialogDescription>
-            {member.name} was anonymised. Two things need a hand:
+            {member.name} was anonymised.{" "}
+            {warnings.length === 1 ? "One thing needs" : "Some things need"} a hand:
           </DialogDescription>
         </DialogHeader>
         <ul className="list-disc pl-5 text-sm">
