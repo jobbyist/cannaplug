@@ -51,6 +51,7 @@ const blank: AdminProductInput = {
   brand: null,
   sell_online: true,
   sold_by_weight: false,
+  requires_waiver: false,
   weight_step_g: 1,
   sale_price_rand: null,
   sale_ends_at: null,
@@ -116,6 +117,7 @@ function toForm(p: AdminProduct | undefined): AdminProductInput {
     brand: p.brand,
     sell_online: p.sell_online,
     sold_by_weight: p.sold_by_weight,
+    requires_waiver: p.requires_waiver,
     weight_step_g: Number(p.weight_step_g) === 0.5 ? 0.5 : Number(p.weight_step_g) === 5 ? 5 : 1,
     is_featured: p.is_featured,
   };
@@ -386,6 +388,20 @@ export function ProductEditDialog({
               />
               <p className="text-[0.7rem] text-muted-foreground">
                 Managers are emailed when available stock falls to this number (0 = never).
+              </p>
+            </div>
+            <div className="space-y-1 rounded-md border border-border p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.requires_waiver)}
+                  onChange={(e) => setForm((f) => ({ ...f, requires_waiver: e.target.checked }))}
+                />
+                Needs a signed dab waiver at the till
+              </label>
+              <p className="text-[0.7rem] text-muted-foreground">
+                Tick this on the dab hit. The till will not complete a sale that includes it until a
+                waiver has been signed that day.
               </p>
             </div>
             <div className="space-y-2 rounded-md border border-border p-3">

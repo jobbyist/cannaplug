@@ -51,11 +51,14 @@ export type PosCatalogItem = {
   sale_ends_at: string | null;
   /** Weighed products are counted in grams; Outdoor flower moves in 5 g batches (see sale-step). */
   sold_by_weight: boolean;
+  requires_waiver: boolean;
   weight_step_g: number;
   available: number;
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
+  waiver_required: "This sale includes a dab hit. A signed waiver is needed first.",
+  waiver_invalid: "That waiver cannot be used",
   insufficient_stock: "Not enough stock available",
   tender_mismatch: "Tenders must add up exactly to the sale total",
   session_closed: "This till session is closed",
@@ -123,6 +126,7 @@ export function friendlyPosError(err: unknown): Error {
       "purchase_limit_exceeded",
       "invalid_amount",
       "invalid_input",
+      "waiver_invalid",
     ].includes(code);
     return new Error(
       showDetail && detail ? `${ERROR_MESSAGES[code]} (${detail})` : ERROR_MESSAGES[code]!,
@@ -139,7 +143,7 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 }
 
 const CATALOG_COLUMNS =
-  "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only,sold_by_weight,weight_step_g";
+  "id,slug,name,category,subcategory,strain_type,unit,price_rand,regular_price_rand,sale_ends_at,sale_online_only,sold_by_weight,requires_waiver,weight_step_g";
 
 /** Active products as the till sees them, with live availability. */
 function toCatalog(
@@ -156,6 +160,7 @@ function toCatalog(
     sale_ends_at: string | null;
     sale_online_only: boolean;
     sold_by_weight: boolean;
+    requires_waiver: boolean;
     weight_step_g: number | string;
   }[],
   availabilityRows: { product_id: string | null; available: number | null }[],
@@ -637,11 +642,85 @@ export async function posCompleteSale(
     orderDiscount?: PosDiscountInput | null;
     discountReason?: string | null;
     key: string;
+    /** A signed dab waiver, needed only when the basket has a product marked requires_waiver. */
+    waiverId?: string | null;
   },
 ) {
   await assertPosOpen();
   await endExpiredSales(userId);
-  const sale = unwrap(
+  const waiverId = await claimWaiverIfNeeded(userId, input);
+  let sale: SaleResult;
+  try {
+    sale = await runCompleteSale(userId, input);
+  } catch (err) {
+    // The sale did not happen: free the waiver so the customer does not have to sign again.
+    if (waiverId)
+      await supabaseAdmin.rpc("dab_waiver_release", {
+        p_actor: userId,
+        p_waiver_id: waiverId,
+        p_key: input.key,
+      });
+    throw err;
+  }
+  if (waiverId) {
+    try {
+      unwrap(
+        await supabaseAdmin.rpc("dab_waiver_link_sale", {
+          p_actor: userId,
+          p_waiver_id: waiverId,
+          p_key: input.key,
+          p_sale_id: sale.sale_id,
+        }),
+      );
+    } catch (err) {
+      // The sale is committed and must not fail; the waiver stays claimed for this sale key.
+      console.error("Waiver could not be linked to its sale", {
+        saleId: sale.sale_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return finishSale(sale, input.customerId);
+}
+
+/** A dab hit in the basket needs a valid waiver; claiming it also makes it good for this one sale only. */
+async function claimWaiverIfNeeded(
+  userId: string,
+  input: { items: PosItemInput[]; key: string; waiverId?: string | null },
+): Promise<string | null> {
+  const ids = [...new Set(input.items.flatMap((i) => ("product_id" in i ? [i.product_id] : [])))];
+  if (ids.length === 0) return null;
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("id")
+    .in("id", ids)
+    .eq("requires_waiver", true);
+  if (error) throw friendlyPosError(error);
+  if (!data || data.length === 0) return null;
+  if (!input.waiverId) throw new Error(ERROR_MESSAGES["waiver_required"]!);
+  unwrap(
+    await supabaseAdmin.rpc("dab_waiver_claim", {
+      p_actor: userId,
+      p_waiver_id: input.waiverId,
+      p_key: input.key,
+    }),
+  );
+  return input.waiverId;
+}
+
+async function runCompleteSale(
+  userId: string,
+  input: {
+    sessionId: string;
+    items: PosItemInput[];
+    tenders: PosTenderInput[];
+    customerId: string | null;
+    orderDiscount?: PosDiscountInput | null;
+    discountReason?: string | null;
+    key: string;
+  },
+): Promise<SaleResult> {
+  return unwrap(
     await supabaseAdmin.rpc("pos_complete_sale", {
       p_actor: userId,
       p_session_id: input.sessionId,
@@ -670,9 +749,11 @@ export async function posCompleteSale(
       p_discount_reason: input.discountReason ?? null,
     }),
   ) as unknown as SaleResult;
+}
 
+async function finishSale(sale: SaleResult, customerId: string | null) {
   let loyalty: LoyaltyOutcome = { accrued: false, reason: "no_customer" };
-  if (input.customerId) {
+  if (customerId) {
     try {
       loyalty = unwrap(
         await supabaseAdmin.rpc("accrue_pos_loyalty", { p_sale_id: sale.sale_id }),

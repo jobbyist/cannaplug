@@ -35,6 +35,8 @@ import {
 } from "@/lib/pos.functions";
 import { StockControl } from "./StockControl";
 import { ReceiptActions } from "@/components/admin/receipts/ReceiptActions";
+import { DabWaiverDialog, type SignedWaiver } from "@/components/admin/waiver/DabWaiverDialog";
+import { IncidentDialog } from "@/components/admin/waiver/IncidentDialog";
 import { recordCashReceivedFn } from "@/lib/receipts.functions";
 import {
   TENDER_METHODS,
@@ -345,6 +347,10 @@ export function SaleScreen({
   const [lines, setLines] = useState<CartLine[]>([]);
   const [tenders, setTenders] = useState<TenderRow[]>([]);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
+  // A signed dab waiver for this sale (one waiver covers one person, one sale, the day it was signed).
+  const [waiver, setWaiver] = useState<SignedWaiver | null>(null);
+  const [waiverOpen, setWaiverOpen] = useState(false);
+  const [incidentOpen, setIncidentOpen] = useState(false);
   // The attached member's points and the rewards on offer (loaded from the database, read-only).
   const [memberRewards, setMemberRewards] = useState<PosCustomerRewards | null>(null);
   const [orderDiscount, setOrderDiscount] = useState<DiscountInput | undefined>();
@@ -419,6 +425,7 @@ export function SaleScreen({
     );
 
   const summary = cartSummary(lines, orderDiscount, customer?.staff === true);
+  const needsWaiver = lines.some((l) => l.product.requires_waiver === true);
   const totalCents = summary.totalCents;
   const reasonOk = !summary.hasManualDiscount || discountReason.trim().length >= 3;
   const discountsOk = summary.discountsValid && reasonOk;
@@ -489,6 +496,10 @@ export function SaleScreen({
 
   const completeSale = async () => {
     if (inFlight.current || salesPaused || !status.ok || !discountsOk || lines.length === 0) return;
+    if (!demo && needsWaiver && !waiver) {
+      setWaiverOpen(true);
+      return;
+    }
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -503,7 +514,7 @@ export function SaleScreen({
     const cid = customer?.id ?? null;
     // Same payload => same key (safe retry after a network failure); changed payload => new key.
     const key = keys.current.keyFor(
-      salesSignature({ s: session.id, items, sendTenders, cid, od, reason }),
+      salesSignature({ s: session.id, items, sendTenders, cid, od, reason, w: waiver?.id ?? null }),
     );
     try {
       if (demo) {
@@ -540,9 +551,11 @@ export function SaleScreen({
           customerId: cid,
           orderDiscount: od ?? null,
           discountReason: reason,
+          waiverId: needsWaiver ? (waiver?.id ?? null) : null,
           key,
         },
       });
+      setWaiver(null);
       const received = parseCents(cashReceived);
       setReceipt({ ...res, cashReceivedCents: received } as Receipt);
       // Best-effort: lets the printed/emailed receipt show cash received and change.
@@ -560,7 +573,10 @@ export function SaleScreen({
       await onChanged();
       focusSearch();
     } catch (e) {
-      setError(errMsg(e));
+      const m = errMsg(e);
+      // A waiver the database refused (used already, wrong day) cannot be reused: ask for a new one.
+      if (/waiver/i.test(m)) setWaiver(null);
+      setError(m);
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -687,6 +703,15 @@ export function SaleScreen({
             </li>
           )}
         </ul>
+        <DabWaiverDialog open={waiverOpen} onOpenChange={setWaiverOpen} onSigned={setWaiver} />
+        {waiver && (
+          <IncidentDialog
+            waiverId={waiver.id}
+            customerName={waiver.customerName}
+            open={incidentOpen}
+            onOpenChange={setIncidentOpen}
+          />
+        )}
         <PosSaleDialog
           {...(demo ? { setSale: demo.setSale } : {})}
           product={saleFor}
@@ -1164,6 +1189,45 @@ export function SaleScreen({
             {error && (
               <div className={`mt-3 ${errorClass}`} role="alert">
                 {error}
+              </div>
+            )}
+            {needsWaiver && !demo && (
+              <div className="mt-3 rounded-md border p-3 text-sm" data-testid="waiver-banner">
+                {waiver ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Waiver signed by <b>{waiver.customerName}</b>
+                    </span>
+                    <span className="flex gap-3">
+                      <button
+                        type="button"
+                        className="text-xs underline"
+                        onClick={() => setIncidentOpen(true)}
+                      >
+                        Record incident
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline"
+                        onClick={() => setWaiver(null)}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>This basket has a dab hit. The customer must sign a waiver first.</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setWaiverOpen(true)}
+                    >
+                      Get waiver signed
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             <Button

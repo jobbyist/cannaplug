@@ -42,6 +42,14 @@ function PrivacyPolicyPage() {
                   are saved to your account so you can continue on any device.
                 </li>
                 <li>
+                  Dab hit waiver — if you take a dab hit in our store, the waiver you sign: your
+                  name, date of birth, ID or passport number, answers to the health screening
+                  (alcohol, drugs, medication, medical conditions), emergency contact and signature.
+                  Health answers are special personal information; we ask for your consent on the
+                  form. Only managers and administrators can read it, and we delete it after three
+                  years.
+                </li>
+                <li>
                   Communications — messages you send via our contact form, chat widget or customer
                   support.
                 </li>
@@ -69,6 +77,10 @@ function PrivacyPolicyPage() {
               <li>
                 To email you a reminder if you leave items in your basket (see section 3 and your
                 right to opt out in section 7).
+              </li>
+              <li>
+                To check it is safe to serve you a dab hit and to keep a record of that visit in
+                case of an incident (the waiver, kept for three years).
               </li>
               <li>To detect fraud, secure our systems and comply with legal obligations.</li>
             </ul>
