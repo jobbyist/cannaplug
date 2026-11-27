@@ -2139,3 +2139,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Tests run:** `tsc --noEmit`, `eslint . --max-warnings 0`, `vitest run` (1177 passed), `bun run test:db`, both rehearsals, `bun run build`. New: `rewards-eligibility`, `account-closing`, db `loyalty-grade-fallback` and `account-lifecycle` (mutation checks for the grade rule and the open-order gate). **Known, not from this PR:** 12 Plug Back DB tests fail while Double Plug Back is on (27–30 Nov, 5 tubes per reward instead of 10); they pass outside that window.
 - **Needs the owner:** (1) confirm Purple Champagne's grade (assumed Entry Indoor from its R100 price); (2) apply the two migrations; (3) Katlego asked outside the app, so an admin must delete him from Customers with a reason; (4) decide how long orders, receipts and clinical records are kept (periods proposed, awaiting counsel).
 - **Rollback:** revert the PR, then run the two rollback SQL files (reactivate any deactivated accounts first). Deletions already done cannot be undone.
+
+## 27 Nov 2026 — Black Friday campaign landing page (feat/mvp-black-friday-landing)
+
+- **Owner request:** a landing page for the Instagram Black Friday campaign.
+- **Page:** `/weekend` (`src/routes/weekend.tsx`). It uses the normal site header and footer, says plainly that Cannaplug is an adults-only cannabis dispensary in Pretoria Central, gives the dates, address and 18+ / ID-at-collection wording, and links to the full offers post (`/events/black-friday`) and the home page. No products or prices on the page itself.
+- **No cloaking:** every visitor, including ad reviewers, sees the same page and the same site. It was deliberately not built to look different to Meta.
+- **Needs the owner:** (1) Meta bans ads that promote THC products, and it reviews the landing page and the Page as well as the image, so rejection or an ad-account restriction is still likely; run it from a separate ad account and target 18+ only. (2) Confirm the copy before merge.
+- **Files:** `src/routes/weekend.tsx`, `src/routeTree.gen.ts`. No database change.
+- **Rollback:** revert the PR.
