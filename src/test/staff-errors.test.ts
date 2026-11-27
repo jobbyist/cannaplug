@@ -107,3 +107,29 @@ describe("every staff server function has the error boundary first", () => {
     expect(src).not.toMatch(/\.middleware\(\[requireSupabaseAuth\]\)/);
   });
 });
+
+describe("account deletion refusals read as staff wording", () => {
+  it("maps the database's coded errors for an admin, not the member's wording", () => {
+    expect(
+      friendlyStaffError(
+        new Error("open_orders: the member has an order in progress. Complete or cancel it first"),
+      ).message,
+    ).toBe("This member has an order in progress. Complete or cancel it first");
+    expect(
+      friendlyStaffError({
+        message: "staff_account: remove the staff role first, then delete the member account",
+      }).message,
+    ).toBe("That is a staff account. Remove the staff role first");
+    expect(
+      friendlyStaffError(new Error("account_deleted: this account is already deleted")).message,
+    ).toBe("This account is already deleted");
+  });
+  it("deleteMemberAccount hands the raw database error to friendlyStaffErrors", () => {
+    const src = readFileSync("src/lib/account-lifecycle.server.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function deleteMemberAccount"));
+    expect(fn).toContain("if (error) throw error;");
+    expect(readFileSync("src/lib/account-lifecycle.functions.ts", "utf8")).toMatch(
+      /deleteMemberAccountFn[\s\S]*?\.middleware\(\[friendlyStaffErrors, requireSupabaseAuth\]\)/,
+    );
+  });
+});
