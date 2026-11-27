@@ -123,6 +123,16 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
     reason: "Pausing until the next release",
     actor_name: "Thandi Mokoena",
   },
+  staff_billing_due: {
+    account: "Admin/Checkout API Integration (POS + E-Commerce)",
+    provider: "Shopify",
+    amount_text: "$28.75 incl. 15% sales tax ($25.00 excl.), approx. R470.00",
+    due_on: "Sunday, 29 November 2026",
+    next_account: "Online Payment Gateway Aggregator",
+    next_provider: "Payfast",
+    next_amount_text: "R180.00",
+    next_due_on: "Sunday, 27 December 2026",
+  },
   staff_billing_payment: {
     account: "ID Verification System",
     provider: "VerifyNow",
