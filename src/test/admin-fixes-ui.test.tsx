@@ -43,6 +43,15 @@ const dashboard = (over: Partial<AdminDashboard["stats"]> = {}): AdminDashboard 
   recentOrders: [],
   inventory: [],
   activity: [{ label: "order status changed · order", time: "27 Oct, 10:00" }],
+  cartRecovery: {
+    days: 30,
+    basketsSaved: 12,
+    firstEmails: 5,
+    secondEmails: 2,
+    unsubscribed: 1,
+    recoveredOrders: 3,
+    recoveredRand: 1450,
+  },
 });
 
 const wrap = (ui: React.ReactNode) => (
@@ -351,5 +360,37 @@ describe("sidebar badges and live role", () => {
     renderHook(() => useStaffRoleSync({ enabled: true, role: "manager", onChange }));
     await act(async () => void (await vi.advanceTimersByTimeAsync(120_000)));
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("Overview: basket reminders and SAST", () => {
+  it("shows the basket reminder numbers and SAST on recent activity", () => {
+    render(
+      <OverviewPanel
+        dashboard={dashboard()}
+        canSeeMoney={true}
+        onViewOrders={() => {}}
+        onSelectOrder={() => {}}
+      />,
+    );
+    const tile = screen.getByRole("region", { name: "Basket reminders" });
+    expect(tile.textContent).toContain("Baskets saved");
+    expect(tile.textContent).toContain("12");
+    expect(tile.textContent).toContain("Value of those orders");
+    expect(screen.getByText("27 Oct, 10:00 SAST")).toBeTruthy();
+  });
+
+  it("hides the rand value from staff who cannot see money", () => {
+    render(
+      <OverviewPanel
+        dashboard={dashboard()}
+        canSeeMoney={false}
+        onViewOrders={() => {}}
+        onSelectOrder={() => {}}
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Basket reminders" }).textContent).not.toContain(
+      "Value of those orders",
+    );
   });
 });
