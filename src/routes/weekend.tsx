@@ -1,8 +1,7 @@
 import { canonical } from "@/lib/site";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, MapPin, ShieldCheck } from "lucide-react";
 import { Header, Footer } from "@/components/CannaPlugHome";
-import { BLACK_FRIDAY_PATH } from "@/lib/events";
 
 export const Route = createFileRoute("/weekend")({
   head: () => ({
@@ -58,12 +57,12 @@ function WeekendPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <a className="bf-cta" href={BLACK_FRIDAY_PATH}>
+          <Link className="bf-cta" to="/events/black-friday">
             See this weekend&apos;s offers
-          </a>
-          <a className="bf-cta bf-cta-quiet" href="/">
+          </Link>
+          <Link className="bf-cta bf-cta-quiet" to="/">
             About Cannaplug
-          </a>
+          </Link>
         </div>
         <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
           While stocks last. Not medical advice.
