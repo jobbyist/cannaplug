@@ -51,6 +51,8 @@ export async function deleteMemberAccount(
     p_reason: reason,
     p_idempotency_key: key,
   });
+  // Raw on purpose: deleteMemberAccountFn runs under friendlyStaffErrors, which turns the database's coded errors
+  // (open_orders, staff_account, ...) into staff wording and never lets raw text reach the screen.
   if (error) throw error;
   const r = data as unknown as {
     email_placeholder: string;
