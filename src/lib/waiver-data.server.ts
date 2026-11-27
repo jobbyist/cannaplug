@@ -46,6 +46,15 @@ export type WaiverSummary = {
   has_incident: boolean;
 };
 
+export type IncidentEntry = {
+  text: string;
+  emergency_services: boolean;
+  emergency_contact: boolean;
+  time: string | null;
+  notes: string | null;
+  recorded_at: string;
+};
+
 export type WaiverRecord = {
   id: string;
   status: "valid" | "declined";
@@ -77,14 +86,7 @@ export type WaiverRecord = {
   staff_details: string | null;
   sale_id: string | null;
   receipt_number: string | null;
-  incident: {
-    text: string;
-    emergency_services: boolean;
-    emergency_contact: boolean;
-    time: string | null;
-    notes: string | null;
-    recorded_at: string;
-  } | null;
+  incident: (IncidentEntry & { previous?: IncidentEntry[] }) | null;
 };
 
 function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {

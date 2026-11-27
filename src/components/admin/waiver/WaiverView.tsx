@@ -164,6 +164,13 @@ export function WaiverView({
           <Row label="Emergency contact notified" value={yn(waiver.incident.emergency_contact)} />
           <Row label="Incident time" value={waiver.incident.time} />
           <Row label="Additional notes" value={waiver.incident.notes} />
+          {(waiver.incident.previous ?? []).map((p, i) => (
+            <Row
+              key={p.recorded_at + i}
+              label={`Earlier record (${sast(p.recorded_at)})`}
+              value={`${p.text}${p.emergency_services ? "; emergency services contacted" : ""}${p.emergency_contact ? "; emergency contact notified" : ""}${p.time ? `; at ${p.time}` : ""}${p.notes ? `; ${p.notes}` : ""}`}
+            />
+          ))}
         </>
       ) : (
         <Row label="Incident" value="None recorded" />
