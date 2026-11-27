@@ -1,83 +1,104 @@
--- Rollback for 20261125001000_decimal_stock: stock goes back to whole numbers.
--- Roll the app back first (the screens send decimals).
--- This is only possible while NO decimal has ever been recorded. The stock ledger and sale lines are permanent
--- history, and a movement of 0.4 g cannot be stored as an integer without changing what happened, so the rollback
--- REFUSES as soon as any stock figure, stock movement or sale line holds a decimal. Once decimal stock has been used,
--- the way back is a new migration that decides how to treat that history, not this script.
--- When it can run, everything is put back exactly as it was before: the old function definitions, the two views
--- and the original till-line check.
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM public.inventory_batches WHERE qty_on_hand <> trunc(qty_on_hand) OR qty_held <> trunc(qty_held))
-     OR EXISTS (SELECT 1 FROM public.inventory_ledger WHERE quantity_delta <> trunc(quantity_delta))
-     OR EXISTS (SELECT 1 FROM public.stock_reservations WHERE quantity <> trunc(quantity))
-     OR EXISTS (SELECT 1 FROM public.order_items WHERE quantity <> trunc(quantity))
-     OR EXISTS (SELECT 1 FROM public.pos_sale_items WHERE quantity <> trunc(quantity) OR refunded_quantity <> trunc(refunded_quantity))
-     OR EXISTS (SELECT 1 FROM public.pos_refund_items WHERE quantity <> trunc(quantity))
-     OR EXISTS (SELECT 1 FROM public.stock_take_lines WHERE counted_qty <> trunc(counted_qty)
-                OR expected_at_count <> trunc(expected_at_count) OR posted_delta <> trunc(posted_delta)) THEN
-    RAISE EXCEPTION 'decimal_stock_in_use: decimal stock has been recorded, so it cannot be converted back to whole numbers';
-  END IF;
-END $$;
+-- Cannaplug: apply 20261127003000_decimal_stock to the hosted project (khltynzzcjhlujxbgyod).
+-- Exact decimal stock: weighed products can be received, adjusted, counted and sold to one decimal place (27.4 g).
+-- Runs as one transaction: everything applies, or nothing does. Paste all of it into the Supabase SQL Editor and click Run.
+-- It briefly locks the stock tables while the columns are converted: run it when the shop is quiet (a minute at most).
+-- The migration file is included unchanged. Needs every earlier migration (20261108002000 custom items is the latest).
+BEGIN;
 
+-- ===== 20261127003000_decimal_stock =====
+-- 25 Nov 2026: exact decimal stock (client request: "allow decimals for stock take"; answers: scale reads 0.1 g,
+-- half grams are sold rarely, and stock must be exact).
+--
+-- Until now every stock number was a whole number. Weighed products (counted in grams) can now be held, received,
+-- adjusted and counted to one decimal place (27.4 g); everything else is still whole units.
+--
+--   * inventory_batches.qty_on_hand / qty_held, inventory_ledger.quantity_delta, stock_reservations.quantity,
+--     order_items.quantity, pos_sale_items.quantity / refunded_quantity, pos_refund_items.quantity and
+--     stock_take_lines.counted_qty / expected_at_count / posted_delta become numeric(12,1). Existing whole numbers convert exactly.
+--   * A product that is not sold by weight must still be whole: _assert_stock_qty (receive, adjust, quick add/remove,
+--     delivery, stock take) and _enforce_sale_step (every online and till sale line) refuse 2.5 pre-rolls.
+--   * Selling: a weighed product is sold in its own step (weight_step_g: 0.5, 1 or 5 g). The 0.5 option already
+--     existed in the product editor but could not work with whole-number stock; it works now. Everything else is
+--     sold in whole units.
+--   * Money: a sale line is priced as round(unit price x quantity, 2) (to the cent, half up), then discounts come
+--     off. The same rule is used for online orders, quotes and reorders, so a basket always adds up to its order.
+--   * The two stock views and every function that did integer arithmetic on stock are replaced (their bodies are the
+--     live definitions with only the quantity types and parsing changed). Functions whose signature or return type
+--     changes are dropped and recreated with the same service-role-only grants.
+--   * Rollback converts the columns back to integers, and refuses while any stock or sale line holds a decimal.
+--
+-- Run it in the Supabase SQL Editor inside one transaction (docs/release/apply-20261127003000-decimal-stock.sql): it
+-- briefly locks the stock tables while the columns are converted, so apply it when the shop is quiet.
+
+-- 1. The two views and the two sale-step triggers depend on the columns being converted: drop them first and
+-- recreate them below.
 DROP VIEW IF EXISTS public.inventory_availability;
 DROP VIEW IF EXISTS public.stock_movements;
 DROP TRIGGER IF EXISTS order_items_sale_step ON public.order_items;
 DROP TRIGGER IF EXISTS pos_sale_items_sale_step ON public.pos_sale_items;
 
-DROP FUNCTION IF EXISTS public._assert_stock_qty(uuid, numeric);
-DROP FUNCTION IF EXISTS public._allocate_fefo(uuid, numeric);
-DROP FUNCTION IF EXISTS public._product_on_hand(uuid);
-DROP FUNCTION IF EXISTS public._product_available(uuid);
-DROP FUNCTION IF EXISTS public._plug_units_7d();
-DROP FUNCTION IF EXISTS public._purchased_today(uuid, text);
-DROP FUNCTION IF EXISTS public._reserve_order_items(uuid, integer);
-DROP FUNCTION IF EXISTS public._sale_step(uuid);
-DROP FUNCTION IF EXISTS public._stock_move_product(uuid, uuid, numeric, text, text, uuid, text);
-DROP FUNCTION IF EXISTS public.adjust_stock(uuid, uuid, numeric, text, text);
-DROP FUNCTION IF EXISTS public.receive_stock(uuid, uuid, text, numeric, timestamp with time zone, numeric, text, text);
-DROP FUNCTION IF EXISTS public.stock_quick_adjust(uuid, uuid, numeric, text, text);
-DROP FUNCTION IF EXISTS public.stock_take_record_count(uuid, uuid, uuid, numeric, text);
-DROP FUNCTION IF EXISTS public.plug_match_candidates(text[]);
-
+-- 2. Quantities become exact to one decimal.
 ALTER TABLE public.inventory_batches
-  ALTER COLUMN qty_on_hand TYPE integer,
-  ALTER COLUMN qty_held TYPE integer;
-ALTER TABLE public.inventory_ledger ALTER COLUMN quantity_delta TYPE integer;
-ALTER TABLE public.stock_reservations ALTER COLUMN quantity TYPE integer;
-ALTER TABLE public.order_items ALTER COLUMN quantity TYPE integer;
+  ALTER COLUMN qty_on_hand TYPE numeric(12,1),
+  ALTER COLUMN qty_held TYPE numeric(12,1);
+ALTER TABLE public.inventory_ledger ALTER COLUMN quantity_delta TYPE numeric(12,1);
+ALTER TABLE public.stock_reservations ALTER COLUMN quantity TYPE numeric(12,1);
+ALTER TABLE public.order_items ALTER COLUMN quantity TYPE numeric(12,1);
 ALTER TABLE public.pos_sale_items
-  ALTER COLUMN quantity TYPE integer,
-  ALTER COLUMN refunded_quantity TYPE integer;
-ALTER TABLE public.pos_refund_items ALTER COLUMN quantity TYPE integer;
+  ALTER COLUMN quantity TYPE numeric(12,1),
+  ALTER COLUMN refunded_quantity TYPE numeric(12,1);
+ALTER TABLE public.pos_refund_items ALTER COLUMN quantity TYPE numeric(12,1);
 ALTER TABLE public.stock_take_lines
-  ALTER COLUMN counted_qty TYPE integer,
-  ALTER COLUMN expected_at_count TYPE integer,
-  ALTER COLUMN posted_delta TYPE integer;
+  ALTER COLUMN counted_qty TYPE numeric(12,1),
+  ALTER COLUMN expected_at_count TYPE numeric(12,1),
+  ALTER COLUMN posted_delta TYPE numeric(12,1);
 
+-- A till line is worked out to the cent: round(unit price x quantity, 2) less its discounts.
 ALTER TABLE public.pos_sale_items DROP CONSTRAINT IF EXISTS pos_sale_items_line_chk;
 ALTER TABLE public.pos_sale_items ADD CONSTRAINT pos_sale_items_line_chk CHECK (
   line_total >= 0
-  AND line_total = unit_price_rand * quantity - line_discount_rand - order_discount_rand);
+  AND line_total = round(unit_price_rand * quantity, 2) - line_discount_rand - order_discount_rand);
 
-CREATE OR REPLACE FUNCTION public._sale_step(p_product uuid)
- RETURNS integer
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$ SELECT COALESCE((SELECT CASE WHEN p.sold_by_weight AND p.weight_step_g >= 1 THEN p.weight_step_g::integer ELSE 1 END
-                       FROM public.products p WHERE p.id = p_product), 1) $function$;
+-- 3. New helper: is this quantity allowed for this product? At most one decimal, and whole units unless the product
+-- is sold by weight. Used by every function that takes a stock quantity from staff.
+CREATE OR REPLACE FUNCTION public._assert_stock_qty(p_product_id uuid, p_qty numeric)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_name text;
+  v_weight boolean;
+BEGIN
+  IF p_qty IS NULL THEN RAISE EXCEPTION 'invalid_quantity'; END IF;
+  IF p_qty <> round(p_qty, 1) THEN
+    RAISE EXCEPTION 'invalid_quantity: use at most one decimal place (for example 27.4)';
+  END IF;
+  IF p_qty = trunc(p_qty) THEN RETURN; END IF;
+  SELECT p.name, p.sold_by_weight INTO v_name, v_weight FROM public.products p WHERE p.id = p_product_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'product_unavailable: %', p_product_id; END IF;
+  IF NOT v_weight THEN
+    RAISE EXCEPTION 'invalid_quantity: % is counted in whole units, not decimals', v_name;
+  END IF;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public._assert_stock_qty(uuid, numeric) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._assert_stock_qty(uuid, numeric) TO service_role;
 
-CREATE OR REPLACE FUNCTION public._allocate_fefo(p_product_id uuid, p_quantity integer)
- RETURNS TABLE(o_batch_id uuid, o_quantity integer)
+-- 4. Stock helpers (signature or return type changes: dropped and recreated).
+
+DROP FUNCTION IF EXISTS public._allocate_fefo(uuid, integer);
+CREATE OR REPLACE FUNCTION public._allocate_fefo(p_product_id uuid, p_quantity numeric)
+ RETURNS TABLE(o_batch_id uuid, o_quantity numeric)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 DECLARE
-  v_remaining integer := p_quantity;
-  v_avail integer;
-  v_take integer;
+  v_remaining numeric := p_quantity;
+  v_avail numeric;
+  v_take numeric;
   r record;
 BEGIN
   FOR r IN
@@ -105,33 +126,36 @@ BEGIN
 END;
 $function$;
 
+DROP FUNCTION IF EXISTS public._product_on_hand(uuid);
 CREATE OR REPLACE FUNCTION public._product_on_hand(p_product_id uuid)
- RETURNS integer
+ RETURNS numeric
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  SELECT COALESCE(sum(b.qty_on_hand), 0)::integer FROM public.inventory_batches b WHERE b.product_id = p_product_id;
+  SELECT COALESCE(sum(b.qty_on_hand), 0) FROM public.inventory_batches b WHERE b.product_id = p_product_id;
 $function$;
 
+DROP FUNCTION IF EXISTS public._product_available(uuid);
 CREATE OR REPLACE FUNCTION public._product_available(p_product_id uuid)
- RETURNS integer
+ RETURNS numeric
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  SELECT COALESCE(SUM(b.qty_on_hand - b.qty_held), 0)::integer
+  SELECT COALESCE(SUM(b.qty_on_hand - b.qty_held), 0)
   FROM public.inventory_batches b
   WHERE b.product_id = p_product_id AND (b.expires_at IS NULL OR b.expires_at > now());
 $function$;
 
+DROP FUNCTION IF EXISTS public._plug_units_7d();
 CREATE OR REPLACE FUNCTION public._plug_units_7d()
- RETURNS TABLE(product_id uuid, units integer)
+ RETURNS TABLE(product_id uuid, units numeric)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  SELECT x.product_id, sum(x.qty)::integer FROM (
+  SELECT x.product_id, sum(x.qty) FROM (
     SELECT i.product_id, (i.quantity - COALESCE(i.refunded_quantity, 0)) AS qty
       FROM public.pos_sale_items i JOIN public.pos_sales s ON s.id = i.sale_id
      WHERE s.status <> 'voided' AND s.created_at >= now() - interval '7 days'
@@ -145,8 +169,9 @@ AS $function$
   GROUP BY x.product_id;
 $function$;
 
+DROP FUNCTION IF EXISTS public._purchased_today(uuid, text);
 CREATE OR REPLACE FUNCTION public._purchased_today(p_member uuid, p_category text)
- RETURNS bigint
+ RETURNS numeric
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
@@ -166,17 +191,18 @@ AS $function$
   ), 0);
 $function$;
 
+DROP FUNCTION IF EXISTS public._reserve_order_items(uuid, integer);
 CREATE OR REPLACE FUNCTION public._reserve_order_items(p_order_id uuid, p_ttl_minutes integer)
- RETURNS integer
+ RETURNS numeric
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 DECLARE
   v_item record;
-  v_needed integer;
+  v_needed numeric;
   v_alloc record;
-  v_added integer := 0;
+  v_added numeric := 0;
 BEGIN
   FOR v_item IN
     SELECT oi.id, oi.product_id, oi.quantity
@@ -203,7 +229,20 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public._stock_move_product(p_actor uuid, p_product_id uuid, p_delta integer, p_reason text, p_reference_type text, p_reference_id uuid, p_new_batch_prefix text)
+DROP FUNCTION IF EXISTS public._sale_step(uuid);
+-- The size of one step when selling a product: its own weight step (0.5, 1 or 5 g) when sold by weight, otherwise 1.
+CREATE OR REPLACE FUNCTION public._sale_step(p_product uuid)
+RETURNS numeric
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = ''
+AS $$ SELECT COALESCE((SELECT CASE WHEN p.sold_by_weight AND p.weight_step_g > 0 THEN p.weight_step_g ELSE 1 END
+                       FROM public.products p WHERE p.id = p_product), 1) $$;
+REVOKE EXECUTE ON FUNCTION public._sale_step(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._sale_step(uuid) TO service_role;
+
+DROP FUNCTION IF EXISTS public._stock_move_product(uuid, uuid, integer, text, text, uuid, text);
+CREATE OR REPLACE FUNCTION public._stock_move_product(p_actor uuid, p_product_id uuid, p_delta numeric, p_reason text, p_reference_type text, p_reference_id uuid, p_new_batch_prefix text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -211,10 +250,10 @@ CREATE OR REPLACE FUNCTION public._stock_move_product(p_actor uuid, p_product_id
 AS $function$
 DECLARE
   v_ids uuid[];
-  v_before integer;
-  v_remaining integer;
-  v_avail integer;
-  v_take integer;
+  v_before numeric;
+  v_remaining numeric;
+  v_avail numeric;
+  v_take numeric;
   v_batch uuid;
   v_name text;
   v_code text;
@@ -222,6 +261,7 @@ DECLARE
 BEGIN
   SELECT p.name INTO v_name FROM public.products p WHERE p.id = p_product_id;
   IF v_name IS NULL THEN RAISE EXCEPTION 'product_unavailable: %', p_product_id; END IF;
+  PERFORM public._assert_stock_qty(p_product_id, p_delta);
   SELECT array_agg(b.id) INTO v_ids FROM public.inventory_batches b WHERE b.product_id = p_product_id;
   PERFORM public._lock_batches(v_ids);
   v_before := public._product_on_hand(p_product_id);
@@ -275,7 +315,8 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.adjust_stock(p_actor uuid, p_batch_id uuid, p_delta integer, p_reason text, p_idempotency_key text)
+DROP FUNCTION IF EXISTS public.adjust_stock(uuid, uuid, integer, text, text);
+CREATE OR REPLACE FUNCTION public.adjust_stock(p_actor uuid, p_batch_id uuid, p_delta numeric, p_reason text, p_idempotency_key text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -300,6 +341,7 @@ BEGIN
   PERFORM public._lock_batches(ARRAY[p_batch_id]);
   SELECT * INTO v_batch FROM public.inventory_batches WHERE id = p_batch_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'batch_not_found'; END IF;
+  PERFORM public._assert_stock_qty(v_batch.product_id, p_delta);
   IF p_delta < 0 AND v_batch.qty_on_hand + p_delta < v_batch.qty_held THEN
     RAISE EXCEPTION 'insufficient_stock: cannot reduce batch below held quantity (on hand %, held %, delta %)',
       v_batch.qty_on_hand, v_batch.qty_held, p_delta;
@@ -317,7 +359,8 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.receive_stock(p_actor uuid, p_product_id uuid, p_batch_code text, p_quantity integer, p_expires_at timestamp with time zone, p_unit_cost numeric, p_notes text, p_idempotency_key text)
+DROP FUNCTION IF EXISTS public.receive_stock(uuid, uuid, text, integer, timestamp with time zone, numeric, text, text);
+CREATE OR REPLACE FUNCTION public.receive_stock(p_actor uuid, p_product_id uuid, p_batch_code text, p_quantity numeric, p_expires_at timestamp with time zone, p_unit_cost numeric, p_notes text, p_idempotency_key text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -334,10 +377,11 @@ BEGIN
     jsonb_build_object('p', p_product_id, 'c', p_batch_code, 'q', p_quantity, 'e', p_expires_at, 'u', p_unit_cost));
   IF v_cached IS NOT NULL THEN RETURN v_cached || jsonb_build_object('replayed', true); END IF;
 
-  IF p_quantity IS NULL OR p_quantity NOT BETWEEN 1 AND 100000 THEN RAISE EXCEPTION 'invalid_quantity'; END IF;
+  IF p_quantity IS NULL OR p_quantity NOT BETWEEN 0.1 AND 100000 THEN RAISE EXCEPTION 'invalid_quantity'; END IF;
   IF p_batch_code IS NULL OR length(btrim(p_batch_code)) NOT BETWEEN 1 AND 60 THEN RAISE EXCEPTION 'invalid_batch_code'; END IF;
   IF p_unit_cost IS NOT NULL AND (p_unit_cost < 0 OR p_unit_cost <> round(p_unit_cost, 2)) THEN RAISE EXCEPTION 'invalid_unit_cost'; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.products WHERE id = p_product_id) THEN RAISE EXCEPTION 'product_unavailable: %', p_product_id; END IF;
+  PERFORM public._assert_stock_qty(p_product_id, p_quantity);
 
   INSERT INTO public.inventory_batches (product_id, batch_code, expires_at, unit_cost_rand, notes, created_by)
   VALUES (p_product_id, btrim(p_batch_code), p_expires_at, p_unit_cost, left(p_notes, 500), p_actor)
@@ -357,7 +401,8 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.stock_quick_adjust(p_actor uuid, p_product_id uuid, p_delta integer, p_reason text, p_idempotency_key text)
+DROP FUNCTION IF EXISTS public.stock_quick_adjust(uuid, uuid, integer, text, text);
+CREATE OR REPLACE FUNCTION public.stock_quick_adjust(p_actor uuid, p_product_id uuid, p_delta numeric, p_reason text, p_idempotency_key text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -385,7 +430,8 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.stock_take_record_count(p_actor uuid, p_stock_take_id uuid, p_product_id uuid, p_counted integer, p_idempotency_key text)
+DROP FUNCTION IF EXISTS public.stock_take_record_count(uuid, uuid, uuid, integer, text);
+CREATE OR REPLACE FUNCTION public.stock_take_record_count(p_actor uuid, p_stock_take_id uuid, p_product_id uuid, p_counted numeric, p_idempotency_key text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -396,7 +442,7 @@ DECLARE
   v_take public.stock_takes;
   v_category text;
   v_ids uuid[];
-  v_expected integer;
+  v_expected numeric;
   v_response jsonb;
 BEGIN
   PERFORM public._require_read_committed();
@@ -412,6 +458,7 @@ BEGIN
   IF v_take.status <> 'open' THEN RAISE EXCEPTION 'stock_take_closed: this count has already been posted or cancelled'; END IF;
   SELECT p.category INTO v_category FROM public.products p WHERE p.id = p_product_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'product_unavailable: %', p_product_id; END IF;
+  PERFORM public._assert_stock_qty(p_product_id, p_counted);
   IF v_take.category IS NOT NULL AND v_category IS DISTINCT FROM v_take.category THEN
     RAISE EXCEPTION 'wrong_category: this count is only for %', v_take.category;
   END IF;
@@ -435,6 +482,8 @@ BEGIN
 END;
 $function$;
 
+-- 5. Functions whose signature stays the same (CREATE OR REPLACE keeps their grants).
+
 CREATE OR REPLACE FUNCTION public.stock_take_post(p_actor uuid, p_stock_take_id uuid, p_idempotency_key text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -444,11 +493,11 @@ AS $function$
 DECLARE
   v_cached jsonb;
   v_take public.stock_takes;
-  v_delta integer;
+  v_delta numeric;
   v_lines integer := 0;
   v_changed integer := 0;
-  v_over integer := 0;
-  v_under integer := 0;
+  v_over numeric := 0;
+  v_under numeric := 0;
   r record;
 BEGIN
   PERFORM public._require_read_committed();
@@ -501,12 +550,12 @@ DECLARE
   v_code text;
   v_line jsonb;
   v_product uuid;
-  v_qty integer;
+  v_qty numeric;
   v_cost numeric;
   v_expires timestamptz;
   v_batch uuid;
   v_seen uuid[] := ARRAY[]::uuid[];
-  v_units integer := 0;
+  v_units numeric := 0;
   v_n integer := 0;
 BEGIN
   PERFORM public._require_read_committed();
@@ -526,7 +575,7 @@ BEGIN
   FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines) LOOP
     BEGIN
       v_product := (v_line ->> 'product_id')::uuid;
-      v_qty := (v_line ->> 'quantity')::integer;
+      v_qty := (v_line ->> 'quantity')::numeric;
       v_cost := NULLIF(v_line ->> 'unit_cost', '')::numeric;
       v_expires := NULLIF(v_line ->> 'expires_at', '')::timestamptz;
     EXCEPTION WHEN others THEN
@@ -535,11 +584,12 @@ BEGIN
     IF v_product IS NULL THEN RAISE EXCEPTION 'invalid_lines: a line has no product'; END IF;
     IF v_product = ANY (v_seen) THEN RAISE EXCEPTION 'duplicate_product: each product can appear once per delivery'; END IF;
     v_seen := v_seen || v_product;
-    IF v_qty IS NULL OR v_qty NOT BETWEEN 1 AND 100000 THEN RAISE EXCEPTION 'invalid_quantity'; END IF;
+    IF v_qty IS NULL OR v_qty NOT BETWEEN 0.1 AND 100000 THEN RAISE EXCEPTION 'invalid_quantity'; END IF;
     IF v_cost IS NOT NULL AND (v_cost < 0 OR v_cost <> round(v_cost, 2)) THEN RAISE EXCEPTION 'invalid_unit_cost'; END IF;
     IF NOT EXISTS (SELECT 1 FROM public.products p WHERE p.id = v_product) THEN
       RAISE EXCEPTION 'product_unavailable: %', v_product;
     END IF;
+    PERFORM public._assert_stock_qty(v_product, v_qty);
 
     -- The same invoice entered twice on one day would add the stock twice: refuse it. A genuine second delivery on the
     -- same invoice gets its own reference (e.g. INV-0042-2).
@@ -578,7 +628,7 @@ CREATE OR REPLACE FUNCTION public.reserve_order_stock(p_order_id uuid, p_ttl_min
 AS $function$
 DECLARE
   v_order public.orders;
-  v_added integer;
+  v_added numeric;
 BEGIN
   PERFORM public._require_read_committed();
   SELECT * INTO v_order FROM public.orders WHERE id = p_order_id FOR UPDATE;
@@ -600,7 +650,7 @@ AS $function$
 DECLARE
   v_member uuid;
   v_limit public.purchase_limits;
-  v_total bigint;
+  v_total numeric;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.purchase_limits WHERE enabled) THEN RETURN NULL; END IF;
   IF TG_TABLE_NAME = 'order_items' THEN
@@ -625,24 +675,34 @@ END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public._enforce_sale_step()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 DECLARE
-  v_step integer;
+  v_step numeric;
   v_name text;
 BEGIN
   IF NEW.product_id IS NULL THEN RETURN NEW; END IF;
   v_step := public._sale_step(NEW.product_id);
-  IF v_step > 1 AND NEW.quantity % v_step <> 0 THEN
+  IF NEW.quantity % v_step <> 0 THEN
     SELECT p.name INTO v_name FROM public.products p WHERE p.id = NEW.product_id;
-    RAISE EXCEPTION 'invalid_batch_size: % is sold in batches of % g (asked for %)', v_name, v_step, NEW.quantity;
+    IF v_step = 1 THEN
+      RAISE EXCEPTION 'invalid_batch_size: % is sold in whole units (asked for %)', v_name, NEW.quantity;
+    END IF;
+    RAISE EXCEPTION 'invalid_batch_size: % is sold in steps of % g (asked for %)',
+      v_name, trim_scale(v_step), trim_scale(NEW.quantity);
   END IF;
   RETURN NEW;
 END;
-$function$;
+$$;
+CREATE TRIGGER order_items_sale_step BEFORE INSERT OR UPDATE OF quantity, product_id ON public.order_items
+  FOR EACH ROW EXECUTE FUNCTION public._enforce_sale_step();
+CREATE TRIGGER pos_sale_items_sale_step BEFORE INSERT OR UPDATE OF quantity, product_id ON public.pos_sale_items
+  FOR EACH ROW EXECUTE FUNCTION public._enforce_sale_step();
+
+-- 6. Online orders, quotes and reorders: decimal quantities, lines priced to the cent.
 
 CREATE OR REPLACE FUNCTION public.create_online_order(p_user_id uuid, p_items jsonb, p_contact_name text, p_contact_phone text, p_notes text, p_idempotency_key text, p_hold_minutes integer DEFAULT 30)
  RETURNS jsonb
@@ -680,7 +740,7 @@ BEGIN
        SELECT 1 FROM jsonb_array_elements(p_items) e
        WHERE jsonb_typeof(e) <> 'object'
           OR (e->>'product_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          OR (e->>'quantity') !~ '^[1-9][0-9]{0,2}$') THEN
+          OR (e->>'quantity') !~ '^(0\.[1-9]|[1-9][0-9]{0,2}(\.[0-9])?)$') THEN
     RAISE EXCEPTION 'invalid_items';
   END IF;
 
@@ -689,7 +749,7 @@ BEGIN
   RETURNING * INTO v_order;
 
   FOR v_line IN
-    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::integer)::integer AS quantity
+    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::numeric) AS quantity
     FROM jsonb_array_elements(p_items) e
     GROUP BY 1
     ORDER BY 1
@@ -705,7 +765,7 @@ BEGIN
     v_item_id := NULL;
   END LOOP;
 
-  SELECT SUM(oi.unit_price_rand * oi.quantity)::numeric(10,2) INTO v_total
+  SELECT SUM(round(oi.unit_price_rand * oi.quantity, 2))::numeric(10,2) INTO v_total
   FROM public.order_items oi WHERE oi.order_id = v_order.id;
   UPDATE public.orders SET total_rand = v_total WHERE id = v_order.id RETURNING * INTO v_order;
 
@@ -738,7 +798,7 @@ BEGIN
        SELECT 1 FROM jsonb_array_elements(p_items) e
        WHERE jsonb_typeof(e) <> 'object'
           OR (e->>'product_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          OR (e->>'quantity') !~ '^[1-9][0-9]{0,2}$') THEN
+          OR (e->>'quantity') !~ '^(0\.[1-9]|[1-9][0-9]{0,2}(\.[0-9])?)$') THEN
     RAISE EXCEPTION 'invalid_items';
   END IF;
   SELECT * INTO v_opt FROM public.delivery_options WHERE code = p_delivery_method AND is_active;
@@ -747,7 +807,7 @@ BEGIN
   END IF;
 
   WITH grouped AS (
-    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::integer)::integer AS quantity
+    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::numeric) AS quantity
     FROM jsonb_array_elements(p_items) e GROUP BY 1
   ), checked AS (
     SELECT g.product_id, g.quantity, p.name, p.price_rand,
@@ -758,12 +818,12 @@ BEGIN
   SELECT
     jsonb_agg(jsonb_build_object(
       'product_id', c.product_id, 'name', COALESCE(c.name, 'Unavailable product'), 'quantity', c.quantity,
-      'unit_price', c.price_rand, 'line_total', c.price_rand * c.quantity, 'available', c.available,
+      'unit_price', c.price_rand, 'line_total', round(c.price_rand * c.quantity, 2), 'available', c.available,
       'status', CASE WHEN NOT c.is_active THEN 'unavailable'
                      WHEN c.available < c.quantity THEN 'insufficient_stock'
                      ELSE 'ok' END) ORDER BY c.name),
     bool_and(c.is_active AND c.available >= c.quantity),
-    SUM(c.price_rand * c.quantity) FILTER (WHERE c.is_active)
+    SUM(round(c.price_rand * c.quantity, 2)) FILTER (WHERE c.is_active)
   INTO v_lines, v_orderable, v_subtotal
   FROM checked c;
 
@@ -848,7 +908,7 @@ BEGIN
 
   v_result := public.create_online_order(
     p_user_id,
-    (SELECT jsonb_agg(jsonb_build_object('product_id', l->>'product_id', 'quantity', (l->>'quantity')::integer))
+    (SELECT jsonb_agg(jsonb_build_object('product_id', l->>'product_id', 'quantity', (l->>'quantity')::numeric))
      FROM jsonb_array_elements(v_quote->'lines') l),
     btrim(p_contact_name), btrim(p_contact_phone), p_notes,
     'co-' || md5(p_idempotency_key), c_hold);
@@ -915,7 +975,7 @@ BEGIN
   END IF;
 
   SELECT * INTO v_source FROM public.orders WHERE id = p_source_order_id AND user_id = p_user_id;
-  SELECT jsonb_agg(jsonb_build_object('product_id', l->>'product_id', 'quantity', (l->>'quantity')::integer))
+  SELECT jsonb_agg(jsonb_build_object('product_id', l->>'product_id', 'quantity', (l->>'quantity')::numeric))
   INTO v_items FROM jsonb_array_elements(v_check->'lines') l;
 
   v_result := public.create_online_order(
@@ -960,7 +1020,7 @@ BEGIN
   END IF;
 
   WITH grouped AS (
-    SELECT oi.product_id, SUM(oi.quantity)::integer AS quantity,
+    SELECT oi.product_id, SUM(oi.quantity) AS quantity,
            (array_agg(oi.product_name ORDER BY oi.id))[1] AS product_name,
            (array_agg(oi.unit_price_rand ORDER BY oi.id))[1] AS previous_price
     FROM public.order_items oi WHERE oi.order_id = p_order_id
@@ -982,7 +1042,7 @@ BEGIN
                      WHEN c.current_price <> c.previous_price THEN 'price_changed'
                      ELSE 'ok' END) ORDER BY c.name),
     bool_and(c.is_active AND c.available >= c.quantity),
-    SUM(c.current_price * c.quantity) FILTER (WHERE c.is_active)
+    SUM(round(c.current_price * c.quantity, 2)) FILTER (WHERE c.is_active)
   INTO v_lines, v_orderable, v_total
   FROM checked c;
 
@@ -994,6 +1054,8 @@ BEGIN
     'current_total', CASE WHEN COALESCE(v_orderable, false) THEN v_total + v_fee ELSE NULL END);
 END;
 $function$;
+
+-- 7. Till sales and refunds.
 
 CREATE OR REPLACE FUNCTION public.pos_complete_sale(p_actor uuid, p_session_id uuid, p_items jsonb, p_tenders jsonb, p_customer_id uuid, p_idempotency_key text, p_order_discount jsonb DEFAULT NULL::jsonb, p_discount_reason text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1054,7 +1116,8 @@ BEGIN
      OR EXISTS (
        SELECT 1 FROM jsonb_array_elements(p_items) e
        WHERE jsonb_typeof(e) <> 'object'
-          OR (e->>'quantity') !~ '^[1-9][0-9]{0,3}$'
+          OR (e->>'quantity') !~ '^(0\.[1-9]|[1-9][0-9]{0,3}(\.[0-9])?)$'
+          OR ((e ? 'custom') AND (e->>'quantity') !~ '^[1-9][0-9]{0,3}$')
           OR ((e ? 'reward') AND (e->>'reward') !~ '^[a-z_]{3,40}$')
           OR (NOT (e ? 'custom')
               AND (e->>'product_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
@@ -1097,7 +1160,7 @@ BEGIN
 
   -- Price every line from the database. FOR SHARE pins the price for the life of this transaction.
   FOR v_line IN
-    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::integer)::integer AS quantity,
+    SELECT (e->>'product_id')::uuid AS product_id, SUM((e->>'quantity')::numeric) AS quantity,
            COALESCE(jsonb_agg(DISTINCT e->'discount') FILTER (WHERE jsonb_typeof(e->'discount') = 'object'), '[]'::jsonb) AS discounts,
            max(e->>'reward') AS reward
     FROM jsonb_array_elements(p_items) e
@@ -1115,7 +1178,7 @@ BEGIN
       RAISE EXCEPTION 'invalid_discount: one product cannot carry two different discounts';
     END IF;
     v_unit_c := round(v_price * 100)::bigint;
-    v_gross_line_c := v_unit_c * v_line.quantity;
+    v_gross_line_c := round(v_unit_c * v_line.quantity)::bigint;
     v_ld_c := public._pos_discount_cents(v_line.discounts->0, v_gross_line_c);
     -- Loyalty reward: one unit of an eligible product is free, paid for in points (deducted below, in this sale).
     IF v_line.reward IS NOT NULL THEN
@@ -1242,7 +1305,7 @@ BEGIN
   FOR v_line IN
     SELECT x.product_id, x.name, x.unit_price, x.quantity, x.item_id, x.line_discount_c, x.is_custom,
            COALESCE((v_oalloc->>(x.item_id::text))::bigint, 0) AS order_discount_c
-    FROM jsonb_to_recordset(v_priced) AS x(product_id uuid, name text, unit_price numeric, quantity integer, item_id uuid,
+    FROM jsonb_to_recordset(v_priced) AS x(product_id uuid, name text, unit_price numeric, quantity numeric, item_id uuid,
                                            line_discount_c bigint, is_custom boolean)
     ORDER BY x.product_id, x.item_id
   LOOP
@@ -1250,7 +1313,7 @@ BEGIN
                                        line_discount_rand, order_discount_rand, line_total, is_custom)
     VALUES (v_line.item_id, v_sale_id, v_line.product_id, v_line.name, v_line.unit_price, v_line.quantity,
             v_line.line_discount_c::numeric / 100, v_line.order_discount_c::numeric / 100,
-            v_line.unit_price * v_line.quantity - (v_line.line_discount_c + v_line.order_discount_c)::numeric / 100,
+            round(v_line.unit_price * v_line.quantity, 2) - (v_line.line_discount_c + v_line.order_discount_c)::numeric / 100,
             v_line.is_custom);
 
     -- A custom line has no stock: nothing is allocated, so a void or refund has nothing to put back either.
@@ -1322,8 +1385,8 @@ DECLARE
   v_refund_id uuid := gen_random_uuid();
   v_batches uuid[];
   v_mv record;
-  v_left integer;
-  v_put integer;
+  v_left numeric;
+  v_put numeric;
   v_all_refunded boolean;
   v_target integer;
   v_current integer;
@@ -1354,7 +1417,7 @@ BEGIN
        SELECT 1 FROM jsonb_array_elements(p_items) e
        WHERE jsonb_typeof(e) <> 'object'
           OR (e->>'sale_item_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          OR (e->>'quantity') !~ '^[1-9][0-9]{0,3}$') THEN
+          OR (e->>'quantity') !~ '^(0\.[1-9]|[1-9][0-9]{0,3}(\.[0-9])?)$') THEN
     RAISE EXCEPTION 'invalid_items';
   END IF;
 
@@ -1368,11 +1431,16 @@ BEGIN
   IF NOT FOUND OR v_session.status <> 'open' THEN RAISE EXCEPTION 'session_closed: refunds need an open till session'; END IF;
 
   FOR v_line IN
-    SELECT (e->>'sale_item_id')::uuid AS sale_item_id, SUM((e->>'quantity')::integer)::integer AS quantity
+    SELECT (e->>'sale_item_id')::uuid AS sale_item_id, SUM((e->>'quantity')::numeric) AS quantity
     FROM jsonb_array_elements(p_items) e GROUP BY 1 ORDER BY 1
   LOOP
     SELECT * INTO v_item FROM public.pos_sale_items WHERE id = v_line.sale_item_id AND sale_id = p_sale_id FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION 'invalid_items: line % is not part of this sale', v_line.sale_item_id; END IF;
+    -- only a product sold by weight can be refunded in decimals (half a pre-roll would put half a unit back)
+    IF v_line.quantity <> trunc(v_line.quantity) AND NOT EXISTS (
+      SELECT 1 FROM public.products p WHERE p.id = v_item.product_id AND p.sold_by_weight) THEN
+      RAISE EXCEPTION 'invalid_quantity: % is sold in whole units, so only whole units can be refunded', v_item.product_name;
+    END IF;
     IF v_item.refunded_quantity + v_line.quantity > v_item.quantity THEN
       RAISE EXCEPTION 'over_refund: % of % already refunded for %; requested %',
         v_item.refunded_quantity, v_item.quantity, v_item.product_name, v_line.quantity;
@@ -1425,7 +1493,7 @@ BEGIN
   END LOOP;
 
   FOR v_line IN
-    SELECT (e->>'sale_item_id')::uuid AS sale_item_id, SUM((e->>'quantity')::integer)::integer AS quantity
+    SELECT (e->>'sale_item_id')::uuid AS sale_item_id, SUM((e->>'quantity')::numeric) AS quantity
     FROM jsonb_array_elements(p_items) e GROUP BY 1 ORDER BY 1
   LOOP
     INSERT INTO public.pos_refund_items (refund_id, sale_item_id, quantity) VALUES (v_refund_id, v_line.sale_item_id, v_line.quantity);
@@ -1482,6 +1550,8 @@ BEGIN
 END;
 $function$;
 
+-- 8. Reports: an online line's revenue is its rounded line total, like everywhere else.
+
 CREATE OR REPLACE FUNCTION public.admin_overview(p_actor uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1517,7 +1587,7 @@ BEGIN
     FROM public.pos_sale_items i JOIN public.pos_sales s ON s.id = i.sale_id
     WHERE s.status <> 'voided' AND s.created_at >= v_top_start AND s.created_at < v_tomorrow
     UNION ALL
-    SELECT i.product_name, i.quantity, i.unit_price_rand * i.quantity
+    SELECT i.product_name, i.quantity, round(i.unit_price_rand * i.quantity, 2)
     FROM public.order_items i JOIN public.orders o ON o.id = i.order_id
     WHERE o.status IN ('confirmed', 'packing', 'ready', 'out_for_delivery', 'completed')
       AND o.created_at >= v_top_start AND o.created_at < v_tomorrow
@@ -1678,7 +1748,7 @@ BEGIN
     FROM public.pos_sale_items i JOIN public.pos_sales s ON s.id = i.sale_id
     WHERE s.status <> 'voided' AND s.created_at >= v_start AND s.created_at < v_end
     UNION ALL
-    SELECT i.product_id, i.product_name, i.quantity, i.unit_price_rand * i.quantity, 'online'
+    SELECT i.product_id, i.product_name, i.quantity, round(i.unit_price_rand * i.quantity, 2), 'online'
     FROM public.order_items i JOIN public.orders o ON o.id = i.order_id
     WHERE o.status IN ('confirmed', 'packing', 'ready', 'out_for_delivery', 'completed')
       AND o.created_at >= v_start AND o.created_at < v_end
@@ -1774,15 +1844,16 @@ BEGIN
 END;
 $function$;
 
+-- 9. The two views, exactly as before except that stock is no longer cast to whole numbers.
 CREATE VIEW public.inventory_availability WITH (security_invoker = on) AS
  SELECT p.id AS product_id,
-    COALESCE(sum(b.qty_on_hand) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0::bigint)::integer AS on_hand,
-    COALESCE(sum(b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0::bigint)::integer AS held,
-    COALESCE(sum(b.qty_on_hand - b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0::bigint)::integer AS available,
-    COALESCE(sum(b.qty_on_hand) FILTER (WHERE b.expires_at IS NOT NULL AND b.expires_at <= now()), 0::bigint)::integer AS expired,
+    COALESCE(sum(b.qty_on_hand) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0) AS on_hand,
+    COALESCE(sum(b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0) AS held,
+    COALESCE(sum(b.qty_on_hand - b.qty_held) FILTER (WHERE b.expires_at IS NULL OR b.expires_at > now()), 0) AS available,
+    COALESCE(sum(b.qty_on_hand) FILTER (WHERE b.expires_at IS NOT NULL AND b.expires_at <= now()), 0) AS expired,
     COALESCE(( SELECT - sum(l.quantity_delta)
            FROM inventory_ledger l
-          WHERE l.product_id = p.id AND (l.movement_type = ANY (ARRAY['online_sale'::text, 'pos_sale'::text, 'online_cancel_restock'::text, 'pos_void_restock'::text, 'pos_refund_restock'::text]))), 0::bigint)::integer AS consumed,
+          WHERE l.product_id = p.id AND (l.movement_type = ANY (ARRAY['online_sale'::text, 'pos_sale'::text, 'online_cancel_restock'::text, 'pos_void_restock'::text, 'pos_refund_restock'::text]))), 0) AS consumed,
     count(b.id)::integer AS batches
    FROM products p
      LEFT JOIN inventory_batches b ON b.product_id = p.id
@@ -1803,8 +1874,10 @@ REVOKE ALL ON public.inventory_availability, public.stock_movements FROM PUBLIC,
 GRANT SELECT ON public.inventory_availability, public.stock_movements TO authenticated;
 GRANT ALL ON public.inventory_availability, public.stock_movements TO service_role;
 
+-- 10. Plug matching returns stock as numbers too (it reads the view above).
+DROP FUNCTION IF EXISTS public.plug_match_candidates(text[]);
 CREATE OR REPLACE FUNCTION public.plug_match_candidates(p_categories text[] DEFAULT NULL::text[])
- RETURNS TABLE(id uuid, name text, category text, subcategory text, strain_type text, price_rand numeric, regular_price_rand numeric, unit text, image_path text, is_featured boolean, sort_order integer, available integer, units_7d integer, fast_seller boolean, buffer integer)
+ RETURNS TABLE(id uuid, name text, category text, subcategory text, strain_type text, price_rand numeric, regular_price_rand numeric, unit text, image_path text, is_featured boolean, sort_order integer, available numeric, units_7d numeric, fast_seller boolean, buffer integer)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
@@ -1827,16 +1900,9 @@ AS $function$
           CASE WHEN COALESCE(v.units, 0) >= s.fast_seller_units_7d THEN s.buffer_fast ELSE s.buffer_default END, 1);
 $function$;
 
-CREATE TRIGGER order_items_sale_step BEFORE INSERT OR UPDATE OF quantity, product_id ON public.order_items
-  FOR EACH ROW EXECUTE FUNCTION public._enforce_sale_step();
-CREATE TRIGGER pos_sale_items_sale_step BEFORE INSERT OR UPDATE OF quantity, product_id ON public.pos_sale_items
-  FOR EACH ROW EXECUTE FUNCTION public._enforce_sale_step();
-
--- The restored functions are service-role only, as they were.
-REVOKE EXECUTE ON FUNCTION public._sale_step(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public._sale_step(uuid) TO service_role;
-REVOKE EXECUTE ON FUNCTION public._allocate_fefo(uuid, integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public._allocate_fefo(uuid, integer) TO service_role;
+-- 11. Dropped functions come back with the same grants as before: the service role only.
+REVOKE EXECUTE ON FUNCTION public._allocate_fefo(uuid, numeric) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._allocate_fefo(uuid, numeric) TO service_role;
 REVOKE EXECUTE ON FUNCTION public._product_on_hand(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._product_on_hand(uuid) TO service_role;
 REVOKE EXECUTE ON FUNCTION public._product_available(uuid) FROM PUBLIC, anon, authenticated;
@@ -1847,15 +1913,35 @@ REVOKE EXECUTE ON FUNCTION public._purchased_today(uuid, text) FROM PUBLIC, anon
 GRANT EXECUTE ON FUNCTION public._purchased_today(uuid, text) TO service_role;
 REVOKE EXECUTE ON FUNCTION public._reserve_order_items(uuid, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._reserve_order_items(uuid, integer) TO service_role;
-REVOKE EXECUTE ON FUNCTION public._stock_move_product(uuid, uuid, integer, text, text, uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public._stock_move_product(uuid, uuid, integer, text, text, uuid, text) TO service_role;
-REVOKE EXECUTE ON FUNCTION public.adjust_stock(uuid, uuid, integer, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.adjust_stock(uuid, uuid, integer, text, text) TO service_role;
-REVOKE EXECUTE ON FUNCTION public.receive_stock(uuid, uuid, text, integer, timestamp with time zone, numeric, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.receive_stock(uuid, uuid, text, integer, timestamp with time zone, numeric, text, text) TO service_role;
-REVOKE EXECUTE ON FUNCTION public.stock_quick_adjust(uuid, uuid, integer, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.stock_quick_adjust(uuid, uuid, integer, text, text) TO service_role;
-REVOKE EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, integer, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, integer, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION public._sale_step(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._sale_step(uuid) TO service_role;
+REVOKE EXECUTE ON FUNCTION public._stock_move_product(uuid, uuid, numeric, text, text, uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._stock_move_product(uuid, uuid, numeric, text, text, uuid, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.adjust_stock(uuid, uuid, numeric, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.adjust_stock(uuid, uuid, numeric, text, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.receive_stock(uuid, uuid, text, numeric, timestamp with time zone, numeric, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.receive_stock(uuid, uuid, text, numeric, timestamp with time zone, numeric, text, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.stock_quick_adjust(uuid, uuid, numeric, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.stock_quick_adjust(uuid, uuid, numeric, text, text) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, numeric, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, numeric, text) TO service_role;
 REVOKE EXECUTE ON FUNCTION public.plug_match_candidates(text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.plug_match_candidates(text[]) TO service_role;
+
+DO $$
+BEGIN
+  IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
+    INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
+      ('20261127003000', '20261127003000_decimal_stock')
+    ON CONFLICT (version) DO NOTHING;
+  END IF;
+END $$;
+
+COMMIT;
+
+-- Check (should show: numeric, numeric, true, false, 2):
+SELECT (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'inventory_batches' AND column_name = 'qty_on_hand') AS stock_column,
+       (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'order_items' AND column_name = 'quantity') AS order_column,
+       to_regprocedure('public._assert_stock_qty(uuid,numeric)') IS NOT NULL AS stock_check_ready,
+       has_function_privilege('authenticated', 'public.receive_stock(uuid,uuid,text,numeric,timestamp with time zone,numeric,text,text)', 'EXECUTE') AS browsers_can_receive,
+       (SELECT count(*) FROM pg_class WHERE relname IN ('inventory_availability', 'stock_movements') AND relkind = 'v') AS views;

@@ -19,7 +19,7 @@
 --     changes are dropped and recreated with the same service-role-only grants.
 --   * Rollback converts the columns back to integers, and refuses while any stock or sale line holds a decimal.
 --
--- Run it in the Supabase SQL Editor inside one transaction (docs/release/apply-20261125001000-decimal-stock.sql): it
+-- Run it in the Supabase SQL Editor inside one transaction (docs/release/apply-20261127003000-decimal-stock.sql): it
 -- briefly locks the stock tables while the columns are converted, so apply it when the shop is quiet.
 
 -- 1. The two views and the two sale-step triggers depend on the columns being converted: drop them first and

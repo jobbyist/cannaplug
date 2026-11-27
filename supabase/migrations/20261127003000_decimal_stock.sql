@@ -1,11 +1,3 @@
--- Cannaplug: apply 20261125001000_decimal_stock to the hosted project (khltynzzcjhlujxbgyod).
--- Exact decimal stock: weighed products can be received, adjusted, counted and sold to one decimal place (27.4 g).
--- Runs as one transaction: everything applies, or nothing does. Paste all of it into the Supabase SQL Editor and click Run.
--- It briefly locks the stock tables while the columns are converted: run it when the shop is quiet (a minute at most).
--- The migration file is included unchanged. Needs every earlier migration (20261108002000 custom items is the latest).
-BEGIN;
-
--- ===== 20261125001000_decimal_stock =====
 -- 25 Nov 2026: exact decimal stock (client request: "allow decimals for stock take"; answers: scale reads 0.1 g,
 -- half grams are sold rarely, and stock must be exact).
 --
@@ -27,7 +19,7 @@ BEGIN;
 --     changes are dropped and recreated with the same service-role-only grants.
 --   * Rollback converts the columns back to integers, and refuses while any stock or sale line holds a decimal.
 --
--- Run it in the Supabase SQL Editor inside one transaction (docs/release/apply-20261125001000-decimal-stock.sql): it
+-- Run it in the Supabase SQL Editor inside one transaction (docs/release/apply-20261127003000-decimal-stock.sql): it
 -- briefly locks the stock tables while the columns are converted, so apply it when the shop is quiet.
 
 -- 1. The two views and the two sale-step triggers depend on the columns being converted: drop them first and
@@ -1927,21 +1919,3 @@ REVOKE EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, nume
 GRANT EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, numeric, text) TO service_role;
 REVOKE EXECUTE ON FUNCTION public.plug_match_candidates(text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.plug_match_candidates(text[]) TO service_role;
-
-DO $$
-BEGIN
-  IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
-    INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
-      ('20261125001000', '20261125001000_decimal_stock')
-    ON CONFLICT (version) DO NOTHING;
-  END IF;
-END $$;
-
-COMMIT;
-
--- Check (should show: numeric, numeric, true, false, 2):
-SELECT (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'inventory_batches' AND column_name = 'qty_on_hand') AS stock_column,
-       (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'order_items' AND column_name = 'quantity') AS order_column,
-       to_regprocedure('public._assert_stock_qty(uuid,numeric)') IS NOT NULL AS stock_check_ready,
-       has_function_privilege('authenticated', 'public.receive_stock(uuid,uuid,text,numeric,timestamp with time zone,numeric,text,text)', 'EXECUTE') AS browsers_can_receive,
-       (SELECT count(*) FROM pg_class WHERE relname IN ('inventory_availability', 'stock_movements') AND relkind = 'v') AS views;

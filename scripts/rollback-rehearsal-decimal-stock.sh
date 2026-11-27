@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rehearses 20261125001000_decimal_stock: the migration applies on top of every earlier migration with stock and a sale
+# Rehearses 20261127003000_decimal_stock: the migration applies on top of every earlier migration with stock and a sale
 # already in the database and whole numbers convert exactly; while no decimal has been recorded the rollback works
 # (columns back to integers, the old functions and views back, the new check gone, grants intact, sales still work) and
 # the migration applies again; then decimals work (receive, sell, whole-unit products still refuse them), re-applying
@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/16/bin}"
 PORT="${TEST_PGPORT:-54329}"
 DB="rollback_rehearsal_decimal_stock"
-M=20261125001000_decimal_stock
+M=20261127003000_decimal_stock
 MGR=00000000-0000-0000-0000-0000000000f1
 CSH=00000000-0000-0000-0000-0000000000f2
 PRD=00000000-0000-0000-0000-0000000000f3
