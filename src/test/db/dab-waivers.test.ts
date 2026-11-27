@@ -269,6 +269,15 @@ describe.skipIf(!DB_URL)("dab waivers (real PostgreSQL)", () => {
       null,
       null,
     );
+    // The first record is kept, not overwritten.
+    const after = await rpc(sql, "dab_waiver_get", manager, w.id);
+    expect(after.incident.text).toBe("Follow-up call made");
+    expect(after.incident.previous).toHaveLength(1);
+    expect(after.incident.previous[0]).toMatchObject({
+      text: "Felt faint, sat down",
+      emergency_services: true,
+    });
+    expect(after.incident.previous[0].previous).toBeUndefined();
   });
 
   it("deletes waivers three years after signing and keeps newer ones", async () => {

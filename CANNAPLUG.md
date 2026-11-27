@@ -2228,3 +2228,8 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Migration (applied to the hosted project):** `20261127012000_dab_waivers` (mirror `drizzle/migrations/0088_dab_waivers.sql`; rollback `supabase/rollbacks/20261127012000_dab_waivers_rollback.sql`; rehearsal `scripts/rollback-rehearsal-dab-waivers.sh`). Rolling back deletes every waiver: export first.
 - **To switch on:** create the "Dab hit" product and tick the waiver box. The indemnity wording (section 5) should be reviewed by an attorney.
 - **Files:** `src/lib/waiver*.ts`, `src/components/admin/waiver/*`, `src/routes/admin_.waiver.$waiverId.tsx`, `src/test/db/dab-waivers.test.ts`.
+
+## 27 Nov 2026 — Waiver incident history (fix/waiver-incident-history)
+
+- Found in the review of PR #127 (Amazon Q, after it merged): recording an incident a second time overwrote the first. The first record (for example whether emergency services were called) is now kept in `incident.previous` and shown on the printed waiver as "Earlier record". The unrelated notes on that review (passing null instead of an empty string, no warning when pg_cron is missing) were not acted on: the empty string is handled by the function and the pg_cron guard matches the other jobs.
+- **Migration (applied to the hosted project):** `20261127013000_dab_waiver_incident_history` (mirror `drizzle/migrations/0089_dab_waiver_incident_history.sql`; rollback `supabase/rollbacks/20261127013000_dab_waiver_incident_history_rollback.sql`).
