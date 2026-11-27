@@ -196,6 +196,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_expiry: "Enter the expiry date shown on your document",
   document_expired: "That document has expired — upload a current one",
   purchase_limit_exceeded: "That is more than the daily purchase limit",
+  account_deactivated:
+    "Your account is deactivated. Reactivate it in Account settings to place orders.",
+  account_deleted: "This account has been deleted.",
+  open_orders: "Please finish or cancel your open orders before closing your account.",
+  staff_account: "Staff accounts are managed by an admin, not from this page.",
+  account_not_found: "We could not find your account.",
 };
 
 /** Detail text after the code is user-safe for these (it carries numbers the member needs). */

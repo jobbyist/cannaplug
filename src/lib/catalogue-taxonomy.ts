@@ -45,8 +45,11 @@ export const normKey = (s: string | null | undefined): string =>
 export function canonicalCategory(input: string | null | undefined): string | null {
   const key = normKey(input);
   if (!key) return null;
+  // Punctuation and spaces do not count: "Prerolls", "Pre rolls" and "pre-rolls" are all "Pre-rolls".
+  const loose = key.replace(/[^a-z0-9]/g, "");
   return (
-    CATEGORY_ORDER.find((c) => normKey(c) === key) ?? String(input).replace(/\s+/g, " ").trim()
+    CATEGORY_ORDER.find((c) => c.toLowerCase().replace(/[^a-z0-9]/g, "") === loose) ??
+    String(input).replace(/\s+/g, " ").trim()
   );
 }
 
