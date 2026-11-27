@@ -1,9 +1,14 @@
 import { canonical } from "@/lib/site";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { CalendarDays, MapPin, ShieldCheck } from "lucide-react";
 import { Header, Footer } from "@/components/CannaPlugHome";
+import { BLACK_FRIDAY_NOTICE_ENDS } from "@/lib/events";
 
 export const Route = createFileRoute("/bfcm")({
+  // Campaign page: once the weekend is over (end of Mon 30 Nov 2026 SAST) it sends visitors home.
+  beforeLoad: () => {
+    if (Date.now() >= BLACK_FRIDAY_NOTICE_ENDS) throw redirect({ to: "/" });
+  },
   head: () => ({
     links: canonical("/bfcm").links,
     meta: [
