@@ -168,7 +168,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   checkout_unavailable: "Some items in your basket are no longer available",
   address_incomplete: "Please add a suburb or city to that address",
   invalid_contact: "Please enter your name and a valid phone number",
-  payment_method_unsupported: "Choose EFT, card or PayPal",
+  payment_method_unsupported: "Choose EFT, card, PayPal or pay in store",
+  pay_in_store_pickup_only: "Pay in store is only available for orders you collect in store.",
+  pay_in_store_limit:
+    "You already have two orders waiting to be paid in store. Collect or cancel one to place another.",
   order_not_payable: "This order is no longer awaiting payment",
   invalid_items: "Your basket could not be read — please refresh it",
   invalid_batch_size:

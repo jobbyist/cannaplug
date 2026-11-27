@@ -266,11 +266,11 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
     const u = await mkMember(sql);
     const a = await addr(u);
     const { items } = await basket();
-    // cash is a counter method (POS), never an online one
+    // cash is "pay in store": it needs a collection order, so a delivery order cannot use it
     expect(
       failedWith(
         await attempt(place(u, items, a, 280, { pay: "cash" })),
-        "payment_method_unsupported",
+        "pay_in_store_pickup_only",
       ),
     ).toBe(true);
     expect(

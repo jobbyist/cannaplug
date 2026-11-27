@@ -323,7 +323,13 @@ export function OrdersPanel({
                 }}
               />
             )}
-            {order.status === "awaiting_payment" && (
+            {order.status === "awaiting_payment" && order.payment_method === "cash" && (
+              <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs">
+                <b>Pay in store.</b> Pay when you collect it: cash, card or EFT. Quote{" "}
+                <b>{order.order_number}</b> at the till and bring your ID.
+              </p>
+            )}
+            {order.status === "awaiting_payment" && order.payment_method !== "cash" && (
               <PayNow
                 orderId={order.id}
                 hint="Prefer EFT? Use the order number as your payment reference."

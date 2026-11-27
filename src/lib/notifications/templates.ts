@@ -121,21 +121,28 @@ const hi = (d: TemplateData) => `Hi ${esc(String(d["contact_name"] ?? "there").s
 export const TEMPLATES: Record<string, Template> = {
   order_received: (d, c) => {
     const eft = d["payment_method"] === "eft";
+    const inStore = d["payment_method"] === "cash";
     return {
       subject: `We received your order ${d["order_number"]}`,
       html: layout({
-        preheader: "Your items are held while we wait for payment.",
-        title: "Order received",
+        preheader: inStore
+          ? "Your items are reserved. Pay when you collect."
+          : "Your items are held while we wait for payment.",
+        title: inStore ? "Order reserved" : "Order received",
         bodyHtml:
           p(hi(d)) +
           p(
-            eft
-              ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears."
-              : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.",
+            inStore
+              ? "Thanks for your order. We hold your items for 24 hours. Pay in store when you collect (cash, card or EFT), quote your order number at the till and bring your ID."
+              : eft
+                ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears."
+                : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.",
           ) +
           kv(orderRows(d)),
         cta: { label: "View my order", url: accountUrl(c) },
-        footerNote: "Your order is only confirmed once payment has been verified.",
+        footerNote: inStore
+          ? "Your order is confirmed once you have paid at the till."
+          : "Your order is only confirmed once payment has been verified.",
       }),
     };
   },

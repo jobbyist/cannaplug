@@ -3974,6 +3974,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      order_take_in_store_payment: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_order_id: string;
+          p_tender: string;
+        };
+        Returns: Json;
+      };
       create_online_order: {
         Args: {
           p_contact_name: string | null;
