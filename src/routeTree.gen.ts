@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BfcmRouteImport } from './routes/bfcm'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
@@ -68,6 +69,11 @@ const AccountRoute = AccountRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BfcmRoute = BfcmRouteImport.update({
+  id: '/bfcm',
+  path: '/bfcm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -390,6 +399,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
+  BfcmRoute: typeof BfcmRoute
   CalendarRoute: typeof CalendarRoute
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bfcm': {
+      id: '/bfcm'
+      path: '/bfcm'
+      fullPath: '/bfcm'
+      preLoaderRoute: typeof BfcmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -845,6 +865,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
+  BfcmRoute: BfcmRoute,
   CalendarRoute: CalendarRoute,
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
