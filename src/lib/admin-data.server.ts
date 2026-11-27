@@ -44,6 +44,7 @@ export type AdminProductInput = Pick<
   | "brand"
   | "sell_online"
   | "sold_by_weight"
+  | "requires_waiver"
   | "weight_step_g"
   | "sale_ends_at"
   | "sale_online_only"

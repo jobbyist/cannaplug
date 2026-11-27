@@ -36,6 +36,7 @@ import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
 import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
+import { Route as AdminWaiverWaiverIdRouteImport } from './routes/admin_.waiver.$waiverId'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as BillingPayfastCancelRouteImport } from './routes/billing.payfast.cancel'
 import { Route as BillingPayfastNotifyRouteImport } from './routes/billing.payfast.notify'
@@ -186,6 +187,11 @@ const VerifyTokenRoute = VerifyTokenRouteImport.update({
   path: '/verify/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWaiverWaiverIdRoute = AdminWaiverWaiverIdRouteImport.update({
+  id: '/admin_/waiver/$waiverId',
+  path: '/admin/waiver/$waiverId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
   path: '/api/public/health',
@@ -290,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -333,6 +340,7 @@ export interface FileRoutesByTo {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
+  '/admin/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -377,6 +385,7 @@ export interface FileRoutesById {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin_/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -422,6 +431,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal'
+    | '/admin/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -508,6 +519,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin_/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -552,6 +564,7 @@ export interface RootRouteChildren {
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
+  AdminWaiverWaiverIdRoute: typeof AdminWaiverWaiverIdRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   BillingPayfastCancelRoute: typeof BillingPayfastCancelRoute
   BillingPayfastNotifyRoute: typeof BillingPayfastNotifyRoute
@@ -759,6 +772,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/waiver/$waiverId': {
+      id: '/admin_/waiver/$waiverId'
+      path: '/admin/waiver/$waiverId'
+      fullPath: '/admin/waiver/$waiverId'
+      preLoaderRoute: typeof AdminWaiverWaiverIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/health': {
       id: '/api/public/health'
       path: '/api/public/health'
@@ -888,6 +908,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
+  AdminWaiverWaiverIdRoute: AdminWaiverWaiverIdRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   BillingPayfastCancelRoute: BillingPayfastCancelRoute,
   BillingPayfastNotifyRoute: BillingPayfastNotifyRoute,

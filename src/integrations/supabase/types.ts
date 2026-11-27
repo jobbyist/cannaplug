@@ -2902,6 +2902,7 @@ export type Database = {
           sale_online_only: boolean;
           sell_online: boolean;
           requires_recommendation: boolean;
+          requires_waiver: boolean;
           sku: string | null;
           slug: string;
           sold_by_weight: boolean;
@@ -2934,6 +2935,7 @@ export type Database = {
           sale_online_only?: boolean;
           sell_online?: boolean;
           requires_recommendation?: boolean;
+          requires_waiver?: boolean;
           sku?: string | null;
           slug: string;
           sold_by_weight?: boolean;
@@ -2966,6 +2968,7 @@ export type Database = {
           sale_online_only?: boolean;
           sell_online?: boolean;
           requires_recommendation?: boolean;
+          requires_waiver?: boolean;
           sku?: string | null;
           slug?: string;
           sold_by_weight?: boolean;
@@ -4009,6 +4012,37 @@ export type Database = {
       admin_overview: { Args: { p_actor: string }; Returns: Json };
       admin_attention_counts: { Args: { p_actor: string }; Returns: Json };
       admin_cart_recovery: { Args: { p_actor: string; p_days?: number }; Returns: Json };
+      dab_waiver_create: { Args: { p_actor: string; p_payload: Json }; Returns: Json };
+      dab_waiver_claim: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string };
+        Returns: Json;
+      };
+      dab_waiver_release: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string };
+        Returns: undefined;
+      };
+      dab_waiver_link_sale: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string; p_sale_id: string };
+        Returns: undefined;
+      };
+      dab_waiver_get: { Args: { p_actor: string; p_waiver_id: string }; Returns: Json };
+      dab_waiver_list: {
+        Args: { p_actor: string; p_limit?: number; p_before?: string; p_search?: string };
+        Returns: Json;
+      };
+      dab_waiver_record_incident: {
+        Args: {
+          p_actor: string;
+          p_waiver_id: string;
+          p_text: string;
+          p_emergency_services: boolean;
+          p_emergency_contact: boolean;
+          p_incident_time: string;
+          p_notes: string;
+        };
+        Returns: undefined;
+      };
+      dab_waiver_purge_expired: { Args: Record<PropertyKey, never>; Returns: number };
       admin_account_delete: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_user: string };
         Returns: Json;
