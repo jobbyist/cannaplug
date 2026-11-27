@@ -339,7 +339,7 @@ type OverviewJson = {
 };
 
 export async function getAdminDashboard(userId: string): Promise<AdminDashboard> {
-  await assertRole(userId, "budtender");
+  const role = await assertRole(userId, "budtender");
   // All sums, days and rankings are worked out inside the database (no row caps, South African days).
   const [orders, inventory, activity, overview, attention, cart] = await Promise.all([
     loadOrders({ limit: 8 }),
@@ -397,7 +397,8 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
       secondEmails: Number(c["second_emails"] ?? 0),
       unsubscribed: Number(c["unsubscribed"] ?? 0),
       recoveredOrders: Number(c["recovered_orders"] ?? 0),
-      recoveredRand: Number(c["recovered_rand"] ?? 0),
+      // Money is for managers and admins: a budtender never receives this figure.
+      recoveredRand: role === "budtender" ? 0 : Number(c["recovered_rand"] ?? 0),
     },
   };
 }
