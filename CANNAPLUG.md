@@ -2205,3 +2205,9 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Admin → Overview → "Basket reminders"** (last 30 days): baskets saved, first and second reminders sent, unsubscribes, paid orders placed within 7 days of a first reminder, and (managers and admins only) their value. "Ordered after a reminder" shows timing, not proof the email caused the order. Counts only, no names or emails.
 - **Recent activity** now shows South African time and says "SAST" (it used the server's UTC clock before).
 - **Migration (applied to the hosted project):** `20261127009000_admin_cart_recovery` (mirror `drizzle/migrations/0085_admin_cart_recovery.sql`; rollback `supabase/rollbacks/20261127009000_admin_cart_recovery_rollback.sql`). New staff-only function `admin_cart_recovery`; no table changes.
+
+## 27 Nov 2026 — Basket reminders tile: review fixes (fix/admin-cart-tile-review)
+
+- The tile now counts reminders from the record of emails queued (`notification_events`) instead of the current basket's timestamps, so a member's second reminder cycle no longer hides their first. The rand value is also left out of the server response for budtenders (it was only hidden on screen).
+- Reviewer note not acted on: Amazon Q asked for `STABLE` to be removed from `admin_cart_recovery`. `STABLE` is correct for a function that only reads data and uses `now()`; it is what `admin_attention_counts` uses too.
+- **Migration (applied to the hosted project):** `20261127010000_admin_cart_recovery_history` (mirror `drizzle/migrations/0086_admin_cart_recovery_history.sql`; rollback `supabase/rollbacks/20261127010000_admin_cart_recovery_history_rollback.sql`). Replaces one function; no table changes.

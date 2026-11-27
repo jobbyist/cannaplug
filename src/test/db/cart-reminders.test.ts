@@ -216,7 +216,10 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
     const u = await mkMember(sql);
     expect((await attempt(rpc(sql, "admin_cart_recovery", u, 30))).ok).toBe(false);
     await save(u, [{ product_id: await product(), quantity: 1 }]);
-    await sql`UPDATE public.member_carts SET reminder_1_at = now() - interval '1 day' WHERE user_id = ${u}`;
+    await idle(u, 3);
+    expect(await run()).toBeGreaterThanOrEqual(1);
+    // The tile counts from the record of emails queued, so a new reminder cycle cannot erase it.
+    await sql`UPDATE public.member_carts SET reminder_1_at = NULL, reminder_2_at = NULL WHERE user_id = ${u}`;
     const p = await product(500);
     await receive(sql, manager, p, 5);
     const o = await rpc(
