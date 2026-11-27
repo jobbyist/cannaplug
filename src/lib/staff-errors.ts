@@ -93,6 +93,10 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   notification_not_found: "That notification could not be found",
   alert_readonly: "Automatic alerts update themselves and can't be edited",
   order_paid: "A paid order can't be archived",
+  open_orders: "This member has an order in progress. Complete or cancel it first",
+  account_deleted: "This account is already deleted",
+  account_not_found: "That account could not be found",
+  staff_account: "That is a staff account. Remove the staff role first",
   // Products and imports
   duplicate_sku_in_file: "The file repeats a SKU",
   barcode_in_use: "That barcode is already used by another product",

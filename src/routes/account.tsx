@@ -42,6 +42,8 @@ import { useMemberAccount } from "@/components/account/use-member-account";
 import { OrdersPanel } from "@/components/account/OrdersPanel";
 import { ChangePasswordForm, ForgotPasswordForm } from "@/components/account/PasswordForms";
 import { EmailPreferences } from "@/components/account/EmailPreferences";
+import { AccountClosingCard, AccountStatusBanner } from "@/components/account/AccountClosing";
+import { useAccountLifecycle } from "@/hooks/useAccountLifecycle";
 import { AUTH_REDIRECT, authProblem } from "@/lib/auth-messages";
 import { SavedPanel } from "@/components/account/SavedPanel";
 import { RewardsPanel } from "@/components/account/RewardsPanel";
@@ -530,6 +532,7 @@ function MemberPortal() {
   );
   const [flash, setFlash] = useState<string | null>(null);
   const { data: account, error, reload } = useMemberAccount(user!.id);
+  const life = useAccountLifecycle();
   // Welcome tour: once, for members who just signed up. Hidden immediately, then recorded on the account.
   const [tourDone, setTourDone] = useState(false);
   const finishTour = () => {
@@ -607,6 +610,7 @@ function MemberPortal() {
             <CircleUserRound size={18} />
           </span>
         </header>
+        <AccountStatusBanner life={life} />
         {flash && (
           <p
             role="status"
@@ -790,6 +794,9 @@ function MemberPortal() {
             </div>
             <div className="mt-6 border-t border-border pt-6">
               <EmailPreferences />
+            </div>
+            <div className="mt-6 border-t border-border pt-6">
+              <AccountClosingCard life={life} />
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assertRole } from "@/lib/admin-data.server";
 import { assertPosOpen } from "@/lib/commerce-suspension.server";
 import { friendlyPosError, getPosCustomerRewards, posCompleteSale } from "@/lib/pos-data.server";
+import { rewardCoversProduct } from "@/lib/rewards-logic";
 import type { Json } from "@/integrations/supabase/types";
 
 /**
@@ -43,10 +44,6 @@ export type LoyaltyDesk = {
   plugBack: PlugBackSummary;
 };
 
-/** The grade is the last bracket in the product name, e.g. "Blue Gelato (Greenhouse)". Same rule as the database. */
-export const gradeOf = (name: string) =>
-  /\(([^)]*)\)\s*$/.exec(name)?.[1]?.trim().toLowerCase() ?? null;
-
 async function myTill(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("pos_sessions")
@@ -71,15 +68,15 @@ export async function getLoyaltyDesk(userId: string, customerId: string): Promis
   ]);
   if (plug.error) throw friendlyPosError(plug.error);
 
-  const categories = [...new Set(points.rewards.flatMap((r) => r.categories))];
+  // Categories are matched loosely in rewardCoversProduct ("Prerolls" is "Pre-rolls"), so read every active product
+  // and let that rule pick: a product saved with a slightly different spelling must still appear for staff.
   const [prod, avail] = await Promise.all([
     supabaseAdmin
       .from("products")
-      .select("id,name,category,price_rand,unit")
+      .select("id,name,category,subcategory,price_rand,unit")
       .eq("is_active", true)
-      .in("category", categories.length ? categories : ["-"])
       .order("name")
-      .limit(500),
+      .limit(2000),
     supabaseAdmin.from("inventory_availability").select("product_id,available"),
   ]);
   if (prod.error) throw friendlyPosError(prod.error);
@@ -97,9 +94,7 @@ export async function getLoyaltyDesk(userId: string, customerId: string): Promis
       points_cost: r.points_cost,
       grade: r.grade,
       products: (prod.data ?? [])
-        .filter(
-          (p) => r.categories.includes(p.category) && gradeOf(p.name) === r.grade.toLowerCase(),
-        )
+        .filter((p) => rewardCoversProduct(r, p))
         .map((p) => ({
           id: p.id,
           name: p.name,

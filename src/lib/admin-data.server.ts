@@ -1,4 +1,4 @@
-import { canonicalSubcategory } from "@/lib/catalogue-taxonomy";
+import { canonicalCategory, canonicalSubcategory } from "@/lib/catalogue-taxonomy";
 import { CUSTOM_ITEM_PRODUCT_ID } from "@/lib/pos-custom-item";
 import { saleProblem } from "@/lib/sale-price";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
@@ -69,6 +69,8 @@ function toProductColumns(input: AdminProductInput) {
     sale_price_rand != null && sale_price_rand >= 0 && sale_price_rand < input.price_rand;
   return {
     ...rest,
+    // "Prerolls" and "Pre-rolls" are one category: save the shop's spelling so the shop, till and Loyalty all find it.
+    category: canonicalCategory(input.category) ?? input.category,
     // "top shelf", "Top Shelf" and " TOP  SHELF " are the same grade: save the shop's spelling.
     subcategory: canonicalSubcategory(input.category, input.subcategory),
     price_rand: onSale ? sale_price_rand : input.price_rand,
@@ -681,6 +683,8 @@ export type CustomerRow = {
   member_since: string;
   order_count: number;
   spend_rand: number;
+  /** active, deactivated by the member, or waiting for an admin to complete a deletion. */
+  account_status: "active" | "deactivated" | "deletion_requested";
 };
 
 /** Members (not staff), newest first, with search and paging done in the database. */

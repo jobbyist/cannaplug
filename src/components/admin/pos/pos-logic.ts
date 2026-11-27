@@ -6,6 +6,7 @@
  * server-side (tender_mismatch / insufficient_stock), never trusted.
  */
 
+import { rewardCoversProduct } from "@/lib/rewards-logic";
 import { saleStep, snapUp, snapDown } from "@/lib/sale-step";
 
 export type TenderMethod = "cash" | "card" | "eft" | "paypal";
@@ -57,8 +58,10 @@ export type RewardOffer = {
 };
 
 /** Display only (the database decides): does this reward cover this product? */
-export const rewardCovers = (r: RewardOffer, p: Pick<CatalogItem, "name" | "category">): boolean =>
-  r.categories.includes(p.category) && gradeOf(p.name) === r.grade.trim().toLowerCase();
+export const rewardCovers = (
+  r: RewardOffer,
+  p: Pick<CatalogItem, "name" | "category"> & { subcategory?: string | null },
+): boolean => rewardCoversProduct(r, p);
 
 export type CartLine = {
   product: CatalogItem;
