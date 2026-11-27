@@ -3091,6 +3091,9 @@ export type Database = {
           address: string | null;
           created_at: string;
           date_of_birth: string | null;
+          deactivated_at: string | null;
+          deleted_at: string | null;
+          deletion_requested_at: string | null;
           first_name: string | null;
           full_name: string | null;
           id: string;
@@ -3104,6 +3107,9 @@ export type Database = {
           address?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          deactivated_at?: string | null;
+          deleted_at?: string | null;
+          deletion_requested_at?: string | null;
           first_name?: string | null;
           full_name?: string | null;
           id: string;
@@ -3117,6 +3123,9 @@ export type Database = {
           address?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          deactivated_at?: string | null;
+          deleted_at?: string | null;
+          deletion_requested_at?: string | null;
           first_name?: string | null;
           full_name?: string | null;
           id?: string;
@@ -3220,6 +3229,11 @@ export type Database = {
         Args: { p_actor: string; p_id: string; p_idempotency_key: string };
         Returns: Json;
       };
+      member_account_set_status: {
+        Args: { p_action: string; p_idempotency_key: string; p_user: string };
+        Returns: Json;
+      };
+      member_account_state: { Args: { p_user: string }; Returns: Json };
       member_newsletter_set: {
         Args: { p_idempotency_key: string; p_subscribe: boolean; p_user: string };
         Returns: Json;
@@ -3982,6 +3996,10 @@ export type Database = {
       };
       admin_overview: { Args: { p_actor: string }; Returns: Json };
       admin_attention_counts: { Args: { p_actor: string }; Returns: Json };
+      admin_account_delete: {
+        Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_user: string };
+        Returns: Json;
+      };
       admin_customers_page: {
         Args: { p_actor: string; p_search: string | null; p_limit: number; p_offset: number };
         Returns: Json;
@@ -4167,6 +4185,10 @@ export type Database = {
         Returns: Json;
       };
       products_end_expired_sales: {
+        Args: { p_actor?: string | null };
+        Returns: number;
+      };
+      products_start_due_sales: {
         Args: { p_actor?: string | null };
         Returns: number;
       };

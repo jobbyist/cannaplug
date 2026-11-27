@@ -44,9 +44,9 @@ describe("import invitation email", () => {
 });
 
 describe("provisional approval", () => {
-  it("lets the member upload an ID but not order online", () => {
+  it("lets the member upload an ID and order online", () => {
     const v = verificationView({ status: "provisional" });
-    expect(v.canOrder).toBe(false);
+    expect(v.canOrder).toBe(true);
     expect(v.canSubmit).toBe(true);
     expect(v.label).toBe("Provisionally approved");
   });

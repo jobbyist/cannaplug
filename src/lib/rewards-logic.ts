@@ -36,6 +36,28 @@ export const REWARD_TIERS: RewardTier[] = [
   },
 ];
 
+/** Letters and digits only, lower case: "Pre-rolls", "pre rolls" and "Prerolls" are the same category. Mirrors _reward_eligible. */
+export const looseKey = (s: string | null | undefined): string =>
+  (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * The grade a product counts as for rewards: its Subcategory when one is set, else the bracket at the end of its name
+ * ("Blue Gelato (Greenhouse)"). Lower case, trimmed. Mirrors _reward_eligible (migration 20261127001000).
+ */
+export const rewardGradeOf = (p: { name: string; subcategory?: string | null }): string | null => {
+  const sub = p.subcategory?.trim();
+  if (sub) return sub.toLowerCase();
+  return /\(([^)]*)\)\s*$/.exec(p.name)?.[1]?.trim().toLowerCase() ?? null;
+};
+
+/** Does this reward cover this product? Display only here (the database decides at the till). */
+export const rewardCoversProduct = (
+  r: { categories: string[]; grade: string },
+  p: { category: string; name: string; subcategory?: string | null },
+): boolean =>
+  r.categories.some((c) => looseKey(c) === looseKey(p.category)) &&
+  rewardGradeOf(p) === r.grade.trim().toLowerCase();
+
 /** Shown wherever points could be redeemed online. */
 export const ONLINE_REDEMPTION_NOTICE =
   "Online redemption of loyalty points is coming soon. For now, redeem your points in store at the till.";

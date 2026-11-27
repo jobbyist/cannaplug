@@ -83,15 +83,18 @@ describe.skipIf(!DB_URL)("staff ID exemption and till attach rules (real Postgre
       );
       expect(o).toMatchObject({ total: 80, staff_purchase: true });
     });
-    it("a member with no ID, a pending ID, or none verified is still stopped", async () => {
+    it("a member with no ID or a pending ID get past the gate; a rejected ID is stopped", async () => {
       const plain = await mkUser(sql, "customer");
-      expect(failedWith(await attempt(order(plain)), "verification_required")).toBe(true);
+      // Past the gate, the next thing asked for is the expected total.
+      expect(failedWith(await attempt(order(plain)), "expected_total_required")).toBe(true);
       const pending = await mkUser(sql, "customer");
       const doc = `${pending}/doc.png`;
       await sql`INSERT INTO public.customer_verification
                   (user_id, status, document_type, document_path, declared_dob, submitted_at)
                 VALUES (${pending}, 'pending', 'sa_id', ${doc}, '1990-01-01', now())`;
-      expect(failedWith(await attempt(order(pending)), "verification_pending")).toBe(true);
+      expect(failedWith(await attempt(order(pending)), "expected_total_required")).toBe(true);
+      await sql`UPDATE public.customer_verification SET status = 'rejected' WHERE user_id = ${pending}`;
+      expect(failedWith(await attempt(order(pending)), "verification_rejected")).toBe(true);
     });
   });
 

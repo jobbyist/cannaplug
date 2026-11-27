@@ -68,16 +68,16 @@ describe("age rule", () => {
 });
 
 describe("verificationView", () => {
-  it("only a verified member can order", () => {
-    for (const status of ["unverified", "pending", "rejected", "expired"])
-      expect(verificationView({ status }).canOrder).toBe(false);
-    expect(verificationView({ status: "verified" }).canOrder).toBe(true);
-    expect(verificationView(null).canOrder).toBe(false);
+  it("everyone can order online except a member whose ID was rejected (the ID is checked at collection)", () => {
+    for (const status of ["unverified", "pending", "expired", "provisional", "verified"])
+      expect(verificationView({ status }).canOrder).toBe(true);
+    expect(verificationView({ status: "rejected" }).canOrder).toBe(false);
+    expect(verificationView(null).canOrder).toBe(true);
   });
   it("treats an unknown status as unverified rather than trusting it", () => {
     const v = verificationView({ status: "approved-ish" });
     expect(v.status).toBe("unverified");
-    expect(v.canOrder).toBe(false);
+    expect(v.canOrder).toBe(true);
   });
   it("can submit when unverified/rejected/expired, not while pending or verified", () => {
     expect(verificationView(null).canSubmit).toBe(true);
@@ -164,14 +164,14 @@ describe("document expiry rules", () => {
     expect(isExpired("2026-10-02", today)).toBe(false);
     expect(isExpired("2026-10-01", today)).toBe(true);
   });
-  it("a verified member with an expired document sees 'expired' and cannot order", () => {
+  it("a verified member with an expired document sees 'expired' and can still order", () => {
     const expired = verificationView({
       status: "verified",
       document_type: "passport",
       document_expires_on: "2020-01-01",
     });
     expect(expired.status).toBe("expired");
-    expect(expired.canOrder).toBe(false);
+    expect(expired.canOrder).toBe(true);
     expect(expired.canSubmit).toBe(true);
     expect(expired.attemptsLeft).toBeGreaterThan(0);
     const current = verificationView({

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/events")({
       {
         name: "description",
         content:
-          "CannaPlug events and promotions: Propaganda x 25K The Plug, the R70 Weekend Special and Halloweed Trick or Treat.",
+          "CannaPlug events and promotions: Black Friday + Cyber Monday, Propaganda x 25K The Plug, the R70 Weekend Special and Halloweed Trick or Treat.",
       },
     ],
   }),
@@ -60,6 +60,11 @@ function EventsPage() {
                   </p>
                 )}
                 <p className="promo-copy">{item.copy}</p>
+                {item.post && (
+                  <a className="promo-more" href={`/events/${item.slug}`}>
+                    See all the deals
+                  </a>
+                )}
               </div>
             </article>
           ))}

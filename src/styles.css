@@ -2341,3 +2341,103 @@ footer {
     transition: none;
   }
 }
+
+/* Black Friday + Cyber Monday: notice above the header, post page, card link */
+.promo-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  padding: 9px 16px;
+  background: #0b3d20;
+  color: #f8faf8;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  border-bottom: 1px solid #d4af37;
+}
+.promo-notice b {
+  color: #d4af37;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.promo-notice u {
+  color: #d4af37;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+.promo-notice:hover u {
+  text-decoration-thickness: 2px;
+}
+.promo-more {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bf-posters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin-top: 28px;
+}
+.bf-posters img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+}
+.bf-deals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+.bf-deals section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 18px 20px;
+}
+.bf-deals h2 {
+  font: 800 0.8rem/1.3 var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.bf-deals ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.bf-deals li {
+  display: grid;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.bf-deals li span {
+  color: var(--muted-foreground);
+}
+.bf-cta {
+  display: inline-block;
+  padding: 11px 18px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.bf-cta-quiet {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}

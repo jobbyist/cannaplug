@@ -15,6 +15,8 @@ import {
 import { listCustomersFn } from "@/lib/admin.functions";
 import { UsernameEditDialog, type UsernameTarget } from "@/components/admin/UsernameEditDialog";
 import { rand } from "@/lib/cart";
+import { DeleteAccountDialog, type DeleteTarget } from "@/components/admin/DeleteAccountDialog";
+import { statusLabel } from "@/lib/account-lifecycle";
 
 export const CUSTOMERS_PAGE_SIZE = 25;
 
@@ -23,7 +25,10 @@ export function CustomersPanel({
   focusLabel,
   onClearFocus,
   canEditUsername = false,
+  canDelete = false,
 }: {
+  /** Admins can complete a member's deletion. */
+  canDelete?: boolean;
   /** Managers and admins can change a member's username. */
   canEditUsername?: boolean;
   /** Set when the admin search box sent the person here: the list starts filtered to that result. */
@@ -34,6 +39,7 @@ export function CustomersPanel({
   const [search, setSearch] = useState(focusLabel ?? "");
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<UsernameTarget | null>(null);
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
 
   useEffect(() => {
     setText(focusLabel ?? "");
@@ -95,10 +101,12 @@ export function CustomersPanel({
             <TableHead>Username</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Member since</TableHead>
             <TableHead>Orders</TableHead>
             <TableHead>Spend</TableHead>
             {canEditUsername && <TableHead className="text-right">Username</TableHead>}
+            {canDelete && <TableHead className="text-right">Account</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -108,6 +116,19 @@ export function CustomersPanel({
               <TableCell>{c.username ?? "—"}</TableCell>
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
+              <TableCell>
+                <span
+                  className={
+                    c.account_status === "deletion_requested"
+                      ? "rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive"
+                      : c.account_status === "deactivated"
+                        ? "rounded-full bg-gold/20 px-2 py-0.5 text-xs font-semibold"
+                        : "text-xs text-muted-foreground"
+                  }
+                >
+                  {statusLabel(c.account_status)}
+                </span>
+              </TableCell>
               <TableCell>
                 {new Date(c.member_since).toLocaleDateString("en-ZA", {
                   timeZone: "Africa/Johannesburg",
@@ -129,12 +150,30 @@ export function CustomersPanel({
                   </Button>
                 </TableCell>
               )}
+              {canDelete && (
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Delete account for ${c.full_name ?? "this member"}`}
+                    onClick={() =>
+                      setDeleting({
+                        id: c.id,
+                        name: c.full_name ?? "this member",
+                        requested: c.account_status === "deletion_requested",
+                      })
+                    }
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
           {q.data && q.data.rows.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={canEditUsername ? 8 : 7}
+                colSpan={7 + 1 + (canEditUsername ? 1 : 0) + (canDelete ? 1 : 0)}
                 className="text-center text-xs text-muted-foreground"
               >
                 {search ? "No customers match that search." : "No customers yet."}
@@ -170,6 +209,11 @@ export function CustomersPanel({
           </Button>
         </div>
       </div>
+      <DeleteAccountDialog
+        member={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void q.refetch()}
+      />
       <UsernameEditDialog
         member={editing}
         onClose={() => setEditing(null)}
