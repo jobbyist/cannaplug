@@ -315,6 +315,21 @@ export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
     ),
   );
 
+export const takeInStorePaymentFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        tender: z.enum(["cash", "card", "eft"]),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    const { takeInStorePayment } = await import("@/lib/payments/payments-data.server");
+    return takeInStorePayment(context.userId, data.orderId, data.tender);
+  });
+
 export const createProductImageUploadFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])
   .validator((data) =>

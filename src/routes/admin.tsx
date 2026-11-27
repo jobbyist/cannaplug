@@ -62,6 +62,7 @@ import {
   saveAdminProductFn,
   deactivateAdminProductFn,
   confirmOrderPaymentFn,
+  takeInStorePaymentFn,
   transitionAdminOrderFn,
 } from "@/lib/admin.functions";
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
@@ -446,6 +447,11 @@ function AdminPage() {
               await refreshAndShare("payments");
               return result;
             }}
+            onTakeInStorePayment={async (orderId, tender) => {
+              const result = await takeInStorePaymentFn({ data: { orderId, tender } });
+              await refreshAndShare("payments");
+              return result;
+            }}
           />
         )}
         {tab === "deliveries" && (
@@ -464,6 +470,11 @@ function AdminPage() {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
               });
+              await refreshAndShare("payments");
+              return result;
+            }}
+            onTakeInStorePayment={async (orderId, tender) => {
+              const result = await takeInStorePaymentFn({ data: { orderId, tender } });
               await refreshAndShare("payments");
               return result;
             }}

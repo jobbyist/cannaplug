@@ -119,7 +119,7 @@ export type PlaceOrderInput = {
   deliveryMethod: string;
   /** Not needed for in-store pickup. */
   addressId: string | null;
-  paymentMethod: "eft" | "card" | "paypal";
+  paymentMethod: "eft" | "card" | "paypal" | "cash";
   expectedTotal: number;
   notes: string | null;
   key: string;
@@ -131,7 +131,12 @@ export async function placeCheckoutOrder(userId: string, input: PlaceOrderInput)
   // confirmed the bank details (never place an order the member cannot pay).
   const { availableOnlineMethods } = await import("@/lib/payments/payments-data.server");
   const methods = await availableOnlineMethods();
-  const ok = input.paymentMethod === "eft" ? methods.eft !== null : methods[input.paymentMethod];
+  const ok =
+    input.paymentMethod === "eft"
+      ? methods.eft !== null
+      : input.paymentMethod === "cash"
+        ? methods.inStore
+        : methods[input.paymentMethod];
   if (!ok) throw friendlyMemberError(new Error("payment_method_unsupported"));
   await assertMethodAllowed(input.deliveryMethod);
   await endExpiredSales(null);

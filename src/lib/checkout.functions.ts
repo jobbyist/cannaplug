@@ -59,7 +59,7 @@ export const placeOrderFn = createServerFn({ method: "POST" })
           .regex(/^[0-9+() -]{7,40}$/),
         deliveryMethod,
         addressId: uuid.nullable(),
-        paymentMethod: z.enum(["eft", "card", "paypal"]),
+        paymentMethod: z.enum(["eft", "card", "paypal", "cash"]),
         // The total the member was shown; the database rejects the order if it is not the live total.
         expectedTotal: z.number().nonnegative().max(10_000_000),
         notes: z.string().trim().max(500).nullable(),
