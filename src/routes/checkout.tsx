@@ -51,8 +51,10 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
 });
 
-const STEPS = ["Cart", "Details", "Delivery", "Payment", "Confirmation"] as const;
-type Step = (typeof STEPS)[number];
+const FULL_STEPS = ["Cart", "Details", "Delivery", "Payment", "Confirmation"] as const;
+/** While delivery is paused the only choice is in-store collection, so the Delivery step is skipped. */
+const COLLECTION_STEPS = ["Cart", "Details", "Payment", "Confirmation"] as const;
+type Step = (typeof FULL_STEPS)[number];
 
 type DeliveryOption = {
   code: string;
@@ -83,11 +85,11 @@ const errorText = (err: unknown) =>
 const addressLine = (a: SavedAddress) =>
   [a.line1, a.line2, a.suburb, a.city, a.province, a.postal_code].filter(Boolean).join(", ");
 
-function Stepper({ step }: { step: Step }) {
-  const index = STEPS.indexOf(step);
+function Stepper({ step, steps }: { step: Step; steps: readonly Step[] }) {
+  const index = steps.indexOf(step);
   return (
     <ol className="mb-8 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-      {STEPS.map((label, i) => (
+      {steps.map((label, i) => (
         <li key={label} className="flex items-center gap-2">
           <span
             className={
@@ -102,7 +104,7 @@ function Stepper({ step }: { step: Step }) {
             {i < index ? <Check size={13} /> : i + 1}
           </span>
           <span className={i === index ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-          {i < STEPS.length - 1 && <ChevronRight size={14} className="text-muted-foreground" />}
+          {i < steps.length - 1 && <ChevronRight size={14} className="text-muted-foreground" />}
         </li>
       ))}
     </ol>
@@ -247,9 +249,10 @@ function CheckoutPage() {
     card: boolean;
     cardOnsite?: boolean;
     paypal: boolean;
+    inStore?: boolean;
     eft: EftDetails | null;
   } | null>(null);
-  const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal" | null>(null);
+  const [payMethod, setPayMethod] = useState<"eft" | "card" | "paypal" | "cash" | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   // Starts the payment right after placing; false when resuming after a refresh (the member clicks Pay).
   const [autoPay, setAutoPay] = useState(false);
@@ -262,14 +265,16 @@ function CheckoutPage() {
         setMethods(m);
         // Card first (confirmed automatically), then bank transfer, then PayPal.
         setPayMethod(
-          (cur) => cur ?? (m.card ? "card" : m.eft ? "eft" : m.paypal ? "paypal" : null),
+          (cur) =>
+            cur ??
+            (m.card ? "card" : m.eft ? "eft" : m.paypal ? "paypal" : m.inStore ? "cash" : null),
         );
         if (m.paypal)
           void getPaypalRateFn()
             .then((r) => live && setUsdRate(r?.zarPerUsd ?? null))
             .catch(() => undefined);
       })
-      .catch(() => live && setMethods({ card: false, paypal: false, eft: null }));
+      .catch(() => live && setMethods({ card: false, paypal: false, inStore: false, eft: null }));
     return () => {
       live = false;
     };
@@ -401,10 +406,15 @@ function CheckoutPage() {
   const deliveryFee = options.find((o) => o.code === delivery)?.fee_rand ?? null;
   const pickupOption = options.find((o) => o.is_pickup) ?? null;
   const deliveryAvailable = options.some((o) => !o.is_pickup);
+  const collectionOnly = options.length > 0 && !deliveryAvailable;
   const shownOptions = options.filter((o) => Boolean(o.is_pickup) === (fulfil === "pickup"));
   const chooseFulfil = (next: "delivery" | "pickup") => {
     setFulfil(next);
     setQuote(null);
+    if (next === "delivery" && payMethod === "cash")
+      setPayMethod(
+        methods?.card ? "card" : methods?.eft ? "eft" : methods?.paypal ? "paypal" : null,
+      );
     setDelivery(options.find((o) => Boolean(o.is_pickup) === (next === "pickup"))?.code ?? null);
   };
   const needsAddress = fulfil === "delivery";
@@ -451,7 +461,7 @@ function CheckoutPage() {
       // The cart is only emptied once the server has confirmed the order exists.
       orderKey.reset();
       const order = result as PlacedOrder;
-      if (payMethod !== "eft")
+      if (payMethod === "card" || payMethod === "paypal")
         savePendingCheckout({
           orderId: order.order_id,
           orderNumber: order.order_number,
@@ -459,7 +469,7 @@ function CheckoutPage() {
         });
       setPlaced(order);
       clear();
-      setAutoPay(payMethod !== "eft");
+      setAutoPay(payMethod === "card" || payMethod === "paypal");
       setStep("Confirmation");
     } catch (err) {
       setError(errorText(err));
@@ -502,7 +512,7 @@ function CheckoutPage() {
             <CommerceSuspendedBanner kind="checkout" />
           </div>
         )}
-        <Stepper step={step} />
+        <Stepper step={step} steps={collectionOnly ? COLLECTION_STEPS : FULL_STEPS} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
@@ -834,7 +844,7 @@ function CheckoutPage() {
                     </Button>
                     <Button
                       disabled={!contactValid || (needsAddress && !addressId)}
-                      onClick={() => go("Delivery")}
+                      onClick={() => go(collectionOnly ? "Payment" : "Delivery")}
                     >
                       Continue <ChevronRight size={15} />
                     </Button>
@@ -921,6 +931,13 @@ function CheckoutPage() {
                       show: !!methods?.eft,
                     },
                     {
+                      id: "cash" as const,
+                      icon: Store,
+                      title: "Pay in store",
+                      body: "Reserve your order now and pay when you collect it: cash, card or EFT at the till. We hold your items for 24 hours. Bring your ID.",
+                      show: !!methods?.inStore && fulfil === "pickup",
+                    },
+                    {
                       id: "paypal" as const,
                       icon: Lock,
                       title: "PayPal (US dollars)",
@@ -956,12 +973,16 @@ function CheckoutPage() {
                       </span>
                     </label>
                   ))}
-                {methods && !methods.card && !methods.eft && !methods.paypal && (
-                  <p className="rounded-md bg-muted px-3 py-2 text-xs">
-                    Online payment is being set up. Please contact the shop on +27 68 291 2107 to
-                    place your order.
-                  </p>
-                )}
+                {methods &&
+                  !methods.card &&
+                  !methods.eft &&
+                  !methods.paypal &&
+                  !methods.inStore && (
+                    <p className="rounded-md bg-muted px-3 py-2 text-xs">
+                      Online payment is being set up. Please contact the shop on +27 68 291 2107 to
+                      place your order.
+                    </p>
+                  )}
                 {quote && !quote.orderable && (
                   <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     Some items are no longer available in the quantity in your basket. Please update
@@ -972,7 +993,9 @@ function CheckoutPage() {
                   <p className="text-[0.7rem] text-muted-foreground">
                     {payMethod === "eft"
                       ? "Your order is held for you while we wait for the transfer."
-                      : `You will pay ${randCents(quote.total)}${payMethod === "paypal" ? " (charged by PayPal in US dollars)" : ""}. We reserve your order first, then open the secure payment.`}{" "}
+                      : payMethod === "cash"
+                        ? "Your order is held for 24 hours. You pay in store when you collect it."
+                        : `You will pay ${randCents(quote.total)}${payMethod === "paypal" ? " (charged by PayPal in US dollars)" : ""}. We reserve your order first, then open the secure payment.`}{" "}
                     By placing this order you agree to our{" "}
                     <Link to="/terms-of-service" className="underline">
                       terms
@@ -986,7 +1009,10 @@ function CheckoutPage() {
                 )}
                 {/* On phones the total and the pay button stay in reach while scrolling the methods. */}
                 <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-                  <Button variant="outline" onClick={() => go("Delivery")}>
+                  <Button
+                    variant="outline"
+                    onClick={() => go(collectionOnly ? "Details" : "Delivery")}
+                  >
                     Back
                   </Button>
                   <div className="flex gap-2">
@@ -1011,9 +1037,11 @@ function CheckoutPage() {
                         ? "Placing order…"
                         : quoting
                           ? "Checking prices…"
-                          : payMethod === "eft" || payMethod === null || quote?.total == null
-                            ? `Place order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`
-                            : `Pay ${randCents(quote.total)}`}{" "}
+                          : payMethod === "cash"
+                            ? `Reserve order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`
+                            : payMethod === "eft" || payMethod === null || quote?.total == null
+                              ? `Place order${quote?.total != null ? ` · ${rand(quote.total)}` : ""}`
+                              : `Pay ${randCents(quote.total)}`}{" "}
                       <ChevronRight size={15} />
                     </Button>
                   </div>
@@ -1023,7 +1051,27 @@ function CheckoutPage() {
 
             {step === "Confirmation" && placed && (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
-                {placed.payment_method === "eft" ? (
+                {placed.payment_method === "cash" ? (
+                  <>
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground">
+                      <Check size={26} />
+                    </span>
+                    <h2 className="font-display text-xl font-extrabold uppercase">
+                      Order reserved
+                    </h2>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Order <b>{placed.order_number}</b> is reserved for you for{" "}
+                      {placed.hold_minutes / 60} hours. Pay <b>{rand(Number(placed.total))}</b> in
+                      store when you collect it: cash, card or EFT. Bring your ID, we check it on
+                      collection.
+                    </p>
+                    <p className="max-w-sm rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 p-3 text-xs">
+                      Collect at <b>{pickupOption?.pickup_address ?? "the shop"}</b>. Quote{" "}
+                      <b>{placed.order_number}</b> at the till. If you do not collect within 24
+                      hours your items go back on the shelf.
+                    </p>
+                  </>
+                ) : placed.payment_method === "eft" ? (
                   <>
                     <span className="grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground">
                       <Check size={26} />

@@ -71,6 +71,7 @@ export function OrdersPanel({
   onSelect,
   onTransition,
   onConfirmPayment,
+  onTakeInStorePayment,
   onLoadMore,
   canConfirmPayment = true,
   onArchive,
@@ -89,6 +90,11 @@ export function OrdersPanel({
     bankReference: string,
     amountReceived: string,
   ) => Promise<{ outcome: string; duplicate: boolean }>;
+  /** Pay-in-store orders: staff take the payment at the till (budtender and above, enforced on the server). */
+  onTakeInStorePayment?: (
+    id: string,
+    tender: "cash" | "card" | "eft",
+  ) => Promise<{ outcome: string; confirmed: boolean }>;
   orders: Awaited<ReturnType<typeof listAdminOrdersFn>>;
   selected: Awaited<ReturnType<typeof getAdminOrderFn>>;
   onSelect: (id: string) => void;
@@ -180,13 +186,24 @@ export function OrdersPanel({
               <span>Total</span>
               <span>{rand(selected.total_rand)}</span>
             </div>
-            {canConfirmPayment && selected.status === "awaiting_payment" && (
-              <EftConfirm
-                order={selected}
-                onConfirm={onConfirmPayment}
-                onResult={(text) => setPaymentNote(text ? { orderId: selected.id, text } : null)}
-              />
-            )}
+            {onTakeInStorePayment &&
+              selected.status === "awaiting_payment" &&
+              selected.payment_method === "cash" && (
+                <InStorePayment
+                  order={selected}
+                  onTake={onTakeInStorePayment}
+                  onResult={(text) => setPaymentNote(text ? { orderId: selected.id, text } : null)}
+                />
+              )}
+            {canConfirmPayment &&
+              selected.status === "awaiting_payment" &&
+              selected.payment_method !== "cash" && (
+                <EftConfirm
+                  order={selected}
+                  onConfirm={onConfirmPayment}
+                  onResult={(text) => setPaymentNote(text ? { orderId: selected.id, text } : null)}
+                />
+              )}
             <p className="mb-2 text-[0.65rem] font-bold uppercase text-muted-foreground">
               Next fulfilment steps
             </p>
@@ -325,6 +342,70 @@ const EFT_MESSAGES: Record<string, string> = {
     "The hold expired and stock is no longer available — refund the customer.",
   order_not_found: "Order not found.",
 };
+
+function InStorePayment({
+  order,
+  onTake,
+  onResult,
+}: {
+  order: NonNullable<Awaited<ReturnType<typeof getAdminOrderFn>>>;
+  onResult: (text: string | null) => void;
+  onTake: (
+    id: string,
+    tender: "cash" | "card" | "eft",
+  ) => Promise<{ outcome: string; confirmed: boolean }>;
+}) {
+  const [tender, setTender] = useState<"cash" | "card" | "eft">("cash");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mb-4 rounded-lg border border-dashed border-border p-3">
+      <p className="mb-1 text-[0.65rem] font-bold uppercase text-muted-foreground">
+        Pay in store: take payment
+      </p>
+      <p className="mb-2 text-xs text-muted-foreground">
+        The customer chose to pay on collection. Take <b>{rand(Number(order.total_rand))}</b> at the
+        till, check their ID, then confirm. Stock is taken when you confirm.
+      </p>
+      <div className="mb-2 flex gap-2" role="radiogroup" aria-label="How the customer paid">
+        {(["cash", "card", "eft"] as const).map((t) => (
+          <Button
+            key={t}
+            size="sm"
+            type="button"
+            role="radio"
+            aria-checked={tender === t}
+            variant={tender === t ? "default" : "outline"}
+            onClick={() => setTender(t)}
+          >
+            {t === "eft" ? "EFT" : t === "cash" ? "Cash" : "Card"}
+          </Button>
+        ))}
+      </div>
+      <Button
+        size="sm"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          onResult(null);
+          try {
+            const result = await onTake(order.id, tender);
+            onResult(
+              result.confirmed
+                ? "Payment recorded. The order is confirmed and stock has been taken."
+                : (EFT_MESSAGES[result.outcome] ?? result.outcome),
+            );
+          } catch (err) {
+            onResult(err instanceof Error ? err.message : "Could not record the payment.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? "Recording…" : `Take ${rand(Number(order.total_rand))}`}
+      </Button>
+    </div>
+  );
+}
 
 function EftConfirm({
   order,

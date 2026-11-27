@@ -105,6 +105,9 @@ export const STAFF_ERROR_MESSAGES: Record<string, string> = {
   not_locked: "This member is not locked out",
   pickup_order:
     "This order is collected in store. Mark it Completed when the customer collects it.",
+  // Dab waivers
+  waiver_required: "This sale includes a dab hit. A signed waiver is needed first.",
+  waiver_invalid: "That waiver cannot be used",
   // General
   idempotency_conflict: "This was already submitted with different details. Refresh and try again",
   idempotency_key_required: "Refresh the page and try again",
@@ -125,6 +128,7 @@ const SHOW_DETAIL = new Set([
   "invalid_sale_state",
   "barcode_in_use",
   "purchase_limit_exceeded",
+  "waiver_invalid",
 ]);
 
 export const GENERIC_STAFF_ERROR = "That didn't work and nothing was changed. Please try again.";

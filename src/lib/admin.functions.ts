@@ -150,6 +150,7 @@ const productSchema = z.object({
     .transform((v) => (v ? v : null)),
   sell_online: z.boolean().optional(),
   sold_by_weight: z.boolean().optional(),
+  requires_waiver: z.boolean().optional(),
   weight_step_g: z.union([z.literal(0.5), z.literal(1), z.literal(5)]).optional(),
   sale_price_rand: z.number().nonnegative().max(1_000_000).nullish(),
   sale_ends_at: z.string().datetime({ offset: true }).nullish(),
@@ -314,6 +315,21 @@ export const confirmOrderPaymentFn = createServerFn({ method: "POST" })
       Number(data.amountReceived),
     ),
   );
+
+export const takeInStorePaymentFn = createServerFn({ method: "POST" })
+  .middleware([friendlyStaffErrors, requireSupabaseAuth])
+  .validator((data) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        tender: z.enum(["cash", "card", "eft"]),
+      })
+      .parse(data),
+  )
+  .handler(async ({ context, data }) => {
+    const { takeInStorePayment } = await import("@/lib/payments/payments-data.server");
+    return takeInStorePayment(context.userId, data.orderId, data.tender);
+  });
 
 export const createProductImageUploadFn = createServerFn({ method: "POST" })
   .middleware([friendlyStaffErrors, requireSupabaseAuth])

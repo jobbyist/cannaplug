@@ -1,3 +1,5 @@
+import { useAuth } from "@/hooks/useAuth";
+import { getCartFn, saveCartFn } from "@/lib/cart.functions";
 import { snapUp } from "@/lib/sale-step";
 import {
   createContext,
@@ -53,6 +55,10 @@ function normaliseLines(lines: CartLine[]): CartLine[] {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  /** The user whose saved basket has been merged in; saving starts only after that, so an empty browser never wipes it. */
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -68,6 +74,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
   }, [lines, hydrated]);
+
+  // Signed in: bring in the basket saved on the server (another device, or an earlier visit) and merge it with this one.
+  useEffect(() => {
+    if (!hydrated || !userId) {
+      setSyncedFor(null);
+      return;
+    }
+    let cancelled = false;
+    getCartFn()
+      .then((saved) => {
+        if (cancelled) return;
+        setLines((current) => {
+          const merged = new Map(current.map((l) => [l.productId, l]));
+          for (const s of saved) {
+            const have = merged.get(s.productId);
+            if (have)
+              merged.set(s.productId, { ...have, quantity: Math.max(have.quantity, s.quantity) });
+            else merged.set(s.productId, s);
+          }
+          return normaliseLines([...merged.values()]);
+        });
+      })
+      .catch(() => {
+        /* offline or signed out: the browser copy still works */
+      })
+      .finally(() => {
+        if (!cancelled) setSyncedFor(userId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, userId]);
+
+  // Signed in: keep the saved basket current (a short pause after the last change).
+  useEffect(() => {
+    if (!userId || syncedFor !== userId) return;
+    const timer = window.setTimeout(() => {
+      saveCartFn({
+        data: { items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) },
+      }).catch(() => {
+        /* the next change tries again */
+      });
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [lines, userId, syncedFor]);
 
   const add = useCallback((line: Omit<CartLine, "quantity">, quantity?: number) => {
     const step = stepOf(line);

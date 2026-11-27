@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BfcmRouteImport } from './routes/bfcm'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
@@ -35,6 +36,7 @@ import { Route as MemberDocumentsRouteImport } from './routes/member.documents'
 import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as SubscribeAdminApiRouteImport } from './routes/subscribe.admin-api'
 import { Route as VerifyTokenRouteImport } from './routes/verify.$token'
+import { Route as AdminWaiverWaiverIdRouteImport } from './routes/admin_.waiver.$waiverId'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as BillingPayfastCancelRouteImport } from './routes/billing.payfast.cancel'
 import { Route as BillingPayfastNotifyRouteImport } from './routes/billing.payfast.notify'
@@ -68,6 +70,11 @@ const AccountRoute = AccountRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BfcmRoute = BfcmRouteImport.update({
+  id: '/bfcm',
+  path: '/bfcm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -180,6 +187,11 @@ const VerifyTokenRoute = VerifyTokenRouteImport.update({
   path: '/verify/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWaiverWaiverIdRoute = AdminWaiverWaiverIdRouteImport.update({
+  id: '/admin_/waiver/$waiverId',
+  path: '/admin/waiver/$waiverId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
   path: '/api/public/health',
@@ -261,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -283,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -303,6 +317,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -325,6 +340,7 @@ export interface FileRoutesByTo {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal': typeof JournalIndexRoute
+  '/admin/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -346,6 +362,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -368,6 +385,7 @@ export interface FileRoutesById {
   '/subscribe/admin-api': typeof SubscribeAdminApiRoute
   '/verify/$token': typeof VerifyTokenRoute
   '/journal/': typeof JournalIndexRoute
+  '/admin_/waiver/$waiverId': typeof AdminWaiverWaiverIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/billing/payfast/cancel': typeof BillingPayfastCancelRoute
   '/billing/payfast/notify': typeof BillingPayfastNotifyRoute
@@ -390,6 +408,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -412,6 +431,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -432,6 +452,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -454,6 +475,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal'
+    | '/admin/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -474,6 +496,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -496,6 +519,7 @@ export interface FileRouteTypes {
     | '/subscribe/admin-api'
     | '/verify/$token'
     | '/journal/'
+    | '/admin_/waiver/$waiverId'
     | '/api/public/health'
     | '/billing/payfast/cancel'
     | '/billing/payfast/notify'
@@ -517,6 +541,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
+  BfcmRoute: typeof BfcmRoute
   CalendarRoute: typeof CalendarRoute
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
@@ -539,6 +564,7 @@ export interface RootRouteChildren {
   SubscribeAdminApiRoute: typeof SubscribeAdminApiRoute
   VerifyTokenRoute: typeof VerifyTokenRoute
   JournalIndexRoute: typeof JournalIndexRoute
+  AdminWaiverWaiverIdRoute: typeof AdminWaiverWaiverIdRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   BillingPayfastCancelRoute: typeof BillingPayfastCancelRoute
   BillingPayfastNotifyRoute: typeof BillingPayfastNotifyRoute
@@ -583,6 +609,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bfcm': {
+      id: '/bfcm'
+      path: '/bfcm'
+      fullPath: '/bfcm'
+      preLoaderRoute: typeof BfcmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -739,6 +772,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/waiver/$waiverId': {
+      id: '/admin_/waiver/$waiverId'
+      path: '/admin/waiver/$waiverId'
+      fullPath: '/admin/waiver/$waiverId'
+      preLoaderRoute: typeof AdminWaiverWaiverIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/health': {
       id: '/api/public/health'
       path: '/api/public/health'
@@ -845,6 +885,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
+  BfcmRoute: BfcmRoute,
   CalendarRoute: CalendarRoute,
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
@@ -867,6 +908,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeAdminApiRoute: SubscribeAdminApiRoute,
   VerifyTokenRoute: VerifyTokenRoute,
   JournalIndexRoute: JournalIndexRoute,
+  AdminWaiverWaiverIdRoute: AdminWaiverWaiverIdRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   BillingPayfastCancelRoute: BillingPayfastCancelRoute,
   BillingPayfastNotifyRoute: BillingPayfastNotifyRoute,

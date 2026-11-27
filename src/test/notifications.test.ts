@@ -235,3 +235,59 @@ describe("template coverage", () => {
     expect(Object.keys(TEMPLATES).filter((t) => !(t in SAMPLES))).toEqual([]);
   });
 });
+
+describe("order_abandoned email", () => {
+  const d = {
+    order_number: "CP-100",
+    total_rand: 250,
+    contact_name: "Ada <b>L</b>",
+    delivery_method: "collection",
+    hold_until: "Friday 17:30",
+  };
+  const c: Parameters<typeof renderTemplate>[2] = { siteUrl: "https://cannaplug012.co.za" };
+  it("nudges an online payment and names the hold time", () => {
+    const r = renderTemplate("order_abandoned", { ...d, kind: "pay", payment_method: "card" }, c)!;
+    expect(r.subject).toBe("Finish your order CP-100");
+    expect(r.html).toContain("until Friday 17:30");
+    expect(r.html).toContain("pay in store");
+    expect(r.html).not.toContain("<b>L</b>");
+  });
+  it("tells a pay-in-store customer to collect and bring ID", () => {
+    const r = renderTemplate(
+      "order_abandoned",
+      { ...d, kind: "collect", payment_method: "cash" },
+      c,
+    )!;
+    expect(r.subject).toMatch(/waiting for you/);
+    expect(r.html).toMatch(/bring your ID/);
+  });
+});
+
+describe("cart_reminder email", () => {
+  const d = {
+    first_name: "Ada <b>",
+    items: [{ name: "Gorilla <i>Z</i>", quantity: 2, price_rand: 120 }],
+    more: 3,
+    subtotal_rand: 240,
+    unsubscribe_token: "0123456789abcdef0123456789abcdef0123456789abcdef",
+  };
+  const c: Parameters<typeof renderTemplate>[2] = { siteUrl: "https://cannaplug012.co.za" };
+  it("first email lists the basket and carries a one-click unsubscribe", () => {
+    const r = renderTemplate("cart_reminder", { ...d, stage: 1 }, c)!;
+    expect(r.subject).toBe("You left something in your basket");
+    expect(r.html).toContain("unsubscribe?kind=cart&amp;token=0123456789abcdef");
+    expect(r.headers?.["List-Unsubscribe"]).toContain(
+      "/unsubscribe?kind=cart&token=0123456789abcdef",
+    );
+    expect(r.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    expect(r.html).toContain("and 3 more");
+    expect(r.html).not.toContain("<i>Z</i>");
+    expect(r.html).not.toContain("Ada <b>");
+    expect(r.html).not.toMatch(/double/i);
+  });
+  it("second email offers double Plug points for 48 hours", () => {
+    const r = renderTemplate("cart_reminder", { ...d, stage: 2 }, c)!;
+    expect(r.subject).toMatch(/Double Plug points/);
+    expect(r.html).toMatch(/within the next 48 hours/);
+  });
+});

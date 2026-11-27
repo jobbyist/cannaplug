@@ -23,6 +23,8 @@ export type OnlineMethods = {
   /** PayFast's payment window opens on our checkout (card, Instant EFT, Masterpass) instead of PayFast's site. */
   cardOnsite: boolean;
   paypal: boolean;
+  /** Pay in store: reserve the order online and pay (cash, card or EFT) when collecting it. Collection orders only. */
+  inStore: boolean;
   /** Bank transfer details, once the owner has confirmed them; null hides the EFT option. */
   eft: EftDetails | null;
 };
@@ -55,8 +57,8 @@ export async function getEftDetails(): Promise<EftDetails | null> {
 export async function availableOnlineMethods(): Promise<OnlineMethods> {
   // Checkout is suspended while the platform bill is unpaid: no method is offered until the payment lifts it.
   if (await commerceSuspended())
-    return { card: false, cardOnsite: false, paypal: false, eft: null };
-  return { ...configuredOnlineProviders(), eft: await getEftDetails() };
+    return { card: false, cardOnsite: false, paypal: false, inStore: false, eft: null };
+  return { ...configuredOnlineProviders(), inStore: true, eft: await getEftDetails() };
 }
 
 /**
@@ -208,6 +210,23 @@ export async function submitEft(
   });
   if (error) throw new Error(error.message);
   return data as { outcome: string; status: string; transaction_id: string; replayed?: boolean };
+}
+
+/** Staff (budtender and above) take the payment for a pay-in-store collection order at the till. */
+export async function takeInStorePayment(
+  userId: string,
+  orderId: string,
+  tender: "cash" | "card" | "eft",
+) {
+  await assertRole(userId, "budtender");
+  const { data, error } = await supabaseAdmin.rpc("order_take_in_store_payment", {
+    p_actor: userId,
+    p_order_id: orderId,
+    p_tender: tender,
+    p_idempotency_key: `instore:${orderId}:${tender}`,
+  });
+  if (error) throw new Error(error.message);
+  return data as { outcome: string; confirmed: boolean; order_id: string; replayed?: boolean };
 }
 
 export async function approveEft(userId: string, transactionId: string) {

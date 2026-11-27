@@ -2902,6 +2902,7 @@ export type Database = {
           sale_online_only: boolean;
           sell_online: boolean;
           requires_recommendation: boolean;
+          requires_waiver: boolean;
           sku: string | null;
           slug: string;
           sold_by_weight: boolean;
@@ -2934,6 +2935,7 @@ export type Database = {
           sale_online_only?: boolean;
           sell_online?: boolean;
           requires_recommendation?: boolean;
+          requires_waiver?: boolean;
           sku?: string | null;
           slug: string;
           sold_by_weight?: boolean;
@@ -2966,6 +2968,7 @@ export type Database = {
           sale_online_only?: boolean;
           sell_online?: boolean;
           requires_recommendation?: boolean;
+          requires_waiver?: boolean;
           sku?: string | null;
           slug?: string;
           sold_by_weight?: boolean;
@@ -3349,6 +3352,9 @@ export type Database = {
         Returns: Json;
       };
       newsletter_unsubscribe: { Args: { p_token: string }; Returns: Json };
+      cart_save: { Args: { p_user_id: string; p_items: Json }; Returns: undefined };
+      cart_get: { Args: { p_user_id: string }; Returns: Json };
+      cart_unsubscribe: { Args: { p_token: string }; Returns: Json };
       eft_approve: {
         Args: { p_actor: string; p_idempotency_key: string; p_transaction_id: string };
         Returns: Json;
@@ -3974,6 +3980,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      order_take_in_store_payment: {
+        Args: {
+          p_actor: string;
+          p_idempotency_key: string;
+          p_order_id: string;
+          p_tender: string;
+        };
+        Returns: Json;
+      };
       create_online_order: {
         Args: {
           p_contact_name: string | null;
@@ -3996,6 +4011,38 @@ export type Database = {
       };
       admin_overview: { Args: { p_actor: string }; Returns: Json };
       admin_attention_counts: { Args: { p_actor: string }; Returns: Json };
+      admin_cart_recovery: { Args: { p_actor: string; p_days?: number }; Returns: Json };
+      dab_waiver_create: { Args: { p_actor: string; p_payload: Json }; Returns: Json };
+      dab_waiver_claim: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string };
+        Returns: Json;
+      };
+      dab_waiver_release: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string };
+        Returns: undefined;
+      };
+      dab_waiver_link_sale: {
+        Args: { p_actor: string; p_waiver_id: string; p_key: string; p_sale_id: string };
+        Returns: undefined;
+      };
+      dab_waiver_get: { Args: { p_actor: string; p_waiver_id: string }; Returns: Json };
+      dab_waiver_list: {
+        Args: { p_actor: string; p_limit?: number; p_before?: string; p_search?: string };
+        Returns: Json;
+      };
+      dab_waiver_record_incident: {
+        Args: {
+          p_actor: string;
+          p_waiver_id: string;
+          p_text: string;
+          p_emergency_services: boolean;
+          p_emergency_contact: boolean;
+          p_incident_time: string;
+          p_notes: string;
+        };
+        Returns: undefined;
+      };
+      dab_waiver_purge_expired: { Args: Record<PropertyKey, never>; Returns: number };
       admin_account_delete: {
         Args: { p_actor: string; p_idempotency_key: string; p_reason: string; p_user: string };
         Returns: Json;

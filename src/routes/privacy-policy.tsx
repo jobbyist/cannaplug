@@ -23,7 +23,7 @@ function PrivacyPolicyPage() {
     <LegalLayout
       eyebrow="Legal"
       title="Privacy Policy"
-      updated="23 September 2026"
+      updated="27 November 2026"
       intro="CannaPlug respects your privacy and is committed to protecting your personal information in accordance with the Protection of Personal Information Act (POPIA) and other applicable South African law. This policy explains what we collect, why, and how we keep it safe."
       sections={[
         {
@@ -36,6 +36,18 @@ function PrivacyPolicyPage() {
                 <li>
                   Order details — delivery address, order history and payment reference (we do not
                   store full card numbers).
+                </li>
+                <li>
+                  Your basket — when you are signed in, the products and quantities in your basket
+                  are saved to your account so you can continue on any device.
+                </li>
+                <li>
+                  Dab hit waiver — if you take a dab hit in our store, the waiver you sign: your
+                  name, date of birth, ID or passport number, answers to the health screening
+                  (alcohol, drugs, medication, medical conditions), emergency contact and signature.
+                  Health answers are special personal information; we ask for your consent on the
+                  form. Only managers and administrators can read it, and we delete it after three
+                  years.
                 </li>
                 <li>
                   Communications — messages you send via our contact form, chat widget or customer
@@ -62,6 +74,14 @@ function PrivacyPolicyPage() {
               <li>To verify age and, where required, medical eligibility to purchase.</li>
               <li>To manage your account, rewards balance and order history.</li>
               <li>To send order updates and, with your consent, marketing communications.</li>
+              <li>
+                To email you a reminder if you leave items in your basket (see section 3 and your
+                right to opt out in section 7).
+              </li>
+              <li>
+                To check it is safe to serve you a dab hit and to keep a record of that visit in
+                case of an incident (the waiver, kept for three years).
+              </li>
               <li>To detect fraud, secure our systems and comply with legal obligations.</li>
             </ul>
           ),
@@ -69,13 +89,26 @@ function PrivacyPolicyPage() {
         {
           heading: "3. Legal basis for processing",
           body: (
-            <p>
-              We process your personal information where it is necessary to perform our contract
-              with you (e.g. fulfilling an order), to comply with a legal obligation (e.g.
-              regulatory record-keeping for cannabis sales), on the basis of your consent (e.g.
-              marketing emails), or where we have a legitimate interest that is not overridden by
-              your rights (e.g. fraud prevention).
-            </p>
+            <>
+              <p>
+                We process your personal information where it is necessary to perform our contract
+                with you (e.g. fulfilling an order), to comply with a legal obligation (e.g.
+                regulatory record-keeping for cannabis sales), on the basis of your consent (e.g.
+                marketing emails), or where we have a legitimate interest that is not overridden by
+                your rights (e.g. fraud prevention).
+              </p>
+              <p>
+                <strong>Basket reminders.</strong> If you have an account and leave items in your
+                basket, we may email you up to two reminders about that basket: one after a few
+                hours and, if the basket is still there a day later, a second that may include an
+                offer such as bonus loyalty points. We send these to you as an existing customer,
+                using the email address you gave us when you signed up, in line with section 69(3)
+                of POPIA. We only promote our own similar products, we do not send them overnight,
+                and every email contains a one-click link to unsubscribe. Unsubscribing stops basket
+                reminders at once. It does not affect order, payment or account emails, which we
+                must send to run your orders.
+              </p>
+            </>
           ),
         },
         {
@@ -126,7 +159,10 @@ function PrivacyPolicyPage() {
               <ul className="list-disc space-y-1 pl-5">
                 <li>Access the personal information we hold about you.</li>
                 <li>Request correction or deletion of inaccurate or outdated information.</li>
-                <li>Object to processing for direct marketing purposes.</li>
+                <li>
+                  Object to processing for direct marketing purposes, including basket reminders
+                  (use the unsubscribe link in any such email, or contact us).
+                </li>
                 <li>Withdraw consent where processing is based on consent.</li>
                 <li>Lodge a complaint with the Information Regulator of South Africa.</li>
               </ul>

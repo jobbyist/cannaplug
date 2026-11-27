@@ -34,6 +34,8 @@ export type CatalogItem = {
   sale_ends_at?: string | null;
   /** Weighed products are counted in grams; Outdoor flower is sold in 5 g batches. */
   sold_by_weight?: boolean;
+  /** A dab hit: the till needs a signed waiver before this can be sold. */
+  requires_waiver?: boolean;
   weight_step_g?: number | string | null;
   available: number;
 };

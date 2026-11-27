@@ -16,6 +16,7 @@ import {
   FlaskConical,
   Gift,
   Newspaper,
+  FileSignature,
   Package,
   PlusCircle,
   Receipt,
@@ -36,6 +37,7 @@ import { IdChecksPanel } from "@/components/admin/IdChecksPanel";
 import { PlugSettingsCard } from "@/components/admin/PlugSettingsCard";
 import { PurchaseLimitsCard } from "@/components/admin/PurchaseLimitsCard";
 import { AuditPanel } from "@/components/admin/AuditPanel";
+import { WaiversPanel } from "@/components/admin/waiver/WaiversPanel";
 import { PaymentsPanel } from "@/components/admin/PaymentsPanel";
 import {
   Table,
@@ -62,6 +64,7 @@ import {
   saveAdminProductFn,
   deactivateAdminProductFn,
   confirmOrderPaymentFn,
+  takeInStorePaymentFn,
   transitionAdminOrderFn,
 } from "@/lib/admin.functions";
 import type { AdminOrder, AdminOrderStatus, AdminProductInput } from "@/lib/admin-data.server";
@@ -120,6 +123,7 @@ const NAV_ITEMS: SidebarItem[] = [
   { id: "orders", icon: ClipboardList, label: "Orders" },
   { id: "payments", icon: CreditCard, label: "Payments" },
   { id: "audit", icon: History, label: "Audit log" },
+  { id: "waivers", icon: FileSignature, label: "Waivers" },
   { id: "products", icon: Package, label: "Products" },
   { id: "inventory", icon: Boxes, label: "Inventory" },
   { id: "customers", icon: Users, label: "Customers" },
@@ -446,6 +450,11 @@ function AdminPage() {
               await refreshAndShare("payments");
               return result;
             }}
+            onTakeInStorePayment={async (orderId, tender) => {
+              const result = await takeInStorePaymentFn({ data: { orderId, tender } });
+              await refreshAndShare("payments");
+              return result;
+            }}
           />
         )}
         {tab === "deliveries" && (
@@ -464,6 +473,11 @@ function AdminPage() {
               const result = await confirmOrderPaymentFn({
                 data: { orderId, bankReference, amountReceived },
               });
+              await refreshAndShare("payments");
+              return result;
+            }}
+            onTakeInStorePayment={async (orderId, tender) => {
+              const result = await takeInStorePaymentFn({ data: { orderId, tender } });
               await refreshAndShare("payments");
               return result;
             }}
@@ -503,6 +517,7 @@ function AdminPage() {
         )}
         {tab === "payments" && <PaymentsPanel />}
         {tab === "audit" && <AuditPanel />}
+        {tab === "waivers" && <WaiversPanel />}
         {tab === "id-checks" && <IdChecksPanel canResetAttempts={atLeast(role, "admin")} />}
         {tab === "clinical" && <ClinicalDocsPanel />}
         {tab === "customers" && (

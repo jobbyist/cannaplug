@@ -44,6 +44,7 @@ export type AdminProductInput = Pick<
   | "brand"
   | "sell_online"
   | "sold_by_weight"
+  | "requires_waiver"
   | "weight_step_g"
   | "sale_ends_at"
   | "sale_online_only"
@@ -136,7 +137,18 @@ export type AdminDashboard = {
   topProducts: { name: string; sold: number; revenue: number }[];
   recentOrders: AdminOrder[];
   inventory: InventorySummary[];
+  /** Time is shown in South African time (SAST). */
   activity: { label: string; time: string }[];
+  /** Saved-basket reminder results, last 30 days. Counts only. */
+  cartRecovery: {
+    days: number;
+    basketsSaved: number;
+    firstEmails: number;
+    secondEmails: number;
+    unsubscribed: number;
+    recoveredOrders: number;
+    recoveredRand: number;
+  };
 };
 
 /** The person's highest staff role, or null when they are not staff. */
@@ -302,6 +314,7 @@ async function loadActivity(limit = 8) {
   return (data ?? []).map((row) => ({
     label: `${row.action.replaceAll("_", " ")} · ${row.entity_type}`,
     time: new Date(row.created_at).toLocaleString("en-ZA", {
+      timeZone: "Africa/Johannesburg",
       day: "2-digit",
       month: "short",
       hour: "2-digit",
@@ -327,17 +340,20 @@ type OverviewJson = {
 };
 
 export async function getAdminDashboard(userId: string): Promise<AdminDashboard> {
-  await assertRole(userId, "budtender");
+  const role = await assertRole(userId, "budtender");
   // All sums, days and rankings are worked out inside the database (no row caps, South African days).
-  const [orders, inventory, activity, overview, attention] = await Promise.all([
+  const [orders, inventory, activity, overview, attention, cart] = await Promise.all([
     loadOrders({ limit: 8 }),
     loadInventory(),
     loadActivity(),
     supabaseAdmin.rpc("admin_overview", { p_actor: userId }),
     supabaseAdmin.rpc("admin_attention_counts", { p_actor: userId }),
+    supabaseAdmin.rpc("admin_cart_recovery", { p_actor: userId, p_days: 30 }),
   ]);
   if (overview.error) throw overview.error;
   if (attention.error) throw attention.error;
+  if (cart.error) throw cart.error;
+  const c = (cart.data ?? {}) as Record<string, unknown>;
   const o = (overview.data ?? {}) as OverviewJson;
   const counts = o.counts ?? {};
   const alerts = (attention.data ?? {}) as Record<string, unknown>;
@@ -375,6 +391,16 @@ export async function getAdminDashboard(userId: string): Promise<AdminDashboard>
     recentOrders: orders,
     inventory,
     activity,
+    cartRecovery: {
+      days: Number(c["days"] ?? 30),
+      basketsSaved: Number(c["baskets_saved"] ?? 0),
+      firstEmails: Number(c["first_emails"] ?? 0),
+      secondEmails: Number(c["second_emails"] ?? 0),
+      unsubscribed: Number(c["unsubscribed"] ?? 0),
+      recoveredOrders: Number(c["recovered_orders"] ?? 0),
+      // Money is for managers and admins: a budtender never receives this figure.
+      recoveredRand: role === "budtender" ? 0 : Number(c["recovered_rand"] ?? 0),
+    },
   };
 }
 

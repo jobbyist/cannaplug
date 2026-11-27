@@ -110,6 +110,7 @@ const orderRows = (d: TemplateData): [string, string][] => [
     : []),
 ];
 const accountUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/account`;
+const WEBMASTER_EMAIL = "webmaster@cannaplug012.co.za";
 const adminUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/admin`;
 const doctorUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/doctor`;
 const documentsUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/member/documents`;
@@ -120,21 +121,100 @@ const hi = (d: TemplateData) => `Hi ${esc(String(d["contact_name"] ?? "there").s
 export const TEMPLATES: Record<string, Template> = {
   order_received: (d, c) => {
     const eft = d["payment_method"] === "eft";
+    const inStore = d["payment_method"] === "cash";
     return {
       subject: `We received your order ${d["order_number"]}`,
       html: layout({
-        preheader: "Your items are held while we wait for payment.",
-        title: "Order received",
+        preheader: inStore
+          ? "Your items are reserved. Pay when you collect."
+          : "Your items are held while we wait for payment.",
+        title: inStore ? "Order reserved" : "Order received",
         bodyHtml:
           p(hi(d)) +
           p(
-            eft
-              ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears."
-              : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.",
+            inStore
+              ? "Thanks for your order. We hold your items for 24 hours. Pay in store when you collect (cash, card or EFT), quote your order number at the till and bring your ID."
+              : eft
+                ? "Thanks for your order. We hold your items for 2 hours. Pay by EFT using your order number as the payment reference and we will confirm as soon as the payment clears."
+                : "Thanks for your order. Complete your payment to secure your items — we hold them for a short time while you pay.",
           ) +
           kv(orderRows(d)),
         cta: { label: "View my order", url: accountUrl(c) },
-        footerNote: "Your order is only confirmed once payment has been verified.",
+        footerNote: inStore
+          ? "Your order is confirmed once you have paid at the till."
+          : "Your order is only confirmed once payment has been verified.",
+      }),
+    };
+  },
+  cart_reminder: (d, c) => {
+    const base = c.siteUrl.replace(/\/+$/, "");
+    const second = Number(d["stage"]) === 2;
+    const unsub = `${base}/unsubscribe?kind=cart&token=${esc(d["unsubscribe_token"])}`;
+    const unsubHtml = unsub.replace(/&/g, "&amp;");
+    const items = (
+      (d["items"] as { name?: unknown; quantity?: unknown; price_rand?: unknown }[] | undefined) ??
+      []
+    ).slice(0, 5);
+    const more = Number(d["more"] ?? 0);
+    const rows: [string, string][] = items.map((i) => [
+      `${String(i.name ?? "")} × ${Number(i.quantity ?? 1)}`,
+      esc(rand(Number(i.price_rand ?? 0) * Number(i.quantity ?? 1))),
+    ]);
+    if (more > 0) rows.push([`and ${more} more`, ""]);
+    rows.push(["Basket total", esc(rand(d["subtotal_rand"]))]);
+    return {
+      subject: second
+        ? "Double Plug points on your basket, for 48 hours"
+        : "You left something in your basket",
+      headers: {
+        "List-Unsubscribe": `<${unsub}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      html: layout({
+        preheader: second
+          ? "Order within 48 hours and earn double Plug points on a collection order."
+          : "Your basket is saved. Pick up where you left off.",
+        title: second ? "Double Plug points, 48 hours" : "Your basket is saved",
+        bodyHtml:
+          p(`Hi ${esc(d["first_name"] ?? "there")},`) +
+          p(
+            second
+              ? "Your basket is still waiting. Place a collection order within the next 48 hours and we will double the Plug points you earn on it. Points are added when your order is completed."
+              : "You left these in your basket. They are saved to your account, so you can finish on any device. Popular items can sell out.",
+          ) +
+          kv(rows) +
+          p(
+            `Prices are today's prices. Not for you? <a href="${unsubHtml}" style="color:${BRAND.green}">Unsubscribe from basket reminders in one click</a>.`,
+          ),
+        cta: { label: "Back to my basket", url: `${base}/shop` },
+        footerNote:
+          "You are receiving this because you have a Cannaplug account and left items in your basket. For adults 18 and over. You can unsubscribe at any time.",
+        siteUrl: c.siteUrl,
+      }),
+    };
+  },
+  order_abandoned: (d, c) => {
+    const collect = d["kind"] === "collect";
+    const until = d["hold_until"] ? String(d["hold_until"]) : null;
+    return {
+      subject: collect
+        ? `Your order ${d["order_number"]} is waiting for you`
+        : `Finish your order ${d["order_number"]}`,
+      html: layout({
+        preheader: collect
+          ? "Collect and pay in store before we release your items."
+          : "Your items are still held for you. Complete your payment to keep them.",
+        title: collect ? "Your order is reserved" : "Your items are still held",
+        bodyHtml:
+          p(hi(d)) +
+          p(
+            collect
+              ? `We are holding your order${until ? ` until ${esc(until)}` : ""}. Pop in, pay at the till (cash, card or EFT), quote your order number and bring your ID. After that the items go back on the shelf.`
+              : `You started an order but have not paid yet. We are holding your items${until ? ` until ${esc(until)}` : " for a short while"}. Open your order to pay, or choose to pay in store when you collect.`,
+          ) +
+          kv(orderRows(d)),
+        cta: { label: collect ? "View my order" : "Complete my order", url: accountUrl(c) },
+        footerNote: "Not what you wanted? Ignore this email and the order will lapse by itself.",
       }),
     };
   },
@@ -798,6 +878,44 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
     }),
   }),
+  // Billing: a service bill is due tomorrow (the default) or today (due_in_days: 0). Names, amounts and dates only.
+  staff_billing_due: (d, c) => {
+    const day = Number(d["due_in_days"]) === 0 ? "today" : "tomorrow";
+    return {
+      subject: `Bill due ${day}: ${String(d["account"] ?? "service")}`,
+      html: layout({
+        preheader: `${String(d["account"] ?? "A service")} is due ${String(d["due_on"] ?? day)}.`,
+        title: `Bill due ${day}`,
+        bodyHtml:
+          p(
+            `A recurring Cannaplug service bill falls due ${day}. Please make sure it is paid on time.`,
+          ) +
+          kv([
+            ["Service", esc(d["account"] ?? "")],
+            ["Provider", esc(d["provider"] ?? "")],
+            ...(d["amount_text"]
+              ? ([["Amount", esc(d["amount_text"])]] as [string, string][])
+              : []),
+            ["Due", esc(d["due_on"] ?? "")],
+          ]) +
+          (d["next_account"] && d["next_due_on"]
+            ? p("<strong>Next bill after this one</strong>") +
+              kv([
+                ["Service", esc(d["next_account"])],
+                ["Provider", esc(d["next_provider"] ?? "")],
+                ...(d["next_amount_text"]
+                  ? ([["Amount", esc(d["next_amount_text"])]] as [string, string][])
+                  : []),
+                ["Due", esc(d["next_due_on"])],
+              ])
+            : "") +
+          p(
+            `Need help with billing? Contact the webmaster at <a href="mailto:${WEBMASTER_EMAIL}" style="color:${BRAND.green};font-weight:600">${WEBMASTER_EMAIL}</a> to avoid any disruption to your service.`,
+          ),
+        cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
+      }),
+    };
+  },
   staff_prescription_revoked: (d, c) => ({
     subject: `Check order ${String(d["order_number"] ?? "")} before packing`.trim(),
     html: layout({
