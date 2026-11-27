@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BfcmRouteImport } from './routes/bfcm'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryPolicyRouteImport } from './routes/delivery-policy'
@@ -28,7 +29,6 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
-import { Route as WeekendRouteImport } from './routes/weekend'
 import { Route as EventsBlackFridayRouteImport } from './routes/events_.black-friday'
 import { Route as JournalIndexRouteImport } from './routes/journal.index'
 import { Route as JournalSlugRouteImport } from './routes/journal.$slug'
@@ -69,6 +69,11 @@ const AccountRoute = AccountRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BfcmRoute = BfcmRouteImport.update({
+  id: '/bfcm',
+  path: '/bfcm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -144,11 +149,6 @@ const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WeekendRoute = WeekendRouteImport.update({
-  id: '/weekend',
-  path: '/weekend',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsBlackFridayRoute = EventsBlackFridayRouteImport.update({
@@ -267,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -282,7 +283,6 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/weekend': typeof WeekendRoute
   '/events/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
@@ -310,6 +310,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -325,7 +326,6 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/weekend': typeof WeekendRoute
   '/events/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
@@ -354,6 +354,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/bfcm': typeof BfcmRoute
   '/calendar': typeof CalendarRoute
   '/checkout': typeof CheckoutRoute
   '/delivery-policy': typeof DeliveryPolicyRoute
@@ -369,7 +370,6 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/weekend': typeof WeekendRoute
   '/events_/black-friday': typeof EventsBlackFridayRoute
   '/journal/$slug': typeof JournalSlugRoute
   '/member/documents': typeof MemberDocumentsRoute
@@ -399,6 +399,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -414,7 +415,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
-    | '/weekend'
     | '/events/black-friday'
     | '/journal/$slug'
     | '/member/documents'
@@ -442,6 +442,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -457,7 +458,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
-    | '/weekend'
     | '/events/black-friday'
     | '/journal/$slug'
     | '/member/documents'
@@ -485,6 +485,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/account'
     | '/admin'
+    | '/bfcm'
     | '/calendar'
     | '/checkout'
     | '/delivery-policy'
@@ -500,7 +501,6 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms-of-service'
     | '/unsubscribe'
-    | '/weekend'
     | '/events_/black-friday'
     | '/journal/$slug'
     | '/member/documents'
@@ -529,6 +529,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
+  BfcmRoute: typeof BfcmRoute
   CalendarRoute: typeof CalendarRoute
   CheckoutRoute: typeof CheckoutRoute
   DeliveryPolicyRoute: typeof DeliveryPolicyRoute
@@ -544,7 +545,6 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
-  WeekendRoute: typeof WeekendRoute
   EventsBlackFridayRoute: typeof EventsBlackFridayRoute
   JournalSlugRoute: typeof JournalSlugRoute
   MemberDocumentsRoute: typeof MemberDocumentsRoute
@@ -596,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bfcm': {
+      id: '/bfcm'
+      path: '/bfcm'
+      fullPath: '/bfcm'
+      preLoaderRoute: typeof BfcmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -701,13 +708,6 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/weekend': {
-      id: '/weekend'
-      path: '/weekend'
-      fullPath: '/weekend'
-      preLoaderRoute: typeof WeekendRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events_/black-friday': {
@@ -865,6 +865,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
+  BfcmRoute: BfcmRoute,
   CalendarRoute: CalendarRoute,
   CheckoutRoute: CheckoutRoute,
   DeliveryPolicyRoute: DeliveryPolicyRoute,
@@ -880,7 +881,6 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   UnsubscribeRoute: UnsubscribeRoute,
-  WeekendRoute: WeekendRoute,
   EventsBlackFridayRoute: EventsBlackFridayRoute,
   JournalSlugRoute: JournalSlugRoute,
   MemberDocumentsRoute: MemberDocumentsRoute,

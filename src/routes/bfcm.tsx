@@ -3,11 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays, MapPin, ShieldCheck } from "lucide-react";
 import { Header, Footer } from "@/components/CannaPlugHome";
 
-export const Route = createFileRoute("/weekend")({
+export const Route = createFileRoute("/bfcm")({
   head: () => ({
-    links: canonical("/weekend").links,
+    links: canonical("/bfcm").links,
     meta: [
-      ...canonical("/weekend").meta,
+      ...canonical("/bfcm").meta,
       { title: "Black Friday weekend at Cannaplug | Pretoria Central" },
       {
         name: "description",
@@ -16,10 +16,10 @@ export const Route = createFileRoute("/weekend")({
       },
     ],
   }),
-  component: WeekendPage,
+  component: BfcmPage,
 });
 
-function WeekendPage() {
+function BfcmPage() {
   return (
     <div className="site">
       <Header />
@@ -33,6 +33,8 @@ function WeekendPage() {
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
           Cannaplug is an adults-only cannabis dispensary in Pretoria Central. This Black Friday
           weekend we are running offers in store and online, with online orders collected in store.
+          In-store offers run Friday to Sunday; Monday 30 November is online only (collect in
+          store).
         </p>
 
         <div className="bf-deals">

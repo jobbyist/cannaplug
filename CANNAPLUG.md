@@ -2143,8 +2143,8 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 ## 27 Nov 2026 — Black Friday campaign landing page (feat/mvp-black-friday-landing)
 
 - **Owner request:** a landing page for the Instagram Black Friday campaign.
-- **Page:** `/weekend` (`src/routes/weekend.tsx`). It uses the normal site header and footer, says plainly that Cannaplug is an adults-only cannabis dispensary in Pretoria Central, gives the dates, address and 18+ / ID-at-collection wording, and links to the full offers post (`/events/black-friday`) and the home page. No products or prices on the page itself.
+- **Page:** `/bfcm` (`src/routes/bfcm.tsx`). It uses the normal site header and footer, says plainly that Cannaplug is an adults-only cannabis dispensary in Pretoria Central, gives the dates, address and 18+ / ID-at-collection wording, and links to the full offers post (`/events/black-friday`) and the home page. No products or prices on the page itself.
 - **No cloaking:** every visitor, including ad reviewers, sees the same page and the same site. It was deliberately not built to look different to Meta.
 - **Needs the owner:** (1) Meta bans ads that promote THC products, and it reviews the landing page and the Page as well as the image, so rejection or an ad-account restriction is still likely; run it from a separate ad account and target 18+ only. (2) Confirm the copy before merge.
-- **Files:** `src/routes/weekend.tsx`, `src/routeTree.gen.ts`. No database change.
+- **Files:** `src/routes/bfcm.tsx`, `src/routeTree.gen.ts`. No database change.
 - **Rollback:** revert the PR.
