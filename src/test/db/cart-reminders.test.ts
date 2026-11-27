@@ -205,7 +205,13 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
 
   it("admin_cart_recovery is staff only and counts reminders and orders placed after one", async () => {
     const stats = async () =>
-      (await rpc(sql, "admin_cart_recovery", manager, 30)) as Record<string, number>;
+      (await rpc(sql, "admin_cart_recovery", manager, 30)) as {
+        baskets_saved: number;
+        first_emails: number;
+        second_emails: number;
+        recovered_orders: number;
+        recovered_rand: number;
+      };
     const before = await stats();
     const u = await mkMember(sql);
     expect((await attempt(rpc(sql, "admin_cart_recovery", u, 30))).ok).toBe(false);
@@ -229,10 +235,10 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
       await val(sql`SELECT total_rand FROM public.orders WHERE id = ${o.order_id}`),
     );
     const after = await stats();
-    expect(after.baskets_saved! - before.baskets_saved!).toBe(1);
-    expect(after.first_emails! - before.first_emails!).toBe(1);
-    expect(after.second_emails! - before.second_emails!).toBe(0);
-    expect(after.recovered_orders! - before.recovered_orders!).toBe(1);
+    expect(after.baskets_saved - before.baskets_saved).toBe(1);
+    expect(after.first_emails - before.first_emails).toBe(1);
+    expect(after.second_emails - before.second_emails).toBe(0);
+    expect(after.recovered_orders - before.recovered_orders).toBe(1);
     expect(Number(after.recovered_rand) - Number(before.recovered_rand)).toBeCloseTo(total, 2);
   });
 
