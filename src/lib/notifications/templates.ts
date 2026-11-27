@@ -110,6 +110,7 @@ const orderRows = (d: TemplateData): [string, string][] => [
     : []),
 ];
 const accountUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/account`;
+const WEBMASTER_EMAIL = "webmaster@cannaplug012.co.za";
 const adminUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/admin`;
 const doctorUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/doctor`;
 const documentsUrl = (c: Ctx) => `${c.siteUrl.replace(/\/+$/, "")}/member/documents`;
@@ -798,6 +799,44 @@ export const TEMPLATES: Record<string, Template> = {
       cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
     }),
   }),
+  // Billing: a service bill is due tomorrow (the default) or today (due_in_days: 0). Names, amounts and dates only.
+  staff_billing_due: (d, c) => {
+    const day = Number(d["due_in_days"]) === 0 ? "today" : "tomorrow";
+    return {
+      subject: `Bill due ${day}: ${String(d["account"] ?? "service")}`,
+      html: layout({
+        preheader: `${String(d["account"] ?? "A service")} is due ${String(d["due_on"] ?? day)}.`,
+        title: `Bill due ${day}`,
+        bodyHtml:
+          p(
+            `A recurring Cannaplug service bill falls due ${day}. Please make sure it is paid on time.`,
+          ) +
+          kv([
+            ["Service", esc(d["account"] ?? "")],
+            ["Provider", esc(d["provider"] ?? "")],
+            ...(d["amount_text"]
+              ? ([["Amount", esc(d["amount_text"])]] as [string, string][])
+              : []),
+            ["Due", esc(d["due_on"] ?? "")],
+          ]) +
+          (d["next_account"] && d["next_due_on"]
+            ? p("<strong>Next bill after this one</strong>") +
+              kv([
+                ["Service", esc(d["next_account"])],
+                ["Provider", esc(d["next_provider"] ?? "")],
+                ...(d["next_amount_text"]
+                  ? ([["Amount", esc(d["next_amount_text"])]] as [string, string][])
+                  : []),
+                ["Due", esc(d["next_due_on"])],
+              ])
+            : "") +
+          p(
+            `Need help with billing? Contact the webmaster at <a href="mailto:${WEBMASTER_EMAIL}" style="color:${BRAND.green};font-weight:600">${WEBMASTER_EMAIL}</a> to avoid any disruption to your service.`,
+          ),
+        cta: { label: "Open Billing", url: `${adminUrl(c)}#billing` },
+      }),
+    };
+  },
   staff_prescription_revoked: (d, c) => ({
     subject: `Check order ${String(d["order_number"] ?? "")} before packing`.trim(),
     html: layout({
