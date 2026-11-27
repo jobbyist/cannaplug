@@ -2148,3 +2148,12 @@ The 10 Oct audit document is not in the repository, so the score uses these thir
 - **Needs the owner:** (1) Meta bans ads that promote THC products, and it reviews the landing page and the Page as well as the image, so rejection or an ad-account restriction is still likely; run it from a separate ad account and target 18+ only. (2) Confirm the copy before merge.
 - **Files:** `src/routes/bfcm.tsx`, `src/routeTree.gen.ts`. No database change.
 - **Rollback:** revert the PR.
+
+## 27 Nov 2026 — `/bfcm` expires after the campaign (feat/mvp-bfcm-expiry)
+
+- **Owner request:** the `/bfcm` page must be gone once the Black Friday campaign is over.
+- **Change:** `/bfcm` now redirects to the home page from 00:00 SAST on Tue 1 Dec 2026 (same cut-off as the homepage promo notice, `BLACK_FRIDAY_NOTICE_ENDS`). The route file itself is removed by a scheduled clean-up PR after the campaign.
+- **Files:** `src/routes/bfcm.tsx`. No database change.
+- **Tests run:** `bun run build` (tsc, eslint, vite build).
+- **Needs the owner:** review and merge the clean-up PR when it opens on 2 Dec.
+- **Rollback:** revert the PR.
