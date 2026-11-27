@@ -177,6 +177,32 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
     expect(await sent(v)).toHaveLength(0);
   });
 
+  it("unsubscribe fails for an unknown link and still succeeds when used twice", async () => {
+    const u = await mkMember(sql);
+    await save(u, [{ product_id: await product(), quantity: 1 }]);
+    const token = await val<string>(
+      sql`SELECT unsubscribe_token FROM public.member_carts WHERE user_id = ${u}`,
+    );
+    expect(await rpc(sql, "cart_unsubscribe", token)).toMatchObject({ status: "unsubscribed" });
+    expect(await rpc(sql, "cart_unsubscribe", token)).toMatchObject({ status: "unsubscribed" });
+    expect(
+      failedWith(await attempt(rpc(sql, "cart_unsubscribe", "a".repeat(48))), "invalid_token"),
+    ).toBe(true);
+  });
+
+  it("two first saves at the same moment keep the later one", async () => {
+    const u = await mkMember(sql);
+    const a = await product();
+    const b = await product();
+    await Promise.all([
+      save(u, [{ product_id: a, quantity: 1 }]),
+      save(u, [{ product_id: b, quantity: 2 }]),
+    ]);
+    const items = (await rpc(sql, "cart_get", u)) as { product_id: string }[];
+    expect(items).toHaveLength(1);
+    expect([a, b]).toContain(items[0]!.product_id);
+  });
+
   it("cart emails are low priority and unpaid-order reminders are normal; the functions are service-role only", async () => {
     expect(await val(sql`SELECT public._email_tier('cart_reminder')`)).toBe(3);
     expect(await val(sql`SELECT public._email_tier('order_abandoned')`)).toBe(2);
@@ -243,6 +269,36 @@ describe.skipIf(!DB_URL)("cart reminders (real PostgreSQL)", () => {
       await save(first, [{ product_id: await product(), quantity: 1 }]);
       await sql`UPDATE public.member_carts SET reminder_1_at = '2026-10-02T10:00:00Z' WHERE user_id = ${first}`;
       expect(await earned(first, "2026-10-03T10:00:00Z")).toBe(10); // only the second email carries the offer
+    });
+
+    it("never doubles points on an order that is not for collection", async () => {
+      const u = await mkMember(sql);
+      await save(u, [{ product_id: await product(), quantity: 1 }]);
+      await sql`UPDATE public.member_carts SET reminder_2_at = '2026-10-02T10:00:00Z' WHERE user_id = ${u}`;
+      const p = await product(500);
+      await receive(sql, manager, p, 5);
+      const o = await rpc(
+        sql,
+        "create_online_order",
+        u,
+        [{ product_id: p, quantity: 1 }],
+        "Ada",
+        "0820000000",
+        null,
+        key("ord"),
+        30,
+      );
+      await sql`UPDATE public.orders SET created_at = '2026-10-03T10:00:00Z'::timestamptz WHERE id = ${o.order_id}`;
+      expect(
+        await val(
+          sql`SELECT delivery_method IS DISTINCT FROM 'collection' FROM public.orders WHERE id = ${o.order_id}`,
+        ),
+      ).toBe(true);
+      await payOrder(sql, o.order_id);
+      for (const s of ["packing", "ready", "out_for_delivery", "completed"]) {
+        await rpc(sql, "transition_order_status", o.order_id, s, manager, null);
+      }
+      expect((await loyaltyOf(sql, u))!.points_balance).toBe(10);
     });
   });
 });
