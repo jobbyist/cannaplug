@@ -75,6 +75,7 @@ import { CloseTill, TillExpenses } from "./TillCashup";
 import { DiscountEditor } from "./DiscountEditor";
 import { CustomItemForm } from "./CustomItemForm";
 import { notifyAdminTabs, useAdminTabSync } from "@/lib/admin-sync";
+import { addQty, cleanQtyInput, formatQty, lineCents, parseQty, subQty } from "@/lib/qty";
 
 type Overview = Awaited<ReturnType<typeof getPosOverviewFn>>;
 type SaleView = Overview["sales"][number];
@@ -682,7 +683,7 @@ export function SaleScreen({
                   <span
                     className={`block text-[0.7rem] ${p.available <= 0 ? "text-destructive" : p.available <= 5 ? "text-amber-600" : "text-muted-foreground"}`}
                   >
-                    {p.available <= 0 ? "Out of stock" : `${p.available} available`}
+                    {p.available <= 0 ? "Out of stock" : `${formatQty(p.available)} available`}
                   </span>
                 </span>
               </button>
@@ -810,12 +811,15 @@ export function SaleScreen({
                         className="h-8 w-14 text-center"
                         inputMode="numeric"
                         value={l.quantity}
-                        // Outdoor flower moves in 5 g batches: use + and - (or the arrow keys), never a typed part-batch.
-                        readOnly={stepOf(l.product) > 1}
+                        // Outdoor flower moves in 5 g batches and half-gram products in 0.5 g steps: use + and - (or the
+                        // arrow keys), never a typed part-step.
+                        readOnly={stepOf(l.product) !== 1}
                         title={
                           stepOf(l.product) > 1
                             ? `Sold in ${stepOf(l.product)} g batches`
-                            : undefined
+                            : stepOf(l.product) < 1
+                              ? `Sold in ${formatQty(stepOf(l.product))} g steps: use + and −`
+                              : undefined
                         }
                         onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => {
@@ -846,7 +850,7 @@ export function SaleScreen({
                         size="icon"
                         className="h-8 w-8"
                         aria-label="Increase quantity"
-                        disabled={l.quantity + stepOf(l.product) > l.product.available}
+                        disabled={addQty(l.quantity, stepOf(l.product)) > l.product.available}
                         onClick={() => setLines((cur) => stepLine(cur, l.product.id, 1))}
                       >
                         <Plus size={14} />
@@ -854,12 +858,12 @@ export function SaleScreen({
                     </div>
                     <p className="text-sm font-bold">
                       {money(
-                        Math.round(l.product.price_rand * 100) * l.quantity -
+                        lineCents(l.product.price_rand, l.quantity) -
                           (l.reward
                             ? Math.round(l.product.price_rand * 100)
                             : (discountCents(
                                 l.discount,
-                                Math.round(l.product.price_rand * 100) * l.quantity,
+                                lineCents(l.product.price_rand, l.quantity),
                               ) ?? 0)),
                       )}
                     </p>
@@ -912,7 +916,7 @@ export function SaleScreen({
                           invalid={
                             discountCents(
                               l.discount,
-                              Math.round(l.product.price_rand * 100) * l.quantity,
+                              lineCents(l.product.price_rand, l.quantity),
                             ) === null
                           }
                           onChange={(d) =>
@@ -1275,7 +1279,7 @@ function ReceiptCard({
         {sale.items.map((i) => (
           <li key={i.name} className="flex justify-between py-0.5">
             <span>
-              {i.quantity} × {i.name}
+              {formatQty(i.quantity)} × {i.name}
             </span>
             <span>{rand(i.line_total)}</span>
           </li>
@@ -1475,8 +1479,8 @@ function SaleCard({
       <ul className="mt-1 text-xs text-muted-foreground">
         {sale.items.map((i) => (
           <li key={i.id}>
-            {i.quantity} × {i.product_name}
-            {i.refunded_quantity > 0 ? ` (${i.refunded_quantity} refunded)` : ""}
+            {formatQty(i.quantity)} × {i.product_name}
+            {i.refunded_quantity > 0 ? ` (${formatQty(i.refunded_quantity)} refunded)` : ""}
           </li>
         ))}
       </ul>
@@ -1555,7 +1559,18 @@ function RefundForm({
   sessionId: string;
   onDone: () => Promise<void>;
 }) {
-  const [qty, setQty] = useState<Record<string, number>>({});
+  // What is typed per line (so "0." can be typed on the way to "0.5"); a weighed line can be refunded in decimals.
+  const [qtyText, setQtyText] = useState<Record<string, string>>({});
+  const qty = useMemo(
+    () =>
+      Object.fromEntries(
+        sale.items.map((i) => {
+          const max = subQty(i.quantity, i.refunded_quantity);
+          return [i.id, Math.min(max, parseQty(qtyText[i.id] ?? "", { decimals: true }) ?? 0)];
+        }),
+      ) as Record<string, number>,
+    [qtyText, sale.items],
+  );
   const [restock, setRestock] = useState(true);
   const [reason, setReason] = useState("");
   const [manual, setManual] = useState<
@@ -1626,26 +1641,29 @@ function RefundForm({
         never typed in.
       </p>
       {sale.items.map((i) => {
-        const max = i.quantity - i.refunded_quantity;
+        const max = subQty(i.quantity, i.refunded_quantity);
         return (
           <label key={i.id} className="flex items-center justify-between gap-3">
             <span>
               {i.product_name}{" "}
               <span className="text-muted-foreground">
-                ({max} refundable @ {rand(i.unit_price_rand)}
-                {i.line_total < i.unit_price_rand * i.quantity ? ", discounted sale" : ""})
+                ({formatQty(max)} refundable @ {rand(i.unit_price_rand)}
+                {i.line_total < lineCents(i.unit_price_rand, i.quantity) / 100
+                  ? ", discounted sale"
+                  : ""}
+                )
               </span>
             </span>
             <Input
               className="h-8 w-16 text-center"
-              inputMode="numeric"
+              inputMode="decimal"
               disabled={max <= 0}
-              value={qty[i.id] ?? 0}
+              value={qtyText[i.id] ?? "0"}
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) =>
-                setQty((cur) => ({
+                setQtyText((cur) => ({
                   ...cur,
-                  [i.id]: Math.min(max, Number(e.target.value.replace(/\D/g, "")) || 0),
+                  [i.id]: cleanQtyInput(e.target.value),
                 }))
               }
             />

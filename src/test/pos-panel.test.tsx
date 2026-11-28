@@ -300,6 +300,7 @@ describe("POS screen — multi-tender capture", () => {
       customerId: null,
       orderDiscount: null,
       discountReason: null,
+      waiverId: null,
       key: expect.stringMatching(/^[\w-]{8,}$/),
     });
     expect(JSON.stringify(data)).not.toMatch(/price|total|stock|available|actor|user/i);
@@ -644,5 +645,59 @@ describe("POS screen — custom items", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Xmas card")).toBeNull();
     expect(screen.getByText(/Search and press Enter to add products/)).toBeTruthy();
+  });
+});
+
+describe("POS screen — half-gram products and decimal stock", () => {
+  const completeButton = () =>
+    screen.getByRole("button", { name: /Complet(e|ing)/ }) as HTMLButtonElement;
+  const half = {
+    id: "p9",
+    slug: "gram-flower",
+    name: "Gram Flower",
+    category: "Flower",
+    subcategory: "Greenhouse",
+    strain_type: "Hybrid",
+    unit: "per gram",
+    price_rand: 24.55,
+    sold_by_weight: true,
+    weight_step_g: 0.5,
+    available: 10.4,
+  };
+
+  it("moves in 0.5 g steps, shows the line to the cent, and sends the decimal quantity", async () => {
+    server.getPosOverviewFn.mockResolvedValue({
+      ...overview,
+      catalog: [half, ...overview.catalog],
+    });
+    const { user, search } = await ready();
+    await user.type(search, "gram flower{Enter}");
+    const qty = (await screen.findByLabelText("Quantity for Gram Flower")) as HTMLInputElement;
+    expect(qty.value).toBe("1"); // 1 g to start, then half-gram taps
+    expect(qty.readOnly).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Increase quantity" }));
+    expect(qty.value).toBe("1.5");
+    // 24.55 x 1.5 = 36.825 -> R36.83
+    expect(screen.getAllByText(/R36,83|R36\.83/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /Exact cash/ }));
+    await user.click(completeButton());
+    await waitFor(() => expect(server.completePosSaleFn).toHaveBeenCalledTimes(1));
+    const data = server.completePosSaleFn.mock.calls[0]![0].data;
+    expect(data.items).toEqual([{ product_id: "p9", quantity: 1.5 }]);
+    expect(data.tenders[0].amount).toBe("36.83");
+  });
+
+  it("stops at what is in stock (10.4 g = ten whole half-grams)", async () => {
+    server.getPosOverviewFn.mockResolvedValue({
+      ...overview,
+      catalog: [half, ...overview.catalog],
+    });
+    const { user, search } = await ready();
+    await user.type(search, "20*gram flower{Enter}");
+    const qty = (await screen.findByLabelText("Quantity for Gram Flower")) as HTMLInputElement;
+    expect(qty.value).toBe("10");
+    expect(
+      (screen.getByRole("button", { name: "Increase quantity" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

@@ -63,7 +63,7 @@ describe.skipIf(!DB_URL)("Ask The Plug matching (real PostgreSQL)", () => {
     const p = await mkProduct(sql, 60);
     await receive(sql, manager, p, 2);
     const [row] =
-      await sql`SELECT available, buffer, fast_seller FROM public.plug_match_candidates(NULL) WHERE id = ${p}`;
+      await sql`SELECT available::float8 AS available, buffer, fast_seller FROM public.plug_match_candidates(NULL) WHERE id = ${p}`;
     expect(row).toMatchObject({ available: 2, buffer: 2, fast_seller: false });
   });
 
@@ -117,7 +117,7 @@ describe.skipIf(!DB_URL)("Ask The Plug matching (real PostgreSQL)", () => {
     await receive(sql, manager, fast, 10);
     await sell(sql, cashier, sessionId, [{ product_id: fast, quantity: 5 }], [cash(200)]); // 5 sold, 5 left
     const [row] =
-      await sql`SELECT units_7d, fast_seller, buffer, available FROM public.plug_match_candidates(NULL) WHERE id = ${fast}`;
+      await sql`SELECT units_7d::float8 AS units_7d, fast_seller, buffer, available::float8 AS available FROM public.plug_match_candidates(NULL) WHERE id = ${fast}`;
     expect(row).toMatchObject({ units_7d: 5, fast_seller: true, buffer: 5, available: 5 });
     expect(await offered(fast, slow)).toEqual(expect.arrayContaining([fast, slow])); // 5 >= 5 and 4 >= 2
     await sell(sql, cashier, sessionId, [{ product_id: fast, quantity: 1 }], [cash(40)]); // 4 left < 5

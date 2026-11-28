@@ -1,6 +1,8 @@
 // POS receipt: the view model shared by the print page, the PDF and the email. Built only from stored records.
 // Never include ID, health or clinical data on a receipt.
 
+import { formatQty } from "@/lib/qty";
+
 export type PaperSize = "80mm" | "58mm" | "a4";
 export const PAPER_SIZES: PaperSize[] = ["80mm", "58mm", "a4"];
 
@@ -187,7 +189,7 @@ export function receiptText(m: ReceiptModel): string {
     "",
     ...m.lines.map(
       (l) =>
-        `${l.quantity}${l.unit ? ` ${l.unit}` : ""} × ${l.name} @ ${formatRand(l.unitPrice)} = ${formatRand(l.total)}`,
+        `${formatQty(l.quantity)}${l.unit ? ` ${l.unit}` : ""} × ${l.name} @ ${formatRand(l.unitPrice)} = ${formatRand(l.total)}`,
     ),
     "",
     ...(m.discount > 0

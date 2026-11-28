@@ -8,9 +8,11 @@ import {
   defaultPayouts,
   parseCents,
   parseQuickQuantity,
+  refundLineCents,
   removeLine,
   searchCatalog,
   setLineQuantity,
+  stepLine,
   tenderStatus,
   type CatalogItem,
   type TenderRow,
@@ -100,6 +102,36 @@ describe("cart quantity controls", () => {
     expect(clampQuantity(2.9, 5)).toBe(2);
     expect(clampQuantity(NaN, 5)).toBe(1);
     expect(clampQuantity(3, 0)).toBe(1);
+  });
+  it("half-gram products clamp, add and step in exact tenths", () => {
+    const half = item({
+      available: 10.4,
+      sold_by_weight: true,
+      weight_step_g: 0.5,
+      price_rand: 24.55,
+    });
+    expect(clampQuantity(0.2, 10.4, 0.5)).toBe(0.5);
+    expect(clampQuantity(1.5, 10.4, 0.5)).toBe(1.5);
+    expect(clampQuantity(99, 10.4, 0.5)).toBe(10); // 10.4 g in stock: ten whole half-grams
+    let lines = addToCart([], half, 1.5);
+    expect(lines[0]!.quantity).toBe(1.5);
+    lines = stepLine(lines, half.id, 1);
+    expect(lines[0]!.quantity).toBe(2);
+    lines = stepLine(lines, half.id, -1);
+    lines = stepLine(lines, half.id, -1);
+    expect(lines[0]!.quantity).toBe(1);
+    // 24.55 x 1.5 = 36.825 -> R36.83: the till total is the sum of rounded lines
+    expect(cartTotalCents(addToCart([], half, 1.5))).toBe(3683);
+    expect(parseQuickQuantity("1.5*gelato")).toEqual({ quantity: 1.5, term: "gelato" });
+    expect(parseQuickQuantity("2,5x gelato")).toEqual({ quantity: 2.5, term: "gelato" });
+    expect(parseQuickQuantity("3*gelato")).toEqual({ quantity: 3, term: "gelato" });
+  });
+  it("refunds a share of a decimal line exactly, and a whole refund adds up to the line", () => {
+    // R49.10 for 2 g: half a gram back is R12.275 -> R12.28, the other 1.5 g is R36.82 (they add up to R49.10)
+    expect(refundLineCents(49.1, 2, 0, 0.5)).toBe(1228);
+    expect(refundLineCents(49.1, 2, 0.5, 1.5)).toBe(3682);
+    expect(refundLineCents(49.1, 2, 0, 2)).toBe(4910);
+    expect(refundLineCents(36.83, 1.5, 0.5, 1)).toBe(2455);
   });
   it("adds, increments, sets and removes lines", () => {
     let lines = addToCart([], item({ available: 3 }));

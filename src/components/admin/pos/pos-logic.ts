@@ -8,6 +8,7 @@
 
 import { rewardCoversProduct } from "@/lib/rewards-logic";
 import { saleStep, snapUp, snapDown } from "@/lib/sale-step";
+import { addQty, lineCents, roundQty, subQty, toTenths } from "@/lib/qty";
 
 export type TenderMethod = "cash" | "card" | "eft" | "paypal";
 
@@ -148,7 +149,7 @@ export const centsToAmount = (cents: number): string => (cents / 100).toFixed(2)
 export const priceCents = (price: number): number => Math.round(price * 100);
 
 export function cartTotalCents(lines: CartLine[]): number {
-  return lines.reduce((sum, l) => sum + priceCents(l.product.price_rand) * l.quantity, 0);
+  return lines.reduce((sum, l) => sum + lineCents(l.product.price_rand, l.quantity), 0);
 }
 
 /**
@@ -202,7 +203,8 @@ export function cartSummary(
   let rewardDisc = 0;
   let valid = true;
   for (const l of lines) {
-    const base = priceCents(l.product.price_rand) * l.quantity;
+    // a line is priced to the cent (half up), like the database: 24.55 x 1.5 g = R36.83
+    const base = lineCents(l.product.price_rand, l.quantity);
     gross += base;
     if (l.reward) {
       // One unit is free; a reward line carries no other discount.
@@ -252,23 +254,30 @@ export function refundLineCents(
 ): number {
   if (qty <= 0 || quantity <= 0) return 0;
   const total = Math.round(lineTotal * 100);
-  const upTo = (n: number) => Math.round((total * n) / quantity);
-  return upTo(alreadyRefunded + qty) - upTo(alreadyRefunded);
+  // quantities are exact to one decimal: work in whole tenths so there is no floating-point drift
+  const q = toTenths(quantity);
+  const upTo = (tenths: number) => Math.round((total * tenths) / q);
+  const done = toTenths(alreadyRefunded);
+  return upTo(done + toTenths(qty)) - upTo(done);
 }
 
 /** Keeps a quantity a whole number of steps, at least one step, and no more than what is in stock (or 9999). */
 export const clampQuantity = (quantity: number, available: number, step = 1): number => {
   if (!Number.isFinite(quantity)) return step;
-  const whole = Math.max(1, Math.floor(quantity));
+  // whole-step products drop a stray decimal (as before); half-gram products keep their exact tenths
+  const wanted = Math.max(step, step < 1 ? roundQty(quantity) : Math.floor(quantity));
   const most = Math.max(snapDown(Math.min(available, 9999), step), step);
-  return Math.min(snapUp(whole, step), most);
+  return Math.min(snapUp(wanted, step), most);
 };
 
 /** "3*blue gelato" -> { quantity: 3, term: "blue gelato" }; plain text -> quantity 1. */
 export function parseQuickQuantity(query: string): { quantity: number; term: string } {
-  const m = /^\s*(\d{1,4})\s*[*x×]\s*(.*)$/i.exec(query);
+  const m = /^\s*(\d{1,4}(?:[.,]\d)?)\s*[*x×]\s*(.*)$/i.exec(query);
   if (!m) return { quantity: 1, term: query.trim() };
-  return { quantity: Math.max(1, Number(m[1])), term: (m[2] ?? "").trim() };
+  return {
+    quantity: Math.max(0.1, Number((m[1] ?? "1").replace(",", "."))),
+    term: (m[2] ?? "").trim(),
+  };
 }
 
 /** Speed-first search: every whitespace-separated token must match name/category/strain/slug. */
@@ -320,7 +329,7 @@ export function addToCart(lines: CartLine[], product: CatalogItem, quantity = 1)
         ? {
             ...l,
             quantity: clampQuantity(
-              l.quantity + snapUp(quantity, stepOf(product)),
+              addQty(l.quantity, snapUp(quantity, stepOf(product))),
               product.available,
               stepOf(product),
             ),
@@ -351,7 +360,7 @@ export function stepLine(lines: CartLine[], productId: string, direction: 1 | -1
   return lines.map((l) => {
     if (l.product.id !== productId) return l;
     const step = stepOf(l.product);
-    const next = l.quantity + direction * step;
+    const next = direction === 1 ? addQty(l.quantity, step) : subQty(l.quantity, step);
     return next < step ? l : { ...l, quantity: clampQuantity(next, l.product.available, step) };
   });
 }

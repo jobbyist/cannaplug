@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { addQty, lineCents, subQty, sumQty } from "@/lib/qty";
 
 export type CartLine = {
   productId: string;
@@ -17,7 +18,7 @@ export type CartLine = {
   price: number;
   unit: string | null;
   quantity: number;
-  /** How the quantity moves: 5 for Outdoor flower (sold in 5 g batches), otherwise 1. */
+  /** How the quantity moves: 5 for Outdoor flower (5 g batches), 0.5 for a product sold in half grams, otherwise 1. */
   step?: number;
 };
 
@@ -37,7 +38,7 @@ const STORAGE_KEY = "cannaplug.cart.v1";
 const CartContext = createContext<CartState | null>(null);
 
 const stepOf = (line: Pick<CartLine, "step" | "name" | "unit">) =>
-  line.step && line.step > 1
+  line.step === 0.5 || (line.step && line.step > 1)
     ? line.step
     : /\(outdoor\)\s*$/i.test(line.name) && line.unit === "g"
       ? 5
@@ -127,7 +128,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return current.map((item) =>
           item.productId === line.productId
-            ? { ...item, step, quantity: item.quantity + amount }
+            ? { ...item, step, quantity: addQty(item.quantity, amount) }
             : item,
         );
       }
@@ -140,7 +141,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       current.flatMap((item) => {
         if (item.productId !== productId) return [item];
         const step = stepOf(item);
-        const next = item.quantity + direction * step;
+        const next = direction === 1 ? addQty(item.quantity, step) : subQty(item.quantity, step);
         return next < step ? [] : [{ ...item, step, quantity: next }];
       }),
     );
@@ -163,8 +164,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartState>(
     () => ({
       lines,
-      count: lines.reduce((sum, item) => sum + item.quantity, 0),
-      total: lines.reduce((sum, item) => sum + item.quantity * item.price, 0),
+      count: sumQty(lines.map((item) => item.quantity)),
+      // each line is priced to the cent (half up) and the lines are added, exactly as the server totals an order
+      total: lines.reduce((sum, item) => sum + lineCents(item.price, item.quantity), 0) / 100,
       add,
       stepQuantity,
       setQuantity,

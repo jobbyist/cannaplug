@@ -16,9 +16,18 @@ import type { InventoryRow } from "@/lib/inventory-logic";
 import { ADD_REASONS, REMOVE_REASONS, findProducts } from "@/lib/stock-take-logic";
 import type { StockOpsApi } from "./inventory-api";
 import { QuantityStepper } from "./QuantityStepper";
+import {
+  addQty,
+  cleanQtyInput,
+  formatQty,
+  parseQty,
+  qtyProblem,
+  roundQty,
+  sumQty,
+} from "@/lib/qty";
 
 const unitOf = (r: Pick<InventoryRow, "sold_by_weight">, n: number) =>
-  r.sold_by_weight ? `${n} g` : `${n} unit${n === 1 ? "" : "s"}`;
+  r.sold_by_weight ? `${formatQty(n)} g` : `${formatQty(n)} unit${n === 1 ? "" : "s"}`;
 const errorText = (e: unknown) =>
   e instanceof Error && e.message ? e.message : "That didn't work and nothing was changed.";
 
@@ -58,18 +67,25 @@ export function QuickAdjustDialog({
   if (!row) return null;
 
   const reasons = mode === "add" ? ADD_REASONS : REMOVE_REASONS;
-  const n = Number(qty || 0);
+  // Weighed products take one decimal (27.4 g); everything else is whole units.
+  const decimals = Boolean(row.sold_by_weight);
+  const n = parseQty(qty, { decimals }) ?? 0;
   const why = reason === "Other" ? other.trim() : reason;
   const max = mode === "remove" ? Math.max(0, row.available) : 100000;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!Number.isInteger(n) || n < 1) return setError("Enter how many.");
+    if (n <= 0)
+      return setError(
+        qty.trim() === ""
+          ? "Enter how many."
+          : (qtyProblem(qty, { decimals, allowZero: false }) ?? "Enter how many."),
+      );
     if (n > max)
       return setError(
         `Only ${unitOf(row, max)} can be removed (the rest is held for online orders).`,
       );
     if (why.length < 3) return setError("Choose or type a reason.");
-    const delta = mode === "add" ? n : -n;
+    const delta = mode === "add" ? n : roundQty(-n);
     setBusy(true);
     setError(null);
     try {
@@ -81,7 +97,9 @@ export function QuickAdjustDialog({
       });
       keys.current.reset();
       onOpenChange(false);
-      await onDone(`${row.name}: ${r.before} → ${r.after} on hand.`);
+      await onDone(
+        `${row.name}: ${formatQty(Number(r.before))} → ${formatQty(Number(r.after))} on hand.`,
+      );
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -112,7 +130,8 @@ export function QuickAdjustDialog({
               onChange={setQty}
               min={0}
               max={max}
-              quick={row.sold_by_weight ? [1, 5, 10] : [1, 5, 10]}
+              quick={[1, 5, 10]}
+              decimals={decimals}
             />
           </div>
           <fieldset className="grid gap-2">
@@ -209,7 +228,9 @@ export function DeliveryDialog({
     setLines((ls) =>
       ls.some((l) => l.productId === p.product_id)
         ? ls.map((l) =>
-            l.productId === p.product_id ? { ...l, qty: String(Number(l.qty || 0) + 1) } : l,
+            l.productId === p.product_id
+              ? { ...l, qty: String(addQty(parseQty(l.qty, { decimals: true }) ?? 0, 1)) }
+              : l,
           )
         : [...ls, { productId: p.product_id, qty: "1", cost: "", expires: "" }],
     );
@@ -217,15 +238,21 @@ export function DeliveryDialog({
   };
   const update = (id: string, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l) => (l.productId === id ? { ...l, ...patch } : l)));
-  const units = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+  const units = sumQty(lines.map((l) => parseQty(l.qty, { decimals: true }) ?? 0));
 
   const submit = async () => {
     setError(null);
     if (!lines.length) return setError("Add at least one product.");
     for (const l of lines) {
       const name = byId.get(l.productId)?.name ?? "A product";
-      const q = Number(l.qty);
-      if (!Number.isInteger(q) || q < 1) return setError(`${name}: enter how many came in.`);
+      const decimals = Boolean(byId.get(l.productId)?.sold_by_weight);
+      const q = parseQty(l.qty, { decimals, allowZero: false });
+      if (q === null)
+        return setError(
+          `${name}: enter how many came in.${
+            l.qty.trim() === "" ? "" : ` ${qtyProblem(l.qty, { decimals, allowZero: false }) ?? ""}`
+          }`.trim(),
+        );
       if (l.cost && !/^\d{1,7}(\.\d{1,2})?$/.test(l.cost))
         return setError(`${name}: the unit cost should look like 18.50.`);
     }
@@ -234,7 +261,7 @@ export function DeliveryDialog({
       reference: reference.trim() || null,
       lines: lines.map((l) => ({
         productId: l.productId,
-        quantity: Number(l.qty),
+        quantity: parseQty(l.qty, { decimals: true }) ?? 0,
         unitCost: l.cost || null,
         expiresOn: l.expires || null,
       })),
@@ -248,7 +275,7 @@ export function DeliveryDialog({
       keys.current.reset();
       onOpenChange(false);
       await onDone(
-        `Delivery received: ${r.lines} products, ${r.units} units (batch ${r.batch_code}).`,
+        `Delivery received: ${r.lines} products, ${formatQty(Number(r.units))} units (batch ${r.batch_code}).`,
       );
     } catch (err) {
       setError(errorText(err));
@@ -359,11 +386,13 @@ export function DeliveryDialog({
                       </Label>
                       <Input
                         id={`q-${l.productId}`}
-                        inputMode="numeric"
+                        inputMode={p?.sold_by_weight ? "decimal" : "numeric"}
                         className="h-11"
                         value={l.qty}
                         onChange={(e) =>
-                          update(l.productId, { qty: e.target.value.replace(/\D/g, "") })
+                          update(l.productId, {
+                            qty: cleanQtyInput(e.target.value),
+                          })
                         }
                       />
                     </div>

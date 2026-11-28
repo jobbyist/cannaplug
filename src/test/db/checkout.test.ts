@@ -462,8 +462,10 @@ describe.skipIf(!DB_URL)("checkout (real PostgreSQL)", () => {
       (await sql`SELECT status FROM public.orders WHERE id = ${r.order_id}`)[0]!["status"],
     ).toBe("confirmed");
     expect(
-      await val(
-        sql`SELECT on_hand FROM public.inventory_availability WHERE product_id = ${product}`,
+      Number(
+        await val(
+          sql`SELECT on_hand FROM public.inventory_availability WHERE product_id = ${product}`,
+        ),
       ),
     ).toBe(8);
   });

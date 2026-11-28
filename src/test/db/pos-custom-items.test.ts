@@ -140,7 +140,7 @@ describe.skipIf(!DB_URL)("POS custom items (real PostgreSQL)", () => {
     );
     const [after] =
       await sql`SELECT refunded_quantity FROM public.pos_sale_items WHERE id = ${line!["id"]}`;
-    expect(after!["refunded_quantity"]).toBe(1);
+    expect(Number(after!["refunded_quantity"])).toBe(1);
     await assertInventoryConsistent(sql);
   });
 

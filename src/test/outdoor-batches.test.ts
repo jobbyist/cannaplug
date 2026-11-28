@@ -57,11 +57,32 @@ describe("sale step", () => {
     expect(saleStep({ category: "Edibles" })).toBe(1);
   });
 
-  it("a stored step of 5 on any weighed product is honoured, and odd values fall back to 1", () => {
+  it("a stored step of 0.5, 1 or 5 on a weighed product is honoured, and odd values fall back to 1", () => {
     expect(saleStep({ ...greenhouse, weight_step_g: 5 })).toBe(5);
     expect(saleStep({ ...greenhouse, weight_step_g: "5.0" })).toBe(5);
-    expect(saleStep({ ...greenhouse, weight_step_g: 0.5 })).toBe(1);
+    expect(saleStep({ ...greenhouse, weight_step_g: 0.5 })).toBe(0.5);
+    expect(saleStep({ ...greenhouse, weight_step_g: "0.5" })).toBe(0.5);
+    expect(saleStep({ ...greenhouse, weight_step_g: 1 })).toBe(1);
+    expect(saleStep({ ...greenhouse, weight_step_g: 0.3 })).toBe(1);
+    expect(saleStep({ ...greenhouse, weight_step_g: 2 })).toBe(1);
     expect(saleStep({ ...greenhouse, weight_step_g: null })).toBe(1);
+    // a product that is not sold by weight is always whole units, whatever step is stored
+    expect(
+      saleStep({ category: "Edibles", name: "Gummies", sold_by_weight: false, weight_step_g: 0.5 }),
+    ).toBe(1);
+  });
+
+  it("snaps to half grams exactly, without floating-point drift", () => {
+    expect(snapUp(0.1, 0.5)).toBe(0.5);
+    expect(snapUp(1.4, 0.5)).toBe(1.5);
+    expect(snapUp(1.5, 0.5)).toBe(1.5);
+    expect(snapUp(2.6, 0.5)).toBe(3);
+    expect(snapUp(0, 0.5)).toBe(0.5);
+    expect(snapDown(3.4, 0.5)).toBe(3);
+    expect(snapDown(27.4, 0.5)).toBe(27);
+    expect(snapDown(0.4, 0.5)).toBe(0);
+    expect(snapDown(27.4, 1)).toBe(27);
+    expect(snapDown(27.4, 5)).toBe(25);
   });
 
   it("snaps to whole batches", () => {

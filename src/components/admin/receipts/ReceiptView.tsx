@@ -1,5 +1,6 @@
 import logo from "@/assets/cannaplug-logo.png";
 import { formatRand, type PaperSize, type ReceiptModel } from "@/lib/receipts/receipt-model";
+import { formatQty } from "@/lib/qty";
 
 const WIDTH: Record<PaperSize, string> = { "80mm": "72mm", "58mm": "50mm", a4: "170mm" };
 
@@ -62,7 +63,7 @@ export function ReceiptView({ receipt, paper }: { receipt: ReceiptModel; paper: 
               <span className="whitespace-nowrap">{formatRand(l.total)}</span>
             </div>
             <div className={`${small} pl-2 text-[#6B7280]`}>
-              {l.quantity}
+              {formatQty(l.quantity)}
               {l.unit ? ` ${l.unit}` : ""} × {formatRand(l.unitPrice)}
               {l.unit ? ` / ${l.unit}` : ""}
               {l.discount > 0 ? ` · discount −${formatRand(l.discount)}` : ""}

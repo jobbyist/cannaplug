@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { formatRand, type PaperSize, type ReceiptModel } from "./receipt-model";
 import { RECEIPT_LOGO_PNG_BASE64 } from "./logo";
+import { formatQty } from "@/lib/qty";
 
 const MM = 72 / 25.4;
 const FOREST = rgb(11 / 255, 61 / 255, 32 / 255);
@@ -141,7 +142,7 @@ export async function renderReceiptPdf(m: ReceiptModel, paper: PaperSize): Promi
     push(g.small * 1.4, (p, y) =>
       p.drawText(
         safe(
-          `  ${l.quantity}${l.unit ? ` ${l.unit}` : ""} x ${formatRand(l.unitPrice)}${l.unit ? ` / ${l.unit}` : ""}${l.discount > 0 ? ` - discount ${formatRand(l.discount)}` : ""}`,
+          `  ${formatQty(l.quantity)}${l.unit ? ` ${l.unit}` : ""} x ${formatRand(l.unitPrice)}${l.unit ? ` / ${l.unit}` : ""}${l.discount > 0 ? ` - discount ${formatRand(l.discount)}` : ""}`,
         ),
         { x: g.margin, y: y - g.small, size: g.small, font: regular, color: SLATE },
       ),

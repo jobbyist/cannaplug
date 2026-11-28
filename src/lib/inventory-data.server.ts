@@ -3,6 +3,7 @@ import { CUSTOM_ITEM_PRODUCT_ID } from "@/lib/pos-custom-item";
 import { assertRole } from "@/lib/admin-data.server";
 import type { InventoryRow } from "@/lib/inventory-logic";
 import { productImageUrl } from "@/lib/product-image-url.server";
+import { roundQty } from "@/lib/qty";
 
 /**
  * /admin → Inventory read model and the one product setting it changes (the low-stock alert level).
@@ -52,7 +53,8 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
   });
   return visible.map((p) => {
     const s = stock.get(p.id);
-    const onHand = s?.on_hand ?? 0;
+    // numeric(12,1): decimals for weighed products (27.4 g); Number() guards against a driver that returns text.
+    const onHand = roundQty(Number(s?.on_hand ?? 0));
     return {
       product_id: p.id,
       name: p.name,
@@ -70,9 +72,9 @@ export async function listInventory(userId: string): Promise<InventoryRow[]> {
       regular_price_rand: p.regular_price_rand == null ? null : Number(p.regular_price_rand),
       image_url: productImageUrl(p.image_path),
       on_hand: onHand,
-      held: s?.held ?? 0,
-      available: s?.available ?? 0,
-      expired: s?.expired ?? 0,
+      held: roundQty(Number(s?.held ?? 0)),
+      available: roundQty(Number(s?.available ?? 0)),
+      expired: roundQty(Number(s?.expired ?? 0)),
       batches: s?.batches ?? 0,
       next_expiry: nextExpiry.get(p.id) ?? null,
       stock_value:

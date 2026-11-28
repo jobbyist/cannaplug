@@ -3,6 +3,8 @@
  * adjustment preview. Shared by the panel and its tests; nothing here touches the database.
  */
 
+import { addQty, formatQty, isTenths, subQty, sumQty } from "@/lib/qty";
+
 export type StockStatus = "out" | "low" | "ok" | "untracked";
 
 export type InventoryRow = {
@@ -136,8 +138,9 @@ export function summarise(rows: InventoryRow[], now = new Date()): InventorySumm
     low: live.filter((r) => stockStatus(r) === "low").length,
     expiring: live.filter((r) => expiresSoon(r, now)).length,
     expired: live.filter((r) => r.expired > 0).length,
-    units: live.reduce((s, r) => s + r.on_hand, 0),
-    held: live.reduce((s, r) => s + r.held, 0),
+    // exact to one decimal (weighed products hold 27.4 g), so summed in whole tenths
+    units: sumQty(live.map((r) => r.on_hand)),
+    held: sumQty(live.map((r) => r.held)),
     value: values.some((v) => v != null) ? values.reduce<number>((s, v) => s + (v ?? 0), 0) : null,
   };
 }
@@ -196,13 +199,26 @@ export function adjustmentPreview(input: {
   amount: number;
   batchOnHand: number;
   batchHeld: number;
+  /** Weighed products take one decimal place (27.4 g); everything else is whole units. */
+  decimals?: boolean;
 }): { delta: number; after: number; problem: string | null } {
   const { mode, batchOnHand, batchHeld } = input;
-  const amount = Number.isFinite(input.amount) ? Math.trunc(input.amount) : NaN;
-  if (!Number.isFinite(amount) || amount < 0)
-    return { delta: 0, after: batchOnHand, problem: "Enter a whole number." };
-  const delta = mode === "add" ? amount : mode === "remove" ? -amount : amount - batchOnHand;
-  const after = batchOnHand + delta;
+  const decimals = input.decimals ?? false;
+  const amount = input.amount;
+  if (
+    !Number.isFinite(amount) ||
+    amount < 0 ||
+    (decimals ? !isTenths(amount) : !Number.isInteger(amount))
+  )
+    return {
+      delta: 0,
+      after: batchOnHand,
+      problem: decimals
+        ? "Enter a number with at most one decimal place, like 27.4."
+        : "Enter a whole number.",
+    };
+  const delta = mode === "add" ? amount : mode === "remove" ? -amount : subQty(amount, batchOnHand);
+  const after = addQty(batchOnHand, delta);
   if (delta === 0)
     return {
       delta,
@@ -212,12 +228,13 @@ export function adjustmentPreview(input: {
           ? "That matches what the system has. Nothing to change."
           : "Enter a quantity.",
     };
-  if (after < 0) return { delta, after, problem: `This batch only has ${batchOnHand} on hand.` };
+  if (after < 0)
+    return { delta, after, problem: `This batch only has ${formatQty(batchOnHand)} on hand.` };
   if (after < batchHeld)
     return {
       delta,
       after,
-      problem: `${batchHeld} of this batch ${batchHeld === 1 ? "is" : "are"} held for online orders. Stock can't go below that.`,
+      problem: `${formatQty(batchHeld)} of this batch ${batchHeld === 1 ? "is" : "are"} held for online orders. Stock can't go below that.`,
     };
   return { delta, after, problem: null };
 }

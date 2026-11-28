@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart, rand } from "@/lib/cart";
+import { formatQty, lineCents } from "@/lib/qty";
 
 export function CartDrawer({
   trigger,
@@ -70,7 +71,9 @@ export function CartDrawer({
                         <Minus size={13} />
                       </button>
                       <span className="min-w-5 px-1 text-center text-xs font-semibold">
-                        {line.unit === "g" ? `${line.quantity} g` : line.quantity}
+                        {line.unit === "g"
+                          ? `${formatQty(line.quantity)} g`
+                          : formatQty(line.quantity)}
                       </span>
                       <button
                         aria-label={`Increase quantity of ${line.name}`}
@@ -82,7 +85,7 @@ export function CartDrawer({
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <b className="text-sm">{rand(line.price * line.quantity)}</b>
+                    <b className="text-sm">{rand(lineCents(line.price, line.quantity) / 100)}</b>
                     <button
                       aria-label={`Remove ${line.name} from cart`}
                       className="text-muted-foreground hover:text-destructive"
