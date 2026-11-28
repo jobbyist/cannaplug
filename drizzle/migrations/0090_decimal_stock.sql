@@ -1,11 +1,3 @@
--- Cannaplug: apply 20261127003000_decimal_stock to the hosted project (khltynzzcjhlujxbgyod).
--- Exact decimal stock: weighed products can be received, adjusted, counted and sold to one decimal place (27.4 g).
--- Runs as one transaction: everything applies, or nothing does. Paste all of it into the Supabase SQL Editor and click Run.
--- It briefly locks the stock tables while the columns are converted: run it when the shop is quiet (a minute at most).
--- The migration file is included unchanged. Needs every earlier migration (20261108002000 custom items is the latest).
-BEGIN;
-
--- ===== 20261127003000_decimal_stock =====
 -- 25 Nov 2026: exact decimal stock (client request: "allow decimals for stock take"; answers: scale reads 0.1 g,
 -- half grams are sold rarely, and stock must be exact).
 --
@@ -715,7 +707,7 @@ DECLARE
   v_line record;
   v_order public.orders;
   v_total numeric(10,2) := 0;
-  v_ttl integer := LEAST(GREATEST(COALESCE(p_hold_minutes, 30), 5), 120);
+  v_ttl integer := LEAST(GREATEST(COALESCE(p_hold_minutes, 30), 5), 1440);
   v_item_id uuid;
   v_response jsonb;
 BEGIN
@@ -852,15 +844,15 @@ DECLARE
   v_result jsonb;
   v_order public.orders;
   v_staff_disc numeric(10,2) := 0;
-  c_hold constant integer := 120;
+  c_hold integer := CASE WHEN p_payment_method = 'cash' THEN 1440 ELSE 120 END;
 BEGIN
   PERFORM public._require_read_committed();
   PERFORM public._require_verified_member(p_user_id);
   IF p_expected_total IS NULL THEN
     RAISE EXCEPTION 'expected_total_required: confirm the current total before placing the order';
   END IF;
-  IF p_payment_method IS NULL OR p_payment_method NOT IN ('eft', 'card', 'paypal') THEN
-    RAISE EXCEPTION 'payment_method_unsupported: choose EFT, card or PayPal';
+  IF p_payment_method IS NULL OR p_payment_method NOT IN ('eft', 'card', 'paypal', 'cash') THEN
+    RAISE EXCEPTION 'payment_method_unsupported: choose EFT, card, PayPal or pay in store';
   END IF;
   IF length(btrim(COALESCE(p_contact_name, ''))) NOT BETWEEN 2 AND 160
      OR COALESCE(p_contact_phone, '') !~ '^[0-9+() -]{7,40}$' THEN
@@ -876,6 +868,17 @@ BEGIN
   END IF;
 
   SELECT * INTO v_option FROM public.delivery_options WHERE code = p_delivery_method AND is_active;
+  -- Pay in store (20261127004000_pay_in_store): collection orders only, and at most two unpaid ones per member.
+  IF p_payment_method = 'cash' THEN
+    IF NOT (FOUND AND v_option.is_pickup) THEN
+      RAISE EXCEPTION 'pay_in_store_pickup_only: pay in store is only available for orders collected in store';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtext('pay_in_store:' || p_user_id::text)); -- pis_lock
+    IF (SELECT count(*) FROM public.orders o
+        WHERE o.user_id = p_user_id AND o.payment_method = 'cash' AND o.status = 'awaiting_payment') >= 2 THEN
+      RAISE EXCEPTION 'pay_in_store_limit: you already have two orders waiting to be paid in store';
+    END IF;
+  END IF;
   IF FOUND AND v_option.is_pickup THEN
     -- Collected in store: the shop is the "address"; no saved address is needed or used.
     v_snapshot := jsonb_build_object('label', 'In-store pickup', 'pickup', true,
@@ -1927,21 +1930,3 @@ REVOKE EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, nume
 GRANT EXECUTE ON FUNCTION public.stock_take_record_count(uuid, uuid, uuid, numeric, text) TO service_role;
 REVOKE EXECUTE ON FUNCTION public.plug_match_candidates(text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.plug_match_candidates(text[]) TO service_role;
-
-DO $$
-BEGIN
-  IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
-    INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
-      ('20261127003000', '20261127003000_decimal_stock')
-    ON CONFLICT (version) DO NOTHING;
-  END IF;
-END $$;
-
-COMMIT;
-
--- Check (should show: numeric, numeric, true, false, 2):
-SELECT (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'inventory_batches' AND column_name = 'qty_on_hand') AS stock_column,
-       (SELECT data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'order_items' AND column_name = 'quantity') AS order_column,
-       to_regprocedure('public._assert_stock_qty(uuid,numeric)') IS NOT NULL AS stock_check_ready,
-       has_function_privilege('authenticated', 'public.receive_stock(uuid,uuid,text,numeric,timestamp with time zone,numeric,text,text)', 'EXECUTE') AS browsers_can_receive,
-       (SELECT count(*) FROM pg_class WHERE relname IN ('inventory_availability', 'stock_movements') AND relkind = 'v') AS views;

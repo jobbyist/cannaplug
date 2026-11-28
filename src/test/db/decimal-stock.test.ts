@@ -410,6 +410,44 @@ describe.skipIf(!DB_URL)("decimal stock (real PostgreSQL)", () => {
     await assertInventoryConsistent(sql);
   });
 
+  it("pay in store still works with decimals: a half-gram collection order is held for 24 hours, cards for 2", async () => {
+    // 20261127004000_pay_in_store changed create_online_order and checkout_place_order; this migration must keep both changes.
+    const p = await weighed(24.55, 0.5);
+    await receive(sql, manager, p, 10);
+    const member = await mkMember(sql);
+    const place = (pay: string) =>
+      rpc(
+        sql,
+        "checkout_place_order",
+        member,
+        [{ product_id: p, quantity: 1.5 }],
+        "Pay Later",
+        "+27 82 000 0000",
+        "collection",
+        null,
+        pay,
+        36.83,
+        null,
+        key("co"),
+      );
+    const cashOrder = await place("cash");
+    expect(cashOrder).toMatchObject({ payment_method: "cash", hold_minutes: 1440, total: 36.83 });
+    const hours = Number(
+      await val(
+        sql`SELECT extract(epoch FROM (min(expires_at) - now())) / 3600 FROM public.stock_reservations
+            WHERE order_id = ${cashOrder.order_id} AND status = 'held'`,
+      ),
+    );
+    expect(hours).toBeGreaterThan(23.9);
+    expect(hours).toBeLessThanOrEqual(24);
+    expect(await stockOf(sql, p)).toMatchObject({ on_hand: 10, held: 1.5, available: 8.5 });
+    const cardOrder = await place("card");
+    expect(cardOrder).toMatchObject({ payment_method: "card", hold_minutes: 120 });
+    // an unknown payment method is still refused
+    expect(failedWith(await attempt(place("bitcoin")), "payment_method_unsupported")).toBe(true);
+    await assertInventoryConsistent(sql);
+  });
+
   it("a daily limit in grams counts decimals exactly, online and at the till together", async () => {
     const admin = await mkUser(sql, "admin");
     const p = await weighed(24, 0.5, "Concentrates");

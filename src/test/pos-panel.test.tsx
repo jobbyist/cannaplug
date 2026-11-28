@@ -300,6 +300,7 @@ describe("POS screen — multi-tender capture", () => {
       customerId: null,
       orderDiscount: null,
       discountReason: null,
+      waiverId: null,
       key: expect.stringMatching(/^[\w-]{8,}$/),
     });
     expect(JSON.stringify(data)).not.toMatch(/price|total|stock|available|actor|user/i);
